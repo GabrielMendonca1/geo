@@ -1,7 +1,8 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { Box, useApp, useInput } from 'ink';
+import { Box, Static, useApp, useInput } from 'ink';
 import { Header } from './Header.js';
-import { Conversation, type Message } from './Conversation.js';
+import { MessageLine, type Message } from './Conversation.js';
+import { ThinkingDot } from './ThinkingDot.js';
 import { Input } from './Input.js';
 import { useStatusFile } from './useStatusFile.js';
 
@@ -69,10 +70,15 @@ export function App({ runTurn, statusFilePath }: Props): React.ReactElement {
   );
 
   return (
-    <Box flexDirection="column" minHeight={20}>
-      <Header status={status} />
-      <Conversation messages={messages} inflight={inflight} />
-      <Input disabled={inflight} onSubmit={submit} />
-    </Box>
+    <>
+      <Static items={messages}>
+        {(m) => <MessageLine key={m.id} message={m} />}
+      </Static>
+      <Box flexDirection="column">
+        {inflight ? <ThinkingDot /> : null}
+        <Header status={status} />
+        <Input disabled={inflight} onSubmit={submit} />
+      </Box>
+    </>
   );
 }
