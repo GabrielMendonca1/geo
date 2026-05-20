@@ -15,12 +15,55 @@ function makeId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function greetingSalutation(date: Date): string {
+  const h = date.getHours();
+  if (h < 5) return 'boa madrugada';
+  if (h < 12) return 'bom dia';
+  if (h < 18) return 'boa tarde';
+  return 'boa noite';
+}
+
+const PT_WEEKDAY = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+
+function greetingDateLine(date: Date): string {
+  const wd = PT_WEEKDAY[date.getDay()];
+  const dd = date.getDate().toString().padStart(2, '0');
+  const mm = (date.getMonth() + 1).toString().padStart(2, '0');
+  return `${wd} ${dd}/${mm}`;
+}
+
+function makeGreeting(now: Date): Message {
+  const body = [
+    `${greetingSalutation(now)}, daddy.`,
+    greetingDateLine(now) + '.',
+    '',
+    'try',
+    '  como tá o meu dia?',
+    '  log: <pensamento>',
+    '  o que escrevi sobre X?',
+  ].join('\n');
+  return { id: 'greeting', role: 'geo', text: body, timestamp: now, dim: true };
+}
+
+const HELP_TEXT = [
+  'commands',
+  '  /clear   — clear conversation',
+  '  /help    — show this',
+  '',
+  'shortcuts',
+  '  ↑ ↓      — recall previous messages',
+  '  ctrl+c   — exit',
+  '  ctrl+l   — clear conversation',
+  '  esc      — cancel an inflight reply',
+].join('\n');
+
 export function App({ runTurn, statusFilePath }: Props): React.ReactElement {
   const { exit } = useApp();
   const status = useStatusFile(statusFilePath);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>(() => [makeGreeting(new Date())]);
   const [inflight, setInflight] = useState(false);
   const turnIdRef = useRef(0);
+  const userHistoryRef = useRef<string[]>([]);
 
   const append = useCallback((msg: Message): void => {
     setMessages((prev) => [...prev, msg]);
@@ -29,19 +72,48 @@ export function App({ runTurn, statusFilePath }: Props): React.ReactElement {
   const submit = useCallback(
     (text: string): void => {
       if (inflight) return;
-      append({ id: makeId(), role: 'you', text });
+      userHistoryRef.current.push(text);
+
+      if (text.startsWith('/')) {
+        const cmd = text.slice(1).trim().toLowerCase();
+        if (cmd === 'clear') {
+          process.stdout.write('\x1b[2J\x1b[H');
+          setMessages([]);
+          return;
+        }
+        if (cmd === 'help' || cmd === '?') {
+          append({ id: makeId(), role: 'geo', text: HELP_TEXT, timestamp: new Date(), dim: true });
+          return;
+        }
+        append({
+          id: makeId(),
+          role: 'geo',
+          text: `unknown command: /${cmd}. try /help.`,
+          timestamp: new Date(),
+          dim: true,
+        });
+        return;
+      }
+
+      append({ id: makeId(), role: 'you', text, timestamp: new Date() });
       setInflight(true);
       const turnId = ++turnIdRef.current;
       runTurn(text)
         .then((reply) => {
           if (turnIdRef.current !== turnId) return;
-          append({ id: makeId(), role: 'geo', text: reply || '(no reply)' });
+          append({ id: makeId(), role: 'geo', text: reply || '(no reply)', timestamp: new Date() });
           setInflight(false);
         })
         .catch((err: unknown) => {
           if (turnIdRef.current !== turnId) return;
           const msg = err instanceof Error ? err.message : String(err);
-          append({ id: makeId(), role: 'geo', text: `something went wrong: ${msg}`, error: true });
+          append({
+            id: makeId(),
+            role: 'geo',
+            text: `something went wrong: ${msg}`,
+            timestamp: new Date(),
+            error: true,
+          });
           setInflight(false);
         });
     },
@@ -62,7 +134,7 @@ export function App({ runTurn, statusFilePath }: Props): React.ReactElement {
         if (inflight) {
           turnIdRef.current += 1;
           setInflight(false);
-          append({ id: makeId(), role: 'geo', text: '(canceled)', dim: true });
+          append({ id: makeId(), role: 'geo', text: '(canceled)', timestamp: new Date(), dim: true });
         }
       }
     },
@@ -77,7 +149,7 @@ export function App({ runTurn, statusFilePath }: Props): React.ReactElement {
       <Box flexDirection="column">
         {inflight ? <ThinkingDot /> : null}
         <Header status={status} />
-        <Input disabled={inflight} onSubmit={submit} />
+        <Input disabled={inflight} onSubmit={submit} history={userHistoryRef.current} />
       </Box>
     </>
   );
