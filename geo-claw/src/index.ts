@@ -283,7 +283,7 @@ async function main(): Promise<void> {
     await startTui({
       runTurn: async (text: string) => {
         const turn = await daemon.llm.runTurn(
-          { channelId: 'cli', channelKind: 'whatsapp', fromName: 'CLI' },
+          { channelId: 'cli', channelKind: 'cli', fromName: 'Gabriel' },
           text,
         );
         return turn.reply ?? '';
