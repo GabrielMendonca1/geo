@@ -33,9 +33,9 @@ function StatusDot({ state }: DotProps): React.ReactElement {
   return <Text color={color}>●</Text>;
 }
 
-type Props = { status: StatusSnapshot };
+type Props = { status: StatusSnapshot; scrolledBack?: boolean };
 
-export function Header({ status }: Props): React.ReactElement {
+export function Header({ status, scrolledBack }: Props): React.ReactElement {
   const mcpState: ConnectorUiState = status.mcpConnected ? 'connected' : 'disconnected';
   return (
     <Box paddingX={2} paddingBottom={0}>
@@ -51,6 +51,7 @@ export function Header({ status }: Props): React.ReactElement {
       <StatusDot state={status.telegram} />
       <Text dimColor> tg </Text>
       <Text dimColor>· {status.cronsCount} crons</Text>
+      {scrolledBack ? <Text dimColor>  · scrolled (pgdn to return)</Text> : null}
     </Box>
   );
 }

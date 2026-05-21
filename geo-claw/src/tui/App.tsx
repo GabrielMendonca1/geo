@@ -64,6 +64,7 @@ export function App({ runTurn, statusFilePath }: Props): React.ReactElement {
   const status = useStatusFile(statusFilePath);
   const [messages, setMessages] = useState<Message[]>(() => [makeGreeting(new Date())]);
   const [inflight, setInflight] = useState(false);
+  const [scrollOffset, setScrollOffset] = useState(0);
   const turnIdRef = useRef(0);
   const userHistoryRef = useRef<string[]>([]);
 
@@ -75,6 +76,8 @@ export function App({ runTurn, statusFilePath }: Props): React.ReactElement {
     (text: string): void => {
       if (inflight) return;
       userHistoryRef.current.push(text);
+
+      setScrollOffset(0);
 
       if (text.startsWith('/')) {
         const cmd = text.slice(1).trim().toLowerCase();
@@ -130,6 +133,15 @@ export function App({ runTurn, statusFilePath }: Props): React.ReactElement {
       }
       if (key.ctrl && _input === 'l') {
         setMessages([]);
+        setScrollOffset(0);
+        return;
+      }
+      if (key.pageUp) {
+        setScrollOffset((o) => Math.min(o + 1, Math.max(0, messages.length - 1)));
+        return;
+      }
+      if (key.pageDown) {
+        setScrollOffset((o) => Math.max(0, o - 1));
         return;
       }
       if (key.escape) {
@@ -143,15 +155,18 @@ export function App({ runTurn, statusFilePath }: Props): React.ReactElement {
     { isActive: process.stdin.isTTY === true },
   );
 
+  const visibleMessages = messages.slice(0, messages.length - scrollOffset);
+  const scrolledBack = scrollOffset > 0;
+
   return (
     <Box flexDirection="column" height={rows}>
       <Box flexDirection="column" flexGrow={1} justifyContent="flex-end" overflow="hidden">
-        {messages.map((m) => (
+        {visibleMessages.map((m) => (
           <MessageLine key={m.id} message={m} />
         ))}
-        {inflight ? <ThinkingDot /> : null}
+        {inflight && !scrolledBack ? <ThinkingDot /> : null}
       </Box>
-      <Header status={status} />
+      <Header status={status} scrolledBack={scrolledBack} />
       <Input disabled={inflight} onSubmit={submit} history={userHistoryRef.current} />
     </Box>
   );
