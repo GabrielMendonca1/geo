@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { Box, Static, useApp, useInput } from 'ink';
+import { Box, useApp, useInput, useStdout } from 'ink';
 import { Header } from './Header.js';
 import { MessageLine, type Message } from './Conversation.js';
 import { ThinkingDot } from './ThinkingDot.js';
@@ -59,6 +59,8 @@ const HELP_TEXT = [
 
 export function App({ runTurn, statusFilePath }: Props): React.ReactElement {
   const { exit } = useApp();
+  const { stdout } = useStdout();
+  const rows = stdout?.rows ?? 24;
   const status = useStatusFile(statusFilePath);
   const [messages, setMessages] = useState<Message[]>(() => [makeGreeting(new Date())]);
   const [inflight, setInflight] = useState(false);
@@ -142,15 +144,15 @@ export function App({ runTurn, statusFilePath }: Props): React.ReactElement {
   );
 
   return (
-    <>
-      <Static items={messages}>
-        {(m) => <MessageLine key={m.id} message={m} />}
-      </Static>
-      <Box flexDirection="column">
+    <Box flexDirection="column" height={rows}>
+      <Box flexDirection="column" flexGrow={1} justifyContent="flex-end" overflow="hidden">
+        {messages.map((m) => (
+          <MessageLine key={m.id} message={m} />
+        ))}
         {inflight ? <ThinkingDot /> : null}
-        <Header status={status} />
-        <Input disabled={inflight} onSubmit={submit} history={userHistoryRef.current} />
       </Box>
-    </>
+      <Header status={status} />
+      <Input disabled={inflight} onSubmit={submit} history={userHistoryRef.current} />
+    </Box>
   );
 }
