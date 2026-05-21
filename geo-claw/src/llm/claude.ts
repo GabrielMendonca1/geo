@@ -37,11 +37,7 @@ export async function claudeRunTurn(opts: {
   }
 
   const child = spawn('claude', args, {
-    env: {
-      ...process.env,
-      CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN ?? '',
-      ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ?? '',
-    },
+    env: process.env,
   });
 
   let stdout = '';
