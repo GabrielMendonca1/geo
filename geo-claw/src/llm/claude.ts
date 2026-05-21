@@ -31,6 +31,7 @@ export async function claudeRunTurn(opts: {
     '--max-turns', String(opts.maxTurns ?? 4),
     '--append-system-prompt', opts.system,
     '--model', opts.model ?? process.env.GEO_CLAW_CLAUDE_MODEL ?? 'claude-opus-4-7',
+    '--effort', process.env.GEO_CLAW_CLAUDE_EFFORT ?? 'medium',
   ];
   if (opts.withGeoMcp !== false) {
     args.push('--strict-mcp-config', '--mcp-config', mcpConfig);
