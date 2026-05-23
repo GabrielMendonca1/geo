@@ -29,7 +29,8 @@ export function Input({ disabled, onSubmit, history }: Props): React.ReactElemen
         if (history.length === 0) return;
         const next = Math.min(historyIndexRef.current + 1, history.length - 1);
         historyIndexRef.current = next;
-        setBuffer(history[history.length - 1 - next]);
+        const item = history[history.length - 1 - next];
+        if (typeof item === 'string') setBuffer(item);
         return;
       }
       if (key.downArrow) {
@@ -38,9 +39,10 @@ export function Input({ disabled, onSubmit, history }: Props): React.ReactElemen
           setBuffer('');
           return;
         }
-        const next = historyIndexRef.current - 1;
+        const next = Math.min(historyIndexRef.current - 1, Math.max(0, history.length - 1));
         historyIndexRef.current = next;
-        setBuffer(history[history.length - 1 - next]);
+        const item = history[history.length - 1 - next];
+        if (typeof item === 'string') setBuffer(item);
         return;
       }
 
