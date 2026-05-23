@@ -2,12 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { Box, Text } from 'ink';
 import type { ConnectorUiState, StatusSnapshot } from './useStatusFile.js';
 
-const ACCENT = 'cyan';
-
 function colorFor(state: ConnectorUiState): string {
   switch (state) {
     case 'connected':
-      return ACCENT;
+      return 'green';
     case 'connecting':
       return 'yellow';
     case 'error':
@@ -38,20 +36,26 @@ type Props = { status: StatusSnapshot; scrolledBack?: boolean };
 export function Header({ status, scrolledBack }: Props): React.ReactElement {
   const mcpState: ConnectorUiState = status.mcpConnected ? 'connected' : 'disconnected';
   return (
-    <Box paddingX={2} paddingBottom={0}>
+    <Box paddingX={2}>
       <StatusDot state={mcpState} />
-      <Text dimColor> mcp </Text>
-      <Text dimColor>· </Text>
+      <Text dimColor> mcp</Text>
+      <Text dimColor> · </Text>
       <StatusDot state={status.whatsapp} />
-      <Text dimColor> wa </Text>
-      <Text dimColor>· </Text>
+      <Text dimColor> wa</Text>
+      <Text dimColor> · </Text>
       <StatusDot state={status.gmail} />
-      <Text dimColor> gm </Text>
-      <Text dimColor>· </Text>
+      <Text dimColor> gm</Text>
+      <Text dimColor> · </Text>
       <StatusDot state={status.telegram} />
-      <Text dimColor> tg </Text>
-      <Text dimColor>· {status.cronsCount} crons</Text>
-      {scrolledBack ? <Text dimColor>  · scrolled (pgdn to return)</Text> : null}
+      <Text dimColor> tg</Text>
+      <Text dimColor> · </Text>
+      <Text dimColor>{status.cronsCount} crons</Text>
+      {scrolledBack ? (
+        <>
+          <Text dimColor>   </Text>
+          <Text color="yellow">↑ scrolled · pgdn returns</Text>
+        </>
+      ) : null}
     </Box>
   );
 }
