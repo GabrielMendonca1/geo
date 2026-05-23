@@ -70,9 +70,17 @@ export function Input({ disabled, onSubmit, history }: Props): React.ReactElemen
     { isActive: process.stdin.isTTY === true },
   );
 
+  const borderColor = disabled ? COLORS.dim : COLORS.accent;
+  const promptColor = disabled ? COLORS.dim : COLORS.accent;
+
   return (
-    <Box paddingX={2} paddingY={1}>
-      <Text dimColor>› </Text>
+    <Box
+      borderStyle="round"
+      borderColor={borderColor}
+      paddingX={1}
+      marginX={1}
+    >
+      <Text color={promptColor} bold>› </Text>
       <Text>{buffer}</Text>
       <Text dimColor={!cursorOn}>{cursorOn ? '▏' : ' '}</Text>
     </Box>
