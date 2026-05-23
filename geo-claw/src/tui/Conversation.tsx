@@ -1,5 +1,7 @@
 import React from 'react';
-import { Box, Text, useStdout } from 'ink';
+import { Box, Text } from 'ink';
+import { COLORS, GLYPHS } from './theme.js';
+import { Markdown } from './Markdown.js';
 
 export type Role = 'you' | 'geo';
 
@@ -12,38 +14,36 @@ export type Message = {
   dim?: boolean;
 };
 
-function formatTime(date: Date): string {
-  const h = date.getHours().toString().padStart(2, '0');
-  const m = date.getMinutes().toString().padStart(2, '0');
-  return `${h}:${m}`;
-}
+export function MessageLine({ message }: { message: Message }): React.ReactElement {
+  const isGeo = message.role === 'geo';
+  const glyph = isGeo ? GLYPHS.geo : GLYPHS.user;
+  const glyphColor = message.error
+    ? COLORS.err
+    : isGeo
+      ? COLORS.geo
+      : COLORS.user;
 
-type LineProps = { message: Message };
-
-export function MessageLine({ message }: LineProps): React.ReactElement {
-  const { stdout } = useStdout();
-  const cols = stdout?.columns ?? 80;
-  const ruleWidth = Math.max(Math.min(cols - 4, 64), 20);
-
-  const prefixColor = message.role === 'geo' ? 'cyan' : undefined;
-  const prefixText = message.role === 'geo' ? 'geo' : 'you';
-  const bodyColor = message.error ? 'red' : undefined;
-  const dim = message.dim === true;
-  const timeStr = message.timestamp ? formatTime(message.timestamp) : '';
-
-  return (
-    <Box flexDirection="column" paddingX={2} paddingBottom={1}>
-      <Box justifyContent="space-between" width={ruleWidth}>
-        <Text color={prefixColor} dimColor={message.role === 'you' || dim} bold={message.role === 'geo' && !dim}>
-          {prefixText}
-        </Text>
-        {timeStr ? <Text dimColor>{timeStr}</Text> : null}
-      </Box>
-      <Text color={bodyColor} dimColor={dim}>
+  const renderBody = (): React.ReactElement => {
+    if (isGeo && !message.error && !message.dim) {
+      return <Markdown text={message.text} />;
+    }
+    return (
+      <Text
+        color={message.error ? COLORS.err : undefined}
+        dimColor={message.dim === true}
+      >
         {message.text}
       </Text>
-      <Box marginTop={1}>
-        <Text dimColor>{'─'.repeat(ruleWidth)}</Text>
+    );
+  };
+
+  return (
+    <Box flexDirection="row" paddingX={2} marginBottom={1}>
+      <Text color={glyphColor} bold={isGeo}>
+        {glyph}{' '}
+      </Text>
+      <Box flexDirection="column" flexGrow={1}>
+        {renderBody()}
       </Box>
     </Box>
   );
