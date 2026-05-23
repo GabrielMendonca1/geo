@@ -10,10 +10,11 @@ export const COLORS = {
 };
 
 export const GLYPHS = {
-  user: '›',
+  user: '▎',
   geo: '⏺',
+  prompt: '›',
   dot: '●',
-  spinner: ['·', '✻', '✽', '✶', '✳', '✢'] as const,
+  spinner: ['✻', '✽', '✶', '✳', '✢', '✶'] as const,
 };
 
 export const VERBS_PT = [
