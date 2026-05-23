@@ -87,27 +87,6 @@ export function App({ runTurn, statusFilePath }: Props): React.ReactElement {
       userHistoryRef.current.push(text);
 
       setScrollOffset(0);
-
-      if (text.startsWith('/')) {
-        const cmd = text.slice(1).trim().toLowerCase();
-        if (cmd === 'clear') {
-          setMessages([]);
-          return;
-        }
-        if (cmd === 'help' || cmd === '?') {
-          append({ id: makeId(), role: 'geo', text: HELP_TEXT, timestamp: new Date(), dim: true });
-          return;
-        }
-        append({
-          id: makeId(),
-          role: 'geo',
-          text: `unknown command: /${cmd}. try /help.`,
-          timestamp: new Date(),
-          dim: true,
-        });
-        return;
-      }
-
       append({ id: makeId(), role: 'you', text, timestamp: new Date() });
       setInflight(true);
       const turnId = ++turnIdRef.current;
