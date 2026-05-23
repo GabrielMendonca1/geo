@@ -142,7 +142,7 @@ export function App({ runTurn, statusFilePath }: Props): React.ReactElement {
           setInflight(false);
         });
     },
-    [append, inflight, runTurn],
+    [append, runTurn],
   );
 
   useInput(
