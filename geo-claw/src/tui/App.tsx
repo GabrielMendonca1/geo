@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Box, useApp, useInput, useStdout } from 'ink';
 import { Header } from './Header.js';
 import { MessageLine, type Message } from './Conversation.js';
-import { ThinkingDot } from './ThinkingDot.js';
+import { GeoSpinner } from './Spinner.js';
 import { Input } from './Input.js';
 import { useStatusFile } from './useStatusFile.js';
 
