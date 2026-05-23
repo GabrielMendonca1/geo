@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
+import { COLORS } from './theme.js';
 
 const BLINK_MS = 600;
 
