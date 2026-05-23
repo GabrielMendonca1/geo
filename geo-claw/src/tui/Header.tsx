@@ -53,7 +53,7 @@ export function Header({ status, scrolledBack }: Props): React.ReactElement {
       {scrolledBack ? (
         <>
           <Text dimColor>   </Text>
-          <Text color="yellow">↑ scrolled · pgdn returns</Text>
+          <Text color="yellow">↑ scrolled · ctrl+e returns</Text>
         </>
       ) : null}
     </Box>
