@@ -8,14 +8,6 @@ type Props = {
   history: string[];
 };
 
-function deleteWordBack(buffer: string, cursor: number): { buffer: string; cursor: number } {
-  if (cursor === 0) return { buffer, cursor };
-  let i = cursor;
-  while (i > 0 && /\s/.test(buffer[i - 1] ?? '')) i--;
-  while (i > 0 && !/\s/.test(buffer[i - 1] ?? '')) i--;
-  return { buffer: buffer.slice(0, i) + buffer.slice(cursor), cursor: i };
-}
-
 export function Input({ disabled, onSubmit, history }: Props): React.ReactElement {
   const [buffer, setBuffer] = useState('');
   const [cursor, setCursor] = useState(0);
