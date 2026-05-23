@@ -61,6 +61,8 @@ export function App({ runTurn, statusFilePath }: Props): React.ReactElement {
   const { exit } = useApp();
   const { stdout } = useStdout();
   const rows = stdout?.rows ?? 24;
+  const PAGE = Math.max(3, Math.floor(Math.max(rows - 6, 1) / 5));
+  const SCROLL_STEP = Math.max(1, Math.floor(PAGE / 2));
   const status = useStatusFile(statusFilePath);
   const [messages, setMessages] = useState<Message[]>(() => [makeGreeting(new Date())]);
   const [inflight, setInflight] = useState(false);
