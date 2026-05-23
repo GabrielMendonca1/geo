@@ -139,11 +139,11 @@ export function App({ runTurn, statusFilePath }: Props): React.ReactElement {
         return;
       }
       if (key.pageUp) {
-        setScrollOffset((o) => Math.min(o + 1, Math.max(0, messages.length - 1)));
+        setScrollOffset((o) => Math.min(o + SCROLL_STEP, Math.max(0, messages.length - 1)));
         return;
       }
       if (key.pageDown) {
-        setScrollOffset((o) => Math.max(0, o - 1));
+        setScrollOffset((o) => Math.max(0, o - SCROLL_STEP));
         return;
       }
       if (key.escape) {
