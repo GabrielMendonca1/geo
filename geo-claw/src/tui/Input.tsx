@@ -62,22 +62,6 @@ export function Input({ disabled, onSubmit, history }: Props): React.ReactElemen
         return;
       }
 
-      if (key.ctrl && input === 'a') {
-        setCursor(0);
-        return;
-      }
-      if (key.ctrl && input === 'e') {
-        setCursor(buffer.length);
-        return;
-      }
-      if (key.ctrl && input === 'w') {
-        const { buffer: nb, cursor: nc } = deleteWordBack(buffer, cursor);
-        setBuffer(nb);
-        setCursor(nc);
-        historyIndexRef.current = -1;
-        return;
-      }
-
       if (key.backspace) {
         if (cursor === 0) return;
         setBuffer((b) => b.slice(0, cursor - 1) + b.slice(cursor));
