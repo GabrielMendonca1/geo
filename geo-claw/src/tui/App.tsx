@@ -205,8 +205,8 @@ export function App({ runTurn, statusFilePath }: Props): React.ReactElement {
         ))}
         {inflight && !scrolledBack ? <GeoSpinner /> : null}
       </Box>
-      <Input disabled={inflight} onSubmit={submit} history={userHistoryRef.current} />
       <Header status={status} scrolledBack={scrolledBack} />
+      <Input disabled={inflight} onSubmit={submit} history={userHistoryRef.current} />
     </Box>
   );
 }
