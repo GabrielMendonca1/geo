@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Box, useApp, useInput, useStdout } from 'ink';
 import { Header } from './Header.js';
 import { MessageLine, type Message } from './Conversation.js';
