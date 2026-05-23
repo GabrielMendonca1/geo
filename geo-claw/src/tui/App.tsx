@@ -123,29 +123,13 @@ export function App({ runTurn, statusFilePath }: Props): React.ReactElement {
         setScrollOffset(0);
         return;
       }
-      const len = messagesLenRef.current;
-      const page = pageRef.current;
-      const step = scrollStepRef.current;
-      const maxOffset = Math.max(0, len - page);
-
-      if (key.pageUp || (key.ctrl && _input === 'u')) {
-        setScrollOffset((o) => Math.min(o + step, maxOffset));
+      if (key.ctrl && _input === 'u') {
+        const maxOffset = Math.max(0, messagesLenRef.current - pageRef.current);
+        setScrollOffset((o) => Math.min(o + scrollStepRef.current, maxOffset));
         return;
       }
-      if (key.pageDown || (key.ctrl && _input === 'd')) {
-        setScrollOffset((o) => Math.max(0, o - step));
-        return;
-      }
-      if (key.ctrl && _input === 'b') {
-        setScrollOffset((o) => Math.min(o + page, maxOffset));
-        return;
-      }
-      if (key.ctrl && _input === 'f') {
-        setScrollOffset((o) => Math.max(0, o - page));
-        return;
-      }
-      if (key.ctrl && _input === 'e') {
-        setScrollOffset(0);
+      if (key.ctrl && _input === 'd') {
+        setScrollOffset((o) => Math.max(0, o - scrollStepRef.current));
         return;
       }
       if (key.escape) {
