@@ -190,10 +190,10 @@ export function App({ runTurn, statusFilePath }: Props): React.ReactElement {
         {visibleMessages.map((m) => (
           <MessageLine key={m.id} message={m} />
         ))}
-        {inflight && !scrolledBack ? <ThinkingDot /> : null}
+        {inflight && !scrolledBack ? <GeoSpinner /> : null}
       </Box>
-      <Header status={status} scrolledBack={scrolledBack} />
       <Input disabled={inflight} onSubmit={submit} history={userHistoryRef.current} />
+      <Header status={status} scrolledBack={scrolledBack} />
     </Box>
   );
 }
