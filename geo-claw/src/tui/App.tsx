@@ -157,15 +157,19 @@ export function App({ runTurn, statusFilePath }: Props): React.ReactElement {
         return;
       }
       if (key.pageUp) {
-        setScrollOffset((o) => Math.min(o + SCROLL_STEP, Math.max(0, messages.length - 1)));
+        const len = messagesLenRef.current;
+        const page = pageRef.current;
+        const step = scrollStepRef.current;
+        setScrollOffset((o) => Math.min(o + step, Math.max(0, len - page)));
         return;
       }
       if (key.pageDown) {
-        setScrollOffset((o) => Math.max(0, o - SCROLL_STEP));
+        const step = scrollStepRef.current;
+        setScrollOffset((o) => Math.max(0, o - step));
         return;
       }
       if (key.escape) {
-        if (inflight) {
+        if (inflightRef.current) {
           turnIdRef.current += 1;
           setInflight(false);
           append({ id: makeId(), role: 'geo', text: '(canceled)', timestamp: new Date(), dim: true });
