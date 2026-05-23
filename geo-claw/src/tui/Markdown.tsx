@@ -29,7 +29,6 @@ function ensureConfigured(): void {
       blockquote: blockquoteColor,
       strong: chalk.bold,
       em: chalk.italic,
-      hr: chalk.gray('─'.repeat(40)),
     }) as Parameters<typeof marked.use>[0],
   );
   configured = true;
