@@ -60,7 +60,17 @@ const HELP_TEXT = [
 export function App({ runTurn, statusFilePath }: Props): React.ReactElement {
   const { exit } = useApp();
   const { stdout } = useStdout();
-  const rows = stdout?.rows ?? 24;
+  const [rows, setRows] = useState<number>(() => stdout?.rows ?? 24);
+
+  useEffect(() => {
+    if (!stdout) return;
+    const onResize = (): void => setRows(stdout.rows ?? 24);
+    stdout.on('resize', onResize);
+    return () => {
+      stdout.off('resize', onResize);
+    };
+  }, [stdout]);
+
   const PAGE = Math.max(3, Math.floor(Math.max(rows - 6, 1) / 5));
   const SCROLL_STEP = Math.max(1, Math.floor(PAGE / 2));
   const status = useStatusFile(statusFilePath);
@@ -69,6 +79,15 @@ export function App({ runTurn, statusFilePath }: Props): React.ReactElement {
   const [scrollOffset, setScrollOffset] = useState(0);
   const turnIdRef = useRef(0);
   const userHistoryRef = useRef<string[]>([]);
+
+  const inflightRef = useRef(false);
+  const messagesLenRef = useRef(messages.length);
+  const pageRef = useRef(PAGE);
+  const scrollStepRef = useRef(SCROLL_STEP);
+  useEffect(() => { inflightRef.current = inflight; }, [inflight]);
+  useEffect(() => { messagesLenRef.current = messages.length; }, [messages.length]);
+  useEffect(() => { pageRef.current = PAGE; }, [PAGE]);
+  useEffect(() => { scrollStepRef.current = SCROLL_STEP; }, [SCROLL_STEP]);
 
   const append = useCallback((msg: Message): void => {
     setMessages((prev) => [...prev, msg]);
