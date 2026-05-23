@@ -95,7 +95,7 @@ export function App({ runTurn, statusFilePath }: Props): React.ReactElement {
 
   const submit = useCallback(
     (text: string): void => {
-      if (inflight) return;
+      if (inflightRef.current) return;
       userHistoryRef.current.push(text);
 
       setScrollOffset(0);
@@ -103,7 +103,6 @@ export function App({ runTurn, statusFilePath }: Props): React.ReactElement {
       if (text.startsWith('/')) {
         const cmd = text.slice(1).trim().toLowerCase();
         if (cmd === 'clear') {
-          process.stdout.write('\x1b[2J\x1b[H');
           setMessages([]);
           return;
         }
