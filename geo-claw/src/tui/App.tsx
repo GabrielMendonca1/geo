@@ -47,14 +47,20 @@ function makeGreeting(now: Date): Message {
 
 const HELP_TEXT = [
   'commands',
-  '  /clear   — clear conversation',
-  '  /help    — show this',
+  '  /clear         — clear conversation',
+  '  /help          — show this',
   '',
   'shortcuts',
-  '  ↑ ↓      — recall previous messages',
-  '  ctrl+c   — exit',
-  '  ctrl+l   — clear conversation',
-  '  esc      — cancel an inflight reply',
+  '  ↑ ↓            — recall previous messages',
+  '  ← →            — move cursor in input',
+  '  ctrl+a / ctrl+e — start / end of input',
+  '  ctrl+w         — delete word back',
+  '  ctrl+u / ctrl+d — scroll half page up / down',
+  '  ctrl+b / ctrl+f — scroll full page up / down',
+  '  ctrl+e         — snap back to bottom',
+  '  ctrl+c         — exit',
+  '  ctrl+l         — clear conversation',
+  '  esc            — cancel an inflight reply',
 ].join('\n');
 
 export function App({ runTurn, statusFilePath }: Props): React.ReactElement {
