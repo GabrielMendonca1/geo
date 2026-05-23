@@ -96,13 +96,7 @@ export function Input({ disabled, onSubmit, history }: Props): React.ReactElemen
 
       if (key.ctrl) return;
       if (key.escape) return;
-      if (key.tab) {
-        const insert = '  ';
-        setBuffer((b) => b.slice(0, cursor) + insert + b.slice(cursor));
-        setCursor((c) => c + insert.length);
-        historyIndexRef.current = -1;
-        return;
-      }
+      if (key.tab) return;
       if (!input) return;
 
       setBuffer((b) => b.slice(0, cursor) + input + b.slice(cursor));
