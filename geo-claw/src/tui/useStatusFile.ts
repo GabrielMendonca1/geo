@@ -75,15 +75,19 @@ export function useStatusFile(statusFilePath: string): StatusSnapshot {
   useEffect(() => {
     let cancelled = false;
 
+    let sawFile = false;
+
     const read = (): void => {
       fs.promises
         .readFile(statusFilePath, 'utf8')
         .then((raw) => {
           if (cancelled) return;
+          sawFile = true;
           setSnapshot(parse(raw));
         })
-        .catch(() => {
+        .catch((err: NodeJS.ErrnoException) => {
           if (cancelled) return;
+          if (err && err.code === 'ENOENT' && sawFile) return;
           setSnapshot(DEFAULTS);
         });
     };
@@ -95,28 +99,49 @@ export function useStatusFile(statusFilePath: string): StatusSnapshot {
 
     read();
 
-    let watcher: fs.FSWatcher | null = null;
+    let fileWatcher: fs.FSWatcher | null = null;
+    let dirWatcher: fs.FSWatcher | null = null;
     const dir = path.dirname(statusFilePath);
     const base = path.basename(statusFilePath);
-    try {
-      watcher = fs.watch(dir, (_evt, filename) => {
-        if (!filename) {
+
+    const startFileWatch = (): boolean => {
+      try {
+        fileWatcher = fs.watch(statusFilePath, () => scheduleRead());
+        fileWatcher.on('error', () => {
+          if (fileWatcher) {
+            try { fileWatcher.close(); } catch {}
+            fileWatcher = null;
+          }
+          startDirWatch();
+        });
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    function startDirWatch(): void {
+      if (dirWatcher || cancelled) return;
+      try {
+        dirWatcher = fs.watch(dir, (_evt, filename) => {
+          if (filename !== base) return;
           scheduleRead();
-          return;
-        }
-        if (filename === base) scheduleRead();
-      });
-      watcher.on('error', () => {});
-    } catch {}
+          if (!fileWatcher && startFileWatch() && dirWatcher) {
+            try { dirWatcher.close(); } catch {}
+            dirWatcher = null;
+          }
+        });
+        dirWatcher.on('error', () => {});
+      } catch {}
+    }
+
+    if (!startFileWatch()) startDirWatch();
 
     return () => {
       cancelled = true;
       if (debounceRef.current) clearTimeout(debounceRef.current);
-      if (watcher) {
-        try {
-          watcher.close();
-        } catch {}
-      }
+      if (fileWatcher) { try { fileWatcher.close(); } catch {} }
+      if (dirWatcher) { try { dirWatcher.close(); } catch {} }
     };
   }, [statusFilePath]);
 
