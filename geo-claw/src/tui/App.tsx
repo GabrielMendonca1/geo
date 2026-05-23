@@ -157,7 +157,9 @@ export function App({ runTurn, statusFilePath }: Props): React.ReactElement {
     { isActive: process.stdin.isTTY === true },
   );
 
-  const visibleMessages = messages.slice(0, messages.length - scrollOffset);
+  const end = Math.max(1, messages.length - scrollOffset);
+  const start = Math.max(0, end - PAGE);
+  const visibleMessages = messages.slice(start, end);
   const scrolledBack = scrollOffset > 0;
 
   return (
