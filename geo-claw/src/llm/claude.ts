@@ -29,7 +29,10 @@ function getSessionId(key: string): { id: string; isFirst: boolean } {
 
 export async function claudeRunTurn(opts: RunTurnOptions): Promise<RunTurnResult> {
   const mcpConfig = JSON.stringify({
-    mcpServers: { geo: { command: paths.geoMcpBridge } },
+    mcpServers: {
+      geo: { command: paths.geoMcpBridge },
+      claw: { command: 'node', args: [paths.clawMcpBridge] },
+    },
   });
 
   const { id: sessionId, isFirst } = opts.sessionKey
