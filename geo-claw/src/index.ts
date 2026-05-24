@@ -281,10 +281,11 @@ async function main(): Promise<void> {
 
   if (isRepl) {
     await startTui({
-      runTurn: async (text: string) => {
+      runTurn: async (text: string, onChunk) => {
         const turn = await daemon.llm.runTurn(
           { channelId: 'cli', channelKind: 'cli', fromName: 'Gabriel' },
           text,
+          { onChunk },
         );
         return turn.reply ?? '';
       },
