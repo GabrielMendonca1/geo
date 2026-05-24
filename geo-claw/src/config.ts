@@ -32,6 +32,8 @@ export const paths = {
   geoMcpBridge:
     process.env.GEO_CLAW_MCP_BRIDGE_PATH ??
     '/Users/biel/ARC/Forge/Geo/geo-mcp-bridge/geo-mcp-bridge',
+  clawIpcSocket: path.join(appSupport, 'claw-ipc.sock'),
+  clawMcpBridge: path.join(distRoot, 'claw', 'mcpBridge.js'),
 } as const;
 
 let dirsEnsured = false;
