@@ -59,7 +59,17 @@ function normalizeConnector(patch: Partial<ConnectorState>, prev: ConnectorState
 }
 
 export function createStatusWriter(): StatusWriter {
-  const state: StatusFile = defaultStatus();
+  let state: StatusFile = defaultStatus();
+  let loadedExisting = false;
+  try {
+    const raw = fs.readFileSync(paths.statusFile, 'utf8');
+    const parsed = JSON.parse(raw) as StatusFile;
+    if (parsed && parsed.version === 2) {
+      state = parsed;
+      loadedExisting = true;
+    }
+  } catch {
+  }
   let pending: NodeJS.Timeout | null = null;
 
   function persist(): void {
