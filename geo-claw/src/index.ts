@@ -16,6 +16,7 @@ import { createWhatsappAdapter, type WhatsappAdapter } from './adapters/whatsapp
 import { createGmailAdapter, type GmailAdapter } from './adapters/gmail/index.js';
 import { createTelegramAdapter, type TelegramAdapter } from './adapters/telegram/index.js';
 import { startCronRegistry } from './cron/registry.js';
+import { startIpcServer, type IpcServer } from './claw/ipc.js';
 import { getToken } from './keychain.js';
 import type { LLMLoop, ProviderId, StatusWriter } from './types.js';
 
