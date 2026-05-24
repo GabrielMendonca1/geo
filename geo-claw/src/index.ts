@@ -57,9 +57,24 @@ export function createDaemon(): Daemon {
   const whatsapp = createWhatsappAdapter({ llm, status, mcp, telegram });
 
   const sendWhatsappToSelf = async (text: string): Promise<void> => {
-    void text;
-    log.warn('cron: whatsapp sink not implemented yet');
+    await whatsapp.sendToSelf(text);
   };
+
+  startIpcServer({
+    'whatsapp.send_to_self': async (params) => {
+      const text = (params as { text?: unknown }).text;
+      if (typeof text !== 'string' || text.length === 0) {
+        throw new Error('text must be a non-empty string');
+      }
+      return whatsapp.sendToSelf(text);
+    },
+  })
+    .then((srv) => {
+      ipcServer = srv;
+    })
+    .catch((err) => {
+      log.error({ err: (err as Error).message }, 'claw-ipc:start-failed');
+    });
 
   const cronRegistry = startCronRegistry({
     status,
