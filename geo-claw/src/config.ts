@@ -1,9 +1,11 @@
 import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 const home = os.homedir();
 const appSupport = path.join(home, 'Library', 'Application Support', 'GeoClaw');
+const distRoot = path.dirname(fileURLToPath(import.meta.url));
 const logsDir = path.join(home, 'Library', 'Logs', 'GeoClaw');
 const geoAppSupport = path.join(home, 'Library', 'Application Support', 'Geo');
 const signalsDir = path.join(appSupport, 'signals');
