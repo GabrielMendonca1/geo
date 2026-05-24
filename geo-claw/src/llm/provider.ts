@@ -43,9 +43,5 @@ export function createLLMLoop(_deps: LLMLoopDeps): LLMLoop {
     }
   }
 
-  function resetSession(ctx: ChannelContext): void {
-    resetClaudeSession(sessionKeyFor(ctx));
-  }
-
-  return { runTurn, resetSession };
+  return { runTurn };
 }
