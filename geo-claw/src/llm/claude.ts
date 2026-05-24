@@ -27,10 +27,6 @@ function getSessionId(key: string): { id: string; isFirst: boolean } {
   return { id, isFirst: true };
 }
 
-export function resetClaudeSession(key: string): void {
-  sessionByKey.delete(key);
-}
-
 export async function claudeRunTurn(opts: RunTurnOptions): Promise<RunTurnResult> {
   const mcpConfig = JSON.stringify({
     mcpServers: { geo: { command: paths.geoMcpBridge } },
