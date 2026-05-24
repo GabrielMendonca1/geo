@@ -141,7 +141,7 @@ export function App({ runTurn, resetSession, statusFilePath }: Props): React.Rea
           setInflight(false);
         });
     },
-    [append, runTurn],
+    [append, runTurn, resetSession],
   );
 
   const handleInput = useCallback(
