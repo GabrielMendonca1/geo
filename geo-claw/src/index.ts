@@ -289,6 +289,9 @@ async function main(): Promise<void> {
         );
         return turn.reply ?? '';
       },
+      resetSession: () => {
+        daemon.llm.resetSession({ channelId: 'cli', channelKind: 'cli', fromName: 'Gabriel' });
+      },
       statusFilePath: paths.statusFile,
     });
     await daemon.shutdown();
