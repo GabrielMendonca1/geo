@@ -145,7 +145,7 @@ export function App({ runTurn, statusFilePath }: Props): React.ReactElement {
         return;
       }
       if (key.ctrl && input === 'u') {
-        const maxOffset = Math.max(0, messagesLenRef.current - pageRef.current);
+        const maxOffset = Math.max(0, messagesLenRef.current - 1);
         setScrollOffset((o) => Math.min(o + scrollStepRef.current, maxOffset));
         return;
       }
