@@ -24,4 +24,14 @@ if [[ "${RESOLVED}" != "${SRC_DIR}" ]]; then
   exit 1
 fi
 
+PI_GLOBAL="/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent"
+if [[ -d "${PI_GLOBAL}" ]]; then
+  mkdir -p "${SRC_DIR}/node_modules/@earendil-works"
+  ln -sfn "${PI_GLOBAL}" "${SRC_DIR}/node_modules/@earendil-works/pi-coding-agent"
+fi
+
+if [[ ! -d "${SRC_DIR}/node_modules/typebox" ]]; then
+  (cd "${SRC_DIR}" && npm install --ignore-scripts >/dev/null)
+fi
+
 echo "Linked ${LINK} -> ${SRC_DIR}"
