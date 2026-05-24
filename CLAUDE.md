@@ -135,7 +135,7 @@ v1 = scaffold returning mock progress/complete. Real CLI spawn lands in v2.
 
 ## The hard rules (app)
 
-- **Sandbox is OFF** (`com.apple.security.app-sandbox = false`). Required for: arbitrary screenshot dir watching, launching `claude`/`codex` via `AgentWorkspaceManager`, CGEventTap accessibility. If moving to App Store this must change.
+- **Sandbox is OFF** (`com.apple.security.app-sandbox = false`). Required for: arbitrary screenshot dir watching, launching `pi` via `AgentWorkspaceManager`, CGEventTap accessibility. If moving to App Store this must change.
 - **State is singleton stores**, not view-local. New persisted state → new Store, not a `@State` somewhere.
 - **TDD**: tests track in `Geo/conductor/tracks/<track>/plan.md`; tech-stack changes go in `Geo/conductor/tech-stack.md`.
 - **Commit format**: `<type>(<scope>): <description>` — `feat fix docs style refactor test chore`.
