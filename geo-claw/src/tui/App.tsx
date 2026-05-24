@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Box, Text, useApp, useInput, useStdout } from 'ink';
+import { Box, Static, Text, useApp, useInput } from 'ink';
 import { Header } from './Header.js';
 import { MessageLine, type Message } from './Conversation.js';
 import { GeoSpinner } from './Spinner.js';
@@ -9,7 +9,6 @@ import { COLORS, GLYPHS } from './theme.js';
 
 type Props = {
   runTurn: (text: string, onChunk?: (delta: string) => void) => Promise<string>;
-  resetSession?: () => void;
   statusFilePath: string;
 };
 
@@ -60,38 +59,17 @@ function StreamingLine({ text }: { text: string }): React.ReactElement {
   );
 }
 
-export function App({ runTurn, resetSession, statusFilePath }: Props): React.ReactElement {
+export function App({ runTurn, statusFilePath }: Props): React.ReactElement {
   const { exit } = useApp();
-  const { stdout } = useStdout();
-  const [rows, setRows] = useState<number>(() => stdout?.rows ?? 24);
-
-  useEffect(() => {
-    if (!stdout) return;
-    const onResize = (): void => setRows(stdout.rows ?? 24);
-    stdout.on('resize', onResize);
-    return () => {
-      stdout.off('resize', onResize);
-    };
-  }, [stdout]);
-
-  const PAGE = Math.max(3, Math.floor(Math.max(rows - 6, 1) / 5));
-  const SCROLL_STEP = Math.max(1, Math.floor(PAGE / 2));
   const status = useStatusFile(statusFilePath);
   const [messages, setMessages] = useState<Message[]>(() => [makeGreeting(new Date())]);
   const [inflight, setInflight] = useState(false);
   const [streamingText, setStreamingText] = useState<string | null>(null);
-  const [scrollOffset, setScrollOffset] = useState(0);
   const turnIdRef = useRef(0);
   const userHistoryRef = useRef<string[]>([]);
 
   const inflightRef = useRef(false);
-  const messagesLenRef = useRef(messages.length);
-  const pageRef = useRef(PAGE);
-  const scrollStepRef = useRef(SCROLL_STEP);
   useEffect(() => { inflightRef.current = inflight; }, [inflight]);
-  useEffect(() => { messagesLenRef.current = messages.length; }, [messages.length]);
-  useEffect(() => { pageRef.current = PAGE; }, [PAGE]);
-  useEffect(() => { scrollStepRef.current = SCROLL_STEP; }, [SCROLL_STEP]);
 
   const append = useCallback((msg: Message): void => {
     setMessages((prev) => [...prev, msg]);
@@ -101,17 +79,6 @@ export function App({ runTurn, resetSession, statusFilePath }: Props): React.Rea
     (text: string): void => {
       if (inflightRef.current) return;
       userHistoryRef.current.push(text);
-
-      setScrollOffset(0);
-
-      if (text.startsWith('/')) {
-        const cmd = text.slice(1).trim().toLowerCase();
-        if (cmd === 'new') {
-          setMessages([makeGreeting(new Date())]);
-          resetSession?.();
-          return;
-        }
-      }
 
       append({ id: makeId(), role: 'you', text, timestamp: new Date() });
       setInflight(true);
@@ -141,27 +108,13 @@ export function App({ runTurn, resetSession, statusFilePath }: Props): React.Rea
           setInflight(false);
         });
     },
-    [append, runTurn, resetSession],
+    [append, runTurn],
   );
 
   const handleInput = useCallback(
     (input: string, key: { ctrl?: boolean; escape?: boolean }): void => {
       if (key.ctrl && input === 'c') {
         exit();
-        return;
-      }
-      if (key.ctrl && input === 'l') {
-        setMessages([]);
-        setScrollOffset(0);
-        return;
-      }
-      if (key.ctrl && input === 'u') {
-        const maxOffset = Math.max(0, messagesLenRef.current - 1);
-        setScrollOffset((o) => Math.min(o + scrollStepRef.current, maxOffset));
-        return;
-      }
-      if (key.ctrl && input === 'd') {
-        setScrollOffset((o) => Math.max(0, o - scrollStepRef.current));
         return;
       }
       if (key.escape && inflightRef.current) {
@@ -176,24 +129,18 @@ export function App({ runTurn, resetSession, statusFilePath }: Props): React.Rea
 
   useInput(handleInput, { isActive: process.stdin.isTTY === true });
 
-  const end = Math.min(messages.length, Math.max(0, messages.length - scrollOffset));
-  const start = Math.max(0, end - PAGE);
-  const visibleMessages = messages.slice(start, end);
-  const scrolledBack = scrollOffset > 0;
-  const showSpinner = inflight && !scrolledBack && (streamingText === null || streamingText.length === 0);
-  const showStream = streamingText !== null && streamingText.length > 0 && !scrolledBack;
+  const showStream = streamingText !== null && streamingText.length > 0;
+  const showSpinner = inflight && (streamingText === null || streamingText.length === 0);
 
   return (
-    <Box flexDirection="column" height={rows}>
-      <Box flexDirection="column" flexGrow={1} justifyContent="flex-end" overflow="hidden">
-        {visibleMessages.map((m) => (
-          <MessageLine key={m.id} message={m} />
-        ))}
-        {showStream ? <StreamingLine text={streamingText ?? ''} /> : null}
-        {showSpinner ? <GeoSpinner /> : null}
-      </Box>
-      <Header status={status} scrolledBack={scrolledBack} />
+    <>
+      <Static items={messages}>
+        {(m) => <MessageLine key={m.id} message={m} />}
+      </Static>
+      {showStream ? <StreamingLine text={streamingText ?? ''} /> : null}
+      {showSpinner ? <GeoSpinner /> : null}
+      <Header status={status} />
       <Input disabled={inflight} onSubmit={submit} history={userHistoryRef.current} />
-    </Box>
+    </>
   );
 }
