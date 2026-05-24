@@ -31,9 +31,9 @@ function StatusDot({ state }: DotProps): React.ReactElement {
   return <Text color={color}>●</Text>;
 }
 
-type Props = { status: StatusSnapshot; scrolledBack?: boolean };
+type Props = { status: StatusSnapshot };
 
-export function Header({ status, scrolledBack }: Props): React.ReactElement {
+export function Header({ status }: Props): React.ReactElement {
   const mcpState: ConnectorUiState = status.mcpConnected ? 'connected' : 'disconnected';
   return (
     <Box paddingX={2}>
