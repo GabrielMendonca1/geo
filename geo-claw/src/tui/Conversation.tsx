@@ -14,7 +14,7 @@ export type Message = {
   dim?: boolean;
 };
 
-export function MessageLine({ message }: { message: Message }): React.ReactElement {
+function MessageLineImpl({ message }: { message: Message }): React.ReactElement {
   const isGeo = message.role === 'geo';
   const glyph = isGeo ? GLYPHS.geo : GLYPHS.user;
   const glyphColor = message.error
@@ -48,3 +48,5 @@ export function MessageLine({ message }: { message: Message }): React.ReactEleme
     </Box>
   );
 }
+
+export const MessageLine = React.memo(MessageLineImpl, (prev, next) => prev.message === next.message);
