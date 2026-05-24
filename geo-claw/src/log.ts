@@ -31,6 +31,6 @@ if (isDev) {
 }
 
 export const log = pino(
-  { level: process.env.GEO_CLAW_LOG_LEVEL ?? 'info' },
+  { level: logLevel },
   pino.transport({ targets }),
 );
