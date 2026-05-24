@@ -37,6 +37,8 @@ export type Daemon = {
   shutdown: () => Promise<void>;
 };
 
+let ipcServer: IpcServer | null = null;
+
 export function createDaemon(): Daemon {
   ensureDirs();
   ensureCodexConfig();
