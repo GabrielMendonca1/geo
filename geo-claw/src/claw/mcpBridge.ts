@@ -43,7 +43,7 @@ async function handle(req: JsonRpcReq): Promise<void> {
   const { id, method } = req;
   if (method === 'initialize') {
     reply(id, {
-      protocolVersion: '2024-11-05',
+      protocolVersion: '2025-11-25',
       capabilities: { tools: {} },
       serverInfo: { name: 'geo-claw', version: '0.1.0' },
     });
