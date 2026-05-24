@@ -2,8 +2,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Box, Text } from 'ink';
 import { COLORS, GLYPHS, VERBS_PT } from './theme.js';
 
-const FRAME_MS = 120;
-const VERB_PERIOD_MS = 1800;
+const FRAME_MS = 80;
+const VERB_PERIOD_MS = 2500;
+const VERB_WIDTH = Math.max(...VERBS_PT.map((v) => v.length));
+
+function padVerb(v: string): string {
+  return v + ' '.repeat(Math.max(0, VERB_WIDTH - v.length));
+}
 
 export function GeoSpinner(): React.ReactElement {
   const startRef = useRef<number>(Date.now());
@@ -21,7 +26,7 @@ export function GeoSpinner(): React.ReactElement {
   return (
     <Box paddingX={2} marginBottom={1}>
       <Text color={COLORS.accent}>{GLYPHS.spinner[frame]} </Text>
-      <Text dimColor>{VERBS_PT[verbIdx]}…</Text>
+      <Text dimColor>{padVerb(VERBS_PT[verbIdx] ?? '')}…</Text>
     </Box>
   );
 }
