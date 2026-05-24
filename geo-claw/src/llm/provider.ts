@@ -37,6 +37,7 @@ export function createLLMLoop(_deps: LLMLoopDeps): LLMLoop {
     const system = buildSystemPrompt(ctx);
     const provider = resolveProvider();
     try {
+      const defaults = channelDefaults(ctx);
       const result =
         provider === 'codex'
           ? await codexRunTurn({ system, userMessage: userText })
@@ -45,6 +46,9 @@ export function createLLMLoop(_deps: LLMLoopDeps): LLMLoop {
               userMessage: userText,
               sessionKey: sessionKeyFor(ctx),
               onChunk: opts?.onChunk,
+              model: defaults.model,
+              effort: defaults.effort,
+              maxTurns: defaults.maxTurns,
             });
       const text = result.text.trim();
       return { reply: text.length > 0 ? text : null };
