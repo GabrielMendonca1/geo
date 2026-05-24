@@ -133,7 +133,7 @@ export async function claudeRunTurn(opts: RunTurnOptions): Promise<RunTurnResult
     throw new Error('claude CLI output exceeded cap (10MB)');
   }
   if (exitCode !== 0) {
-    sessionByKey.delete(opts.sessionKey);
+    if (opts.sessionKey) sessionByKey.delete(opts.sessionKey);
     throw new Error(`claude CLI exited ${exitCode}: ${stderr.slice(-500)}`);
   }
 
