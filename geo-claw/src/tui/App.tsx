@@ -60,7 +60,7 @@ function StreamingLine({ text }: { text: string }): React.ReactElement {
   );
 }
 
-export function App({ runTurn, statusFilePath }: Props): React.ReactElement {
+export function App({ runTurn, resetSession, statusFilePath }: Props): React.ReactElement {
   const { exit } = useApp();
   const { stdout } = useStdout();
   const [rows, setRows] = useState<number>(() => stdout?.rows ?? 24);
