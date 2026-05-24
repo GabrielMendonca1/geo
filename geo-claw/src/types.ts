@@ -50,8 +50,12 @@ export type ChannelContext = {
 
 export type LLMTurn = { reply: string | null };
 
+export type RunTurnOpts = {
+  onChunk?: (delta: string) => void;
+};
+
 export interface LLMLoop {
-  runTurn(ctx: ChannelContext, userText: string): Promise<LLMTurn>;
+  runTurn(ctx: ChannelContext, userText: string, opts?: RunTurnOpts): Promise<LLMTurn>;
 }
 
 export interface StatusWriter {
