@@ -3,26 +3,20 @@ import { Box, Text } from 'ink';
 import { COLORS, GLYPHS, VERBS_PT } from './theme.js';
 
 const FRAME_MS = 120;
-const VERB_MS = 1800;
+const VERB_PERIOD_MS = 1800;
 
 export function GeoSpinner(): React.ReactElement {
-  const [frame, setFrame] = useState(0);
-  const verbStartRef = useRef<number>(Math.floor(Math.random() * VERBS_PT.length));
-  const [verbIdx, setVerbIdx] = useState(verbStartRef.current);
+  const startRef = useRef<number>(Date.now());
+  const [, force] = useState(0);
 
   useEffect(() => {
-    const id = setInterval(() => {
-      setFrame((f) => (f + 1) % GLYPHS.spinner.length);
-    }, FRAME_MS);
+    const id = setInterval(() => force((n) => n + 1), FRAME_MS);
     return () => clearInterval(id);
   }, []);
 
-  useEffect(() => {
-    const id = setInterval(() => {
-      setVerbIdx((i) => (i + 1) % VERBS_PT.length);
-    }, VERB_MS);
-    return () => clearInterval(id);
-  }, []);
+  const elapsed = Date.now() - startRef.current;
+  const frame = Math.floor(elapsed / FRAME_MS) % GLYPHS.spinner.length;
+  const verbIdx = Math.floor(elapsed / VERB_PERIOD_MS) % VERBS_PT.length;
 
   return (
     <Box paddingX={2} marginBottom={1}>
