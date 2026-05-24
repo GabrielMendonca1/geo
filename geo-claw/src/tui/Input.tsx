@@ -109,3 +109,9 @@ function InputImpl({ disabled, onSubmit, history }: Props): React.ReactElement {
     </Box>
   );
 }
+
+export const Input = React.memo(InputImpl, (prev, next) =>
+  prev.disabled === next.disabled &&
+  prev.onSubmit === next.onSubmit &&
+  prev.history === next.history,
+);
