@@ -19,6 +19,17 @@ function sessionKeyFor(ctx: ChannelContext): string {
   return `${ctx.channelKind}:${ctx.channelId}`;
 }
 
+function channelDefaults(ctx: ChannelContext): { model?: string; effort?: string; maxTurns?: number } {
+  if (ctx.channelKind === 'cli') {
+    return {
+      model: process.env.GEO_CLAW_CLAUDE_MODEL ?? 'claude-sonnet-4-6',
+      effort: process.env.GEO_CLAW_CLAUDE_EFFORT ?? 'low',
+      maxTurns: 2,
+    };
+  }
+  return {};
+}
+
 export function createLLMLoop(_deps: LLMLoopDeps): LLMLoop {
   void _deps;
 
