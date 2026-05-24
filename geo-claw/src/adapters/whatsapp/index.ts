@@ -19,6 +19,7 @@ export interface WhatsappAdapter {
   start(): Promise<void>;
   stop(): Promise<void>;
   reset(): Promise<void>;
+  sendToSelf(text: string): Promise<{ jid: string }>;
 }
 
 import type { McpClient } from '../../mcp/client.js';
