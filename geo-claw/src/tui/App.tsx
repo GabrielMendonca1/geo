@@ -1,13 +1,14 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Box, useApp, useInput, useStdout } from 'ink';
+import { Box, Text, useApp, useInput, useStdout } from 'ink';
 import { Header } from './Header.js';
 import { MessageLine, type Message } from './Conversation.js';
 import { GeoSpinner } from './Spinner.js';
 import { Input } from './Input.js';
 import { useStatusFile } from './useStatusFile.js';
+import { COLORS, GLYPHS } from './theme.js';
 
 type Props = {
-  runTurn: (text: string) => Promise<string>;
+  runTurn: (text: string, onChunk?: (delta: string) => void) => Promise<string>;
   statusFilePath: string;
 };
 
@@ -45,6 +46,19 @@ function makeGreeting(now: Date): Message {
   return { id: 'greeting', role: 'geo', text: body, timestamp: now, dim: true };
 }
 
+function StreamingLine({ text }: { text: string }): React.ReactElement {
+  return (
+    <Box flexDirection="row" paddingX={2} marginBottom={1}>
+      <Text color={COLORS.geo} bold>
+        {GLYPHS.geo}{' '}
+      </Text>
+      <Box flexDirection="column" flexGrow={1}>
+        <Text>{text}</Text>
+      </Box>
+    </Box>
+  );
+}
+
 export function App({ runTurn, statusFilePath }: Props): React.ReactElement {
   const { exit } = useApp();
   const { stdout } = useStdout();
@@ -64,6 +78,7 @@ export function App({ runTurn, statusFilePath }: Props): React.ReactElement {
   const status = useStatusFile(statusFilePath);
   const [messages, setMessages] = useState<Message[]>(() => [makeGreeting(new Date())]);
   const [inflight, setInflight] = useState(false);
+  const [streamingText, setStreamingText] = useState<string | null>(null);
   const [scrollOffset, setScrollOffset] = useState(0);
   const turnIdRef = useRef(0);
   const userHistoryRef = useRef<string[]>([]);
@@ -89,11 +104,16 @@ export function App({ runTurn, statusFilePath }: Props): React.ReactElement {
       setScrollOffset(0);
       append({ id: makeId(), role: 'you', text, timestamp: new Date() });
       setInflight(true);
+      setStreamingText('');
       const turnId = ++turnIdRef.current;
-      runTurn(text)
+      runTurn(text, (delta: string) => {
+        if (turnIdRef.current !== turnId) return;
+        setStreamingText((prev) => (prev ?? '') + delta);
+      })
         .then((reply) => {
           if (turnIdRef.current !== turnId) return;
           append({ id: makeId(), role: 'geo', text: reply || '(no reply)', timestamp: new Date() });
+          setStreamingText(null);
           setInflight(false);
         })
         .catch((err: unknown) => {
@@ -106,47 +126,51 @@ export function App({ runTurn, statusFilePath }: Props): React.ReactElement {
             timestamp: new Date(),
             error: true,
           });
+          setStreamingText(null);
           setInflight(false);
         });
     },
     [append, runTurn],
   );
 
-  useInput(
-    (_input, key) => {
-      if (key.ctrl && _input === 'c') {
+  const handleInput = useCallback(
+    (input: string, key: { ctrl?: boolean; escape?: boolean }): void => {
+      if (key.ctrl && input === 'c') {
         exit();
         return;
       }
-      if (key.ctrl && _input === 'l') {
+      if (key.ctrl && input === 'l') {
         setMessages([]);
         setScrollOffset(0);
         return;
       }
-      if (key.ctrl && _input === 'u') {
+      if (key.ctrl && input === 'u') {
         const maxOffset = Math.max(0, messagesLenRef.current - pageRef.current);
         setScrollOffset((o) => Math.min(o + scrollStepRef.current, maxOffset));
         return;
       }
-      if (key.ctrl && _input === 'd') {
+      if (key.ctrl && input === 'd') {
         setScrollOffset((o) => Math.max(0, o - scrollStepRef.current));
         return;
       }
-      if (key.escape) {
-        if (inflightRef.current) {
-          turnIdRef.current += 1;
-          setInflight(false);
-          append({ id: makeId(), role: 'geo', text: '(canceled)', timestamp: new Date(), dim: true });
-        }
+      if (key.escape && inflightRef.current) {
+        turnIdRef.current += 1;
+        setInflight(false);
+        setStreamingText(null);
+        append({ id: makeId(), role: 'geo', text: '(canceled)', timestamp: new Date(), dim: true });
       }
     },
-    { isActive: process.stdin.isTTY === true },
+    [exit, append],
   );
+
+  useInput(handleInput, { isActive: process.stdin.isTTY === true });
 
   const end = Math.min(messages.length, Math.max(0, messages.length - scrollOffset));
   const start = Math.max(0, end - PAGE);
   const visibleMessages = messages.slice(start, end);
   const scrolledBack = scrollOffset > 0;
+  const showSpinner = inflight && !scrolledBack && (streamingText === null || streamingText.length === 0);
+  const showStream = streamingText !== null && streamingText.length > 0 && !scrolledBack;
 
   return (
     <Box flexDirection="column" height={rows}>
@@ -154,7 +178,8 @@ export function App({ runTurn, statusFilePath }: Props): React.ReactElement {
         {visibleMessages.map((m) => (
           <MessageLine key={m.id} message={m} />
         ))}
-        {inflight && !scrolledBack ? <GeoSpinner /> : null}
+        {showStream ? <StreamingLine text={streamingText ?? ''} /> : null}
+        {showSpinner ? <GeoSpinner /> : null}
       </Box>
       <Header status={status} scrolledBack={scrolledBack} />
       <Input disabled={inflight} onSubmit={submit} history={userHistoryRef.current} />
