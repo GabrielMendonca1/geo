@@ -6,10 +6,12 @@ ensureDirs();
 
 const isDev = process.env.GEO_CLAW_DEV === '1';
 
+const logLevel = process.env.GEO_CLAW_LOG_LEVEL ?? 'info';
+
 const targets: pino.TransportTargetOptions[] = [
   {
     target: 'pino/file',
-    level: 'debug',
+    level: logLevel,
     options: { destination: paths.logFile, mkdir: true },
   },
 ];
@@ -20,7 +22,7 @@ if (isDev) {
     require.resolve('pino-pretty');
     targets.push({
       target: 'pino-pretty',
-      level: 'debug',
+      level: logLevel,
       options: { destination: 1, colorize: true, translateTime: 'SYS:HH:MM:ss.l' },
     });
   } catch {
