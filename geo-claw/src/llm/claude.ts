@@ -32,7 +32,9 @@ export async function claudeRunTurn(opts: RunTurnOptions): Promise<RunTurnResult
     mcpServers: { geo: { command: paths.geoMcpBridge } },
   });
 
-  const { id: sessionId, isFirst } = getSessionId(opts.sessionKey);
+  const { id: sessionId, isFirst } = opts.sessionKey
+    ? getSessionId(opts.sessionKey)
+    : { id: randomUUID(), isFirst: true };
 
   const args = [
     '-p', opts.userMessage,
