@@ -50,12 +50,6 @@ export function Header({ status }: Props): React.ReactElement {
       <Text dimColor> tg</Text>
       <Text dimColor> · </Text>
       <Text dimColor>{status.cronsCount} crons</Text>
-      {scrolledBack ? (
-        <>
-          <Text dimColor>   </Text>
-          <Text color="yellow">↑ scrolled</Text>
-        </>
-      ) : null}
     </Box>
   );
 }
