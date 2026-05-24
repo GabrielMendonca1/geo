@@ -8,7 +8,7 @@ type Props = {
   history: string[];
 };
 
-export function Input({ disabled, onSubmit, history }: Props): React.ReactElement {
+function InputImpl({ disabled, onSubmit, history }: Props): React.ReactElement {
   const [buffer, setBuffer] = useState('');
   const [cursor, setCursor] = useState(0);
   const historyIndexRef = useRef<number>(-1);
