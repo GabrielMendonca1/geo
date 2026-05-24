@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { promises as fsp } from 'node:fs';
 import path from 'node:path';
 import { paths } from './config.js';
 import type {
@@ -70,9 +71,21 @@ export function createStatusWriter(): StatusWriter {
     }
   } catch {
   }
-  let pending: NodeJS.Timeout | null = null;
 
-  function persist(): void {
+  let pending: NodeJS.Timeout | null = null;
+  let writeInFlight = false;
+  let pendingAfterFlight = false;
+
+  async function persistAsync(): Promise<void> {
+    state.updatedAt = nowIso();
+    const tmp = `${paths.statusFile}.tmp.${process.pid}`;
+    const data = JSON.stringify(state, null, 2);
+    await fsp.mkdir(path.dirname(paths.statusFile), { recursive: true });
+    await fsp.writeFile(tmp, data, 'utf8');
+    await fsp.rename(tmp, paths.statusFile);
+  }
+
+  function persistSync(): void {
     state.updatedAt = nowIso();
     const tmp = `${paths.statusFile}.tmp.${process.pid}`;
     const data = JSON.stringify(state, null, 2);
@@ -81,29 +94,47 @@ export function createStatusWriter(): StatusWriter {
     fs.renameSync(tmp, paths.statusFile);
   }
 
+  function kickWrite(): void {
+    if (writeInFlight) {
+      pendingAfterFlight = true;
+      return;
+    }
+    writeInFlight = true;
+    persistAsync()
+      .catch(() => {})
+      .finally(() => {
+        writeInFlight = false;
+        if (pendingAfterFlight) {
+          pendingAfterFlight = false;
+          kickWrite();
+        }
+      });
+  }
+
   function flush(): void {
     if (pending) {
       clearTimeout(pending);
       pending = null;
     }
     try {
-      persist();
+      persistSync();
     } catch {
     }
   }
 
   function schedule(immediate: boolean): void {
     if (immediate) {
-      flush();
+      if (pending) {
+        clearTimeout(pending);
+        pending = null;
+      }
+      kickWrite();
       return;
     }
     if (pending) return;
     pending = setTimeout(() => {
       pending = null;
-      try {
-        persist();
-      } catch {
-      }
+      kickWrite();
     }, DEBOUNCE_MS);
     pending.unref?.();
   }
@@ -112,19 +143,20 @@ export function createStatusWriter(): StatusWriter {
 
   return {
     updateMcp(patch) {
+      const prevConnected = state.mcp.connected;
       state.mcp = {
         connected: patch.connected ?? state.mcp.connected,
         lastTickAt: patch.lastTickAt !== undefined ? patch.lastTickAt : state.mcp.lastTickAt,
         error: patch.error !== undefined ? patch.error : state.mcp.error,
       };
-      const immediate = patch.connected === false || patch.connected === true;
-      schedule(immediate);
+      const transition = patch.connected !== undefined && patch.connected !== prevConnected;
+      schedule(transition);
     },
     updateConnector(id: ConnectorId, patch: Partial<ConnectorState>) {
-      state.connectors[id] = normalizeConnector(patch, state.connectors[id]);
-      const immediate =
-        patch.state === 'error' || patch.state === 'connected' || patch.state === 'disconnected';
-      schedule(immediate);
+      const prev = state.connectors[id];
+      state.connectors[id] = normalizeConnector(patch, prev);
+      const transition = patch.state !== undefined && patch.state !== prev.state;
+      schedule(transition);
     },
     setProvider(provider: ProviderId) {
       state.provider = provider;
