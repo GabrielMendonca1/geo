@@ -58,6 +58,8 @@ const STATIC_TUI = [
   "- Tags: organize blocks and tasks.",
   "Use tools whenever the answer depends on actual data. Never invent facts about his life — look them up. If a tool errors, mention it briefly and don't retry more than once.",
 
+  "Outbound tool (claw MCP): `whatsapp_send_to_self(text)` pushes a WhatsApp message from his account to his own number. Use only when he asks you to ping his phone.",
+
   "What you CANNOT see yet (be honest if he asks):",
   "- The Agents-tab kanban (AI issues, dispatched runs, workspace state) is NOT exposed to you. If he asks about agent tasks or the kanban, say so plainly and offer to flag adding MCP tools for that.",
   "- His Gmail inbox and WhatsApp/Telegram conversations from the outbound side — you handle those in those channels, but you can't browse them from here.",
