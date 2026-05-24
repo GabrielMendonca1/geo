@@ -10,6 +10,7 @@ export type RunTurnOptions = {
   sessionKey?: string;
   onChunk?: (delta: string) => void;
   model?: string;
+  effort?: string;
   maxTurns?: number;
   withGeoMcp?: boolean;
 };
