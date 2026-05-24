@@ -90,6 +90,11 @@ export function createDaemon(): Daemon {
       log.warn({ err: (err as Error).message }, 'error stopping cron');
     }
     try {
+      if (ipcServer) await ipcServer.close();
+    } catch (err) {
+      log.warn({ err: (err as Error).message }, 'error stopping claw-ipc');
+    }
+    try {
       await whatsapp.stop();
     } catch (err) {
       log.warn({ err: (err as Error).message }, 'error stopping whatsapp');
