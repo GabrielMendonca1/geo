@@ -108,7 +108,7 @@ export function createStatusWriter(): StatusWriter {
     pending.unref?.();
   }
 
-  flush();
+  if (!loadedExisting) flush();
 
   return {
     updateMcp(patch) {
