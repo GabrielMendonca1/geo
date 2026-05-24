@@ -109,6 +109,18 @@ Swift binary (`main.swift` + `build.sh`) — thin MCP bridge for the macOS app. 
 cd geo-mcp-bridge && ./build.sh
 ```
 
+## AI pane (`Geo/Features/Agent/`)
+
+Kanban-over-CLI. `AgentWorkspaceManager` (Swift actor) polls a tracker (`linear` or `local` Geo blocks with `symphony: true` frontmatter), dispatches eligible issues into per-issue workspaces under `~/.symphony/workspaces/`, and spawns the `pi` CLI (`@earendil-works/pi-coding-agent`) per turn. Provider is derived from `NanoProviderStore.current`: `.claude` → `--provider anthropic`, `.codex` → `--provider openai`. Pi assigns its own UUIDv7 session id on turn 1; the manager captures it from the `session` event and stamps it into the issue's `symphony_session_id` frontmatter for `--session <id>` resume on turn 2+.
+
+Pi has no native MCP flag. In-agent access to Geo data is provided by a pi extension under `geo-claw/pi-extensions/geo-mcp/` that spawns the existing `geo-mcp-bridge` and `claw-mcp-bridge` as stdio children and forwards every advertised tool via `pi.registerTool` (prefixed `mcp_geo_*` / `mcp_claw_*`). Install once:
+
+```bash
+cd geo-claw/pi-extensions/geo-mcp && bash install.sh
+```
+
+That symlinks the directory into `~/.pi/agent/extensions/geo-mcp` for pi's auto-discovery.
+
 ## geo-worker
 
 Remote Claude Code worker daemon. Runs on a Linux VM (typically over Tailscale), connects **out** to Geo's MCP TCP listener (no inbound ports needed), auths with a token registered in Geo's endpoint registry, receives `dispatch.run` and spawns `claude` CLI.
