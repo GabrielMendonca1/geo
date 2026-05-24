@@ -3,7 +3,7 @@ import type { ChannelContext, LLMLoop, LLMTurn, ProviderId, RunTurnOpts } from '
 import type { McpClient } from '../mcp/client.js';
 import type { McpToolRegistry } from '../mcp/tools.js';
 import { build as buildSystemPrompt } from './prompt.js';
-import { claudeRunTurn, resetClaudeSession } from './claude.js';
+import { claudeRunTurn } from './claude.js';
 import { codexRunTurn } from './codex.js';
 
 export interface LLMLoopDeps {
