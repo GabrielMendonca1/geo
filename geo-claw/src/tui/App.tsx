@@ -61,6 +61,18 @@ function StreamingLine({ text }: { text: string }): React.ReactElement {
 
 export function App({ runTurn, statusFilePath }: Props): React.ReactElement {
   const { exit } = useApp();
+  const { stdout } = useStdout();
+  const [, forceReflow] = useState(0);
+
+  useEffect(() => {
+    if (!stdout) return;
+    const onResize = (): void => forceReflow((n) => n + 1);
+    stdout.on('resize', onResize);
+    return () => {
+      stdout.off('resize', onResize);
+    };
+  }, [stdout]);
+
   const status = useStatusFile(statusFilePath);
   const [messages, setMessages] = useState<Message[]>(() => [makeGreeting(new Date())]);
   const [inflight, setInflight] = useState(false);
