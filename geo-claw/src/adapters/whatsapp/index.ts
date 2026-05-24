@@ -245,12 +245,14 @@ export function createWhatsappAdapter(deps: WhatsappAdapterDeps): WhatsappAdapte
     await start();
   }
 
-  async function sendToSelf(text: string): Promise<{ jid: string }> {
+  async function sendToSelf(text: string): Promise<{ jid: string; messageId: string | null }> {
     const current = sock;
     if (!current) throw new Error('whatsapp socket not connected');
     if (!selfJid) throw new Error('selfJid not yet known');
-    await current.sendMessage(selfJid, { text });
-    return { jid: selfJid };
+    const sent = await current.sendMessage(selfJid, { text });
+    const messageId = sent?.key?.id ?? null;
+    log.info({ jid: selfJid, messageId, textLen: text.length }, 'whatsapp:sent-to-self');
+    return { jid: selfJid, messageId };
   }
 
   return { start, stop, reset, sendToSelf };
