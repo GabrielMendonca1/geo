@@ -9,6 +9,7 @@ import { COLORS, GLYPHS } from './theme.js';
 
 type Props = {
   runTurn: (text: string, onChunk?: (delta: string) => void) => Promise<string>;
+  resetSession?: () => void;
   statusFilePath: string;
 };
 
