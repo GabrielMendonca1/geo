@@ -4,6 +4,7 @@ import { App } from './App.js';
 
 export async function startTui(opts: {
   runTurn: (text: string, onChunk?: (delta: string) => void) => Promise<string>;
+  resetSession?: () => void;
   statusFilePath: string;
 }): Promise<void> {
   process.stdout.write('\x1b]0;geo\x07');
@@ -11,6 +12,7 @@ export async function startTui(opts: {
   const instance = render(
     React.createElement(App, {
       runTurn: opts.runTurn,
+      resetSession: opts.resetSession,
       statusFilePath: opts.statusFilePath,
     }),
   );
