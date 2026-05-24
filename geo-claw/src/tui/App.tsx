@@ -103,6 +103,16 @@ export function App({ runTurn, resetSession, statusFilePath }: Props): React.Rea
       userHistoryRef.current.push(text);
 
       setScrollOffset(0);
+
+      if (text.startsWith('/')) {
+        const cmd = text.slice(1).trim().toLowerCase();
+        if (cmd === 'new') {
+          setMessages([makeGreeting(new Date())]);
+          resetSession?.();
+          return;
+        }
+      }
+
       append({ id: makeId(), role: 'you', text, timestamp: new Date() });
       setInflight(true);
       setStreamingText('');
