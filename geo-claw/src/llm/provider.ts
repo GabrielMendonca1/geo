@@ -23,8 +23,8 @@ function channelDefaults(ctx: ChannelContext): { model?: string; effort?: string
   if (ctx.channelKind === 'cli') {
     return {
       model: process.env.GEO_CLAW_CLAUDE_MODEL ?? 'claude-sonnet-4-6',
-      effort: process.env.GEO_CLAW_CLAUDE_EFFORT ?? 'low',
-      maxTurns: 2,
+      effort: process.env.GEO_CLAW_CLAUDE_EFFORT ?? 'high',
+      maxTurns: 8,
     };
   }
   return {};
