@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Box, Static, Text, useApp, useInput } from 'ink';
+import { Box, Static, Text, useApp, useInput, useStdout } from 'ink';
 import { Header } from './Header.js';
 import { MessageLine, type Message } from './Conversation.js';
 import { GeoSpinner } from './Spinner.js';
