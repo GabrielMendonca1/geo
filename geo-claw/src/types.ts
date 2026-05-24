@@ -56,6 +56,7 @@ export type RunTurnOpts = {
 
 export interface LLMLoop {
   runTurn(ctx: ChannelContext, userText: string, opts?: RunTurnOpts): Promise<LLMTurn>;
+  resetSession(ctx: ChannelContext): void;
 }
 
 export interface StatusWriter {
