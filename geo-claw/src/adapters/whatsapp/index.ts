@@ -245,5 +245,13 @@ export function createWhatsappAdapter(deps: WhatsappAdapterDeps): WhatsappAdapte
     await start();
   }
 
-  return { start, stop, reset };
+  async function sendToSelf(text: string): Promise<{ jid: string }> {
+    const current = sock;
+    if (!current) throw new Error('whatsapp socket not connected');
+    if (!selfJid) throw new Error('selfJid not yet known');
+    await current.sendMessage(selfJid, { text });
+    return { jid: selfJid };
+  }
+
+  return { start, stop, reset, sendToSelf };
 }
