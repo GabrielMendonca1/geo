@@ -54,16 +54,10 @@ export function Input({ disabled, onSubmit, history }: Props): React.ReactElemen
         return;
       }
 
-      if (key.backspace) {
+      if (key.backspace || key.delete) {
         if (cursor === 0) return;
         setBuffer((b) => b.slice(0, cursor - 1) + b.slice(cursor));
         setCursor((c) => Math.max(0, c - 1));
-        historyIndexRef.current = -1;
-        return;
-      }
-      if (key.delete) {
-        if (cursor >= buffer.length) return;
-        setBuffer((b) => b.slice(0, cursor) + b.slice(cursor + 1));
         historyIndexRef.current = -1;
         return;
       }
