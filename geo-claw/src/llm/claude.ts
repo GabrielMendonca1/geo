@@ -7,7 +7,7 @@ export type RunTurnResult = { text: string; usage?: unknown };
 export type RunTurnOptions = {
   system: string;
   userMessage: string;
-  sessionKey: string;
+  sessionKey?: string;
   onChunk?: (delta: string) => void;
   model?: string;
   maxTurns?: number;
