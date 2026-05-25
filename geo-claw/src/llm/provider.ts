@@ -116,7 +116,7 @@ export function createLLMLoop(deps: LLMLoopDeps): LLMLoop {
             });
       const text = result.text.trim();
       const reply = text.length > 0 ? text : null;
-      if (reply && HYDRATED_KINDS.has(ctx.channelKind)) {
+      if (reply && PERSISTED_BY_PROVIDER.has(ctx.channelKind)) {
         try {
           appendMessage(storageId, 'assistant', JSON.stringify({ text: reply }));
         } catch (err) {
