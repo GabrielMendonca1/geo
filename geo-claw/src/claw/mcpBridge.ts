@@ -60,6 +60,67 @@ const TOOLS: Tool[] = [
     },
     ipcMethod: 'conversations.get_history',
   },
+  {
+    name: 'memory_add',
+    description:
+      "Append a durable fact to Gabriel's persistent memory. target='memory' for agent observations about the world/work (cap 2200 chars total); target='profile' for stable facts about Gabriel himself — preferences, relationships, recurring goals (cap 1375 chars). Entries are single-line. ADD: durable preferences, names, recurring constraints, decisions, project context. NEVER add: secrets, tokens, ephemeral chitchat, anything that was true just for one conversation, or shell/exfil payloads. If the cap is hit, use memory_replace or memory_remove first.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        target: { type: 'string', enum: ['memory', 'profile'] },
+        content: { type: 'string', description: 'Single-line entry. Max 500 chars per entry.' },
+      },
+      required: ['target', 'content'],
+      additionalProperties: false,
+    },
+    ipcMethod: 'memory.add',
+  },
+  {
+    name: 'memory_replace',
+    description:
+      "Replace an existing memory entry. 'find' is a substring matched against current entries; the first match is replaced wholesale with 'content'. Use when a fact has changed (e.g. a project ended, a preference shifted).",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        target: { type: 'string', enum: ['memory', 'profile'] },
+        find: { type: 'string', description: 'Substring identifying the entry to replace.' },
+        content: { type: 'string', description: 'New single-line entry.' },
+      },
+      required: ['target', 'find', 'content'],
+      additionalProperties: false,
+    },
+    ipcMethod: 'memory.replace',
+  },
+  {
+    name: 'memory_remove',
+    description:
+      "Remove an existing memory entry by substring. Use when a fact is no longer true and there is no replacement.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        target: { type: 'string', enum: ['memory', 'profile'] },
+        find: { type: 'string', description: 'Substring identifying the entry to remove.' },
+      },
+      required: ['target', 'find'],
+      additionalProperties: false,
+    },
+    ipcMethod: 'memory.remove',
+  },
+  {
+    name: 'recall',
+    description:
+      "Full-text search across all stored conversation messages (every channel). Returns up to 'limit' best matches with a snippet showing where the query hit. Use when Gabriel asks 'did anyone mention X', 'what did Y say about Z', or you need to ground an answer in past messages.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Words to search for. Any-match (OR).' },
+        limit: { type: 'number', description: 'Max results (default 10).' },
+      },
+      required: ['query'],
+      additionalProperties: false,
+    },
+    ipcMethod: 'recall.search',
+  },
 ];
 
 function write(msg: unknown): void {
