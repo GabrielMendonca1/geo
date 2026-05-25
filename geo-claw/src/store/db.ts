@@ -54,6 +54,14 @@ const stmtPrune = db.prepare(`
     LIMIT ?
   )
 `);
+const stmtListChannels = db.prepare(`
+  SELECT channel_id, MAX(ts) AS last_ts, COUNT(*) AS msg_count
+  FROM conversations
+  WHERE channel_id LIKE ?
+  GROUP BY channel_id
+  ORDER BY last_ts DESC
+  LIMIT ?
+`);
 const stmtKvGet = db.prepare('SELECT v FROM kv WHERE k = ?');
 const stmtKvSet = db.prepare(
   'INSERT INTO kv (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v',
