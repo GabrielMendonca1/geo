@@ -50,8 +50,14 @@ export type ChannelContext = {
 
 export type LLMTurn = { reply: string | null };
 
+export type RunTurnEvent =
+  | { type: 'text'; delta: string }
+  | { type: 'tool_use'; toolUseId: string; name: string; input: unknown }
+  | { type: 'tool_result'; toolUseId: string; content: unknown; isError?: boolean };
+
 export type RunTurnOpts = {
   onChunk?: (delta: string) => void;
+  onEvent?: (event: RunTurnEvent) => void;
 };
 
 export interface LLMLoop {
