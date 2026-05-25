@@ -5,7 +5,7 @@ import chokidar from 'chokidar';
 import { ensureDirs, paths } from './config.js';
 import { log } from './log.js';
 import { createStatusWriter } from './status.js';
-import { closeDb, listChannels, loadHistory } from './store/db.js';
+import { appendMessage, closeDb, listChannels, loadHistory } from './store/db.js';
 import { McpClient } from './mcp/client.js';
 import { McpToolRegistry } from './mcp/tools.js';
 import { GeoSubscription } from './mcp/subscribe.js';
