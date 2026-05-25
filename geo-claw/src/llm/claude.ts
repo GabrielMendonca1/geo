@@ -1,7 +1,8 @@
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { paths } from '../config.js';
 import { log } from '../log.js';
+import { buildMcpConfigJson } from '../mcp/config.js';
+import type { RunTurnEvent } from '../types.js';
 
 export type RunTurnResult = { text: string; usage?: unknown };
 export type RunTurnOptions = {
@@ -9,6 +10,7 @@ export type RunTurnOptions = {
   userMessage: string;
   sessionKey?: string;
   onChunk?: (delta: string) => void;
+  onEvent?: (event: RunTurnEvent) => void;
   model?: string;
   effort?: string;
   maxTurns?: number;
@@ -29,12 +31,7 @@ function getSessionId(key: string): { id: string; isFirst: boolean } {
 }
 
 export async function claudeRunTurn(opts: RunTurnOptions): Promise<RunTurnResult> {
-  const mcpConfig = JSON.stringify({
-    mcpServers: {
-      geo: { command: paths.geoMcpBridge },
-      claw: { command: 'node', args: [paths.clawMcpBridge] },
-    },
-  });
+  const mcpConfig = buildMcpConfigJson();
 
   const { id: sessionId, isFirst } = opts.sessionKey
     ? getSessionId(opts.sessionKey)
