@@ -5,7 +5,7 @@ import type { McpToolRegistry } from '../mcp/tools.js';
 import { build as buildSystemPrompt, nowLine } from './prompt.js';
 import { claudeRunTurn } from './claude.js';
 import { codexRunTurn } from './codex.js';
-import { formatPreamble, loadSnapshot } from './memory.js';
+import { formatMemoryContext, loadSnapshot, loadSoul, MEMORY_FENCE_PREAMBLE } from './memory.js';
 import { loadAndFormatHistory } from './historyHydrate.js';
 import { appendMessage } from '../store/db.js';
 
