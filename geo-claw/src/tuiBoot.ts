@@ -1,4 +1,7 @@
 import { spawn } from 'node:child_process';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { build as buildSystemPrompt } from './llm/prompt.js';
 import { paths } from './config.js';
 
@@ -16,7 +19,30 @@ function main(): void {
     },
   });
 
+  const distDir = path.dirname(fileURLToPath(import.meta.url));
+  const hookScriptPath = path.join(distDir, 'contextHook.js');
+  const settingsPath = path.join(path.dirname(paths.statusFile), 'claude-tui-settings.json');
+
+  const skipHook = process.env.GEO_TUI_NO_HOOK === '1';
+
+  const settings = skipHook
+    ? {}
+    : {
+        hooks: {
+          UserPromptSubmit: [
+            {
+              matcher: '.*',
+              hooks: [{ type: 'command', command: `node ${hookScriptPath}` }],
+            },
+          ],
+        },
+      };
+
+  mkdirSync(path.dirname(settingsPath), { recursive: true });
+  writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
+
   const args = [
+    '--settings', settingsPath,
     '--system-prompt', system,
     '--model', process.env.GEO_CLAW_CLAUDE_MODEL ?? 'claude-sonnet-4-6',
     '--effort', process.env.GEO_CLAW_CLAUDE_EFFORT ?? 'high',
