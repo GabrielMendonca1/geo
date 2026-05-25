@@ -146,6 +146,52 @@ export function pruneOldest(channelId: string, n: number): number {
   return Number(result.changes ?? 0);
 }
 
+export type RecallRow = {
+  channelId: string;
+  role: Role;
+  content: string;
+  ts: number;
+  snippet: string;
+};
+
+const stmtRecall = db.prepare(`
+  SELECT c.channel_id, c.role, c.content, c.ts,
+         snippet(conversations_fts, 1, '<<', '>>', '…', 16) AS snippet
+  FROM conversations_fts
+  JOIN conversations c ON c.id = conversations_fts.rowid
+  WHERE conversations_fts MATCH ?
+  ORDER BY rank
+  LIMIT ?
+`);
+
+function buildFtsQuery(raw: string): string {
+  const tokens = raw
+    .split(/\s+/)
+    .map((t) => t.replace(/[^\p{L}\p{N}_]/gu, ''))
+    .filter((t) => t.length > 0)
+    .map((t) => `"${t}"`);
+  if (tokens.length === 0) return '';
+  return tokens.join(' OR ');
+}
+
+export function recall(query: string, limit = 10): RecallRow[] {
+  const fts = buildFtsQuery(query);
+  if (fts.length === 0) return [];
+  let rows: Array<{ channel_id: string; role: Role; content: string; ts: number; snippet: string }>;
+  try {
+    rows = stmtRecall.all(fts, limit) as typeof rows;
+  } catch {
+    return [];
+  }
+  return rows.map((r) => ({
+    channelId: r.channel_id,
+    role: r.role,
+    content: r.content,
+    ts: r.ts,
+    snippet: r.snippet,
+  }));
+}
+
 export function kvGet(k: string): string | null {
   const row = stmtKvGet.get(k) as { v: string } | undefined;
   return row?.v ?? null;
