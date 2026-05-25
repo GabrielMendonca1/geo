@@ -69,11 +69,12 @@ export function createLLMLoop(deps: LLMLoopDeps): LLMLoop {
       Promise.resolve(loadAndFormatHistory(storageId, 20)),
     ]);
     const memBlock = formatMemoryContext(snap);
+    const channelBlock = channelContextBlock(ctx);
     const blocks: string[] = [];
     if (soul.length > 0) blocks.push(`<soul>\n${soul.trim()}\n</soul>`);
     if (memBlock.length > 0) blocks.push(memBlock);
     if (history.length > 0) blocks.push(history);
-    if (blocks.length === 0) return '';
+    blocks.push(channelBlock);
     return `${MEMORY_FENCE_PREAMBLE}\n\n${blocks.join('\n\n')}`;
   }
 
