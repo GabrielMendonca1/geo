@@ -81,6 +81,23 @@ export function countMessages(channelId: string): number {
   return row.n;
 }
 
+export function listChannels(
+  prefix = '',
+  limit = 50,
+): Array<{ channelId: string; lastTs: number; msgCount: number }> {
+  const pattern = prefix ? `${prefix}%` : '%';
+  const rows = stmtListChannels.all(pattern, limit) as Array<{
+    channel_id: string;
+    last_ts: number;
+    msg_count: number;
+  }>;
+  return rows.map((r) => ({
+    channelId: r.channel_id,
+    lastTs: r.last_ts,
+    msgCount: r.msg_count,
+  }));
+}
+
 export function pruneOldest(channelId: string, n: number): number {
   const result = stmtPrune.run(channelId, n);
   return Number(result.changes ?? 0);
