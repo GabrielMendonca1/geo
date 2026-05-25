@@ -62,6 +62,9 @@ export async function claudeRunTurn(opts: RunTurnOptions): Promise<RunTurnResult
   let finalText = '';
   let aborted = false;
 
+  const emittedToolUse = new Set<string>();
+  const emittedToolResult = new Set<string>();
+
   const processLine = (line: string): void => {
     const trimmed = line.trim();
     if (!trimmed) return;
@@ -79,6 +82,40 @@ export async function claudeRunTurn(opts: RunTurnOptions): Promise<RunTurnResult
         if (delta?.type === 'text_delta' && typeof delta.text === 'string') {
           accumulated += delta.text;
           opts.onChunk?.(delta.text);
+          opts.onEvent?.({ type: 'text', delta: delta.text });
+        }
+      }
+      return;
+    }
+    if (obj.type === 'assistant' && opts.onEvent) {
+      const message = obj.message as { content?: unknown } | undefined;
+      const blocks = Array.isArray(message?.content) ? message!.content : [];
+      for (const block of blocks) {
+        const b = block as Record<string, unknown>;
+        if (b.type === 'tool_use' && typeof b.id === 'string' && typeof b.name === 'string') {
+          if (!emittedToolUse.has(b.id)) {
+            emittedToolUse.add(b.id);
+            opts.onEvent({ type: 'tool_use', toolUseId: b.id, name: b.name, input: b.input ?? {} });
+          }
+        }
+      }
+      return;
+    }
+    if (obj.type === 'user' && opts.onEvent) {
+      const message = obj.message as { content?: unknown } | undefined;
+      const blocks = Array.isArray(message?.content) ? message!.content : [];
+      for (const block of blocks) {
+        const b = block as Record<string, unknown>;
+        if (b.type === 'tool_result' && typeof b.tool_use_id === 'string') {
+          if (!emittedToolResult.has(b.tool_use_id)) {
+            emittedToolResult.add(b.tool_use_id);
+            opts.onEvent({
+              type: 'tool_result',
+              toolUseId: b.tool_use_id,
+              content: b.content ?? null,
+              isError: b.is_error === true,
+            });
+          }
         }
       }
       return;
