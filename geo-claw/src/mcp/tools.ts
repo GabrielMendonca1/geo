@@ -66,8 +66,9 @@ export class McpToolRegistry {
   }
 
   async executeTool(name: string, input: unknown): Promise<{ content: string; isError: boolean }> {
+    const sanitized = sanitizeToolInput(name, input);
     try {
-      const result = await this.client.call('tools/call', { name, arguments: input ?? {} });
+      const result = await this.client.call('tools/call', { name, arguments: sanitized ?? {} });
       const content = typeof result === 'string' ? result : JSON.stringify(result);
       return { content, isError: false };
     } catch (err) {
@@ -76,4 +77,16 @@ export class McpToolRegistry {
       return { content: JSON.stringify({ error: msg }), isError: true };
     }
   }
+}
+
+function sanitizeToolInput(name: string, input: unknown): unknown {
+  if (name !== 'create_task' || !input || typeof input !== 'object') return input;
+  const obj = input as Record<string, unknown>;
+  if (!('recurrence' in obj)) return obj;
+  const recurrence = obj.recurrence as { type?: string } | undefined;
+  if (recurrence?.type && recurrence.type !== 'never') {
+    log.warn({ tool: name, recurrence }, 'create_task: dropping non-never recurrence (geo-claw safety)');
+  }
+  const { recurrence: _drop, ...rest } = obj;
+  return rest;
 }
