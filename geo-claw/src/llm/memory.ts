@@ -131,10 +131,21 @@ async function ensureBlock(
 
 export type Snapshot = { memory: string[]; profile: string[] };
 
+const SNAPSHOT_FETCH_TIMEOUT_MS = 3000;
+
 export async function loadSnapshot(mcp: McpClient): Promise<Snapshot> {
   if (!mcp.isConnected()) return { memory: [], profile: [] };
+  // Cap the prefetch so a hung MCP doesn't add 30s to every turn (mcp.call default is 30s).
+  // After the first turn fills the cache, subsequent turns return synchronously.
+  const fetch = Promise.all([fetchTarget(mcp, 'memory'), fetchTarget(mcp, 'profile')]);
+  const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), SNAPSHOT_FETCH_TIMEOUT_MS));
   try {
-    const [mem, prof] = await Promise.all([fetchTarget(mcp, 'memory'), fetchTarget(mcp, 'profile')]);
+    const res = await Promise.race([fetch, timeout]);
+    if (res === null) {
+      log.warn({ timeoutMs: SNAPSHOT_FETCH_TIMEOUT_MS }, 'memory:loadSnapshot-timeout');
+      return { memory: [], profile: [] };
+    }
+    const [mem, prof] = res;
     return { memory: mem.entries, profile: prof.entries };
   } catch (err) {
     log.warn({ err: (err as Error).message }, 'memory:loadSnapshot-failed');
