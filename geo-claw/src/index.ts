@@ -280,8 +280,6 @@ async function main(): Promise<void> {
   const daemon = createDaemon();
   log.info({ paths: { logFile: paths.logFile, db: paths.dbFile, status: paths.statusFile } }, 'geo-claw boot');
 
-  const isRepl = process.argv.includes('--repl');
-
   let shuttingDown = false;
   const handleSignal = (signal: string) => {
     if (shuttingDown) return;
