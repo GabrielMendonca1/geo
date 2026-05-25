@@ -20,7 +20,7 @@ function sessionKeyFor(ctx: ChannelContext): string {
 }
 
 function channelDefaults(ctx: ChannelContext): { model?: string; effort?: string; maxTurns?: number } {
-  if (ctx.channelKind === 'cli') {
+  if (ctx.channelKind === 'cli' || ctx.channelKind === 'nano') {
     return {
       model: process.env.GEO_CLAW_CLAUDE_MODEL ?? 'claude-sonnet-4-6',
       effort: process.env.GEO_CLAW_CLAUDE_EFFORT ?? 'high',
