@@ -71,6 +71,15 @@ export function appendMessage(channelId: string, role: Role, contentJson: string
   stmtAppend.run(channelId, role, contentJson, Date.now());
 }
 
+const stmtClearChannel = db.prepare(
+  'DELETE FROM conversations WHERE channel_id = ?',
+);
+
+export function clearChannel(channelId: string): number {
+  const info = stmtClearChannel.run(channelId);
+  return info.changes;
+}
+
 export function loadHistory(channelId: string, limit = 20): ConversationRow[] {
   const rows = stmtLoad.all(channelId, limit) as ConversationRow[];
   return rows.reverse();
