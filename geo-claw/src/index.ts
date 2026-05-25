@@ -10,6 +10,7 @@ import { McpClient } from './mcp/client.js';
 import { McpToolRegistry } from './mcp/tools.js';
 import { GeoSubscription } from './mcp/subscribe.js';
 import { createLLMLoop } from './llm/provider.js';
+import { closeWarmSessions } from './llm/claude.js';
 import { ensureCodexConfig } from './llm/codexConfig.js';
 import { createWhatsappAdapter, type WhatsappAdapter } from './adapters/whatsapp/index.js';
 import { createGmailAdapter, type GmailAdapter } from './adapters/gmail/index.js';
