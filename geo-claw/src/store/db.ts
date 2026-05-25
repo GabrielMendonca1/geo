@@ -24,7 +24,41 @@ CREATE TABLE IF NOT EXISTS kv (
   k TEXT PRIMARY KEY,
   v TEXT NOT NULL
 );
+
+CREATE VIRTUAL TABLE IF NOT EXISTS conversations_fts USING fts5(
+  channel_id UNINDEXED,
+  content,
+  content='conversations',
+  content_rowid='id'
+);
+
+CREATE TRIGGER IF NOT EXISTS conversations_ai AFTER INSERT ON conversations BEGIN
+  INSERT INTO conversations_fts(rowid, channel_id, content) VALUES (new.id, new.channel_id, new.content);
+END;
+
+CREATE TRIGGER IF NOT EXISTS conversations_ad AFTER DELETE ON conversations BEGIN
+  INSERT INTO conversations_fts(conversations_fts, rowid, channel_id, content)
+    VALUES('delete', old.id, old.channel_id, old.content);
+END;
+
+CREATE TRIGGER IF NOT EXISTS conversations_au AFTER UPDATE OF content ON conversations BEGIN
+  INSERT INTO conversations_fts(conversations_fts, rowid, channel_id, content)
+    VALUES('delete', old.id, old.channel_id, old.content);
+  INSERT INTO conversations_fts(rowid, channel_id, content)
+    VALUES (new.id, new.channel_id, new.content);
+END;
 `);
+
+// Backfill FTS for rows that pre-date the virtual table.
+const ftsCount = (db.prepare('SELECT COUNT(*) AS n FROM conversations_fts').get() as { n: number }).n;
+const convCount = (db.prepare('SELECT COUNT(*) AS n FROM conversations').get() as { n: number }).n;
+if (ftsCount < convCount) {
+  db.exec(`
+    INSERT INTO conversations_fts(rowid, channel_id, content)
+      SELECT id, channel_id, content FROM conversations
+      WHERE id NOT IN (SELECT rowid FROM conversations_fts);
+  `);
+}
 
 export type Role = 'user' | 'assistant';
 
