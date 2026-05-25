@@ -81,6 +81,15 @@ export function createDaemon(): Daemon {
       const limit = typeof p.limit === 'number' ? p.limit : 20;
       return loadHistory(channelId, limit);
     },
+    'llm.reset_session': async (params) => {
+      const p = (params as { channelId?: unknown }) ?? {};
+      const channelId = typeof p.channelId === 'string' && p.channelId.length > 0 ? p.channelId : 'main';
+      const sessionKey = `nano:${channelId}`;
+      const fullChannelId = `nano:${channelId}`;
+      const droppedSession = dropWarmSession(sessionKey);
+      const clearedMessages = clearChannel(fullChannelId);
+      return { droppedSession, clearedMessages };
+    },
     'llm.run_turn': async (params, ctx) => {
       const p = (params as { channelId?: unknown; userText?: unknown }) ?? {};
       const channelId = typeof p.channelId === 'string' && p.channelId.length > 0 ? p.channelId : 'main';
