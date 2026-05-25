@@ -43,20 +43,25 @@ export function createLLMLoop(_deps: LLMLoopDeps): LLMLoop {
   async function runTurn(ctx: ChannelContext, userText: string, opts?: RunTurnOpts): Promise<LLMTurn> {
     const system = buildSystemPrompt(ctx);
     const provider = resolveProvider();
+    const useWarm = ctx.channelKind === 'nano';
+    // Warm sessions bake the system prompt at spawn time, so dynamic context (now-line)
+    // must ride with each user message instead.
+    const userMessage = useWarm ? `${nowLine()}\n\n${userText}` : userText;
     try {
       const defaults = channelDefaults(ctx);
       const result =
         provider === 'codex'
-          ? await codexRunTurn({ system, userMessage: userText })
+          ? await codexRunTurn({ system, userMessage })
           : await claudeRunTurn({
               system,
-              userMessage: userText,
+              userMessage,
               sessionKey: sessionKeyFor(ctx),
               onChunk: opts?.onChunk,
               onEvent: opts?.onEvent,
               model: defaults.model,
               effort: defaults.effort,
               maxTurns: defaults.maxTurns,
+              warm: useWarm,
             });
       const text = result.text.trim();
       return { reply: text.length > 0 ? text : null };
