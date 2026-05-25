@@ -44,8 +44,8 @@ function main(): void {
   const args = [
     '--settings', settingsPath,
     '--system-prompt', system,
-    '--model', process.env.GEO_CLAW_CLAUDE_MODEL ?? 'claude-sonnet-4-6',
-    '--effort', process.env.GEO_CLAW_CLAUDE_EFFORT ?? 'high',
+    '--model', process.env.GEO_CLAW_CLAUDE_MODEL ?? 'claude-opus-4-7',
+    '--effort', process.env.GEO_CLAW_CLAUDE_EFFORT ?? 'xhigh',
     '--strict-mcp-config',
     '--mcp-config', mcpConfig,
   ];
