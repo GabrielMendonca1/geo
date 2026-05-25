@@ -387,6 +387,14 @@ export function closeWarmSessions(): void {
   warmSessions.clear();
 }
 
+export function dropWarmSession(sessionKey: string): boolean {
+  const session = warmSessions.get(sessionKey);
+  if (!session) return false;
+  try { session.child.kill('SIGTERM'); } catch {}
+  warmSessions.delete(sessionKey);
+  return true;
+}
+
 export function warmSessionCount(): number {
   return warmSessions.size;
 }
