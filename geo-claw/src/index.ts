@@ -67,6 +67,19 @@ export function createDaemon(): Daemon {
       }
       return whatsapp.sendToSelf(text);
     },
+    'conversations.list_channels': async (params) => {
+      const p = (params as { prefix?: unknown; limit?: unknown }) ?? {};
+      const prefix = typeof p.prefix === 'string' ? p.prefix : '';
+      const limit = typeof p.limit === 'number' ? p.limit : 50;
+      return listChannels(prefix, limit);
+    },
+    'conversations.get_history': async (params) => {
+      const p = (params as { channelId?: unknown; limit?: unknown }) ?? {};
+      const channelId = typeof p.channelId === 'string' ? p.channelId : '';
+      if (!channelId) throw new Error('channelId must be a non-empty string');
+      const limit = typeof p.limit === 'number' ? p.limit : 20;
+      return loadHistory(channelId, limit);
+    },
   })
     .then((srv) => {
       ipcServer = srv;
