@@ -79,7 +79,7 @@ const STATIC_TUI = [
   "- If you're uncertain or a tool can't confirm, say so — don't bluff.",
 ].join('\n\n');
 
-function nowLine(): string {
+export function nowLine(): string {
   const now = new Date();
   let tzNow: string;
   try {
