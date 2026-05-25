@@ -80,7 +80,7 @@ export function createLLMLoop(deps: LLMLoopDeps): LLMLoop {
     // must ride with each user message instead.
     const userMessage = useWarm ? `${nowLine()}\n\n${enrichedUser}` : enrichedUser;
 
-    if (PERSISTED_BY_PROVIDER.has(ctx.channelKind)) {
+    if (HYDRATED_KINDS.has(ctx.channelKind)) {
       try {
         appendMessage(storageId, 'user', JSON.stringify({ text: userText }));
       } catch (err) {
@@ -107,7 +107,7 @@ export function createLLMLoop(deps: LLMLoopDeps): LLMLoop {
             });
       const text = result.text.trim();
       const reply = text.length > 0 ? text : null;
-      if (reply && PERSISTED_BY_PROVIDER.has(ctx.channelKind)) {
+      if (reply && HYDRATED_KINDS.has(ctx.channelKind)) {
         try {
           appendMessage(storageId, 'assistant', JSON.stringify({ text: reply }));
         } catch (err) {
