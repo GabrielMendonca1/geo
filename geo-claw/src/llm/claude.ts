@@ -5,6 +5,10 @@ import { buildMcpConfigJson } from '../mcp/config.js';
 import type { RunTurnEvent } from '../types.js';
 
 export type RunTurnResult = { text: string; usage?: unknown };
+export type RunTurnAttachmentInput =
+  | { type: 'image'; mediaType: string; base64: string }
+  | { type: 'file'; mediaType: string; base64: string; name: string };
+
 export type RunTurnOptions = {
   system: string;
   userMessage: string;
@@ -17,6 +21,7 @@ export type RunTurnOptions = {
   withGeoMcp?: boolean;
   /** Use a long-lived `claude` process per sessionKey for low-latency multi-turn. */
   warm?: boolean;
+  attachments?: RunTurnAttachmentInput[];
 };
 
 const COLD_TIMEOUT_MS = 60_000;
