@@ -63,12 +63,18 @@ export function createLLMLoop(deps: LLMLoopDeps): LLMLoop {
   async function buildPreamble(ctx: ChannelContext): Promise<string> {
     if (!HYDRATED_KINDS.has(ctx.channelKind)) return '';
     const storageId = storageChannelId(ctx);
-    const [snap, history] = await Promise.all([
+    const [soul, snap, history] = await Promise.all([
+      loadSoul(deps.mcpClient),
       loadSnapshot(deps.mcpClient),
       Promise.resolve(loadAndFormatHistory(storageId, 20)),
     ]);
-    const memBlock = formatPreamble(snap);
-    return [memBlock, history].filter((s) => s.length > 0).join('\n\n');
+    const memBlock = formatMemoryContext(snap);
+    const blocks: string[] = [];
+    if (soul.length > 0) blocks.push(`<soul>\n${soul.trim()}\n</soul>`);
+    if (memBlock.length > 0) blocks.push(memBlock);
+    if (history.length > 0) blocks.push(history);
+    if (blocks.length === 0) return '';
+    return `${MEMORY_FENCE_PREAMBLE}\n\n${blocks.join('\n\n')}`;
   }
 
   async function runTurn(ctx: ChannelContext, userText: string, opts?: RunTurnOpts): Promise<LLMTurn> {
