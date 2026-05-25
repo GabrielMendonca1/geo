@@ -147,6 +147,11 @@ export function createDaemon(): Daemon {
       log.warn({ err: (err as Error).message }, 'error stopping mcp');
     }
     try {
+      closeWarmSessions();
+    } catch (err) {
+      log.warn({ err: (err as Error).message }, 'error closing warm claude sessions');
+    }
+    try {
       status.flush();
     } catch (err) {
       log.warn({ err: (err as Error).message }, 'error flushing status');
