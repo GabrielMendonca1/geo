@@ -82,9 +82,11 @@ export function createDaemon(): Daemon {
     },
     'llm.run_turn': async (params, ctx) => {
       const p = (params as { channelId?: unknown; userText?: unknown }) ?? {};
-      const channelId = typeof p.channelId === 'string' && p.channelId.length > 0 ? p.channelId : 'nano:main';
+      const channelId = typeof p.channelId === 'string' && p.channelId.length > 0 ? p.channelId : 'main';
       const userText = typeof p.userText === 'string' ? p.userText : '';
       if (userText.length === 0) throw new Error('userText must be a non-empty string');
+      const fullChannelId = `nano:${channelId}`;
+      appendMessage(fullChannelId, 'user', JSON.stringify({ text: userText }));
       const turn = await llm.runTurn(
         { channelKind: 'nano', channelId, fromName: 'Gabriel' },
         userText,
@@ -92,6 +94,9 @@ export function createDaemon(): Daemon {
           onEvent: (event) => ctx.pushEvent(event as unknown as Record<string, unknown>),
         },
       );
+      if (turn.reply) {
+        appendMessage(fullChannelId, 'assistant', JSON.stringify({ text: turn.reply }));
+      }
       return { reply: turn.reply };
     },
   })
