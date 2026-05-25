@@ -99,18 +99,16 @@ export function createDaemon(): Daemon {
         throw new Error('userText or attachments required');
       }
       const fullChannelId = `nano:${channelId}`;
-      const attachments = attachmentsIn
-        .map((a) => {
-          const o = a as { type?: unknown; mediaType?: unknown; base64?: unknown; name?: unknown };
-          const type = o.type === 'image' || o.type === 'file' ? o.type : null;
-          if (!type) return null;
-          if (typeof o.mediaType !== 'string' || typeof o.base64 !== 'string') return null;
-          if (type === 'file' && typeof o.name !== 'string') return null;
-          return type === 'image'
-            ? { type, mediaType: o.mediaType, base64: o.base64 }
-            : { type, mediaType: o.mediaType, base64: o.base64, name: o.name as string };
-        })
-        .filter((a): a is NonNullable<typeof a> => a !== null);
+      const attachments: import('./types.js').RunTurnAttachment[] = [];
+      for (const a of attachmentsIn) {
+        const o = a as { type?: unknown; mediaType?: unknown; base64?: unknown; name?: unknown };
+        if (typeof o.mediaType !== 'string' || typeof o.base64 !== 'string') continue;
+        if (o.type === 'image') {
+          attachments.push({ type: 'image', mediaType: o.mediaType, base64: o.base64 });
+        } else if (o.type === 'file' && typeof o.name === 'string') {
+          attachments.push({ type: 'file', mediaType: o.mediaType, base64: o.base64, name: o.name });
+        }
+      }
       appendMessage(fullChannelId, 'user', JSON.stringify({
         text: userText,
         attachmentNames: attachments.map((a) => 'name' in a ? a.name : `image (${a.mediaType})`),
