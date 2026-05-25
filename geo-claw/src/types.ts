@@ -55,9 +55,14 @@ export type RunTurnEvent =
   | { type: 'tool_use'; toolUseId: string; name: string; input: unknown }
   | { type: 'tool_result'; toolUseId: string; content: unknown; isError?: boolean };
 
+export type RunTurnAttachment =
+  | { type: 'image'; mediaType: string; base64: string }
+  | { type: 'file'; mediaType: string; base64: string; name: string };
+
 export type RunTurnOpts = {
   onChunk?: (delta: string) => void;
   onEvent?: (event: RunTurnEvent) => void;
+  attachments?: RunTurnAttachment[];
 };
 
 export interface LLMLoop {
