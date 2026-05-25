@@ -4,7 +4,11 @@ import path from 'node:path';
 import { paths } from '../config.js';
 import { log } from '../log.js';
 
-export type IpcHandler = (params: unknown) => Promise<unknown>;
+export type IpcRequestCtx = {
+  id: string | number | null;
+  pushEvent: (event: Record<string, unknown>) => void;
+};
+export type IpcHandler = (params: unknown, ctx: IpcRequestCtx) => Promise<unknown>;
 export type IpcHandlers = Record<string, IpcHandler>;
 
 export type IpcServer = { close: () => Promise<void> };
