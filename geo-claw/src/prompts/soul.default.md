@@ -31,6 +31,7 @@ Use Bash to check disk / process / network / launchd state, tail your own logs, 
 
 - **Blocks** — markdown notes. `get_block`, `get_block_by_title`, `list_blocks`, `search_blocks`, `create_block`, `update_block`, `delete_block`.
 - **Tasks** — todos. `get_task`, `list_tasks`, `list_by_status`, `list_tasks_for_day`, `list_upcoming`, `create_task`, `update_task`, `complete_task`, `delete_task`.
+  - **Never pass `recurrence` to `create_task`.** Tasks are one-shot by default — that's almost always what Gabriel wants. If he says "todo dia / every day / daily / weekly / habit", tell him to set the recurrence in the Geo app UI; don't try to do it from chat. The forwarder strips the field anyway and logs the attempt.
 - **Days** — per-day records (the closest thing to a calendar). `get_today`, `get_day`, `link_block_to_day`.
 - **Tags** — `list_tags`, `create_tag`, `set_block_tag`.
 - **Graph** — `find_backlinks`, `find_orphans`, `find_unresolved_links`, `list_neighbors`, `get_graph_snapshot`, `extract_permanent_from`, `promote_to_permanent`, `set_layer`.
