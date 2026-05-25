@@ -2,22 +2,22 @@ import { spawn } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { build as buildSystemPrompt } from './llm/prompt.js';
+import { SYSTEM_PROMPT, readSoulDefaultSync, nowLine } from './llm/systemPrompt.js';
 import { paths } from './config.js';
+import { buildMcpConfigJson } from './mcp/config.js';
 
 function main(): void {
-  const system = buildSystemPrompt({
-    channelId: 'cli',
-    channelKind: 'cli',
-    fromName: 'Gabriel',
-  });
+  // CLI doesn't go through provider.ts:buildPreamble — it spawns claude directly.
+  // Bake the soul into --system-prompt at boot so the CLI has the same identity
+  // as the daemon. The contextHook handles per-turn data retrieval.
+  // Tradeoff: CLI doesn't pick up live edits to the Soul Geo block; restart shell.
+  const soul = readSoulDefaultSync();
+  const parts = [SYSTEM_PROMPT];
+  if (soul.length > 0) parts.push(`<soul>\n${soul.trim()}\n</soul>`);
+  parts.push(`<channel>\nChannel: cli\nFrom: Gabriel\n${nowLine()}\n</channel>`);
+  const system = parts.join('\n\n');
 
-  const mcpConfig = JSON.stringify({
-    mcpServers: {
-      geo: { command: paths.geoMcpBridge },
-      claw: { command: 'node', args: [paths.clawMcpBridge] },
-    },
-  });
+  const mcpConfig = buildMcpConfigJson();
 
   const distDir = path.dirname(fileURLToPath(import.meta.url));
   const hookScriptPath = path.join(distDir, 'contextHook.js');
