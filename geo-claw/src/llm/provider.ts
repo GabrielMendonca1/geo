@@ -5,6 +5,9 @@ import type { McpToolRegistry } from '../mcp/tools.js';
 import { build as buildSystemPrompt, nowLine } from './prompt.js';
 import { claudeRunTurn } from './claude.js';
 import { codexRunTurn } from './codex.js';
+import { formatPreamble, loadSnapshot } from './memory.js';
+import { loadAndFormatHistory } from './historyHydrate.js';
+import { appendMessage } from '../store/db.js';
 
 export interface LLMLoopDeps {
   mcpClient: McpClient;
@@ -16,6 +19,16 @@ function resolveProvider(): ProviderId {
 }
 
 function sessionKeyFor(ctx: ChannelContext): string {
+  return `${ctx.channelKind}:${ctx.channelId}`;
+}
+
+// Channels that get Hermes-style hydration (memory snapshot + recent history).
+const HYDRATED_KINDS = new Set<ChannelContext['channelKind']>(['telegram', 'whatsapp', 'gmail', 'nano']);
+// Channels where provider.ts owns persistence. Nano excluded: the IPC handler
+// in index.ts already writes nano turns with attachment metadata.
+const PERSISTED_BY_PROVIDER = new Set<ChannelContext['channelKind']>(['telegram', 'whatsapp', 'gmail']);
+
+function storageChannelId(ctx: ChannelContext): string {
   return `${ctx.channelKind}:${ctx.channelId}`;
 }
 
