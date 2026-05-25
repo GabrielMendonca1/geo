@@ -50,16 +50,44 @@ function channelDefaults(ctx: ChannelContext): { model?: string; effort?: string
   return {};
 }
 
-export function createLLMLoop(_deps: LLMLoopDeps): LLMLoop {
-  void _deps;
+export function createLLMLoop(deps: LLMLoopDeps): LLMLoop {
+  // Hermes-mirror context hydration — runs every turn for HYDRATED_KINDS
+  // A. N: history=20 (cap), memory entries≤50 (char-capped), recall≤10 (LIMIT)
+  // B. Shape: idx_conv_channel_ts for history, FTS5 for recall, process-cache for snapshot
+  // C. Bottleneck: Anthropic API (~1-5s). Local I/O is noise.
+  // D. Cache: snapshot cached in memory.ts, invalidated on local memory writes
+  // Cold and warm CLI uniform: snapshot rides in userMessage preamble, never system prompt
+  async function buildPreamble(ctx: ChannelContext): Promise<string> {
+    if (!HYDRATED_KINDS.has(ctx.channelKind)) return '';
+    const storageId = storageChannelId(ctx);
+    const [snap, history] = await Promise.all([
+      loadSnapshot(deps.mcpClient),
+      Promise.resolve(loadAndFormatHistory(storageId, 20)),
+    ]);
+    const memBlock = formatPreamble(snap);
+    return [memBlock, history].filter((s) => s.length > 0).join('\n\n');
+  }
 
   async function runTurn(ctx: ChannelContext, userText: string, opts?: RunTurnOpts): Promise<LLMTurn> {
     const system = buildSystemPrompt(ctx);
     const provider = resolveProvider();
     const useWarm = ctx.channelKind === 'nano';
+    const storageId = storageChannelId(ctx);
+
+    const preamble = await buildPreamble(ctx);
+    const enrichedUser = preamble.length > 0 ? `${preamble}\n\n---\n\n${userText}` : userText;
     // Warm sessions bake the system prompt at spawn time, so dynamic context (now-line)
     // must ride with each user message instead.
-    const userMessage = useWarm ? `${nowLine()}\n\n${userText}` : userText;
+    const userMessage = useWarm ? `${nowLine()}\n\n${enrichedUser}` : enrichedUser;
+
+    if (PERSISTED_BY_PROVIDER.has(ctx.channelKind)) {
+      try {
+        appendMessage(storageId, 'user', JSON.stringify({ text: userText }));
+      } catch (err) {
+        log.warn({ err: (err as Error).message, storageId }, 'llm:persist-user-failed');
+      }
+    }
+
     try {
       const defaults = channelDefaults(ctx);
       const result =
@@ -78,7 +106,15 @@ export function createLLMLoop(_deps: LLMLoopDeps): LLMLoop {
               attachments: opts?.attachments,
             });
       const text = result.text.trim();
-      return { reply: text.length > 0 ? text : null };
+      const reply = text.length > 0 ? text : null;
+      if (reply && PERSISTED_BY_PROVIDER.has(ctx.channelKind)) {
+        try {
+          appendMessage(storageId, 'assistant', JSON.stringify({ text: reply }));
+        } catch (err) {
+          log.warn({ err: (err as Error).message, storageId }, 'llm:persist-assistant-failed');
+        }
+      }
+      return { reply };
     } catch (err) {
       log.error({ err: (err as Error).message, provider }, 'llm:runTurn failed');
       throw err;
