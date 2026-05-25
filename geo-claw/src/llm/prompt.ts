@@ -126,5 +126,11 @@ export function build(ctx: ChannelContext): string {
   if (ctx.channelKind === 'cli') {
     return `${STATIC_TUI}\n\n---\n\n${nowLine()}`;
   }
+  // Telegram + WhatsApp runTurn paths only fire for owner self-DM (telegram owner gate,
+  // whatsapp isSelfDm branch in inbound.ts) — so the person typing is Gabriel, not a
+  // third party. Use the warmer second-brain prompt with channel context appended.
+  if (ctx.channelKind === 'telegram' || ctx.channelKind === 'whatsapp') {
+    return `${STATIC_TUI}\n\n---\n\n${buildChannelContext(ctx)}`;
+  }
   return `${STATIC_CHANNELS}\n\n---\n\n${buildChannelContext(ctx)}`;
 }
