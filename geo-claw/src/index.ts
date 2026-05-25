@@ -3,7 +3,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import chokidar from 'chokidar';
 import { ensureDirs, paths } from './config.js';
-import { startTui } from './tui/index.js';
 import { log } from './log.js';
 import { createStatusWriter } from './status.js';
 import { closeDb } from './store/db.js';
