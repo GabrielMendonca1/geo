@@ -134,6 +134,33 @@ export function createDaemon(): Daemon {
       const cancelled = cancelWarmTurn(sessionKey);
       return { cancelled };
     },
+    'memory.add': async (params) => {
+      const p = (params as { target?: unknown; content?: unknown }) ?? {};
+      if (p.target !== 'memory' && p.target !== 'profile') throw new Error('target must be memory|profile');
+      if (typeof p.content !== 'string') throw new Error('content must be string');
+      return addEntry(mcp, p.target as MemoryTarget, p.content);
+    },
+    'memory.replace': async (params) => {
+      const p = (params as { target?: unknown; find?: unknown; content?: unknown }) ?? {};
+      if (p.target !== 'memory' && p.target !== 'profile') throw new Error('target must be memory|profile');
+      if (typeof p.find !== 'string') throw new Error('find must be string');
+      if (typeof p.content !== 'string') throw new Error('content must be string');
+      return replaceEntry(mcp, p.target as MemoryTarget, p.find, p.content);
+    },
+    'memory.remove': async (params) => {
+      const p = (params as { target?: unknown; find?: unknown }) ?? {};
+      if (p.target !== 'memory' && p.target !== 'profile') throw new Error('target must be memory|profile');
+      if (typeof p.find !== 'string') throw new Error('find must be string');
+      return removeEntry(mcp, p.target as MemoryTarget, p.find);
+    },
+    'recall.search': async (params) => {
+      const p = (params as { query?: unknown; limit?: unknown }) ?? {};
+      if (typeof p.query !== 'string' || p.query.trim().length === 0) {
+        throw new Error('query must be a non-empty string');
+      }
+      const limit = typeof p.limit === 'number' && p.limit > 0 ? Math.min(p.limit, 50) : 10;
+      return recall(p.query, limit);
+    },
   })
     .then((srv) => {
       ipcServer = srv;
