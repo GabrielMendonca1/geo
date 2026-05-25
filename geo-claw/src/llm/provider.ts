@@ -79,16 +79,17 @@ export function createLLMLoop(deps: LLMLoopDeps): LLMLoop {
   }
 
   async function runTurn(ctx: ChannelContext, userText: string, opts?: RunTurnOpts): Promise<LLMTurn> {
-    const system = buildSystemPrompt(ctx);
+    // System prompt is now fully static (constant string) — same for every channel
+    // every turn. Per-turn data (channel context, now, soul, memory, history) all
+    // rides in the user-message preamble built by buildPreamble. This maximises
+    // Anthropic prompt-cache hits on cold spawns.
+    const system = SYSTEM_PROMPT;
     const provider = resolveProvider();
     const useWarm = ctx.channelKind === 'nano';
     const storageId = storageChannelId(ctx);
 
     const preamble = await buildPreamble(ctx);
-    const enrichedUser = preamble.length > 0 ? `${preamble}\n\n---\n\n${userText}` : userText;
-    // Warm sessions bake the system prompt at spawn time, so dynamic context (now-line)
-    // must ride with each user message instead.
-    const userMessage = useWarm ? `${nowLine()}\n\n${enrichedUser}` : enrichedUser;
+    const userMessage = preamble.length > 0 ? `${preamble}\n\n---\n\n${userText}` : userText;
 
     if (PERSISTED_BY_PROVIDER.has(ctx.channelKind)) {
       try {
