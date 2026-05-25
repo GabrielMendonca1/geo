@@ -2,7 +2,7 @@ import { log } from '../log.js';
 import type { ChannelContext, LLMLoop, LLMTurn, ProviderId, RunTurnOpts } from '../types.js';
 import type { McpClient } from '../mcp/client.js';
 import type { McpToolRegistry } from '../mcp/tools.js';
-import { build as buildSystemPrompt } from './prompt.js';
+import { build as buildSystemPrompt, nowLine } from './prompt.js';
 import { claudeRunTurn } from './claude.js';
 import { codexRunTurn } from './codex.js';
 
