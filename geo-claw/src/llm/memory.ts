@@ -1,3 +1,6 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { log } from '../log.js';
 import type { McpClient } from '../mcp/client.js';
 
