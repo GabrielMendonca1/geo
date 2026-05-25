@@ -22,11 +22,14 @@ function sessionKeyFor(ctx: ChannelContext): string {
   return `${ctx.channelKind}:${ctx.channelId}`;
 }
 
-// Channels that get Hermes-style hydration (memory snapshot + recent history)
-// AND where provider.ts owns persistence. Nano excluded: its IPC handler in
-// index.ts writes user msg BEFORE runTurn (so it'd double in the history block)
-// and its warm session keeps in-process context across turns. CLI excluded (dev).
-const HYDRATED_KINDS = new Set<ChannelContext['channelKind']>(['telegram', 'whatsapp', 'gmail']);
+// Channels that get Hermes-style hydration (soul + memory + recent history).
+// Nano joins now that its IPC handler writes user msg AFTER runTurn.
+// CLI excluded (dev REPL, system prompt already carries everything for one-shot).
+const HYDRATED_KINDS = new Set<ChannelContext['channelKind']>(['telegram', 'whatsapp', 'gmail', 'nano']);
+
+// Provider owns persistence for these channels; nano's IPC handler owns its own writes
+// (with attachment metadata that provider doesn't see).
+const PERSISTED_BY_PROVIDER = new Set<ChannelContext['channelKind']>(['telegram', 'whatsapp', 'gmail']);
 
 function storageChannelId(ctx: ChannelContext): string {
   return `${ctx.channelKind}:${ctx.channelId}`;
