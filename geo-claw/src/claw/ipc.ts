@@ -70,8 +70,15 @@ async function handleLine(line: string, conn: net.Socket, handlers: IpcHandlers)
     conn.write(JSON.stringify({ id, error: `unknown method: ${method}` }) + '\n');
     return;
   }
+  const ctx: IpcRequestCtx = {
+    id,
+    pushEvent: (event) => {
+      if (conn.destroyed || conn.writableEnded) return;
+      conn.write(JSON.stringify({ id, ...event }) + '\n');
+    },
+  };
   try {
-    const result = await handler(msg.params ?? {});
+    const result = await handler(msg.params ?? {}, ctx);
     conn.write(JSON.stringify({ id, result }) + '\n');
   } catch (err) {
     conn.write(JSON.stringify({ id, error: (err as Error).message }) + '\n');
