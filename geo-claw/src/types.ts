@@ -33,7 +33,7 @@ export type StatusFile = {
   crons: CronStatus[];
 };
 
-export type ChannelKind = ConnectorId | 'cli';
+export type ChannelKind = ConnectorId | 'cli' | 'nano';
 
 export type ChannelContext = {
   channelId: string;
