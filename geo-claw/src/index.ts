@@ -89,8 +89,7 @@ export function createDaemon(): Daemon {
         { channelKind: 'nano', channelId, fromName: 'Gabriel' },
         userText,
         {
-          onChunk: (delta) => ctx.pushEvent({ type: 'chunk', delta }),
-          onEvent: (event) => ctx.pushEvent({ type: event.type, ...event }),
+          onEvent: (event) => ctx.pushEvent(event as unknown as Record<string, unknown>),
         },
       );
       return { reply: turn.reply };
