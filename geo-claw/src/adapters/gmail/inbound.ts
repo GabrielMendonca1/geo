@@ -191,7 +191,7 @@ async function processMessage(opts: {
   }
 
   const ctx: ChannelContext = {
-    channelId: `gmail:${threadId}`,
+    channelId: threadId,
     channelKind: 'gmail',
     fromName: from.name,
     fromAddress: from.email,
