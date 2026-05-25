@@ -20,11 +20,18 @@ function sessionKeyFor(ctx: ChannelContext): string {
 }
 
 function channelDefaults(ctx: ChannelContext): { model?: string; effort?: string; maxTurns?: number } {
-  if (ctx.channelKind === 'cli' || ctx.channelKind === 'nano') {
+  if (ctx.channelKind === 'cli') {
     return {
       model: process.env.GEO_CLAW_CLAUDE_MODEL ?? 'claude-sonnet-4-6',
       effort: process.env.GEO_CLAW_CLAUDE_EFFORT ?? 'high',
       maxTurns: 8,
+    };
+  }
+  if (ctx.channelKind === 'nano') {
+    return {
+      model: process.env.GEO_CLAW_NANO_MODEL ?? 'claude-haiku-4-5',
+      effort: process.env.GEO_CLAW_NANO_EFFORT ?? 'low',
+      maxTurns: 6,
     };
   }
   return {};
