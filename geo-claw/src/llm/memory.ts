@@ -134,18 +134,18 @@ async function ensureBlock(
 
 export type Snapshot = { memory: string[]; profile: string[] };
 
-const SNAPSHOT_FETCH_TIMEOUT_MS = 3000;
+const PREFETCH_TIMEOUT_MS = 3000;
 
 export async function loadSnapshot(mcp: McpClient): Promise<Snapshot> {
   if (!mcp.isConnected()) return { memory: [], profile: [] };
   // Cap the prefetch so a hung MCP doesn't add 30s to every turn (mcp.call default is 30s).
   // After the first turn fills the cache, subsequent turns return synchronously.
   const fetch = Promise.all([fetchTarget(mcp, 'memory'), fetchTarget(mcp, 'profile')]);
-  const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), SNAPSHOT_FETCH_TIMEOUT_MS));
+  const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), PREFETCH_TIMEOUT_MS));
   try {
     const res = await Promise.race([fetch, timeout]);
     if (res === null) {
-      log.warn({ timeoutMs: SNAPSHOT_FETCH_TIMEOUT_MS }, 'memory:loadSnapshot-timeout');
+      log.warn({ timeoutMs: PREFETCH_TIMEOUT_MS }, 'memory:loadSnapshot-timeout');
       return { memory: [], profile: [] };
     }
     const [mem, prof] = res;
@@ -156,7 +156,7 @@ export async function loadSnapshot(mcp: McpClient): Promise<Snapshot> {
   }
 }
 
-export function formatPreamble(snap: Snapshot): string {
+export function formatMemoryContext(snap: Snapshot): string {
   const parts: string[] = [];
   if (snap.memory.length > 0) {
     parts.push(TARGETS.memory.header);
@@ -168,7 +168,106 @@ export function formatPreamble(snap: Snapshot): string {
     for (const e of snap.profile) parts.push(`- ${e}`);
   }
   if (parts.length === 0) return '';
-  return `${MEMORY_FENCE_PREAMBLE}\n\n<memory-context>\n${parts.join('\n')}\n</memory-context>`;
+  return `<memory-context>\n${parts.join('\n')}\n</memory-context>`;
+}
+
+// ---------- Soul ----------
+// A single Geo block (title 'Soul', tag 'soul') holding identity / capabilities /
+// voice rules / tool docs / guardrails. Same cache pattern as the memory snapshot.
+// Edited live in the Geo app; cache invalidates on local restart or explicit reload.
+
+const SOUL_TITLE = 'Soul';
+const SOUL_TAG = 'soul';
+
+type SoulCache = { blockId: string | null; markdown: string };
+let soulCache: SoulCache | null = null;
+let soulSeedAttempted = false;
+
+export function invalidateSoulCache(): void {
+  soulCache = null;
+}
+
+function resolveSoulDefaultPath(): string | null {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  // dist/llm/memory.js → ../../src/prompts/soul.default.md
+  // src/llm/memory.ts  → ../prompts/soul.default.md
+  const candidates = [
+    path.join(here, '..', '..', 'src', 'prompts', 'soul.default.md'),
+    path.join(here, '..', 'prompts', 'soul.default.md'),
+  ];
+  for (const p of candidates) {
+    try {
+      if (fs.statSync(p).isFile()) return p;
+    } catch {
+    }
+  }
+  return null;
+}
+
+async function readSoulDefault(): Promise<string> {
+  const p = resolveSoulDefaultPath();
+  if (!p) {
+    log.warn('memory:soul-default-not-found');
+    return '';
+  }
+  try {
+    return await fs.promises.readFile(p, 'utf8');
+  } catch (err) {
+    log.warn({ err: (err as Error).message, path: p }, 'memory:soul-default-read-failed');
+    return '';
+  }
+}
+
+async function fetchSoulInner(mcp: McpClient): Promise<string> {
+  let block: { id?: string; markdown?: string } | null = null;
+  try {
+    block = (await mcpCall(mcp, 'get_block_by_title', { title: SOUL_TITLE })) as
+      | { id?: string; markdown?: string }
+      | null;
+  } catch (err) {
+    log.debug({ err: (err as Error).message }, 'memory:soul-fetch-miss');
+    block = null;
+  }
+  if (block && typeof block.markdown === 'string' && block.markdown.length > 0) {
+    soulCache = { blockId: block.id ?? null, markdown: block.markdown };
+    return block.markdown;
+  }
+  if (soulSeedAttempted) return '';
+  soulSeedAttempted = true;
+  const defaultMd = await readSoulDefault();
+  if (defaultMd.length === 0) return '';
+  try {
+    await mcpCall(mcp, 'create_block', {
+      title: SOUL_TITLE,
+      content: defaultMd,
+      tag_name: SOUL_TAG,
+    });
+    log.info('memory:soul-seeded');
+  } catch (err) {
+    log.warn({ err: (err as Error).message }, 'memory:soul-seed-failed');
+  }
+  soulCache = { blockId: null, markdown: defaultMd };
+  return defaultMd;
+}
+
+export async function loadSoul(mcp: McpClient): Promise<string> {
+  if (soulCache) return soulCache.markdown;
+  if (!mcp.isConnected()) {
+    return readSoulDefault();
+  }
+  const timeout = new Promise<string>((resolve) =>
+    setTimeout(() => resolve(''), PREFETCH_TIMEOUT_MS),
+  );
+  try {
+    const md = await Promise.race([fetchSoulInner(mcp), timeout]);
+    if (md.length === 0) {
+      log.warn({ timeoutMs: PREFETCH_TIMEOUT_MS }, 'memory:loadSoul-empty-or-timeout');
+    }
+    return md;
+  } catch (err) {
+    log.warn({ err: (err as Error).message }, 'memory:loadSoul-failed');
+    return '';
+  }
 }
 
 export class MemoryError extends Error {}
