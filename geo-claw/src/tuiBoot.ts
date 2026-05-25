@@ -17,7 +17,7 @@ function main(): void {
   });
 
   const args = [
-    '--append-system-prompt', system,
+    '--system-prompt', system,
     '--model', process.env.GEO_CLAW_CLAUDE_MODEL ?? 'claude-sonnet-4-6',
     '--effort', process.env.GEO_CLAW_CLAUDE_EFFORT ?? 'high',
     '--strict-mcp-config',
