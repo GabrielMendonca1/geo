@@ -110,10 +110,9 @@ export function createDaemon(): Daemon {
           attachments.push({ type: 'file', mediaType: o.mediaType, base64: o.base64, name: o.name });
         }
       }
-      appendMessage(fullChannelId, 'user', JSON.stringify({
-        text: userText,
-        attachmentNames: attachments.map((a) => 'name' in a ? a.name : `image (${a.mediaType})`),
-      }));
+      // Persist user msg AFTER runTurn so provider.ts hydration doesn't see the
+      // current turn duplicated in <recent-history>. If runTurn throws the user
+      // msg is lost from durable history — acceptable: the TUI has live state.
       const turn = await llm.runTurn(
         { channelKind: 'nano', channelId, fromName: 'Gabriel' },
         userText,
@@ -122,6 +121,10 @@ export function createDaemon(): Daemon {
           attachments,
         },
       );
+      appendMessage(fullChannelId, 'user', JSON.stringify({
+        text: userText,
+        attachmentNames: attachments.map((a) => 'name' in a ? a.name : `image (${a.mediaType})`),
+      }));
       if (turn.reply) {
         appendMessage(fullChannelId, 'assistant', JSON.stringify({ text: turn.reply }));
       }
