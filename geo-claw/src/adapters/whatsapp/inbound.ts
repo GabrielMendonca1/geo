@@ -52,7 +52,7 @@ export async function handleInbound(opts: HandleInboundOpts): Promise<void> {
 
   log.info({ jid: remoteJid, len: text.length }, 'inbound:self-dm');
   const ctx: ChannelContext = {
-    channelId: `whatsapp:${remoteJid}`,
+    channelId: remoteJid,
     channelKind: 'whatsapp',
     fromAddress: remoteJid,
     fromName,
