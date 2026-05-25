@@ -110,7 +110,11 @@ function buildChannelContext(ctx: ChannelContext): string {
 }
 
 export function build(ctx: ChannelContext): string {
-  if (ctx.channelKind === 'cli' || ctx.channelKind === 'nano') {
+  if (ctx.channelKind === 'nano') {
+    // Warm sessions can't change system prompt per-turn; nowLine is prepended to userMessage instead.
+    return STATIC_TUI;
+  }
+  if (ctx.channelKind === 'cli') {
     return `${STATIC_TUI}\n\n---\n\n${nowLine()}`;
   }
   return `${STATIC_CHANNELS}\n\n---\n\n${buildChannelContext(ctx)}`;
