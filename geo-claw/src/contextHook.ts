@@ -54,7 +54,7 @@ async function main(): Promise<void> {
       '-p', `Prompt do user: """${prompt}"""\n\nGather relevant Geo context now. Be concise.`,
       '--system-prompt', PLANNING_SYSTEM,
       '--output-format', 'json',
-      '--model', 'claude-sonnet-4-6',
+      '--model', 'claude-haiku-4-5',
       '--effort', 'low',
       '--max-turns', '4',
       '--bare',
