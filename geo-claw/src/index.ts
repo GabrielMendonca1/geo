@@ -299,22 +299,6 @@ async function main(): Promise<void> {
     log.error({ err: err.message, stack: err.stack }, 'uncaughtException');
   });
 
-  if (isRepl) {
-    await startTui({
-      runTurn: async (text: string, onChunk) => {
-        const turn = await daemon.llm.runTurn(
-          { channelId: 'cli', channelKind: 'cli', fromName: 'Gabriel' },
-          text,
-          { onChunk },
-        );
-        return turn.reply ?? '';
-      },
-      statusFilePath: paths.statusFile,
-    });
-    await daemon.shutdown();
-    process.exit(0);
-  }
-
   const watcher = watchSignals(daemon);
   void watcher;
 
