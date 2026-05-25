@@ -62,6 +62,7 @@ export function createLLMLoop(_deps: LLMLoopDeps): LLMLoop {
               effort: defaults.effort,
               maxTurns: defaults.maxTurns,
               warm: useWarm,
+              attachments: opts?.attachments,
             });
       const text = result.text.trim();
       return { reply: text.length > 0 ? text : null };
