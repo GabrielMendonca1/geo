@@ -25,6 +25,41 @@ const TOOLS: Tool[] = [
     },
     ipcMethod: 'whatsapp.send_to_self',
   },
+  {
+    name: 'conversations_list_channels',
+    description:
+      "List channels (whatsapp/gmail/telegram) the daemon has handled conversations with. Returns channelId (e.g. 'whatsapp:5511...', 'gmail:user@...', 'telegram:...'), last activity timestamp (ms epoch), and message count. Use to discover who he has been talking to.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        prefix: {
+          type: 'string',
+          description: 'Optional prefix filter — "whatsapp:", "gmail:", or "telegram:". Empty = all.',
+        },
+        limit: { type: 'number', description: 'Max channels to return (default 50).' },
+      },
+      additionalProperties: false,
+    },
+    ipcMethod: 'conversations.list_channels',
+  },
+  {
+    name: 'conversations_get_history',
+    description:
+      "Get message history for one channel (returned by conversations_list_channels). Each row has role ('user' = the external person; 'assistant' = the daemon's auto-reply on Gabriel's behalf), content (JSON-stringified message body), and ts (ms epoch). Returned in chronological order.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        channelId: {
+          type: 'string',
+          description: "Channel id (e.g. 'whatsapp:5511XXX', 'gmail:user@...').",
+        },
+        limit: { type: 'number', description: 'Max recent messages to fetch (default 20).' },
+      },
+      required: ['channelId'],
+      additionalProperties: false,
+    },
+    ipcMethod: 'conversations.get_history',
+  },
 ];
 
 function write(msg: unknown): void {
