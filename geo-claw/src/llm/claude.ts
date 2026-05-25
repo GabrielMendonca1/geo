@@ -370,12 +370,26 @@ async function claudeRunTurnWarm(opts: RunTurnOptions): Promise<RunTurnResult> {
 
     session!.inflight = { cb, resolve, reject, timer };
 
+    const contentBlocks: unknown[] = [];
+    if (opts.attachments) {
+      for (const att of opts.attachments) {
+        if (att.type === 'image') {
+          contentBlocks.push({
+            type: 'image',
+            source: { type: 'base64', media_type: att.mediaType, data: att.base64 },
+          });
+        } else if (att.type === 'file') {
+          contentBlocks.push({
+            type: 'document',
+            source: { type: 'base64', media_type: att.mediaType, data: att.base64 },
+          });
+        }
+      }
+    }
+    contentBlocks.push({ type: 'text', text: opts.userMessage });
     const userMessage = {
       type: 'user',
-      message: {
-        role: 'user',
-        content: [{ type: 'text', text: opts.userMessage }],
-      },
+      message: { role: 'user', content: contentBlocks },
     };
     try {
       session!.child.stdin.write(JSON.stringify(userMessage) + '\n');
@@ -383,6 +397,14 @@ async function claudeRunTurnWarm(opts: RunTurnOptions): Promise<RunTurnResult> {
       finishWarmTurn(session!, err as Error);
     }
   });
+}
+
+export function cancelWarmTurn(sessionKey: string): boolean {
+  const session = warmSessions.get(sessionKey);
+  if (!session) return false;
+  // Killing the child is the safest cancel — input-stream cancellation isn't standardized.
+  try { session.child.kill('SIGTERM'); } catch {}
+  return true;
 }
 
 export function closeWarmSessions(): void {
