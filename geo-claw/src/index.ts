@@ -91,23 +91,49 @@ export function createDaemon(): Daemon {
       return { droppedSession, clearedMessages };
     },
     'llm.run_turn': async (params, ctx) => {
-      const p = (params as { channelId?: unknown; userText?: unknown }) ?? {};
+      const p = (params as { channelId?: unknown; userText?: unknown; attachments?: unknown }) ?? {};
       const channelId = typeof p.channelId === 'string' && p.channelId.length > 0 ? p.channelId : 'main';
       const userText = typeof p.userText === 'string' ? p.userText : '';
-      if (userText.length === 0) throw new Error('userText must be a non-empty string');
+      const attachmentsIn = Array.isArray(p.attachments) ? p.attachments : [];
+      if (userText.length === 0 && attachmentsIn.length === 0) {
+        throw new Error('userText or attachments required');
+      }
       const fullChannelId = `nano:${channelId}`;
-      appendMessage(fullChannelId, 'user', JSON.stringify({ text: userText }));
+      const attachments = attachmentsIn
+        .map((a) => {
+          const o = a as { type?: unknown; mediaType?: unknown; base64?: unknown; name?: unknown };
+          const type = o.type === 'image' || o.type === 'file' ? o.type : null;
+          if (!type) return null;
+          if (typeof o.mediaType !== 'string' || typeof o.base64 !== 'string') return null;
+          if (type === 'file' && typeof o.name !== 'string') return null;
+          return type === 'image'
+            ? { type, mediaType: o.mediaType, base64: o.base64 }
+            : { type, mediaType: o.mediaType, base64: o.base64, name: o.name as string };
+        })
+        .filter((a): a is NonNullable<typeof a> => a !== null);
+      appendMessage(fullChannelId, 'user', JSON.stringify({
+        text: userText,
+        attachmentNames: attachments.map((a) => 'name' in a ? a.name : `image (${a.mediaType})`),
+      }));
       const turn = await llm.runTurn(
         { channelKind: 'nano', channelId, fromName: 'Gabriel' },
         userText,
         {
           onEvent: (event) => ctx.pushEvent(event as unknown as Record<string, unknown>),
+          attachments,
         },
       );
       if (turn.reply) {
         appendMessage(fullChannelId, 'assistant', JSON.stringify({ text: turn.reply }));
       }
       return { reply: turn.reply };
+    },
+    'llm.cancel': async (params) => {
+      const p = (params as { channelId?: unknown }) ?? {};
+      const channelId = typeof p.channelId === 'string' && p.channelId.length > 0 ? p.channelId : 'main';
+      const sessionKey = `nano:${channelId}`;
+      const cancelled = cancelWarmTurn(sessionKey);
+      return { cancelled };
     },
   })
     .then((srv) => {
