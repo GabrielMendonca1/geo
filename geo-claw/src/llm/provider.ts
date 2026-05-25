@@ -46,6 +46,7 @@ export function createLLMLoop(_deps: LLMLoopDeps): LLMLoop {
               userMessage: userText,
               sessionKey: sessionKeyFor(ctx),
               onChunk: opts?.onChunk,
+              onEvent: opts?.onEvent,
               model: defaults.model,
               effort: defaults.effort,
               maxTurns: defaults.maxTurns,
