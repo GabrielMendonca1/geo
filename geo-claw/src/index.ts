@@ -80,6 +80,21 @@ export function createDaemon(): Daemon {
       const limit = typeof p.limit === 'number' ? p.limit : 20;
       return loadHistory(channelId, limit);
     },
+    'llm.run_turn': async (params, ctx) => {
+      const p = (params as { channelId?: unknown; userText?: unknown }) ?? {};
+      const channelId = typeof p.channelId === 'string' && p.channelId.length > 0 ? p.channelId : 'nano:main';
+      const userText = typeof p.userText === 'string' ? p.userText : '';
+      if (userText.length === 0) throw new Error('userText must be a non-empty string');
+      const turn = await llm.runTurn(
+        { channelKind: 'nano', channelId, fromName: 'Gabriel' },
+        userText,
+        {
+          onChunk: (delta) => ctx.pushEvent({ type: 'chunk', delta }),
+          onEvent: (event) => ctx.pushEvent({ type: event.type, ...event }),
+        },
+      );
+      return { reply: turn.reply };
+    },
   })
     .then((srv) => {
       ipcServer = srv;
