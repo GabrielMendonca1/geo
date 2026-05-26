@@ -15,7 +15,10 @@ struct NanoPane: View {
     var body: some View {
         Pane {
             VStack(spacing: 12) {
-                if let banner = recentError {
+                if service.setupState != .running {
+                    HermesSetupBanner(service: service)
+                }
+                if let banner = recentError, service.setupState == .running {
                     ErrorBanner(event: banner) {
                         scrollTargetId = banner.id
                     } onDismiss: {
@@ -55,6 +58,125 @@ struct NanoPane: View {
               last.id != dismissedErrorId,
               Date().timeIntervalSince(last.timestamp) <= 60 else { return nil }
         return last
+    }
+}
+
+// MARK: - Setup banner --------------------------------------------------
+
+private struct HermesSetupBanner: View {
+    @ObservedObject var service: HermesStatusService
+
+    var body: some View {
+        let copy = bannerCopy
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: copy.icon)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(GeoColors.blue)
+                .frame(width: 22, alignment: .center)
+                .padding(.top, 2)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(copy.title)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.primary)
+                Text(copy.body)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let hint = copy.hint {
+                    Text(hint)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(.secondary.opacity(0.85))
+                        .padding(.top, 1)
+                }
+                if let error = service.lastError, !error.isEmpty {
+                    Text(error)
+                        .font(.system(size: 10))
+                        .foregroundStyle(Color(red: 0.95, green: 0.32, blue: 0.32))
+                        .padding(.top, 2)
+                }
+            }
+            Spacer(minLength: 8)
+            Button {
+                copy.action()
+            } label: {
+                HStack(spacing: 5) {
+                    if service.setupActionInFlight {
+                        ProgressView()
+                            .controlSize(.small)
+                            .scaleEffect(0.7)
+                    } else {
+                        Image(systemName: copy.buttonIcon)
+                            .font(.system(size: 10, weight: .medium))
+                    }
+                    Text(copy.buttonLabel)
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .fill(GeoColors.blue)
+                )
+                .foregroundStyle(.white)
+            }
+            .buttonStyle(.plain)
+            .disabled(service.setupActionInFlight)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(GeoColors.blue.opacity(0.06))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(GeoColors.blue.opacity(0.30), lineWidth: 0.7)
+        )
+    }
+
+    private struct BannerCopy {
+        let icon: String
+        let title: String
+        let body: String
+        let hint: String?
+        let buttonLabel: String
+        let buttonIcon: String
+        let action: () -> Void
+    }
+
+    private var bannerCopy: BannerCopy {
+        switch service.setupState {
+        case .notInstalled:
+            return BannerCopy(
+                icon: "shippingbox.fill",
+                title: "Hermes is not installed",
+                body: "Hermes is the always-on agent that powers Geo's Telegram, WhatsApp, and Gmail integration. Install it to enable channels and the kanban dispatch.",
+                hint: "After install, run ./hermes/install.sh from this repo to seed config + ~/.hermes/.env.",
+                buttonLabel: "Install Hermes",
+                buttonIcon: "arrow.down.circle.fill",
+                action: { [service] in service.installHermes() }
+            )
+        case .installedNotRunning:
+            return BannerCopy(
+                icon: "power.circle.fill",
+                title: "Hermes is installed but not running",
+                body: "The hermes binary is on PATH but the LaunchAgent is stopped. Start the gateway to enable channels.",
+                hint: nil,
+                buttonLabel: "Start Hermes",
+                buttonIcon: "play.fill",
+                action: { [service] in service.startGateway() }
+            )
+        case .running:
+            return BannerCopy(
+                icon: "checkmark.circle.fill",
+                title: "Hermes is running",
+                body: "",
+                hint: nil,
+                buttonLabel: "OK",
+                buttonIcon: "checkmark",
+                action: {}
+            )
+        }
     }
 }
 

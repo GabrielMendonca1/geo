@@ -49,6 +49,20 @@ final class HermesStatusService: ObservableObject {
     @Published private(set) var crons: [JobRuntime] = []
     @Published var whatsappQR: NSImage?
     @Published private(set) var lastError: String?
+    @Published private(set) var binaryInstalled: Bool = false
+    @Published private(set) var setupActionInFlight: Bool = false
+
+    enum SetupState: Equatable {
+        case running
+        case installedNotRunning
+        case notInstalled
+    }
+
+    var setupState: SetupState {
+        if !binaryInstalled { return .notInstalled }
+        if !mcpConnected { return .installedNotRunning }
+        return .running
+    }
 
     private let logger = Logger(subsystem: "ai.geo", category: "HermesStatusService")
     private var pollTask: Task<Void, Never>?
@@ -80,12 +94,89 @@ final class HermesStatusService: ObservableObject {
     }
 
     private func pollOnce() async {
-        let daemonUp = await Self.daemonRunning()
-        let statusData = await Self.readStatusData()
+        let installed = await Self.binaryOnPath()
+        let daemonUp: Bool
+        if installed {
+            daemonUp = await Self.daemonRunning()
+        } else {
+            daemonUp = false
+        }
+        let statusData: Data?
+        if installed {
+            statusData = await Self.readStatusData()
+        } else {
+            statusData = nil
+        }
         let parsed = statusData.flatMap { Self.parseStatusData($0) }
+        self.binaryInstalled = installed
         self.applyDaemon(daemonUp: daemonUp)
         self.applyStatus(parsed)
         self.lastTick = Date()
+    }
+
+    func installHermes() {
+        guard !setupActionInFlight else { return }
+        setupActionInFlight = true
+        let cmd = "curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash"
+        Self.openTerminal(command: cmd)
+        Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            await MainActor.run { self?.setupActionInFlight = false }
+        }
+    }
+
+    func startGateway() {
+        guard !setupActionInFlight else { return }
+        setupActionInFlight = true
+        Task { [weak self] in
+            let result = await Self.runHermesGatewayStart()
+            await MainActor.run {
+                guard let self else { return }
+                if let err = result {
+                    self.lastError = err
+                }
+                self.setupActionInFlight = false
+            }
+        }
+    }
+
+    private static func runHermesGatewayStart() async -> String? {
+        await Task.detached(priority: .userInitiated) {
+            let proc = Process()
+            proc.launchPath = "/bin/zsh"
+            proc.arguments = ["-lc", "hermes gateway start"]
+            let errPipe = Pipe()
+            proc.standardError = errPipe
+            proc.standardOutput = FileHandle.nullDevice
+            do {
+                try proc.run()
+                proc.waitUntilExit()
+                if proc.terminationStatus == 0 { return nil as String? }
+                let data = try errPipe.fileHandleForReading.readToEnd() ?? Data()
+                let s = String(data: data, encoding: .utf8)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                return s.isEmpty ? "hermes gateway start failed" : s
+            } catch {
+                return error.localizedDescription
+            }
+        }.value
+    }
+
+    private static func binaryOnPath() async -> Bool {
+        await Task.detached(priority: .utility) {
+            let proc = Process()
+            proc.launchPath = "/bin/zsh"
+            proc.arguments = ["-lc", "command -v hermes"]
+            proc.standardOutput = FileHandle.nullDevice
+            proc.standardError = FileHandle.nullDevice
+            do {
+                try proc.run()
+                proc.waitUntilExit()
+                return proc.terminationStatus == 0
+            } catch {
+                return false
+            }
+        }.value
     }
 
     private func applyDaemon(daemonUp: Bool) {
