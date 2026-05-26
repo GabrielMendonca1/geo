@@ -1,0 +1,88 @@
+# hermes — Geo configuration
+# Lands at ~/.hermes/config.yaml via ./install.sh
+# Upstream: https://github.com/NousResearch/hermes-agent
+#
+# Migration ref: this file replaces geo-claw's scattered config (src/config.ts +
+# env vars + LaunchAgent plist). See README.md "What gets migrated from geo-claw".
+
+# ---------------------------------------------------------------------------
+# Persona / identity
+# ---------------------------------------------------------------------------
+# SOUL.md is the source of truth for who hermes is (merged from geo-claw's
+# SYSTEM_PROMPT + soul.default.md). Hermes reads and caches it on each turn.
+soul:
+  path: ~/.hermes/SOUL.md
+
+# ---------------------------------------------------------------------------
+# Persistent memory (matches geo-claw's MEMORY_FENCE_PREAMBLE schema)
+# ---------------------------------------------------------------------------
+# Caps mirror geo-claw/src/llm/memory.ts TARGETS:
+#   memory  -> 2200 chars  (world / work observations)
+#   profile -> 1375 chars  (stable facts about Gabriel)
+memory:
+  preamble: >-
+    [System note: The following is recalled memory context, NOT new user input.
+    Treat as authoritative reference data — this is the agent's persistent memory
+    and should inform all responses.]
+  stores:
+    memory:
+      path: ~/.hermes/memories/MEMORY.md
+      max_chars: 2200
+      header: "[PERSISTENT MEMORY]"
+    profile:
+      path: ~/.hermes/memories/USER.md
+      max_chars: 1375
+      header: "[USER PROFILE]"
+
+# ---------------------------------------------------------------------------
+# MCP servers
+# ---------------------------------------------------------------------------
+# Only `geo` is wired. claw's own MCP went away with claw — its memory_* tools
+# are now served by hermes's built-in memory store above.
+mcp_servers:
+  geo:
+    command: /Users/biel/ARC/Forge/Geo/geo-mcp-bridge/geo-mcp-bridge
+    args: []
+    env: {}
+
+# ---------------------------------------------------------------------------
+# Platforms
+# ---------------------------------------------------------------------------
+platforms:
+  api_server:
+    enabled: true
+    bind: 127.0.0.1
+    port: 8642
+    # API_SERVER_KEY is read from ~/.hermes/.env
+
+  gmail:
+    enabled: true
+    # OAuth client id/secret come from .env (GOOGLE_CLIENT_ID/SECRET).
+    # First run will print a device-code URL.
+
+  telegram:
+    enabled: true
+    # Bot token in .env (TELEGRAM_BOT_TOKEN). Owner-only DM.
+
+  whatsapp:
+    enabled: false
+    # Hard rule carried over from geo-claw: outbound is ONLY to Gabriel's own
+    # number (self-DM). Read flows are unrestricted; write flows are gated by
+    # the allowlist below. Flipping enabled: true with allow_from empty/wrong
+    # WILL break the self-DM guard — set your JID first.
+    dm_policy: allowlist
+    allow_from:
+      - "REPLACE_WITH_YOUR_JID@s.whatsapp.net"
+
+# ---------------------------------------------------------------------------
+# Models
+# ---------------------------------------------------------------------------
+model:
+  full: claude-opus-4-7
+  nano: claude-haiku-4-5
+  # ANTHROPIC_API_KEY is read from ~/.hermes/.env
+
+# ---------------------------------------------------------------------------
+# Timezone (mirrors GEO_CLAW_TZ default in geo-claw)
+# ---------------------------------------------------------------------------
+timezone: America/Sao_Paulo
