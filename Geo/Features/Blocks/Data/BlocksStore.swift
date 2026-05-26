@@ -34,6 +34,7 @@ class BlocksStore: ObservableObject {
         var status: String?
         var type: BlockType
         var layer: BlockLayer
+        var frontmatter_version: Int
 
         init(
             dayId: String? = nil,
@@ -41,7 +42,8 @@ class BlocksStore: ObservableObject {
             isFullWidth: Bool = false,
             status: String? = nil,
             type: BlockType = .fleeting,
-            layer: BlockLayer = .default
+            layer: BlockLayer = .default,
+            frontmatter_version: Int = 0
         ) {
             self.dayId = dayId
             self.tagId = tagId
@@ -49,10 +51,11 @@ class BlocksStore: ObservableObject {
             self.status = status
             self.type = type
             self.layer = layer
+            self.frontmatter_version = frontmatter_version
         }
 
         enum CodingKeys: String, CodingKey {
-            case dayId, tagId, isFullWidth, status, type, layer
+            case dayId, tagId, isFullWidth, status, type, layer, frontmatter_version
         }
 
         init(from decoder: Decoder) throws {
@@ -63,6 +66,7 @@ class BlocksStore: ObservableObject {
             status = try container.decodeIfPresent(String.self, forKey: .status)
             type = try container.decodeIfPresent(BlockType.self, forKey: .type) ?? .fleeting
             layer = try container.decodeIfPresent(BlockLayer.self, forKey: .layer) ?? .default
+            frontmatter_version = try container.decodeIfPresent(Int.self, forKey: .frontmatter_version) ?? 0
         }
 
         func encode(to encoder: Encoder) throws {
@@ -77,10 +81,13 @@ class BlocksStore: ObservableObject {
             if layer != .default {
                 try container.encode(layer, forKey: .layer)
             }
+            if frontmatter_version != 0 {
+                try container.encode(frontmatter_version, forKey: .frontmatter_version)
+            }
         }
 
         var isPersisted: Bool {
-            dayId != nil || tagId != nil || isFullWidth || status != nil || layer != .default
+            dayId != nil || tagId != nil || isFullWidth || status != nil || layer != .default || frontmatter_version != 0
         }
     }
 
@@ -90,6 +97,7 @@ class BlocksStore: ObservableObject {
     private let indexCoordinator: IndexCoordinator
     private let dayManager: DayManager
     private let markdownConverter: MarkdownConverter
+    private let frontmatterMutatorActor = FrontmatterMutatorActor()
     nonisolated(unsafe) private var pendingSaves: Set<Task<Void, Never>> = []
     nonisolated(unsafe) private let pendingSavesLock = NSLock()
 
@@ -280,6 +288,7 @@ class BlocksStore: ObservableObject {
             let newTitle = fileService.titleFromDocument(document, fallback: interimTitle, allowTodoTitle: false)
             let status = MarkdownConverter.normalizedStatus(document.frontmatter["status"])
             let type = MarkdownConverter.normalizedType(document.frontmatter["type"])
+            let fmVersion = MarkdownConverter.frontmatterVersion(document.frontmatter["frontmatter_version"])
 
             await indexCoordinator.index(block: snapshotForIndex, document: document)
 
@@ -291,6 +300,7 @@ class BlocksStore: ObservableObject {
                 var meta = self.metadataService.currentMetadata(for: blockId) ?? live.metadata
                 meta.status = status
                 meta.type = type
+                meta.frontmatter_version = fmVersion
                 self.blocks[liveIndex] = Block(
                     id: live.id,
                     title: newTitle,
@@ -351,6 +361,7 @@ class BlocksStore: ObservableObject {
         var meta = metadataService.currentMetadata(for: currentBlock.id) ?? currentBlock.metadata
         meta.status = MarkdownConverter.normalizedStatus(document.frontmatter["status"])
         meta.type = MarkdownConverter.normalizedType(document.frontmatter["type"])
+        meta.frontmatter_version = MarkdownConverter.frontmatterVersion(document.frontmatter["frontmatter_version"])
         let updatedBlock = Block(
             id: currentBlock.id,
             title: newTitle,
@@ -463,97 +474,39 @@ class BlocksStore: ObservableObject {
     @MainActor
     @discardableResult
     func setType(_ type: BlockType, for blockId: String) async -> Bool {
-        guard let block = blocks.first(where: { $0.id == blockId }) else { return false }
-        let newMarkdown = Self.applyFrontmatter(to: block.markdown, key: "type", value: type.rawValue)
-        updateBlockMetadata(for: blockId) { metadata in
-            metadata.type = type
+        guard blocks.contains(where: { $0.id == blockId }) else { return false }
+        do {
+            _ = try await mutateFrontmatter(blockID: blockId, merge: ["type": .string(type.rawValue)])
+            if let live = blocks.first(where: { $0.id == blockId }) {
+                metadataService.persistMetadata(live.metadata, for: blockId)
+            }
+            return true
+        } catch {
+            logger.error("setType failed for \(blockId): \(error.localizedDescription)")
+            return false
         }
-        return await updateBlock(block, newMarkdown: newMarkdown)
     }
 
     @MainActor
     @discardableResult
     func setStatus(_ status: String?, for blockId: String) async -> Bool {
-        guard let block = blocks.first(where: { $0.id == blockId }) else { return false }
-        let newMarkdown = Self.applyFrontmatter(to: block.markdown, key: "status", value: status)
-        updateBlockMetadata(for: blockId) { metadata in
-            metadata.status = status
-        }
-        return await updateBlock(block, newMarkdown: newMarkdown)
-    }
-
-    static func applyFrontmatter(to markdown: String, key: String, value: String?) -> String {
-        let lines = markdown.components(separatedBy: "\n")
-        var leadingBlankCount = 0
-        while leadingBlankCount < lines.count,
-              lines[leadingBlankCount].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            leadingBlankCount += 1
-        }
-
-        let hasFrontmatter = leadingBlankCount < lines.count
-            && lines[leadingBlankCount].trimmingCharacters(in: .whitespacesAndNewlines) == "---"
-
-        var openIndex: Int = leadingBlankCount
-        var closeIndex: Int = -1
-        var frontmatterLines: [String] = []
-
-        if hasFrontmatter {
-            var i = openIndex + 1
-            while i < lines.count {
-                let trimmed = lines[i].trimmingCharacters(in: .whitespacesAndNewlines)
-                if trimmed == "---" {
-                    closeIndex = i
-                    break
-                }
-                frontmatterLines.append(lines[i])
-                i += 1
-            }
-            if closeIndex == -1 {
-                return Self.insertFreshFrontmatter(into: markdown, key: key, value: value)
-            }
-        } else {
-            return Self.insertFreshFrontmatter(into: markdown, key: key, value: value)
-        }
-
-        var foundKey = false
-        var newFrontmatter: [String] = []
-        for line in frontmatterLines {
-            let parts = line.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
-            let lineKey = parts.first.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) } ?? ""
-            if lineKey == key {
-                foundKey = true
-                if let value, !value.isEmpty {
-                    newFrontmatter.append("\(key): \(value)")
-                }
+        guard blocks.contains(where: { $0.id == blockId }) else { return false }
+        do {
+            let merge: [String: AnyCodableValue]
+            if let status, !status.isEmpty {
+                merge = ["status": .string(status)]
             } else {
-                newFrontmatter.append(line)
+                merge = ["status": .null]
             }
+            _ = try await mutateFrontmatter(blockID: blockId, merge: merge)
+            if let live = blocks.first(where: { $0.id == blockId }) {
+                metadataService.persistMetadata(live.metadata, for: blockId)
+            }
+            return true
+        } catch {
+            logger.error("setStatus failed for \(blockId): \(error.localizedDescription)")
+            return false
         }
-
-        if !foundKey, let value, !value.isEmpty {
-            newFrontmatter.append("\(key): \(value)")
-        }
-
-        var rebuilt: [String] = []
-        rebuilt.append(contentsOf: lines.prefix(openIndex))
-        if newFrontmatter.isEmpty {
-            rebuilt.append(contentsOf: lines.dropFirst(closeIndex + 1))
-        } else {
-            rebuilt.append("---")
-            rebuilt.append(contentsOf: newFrontmatter)
-            rebuilt.append("---")
-            rebuilt.append(contentsOf: lines.dropFirst(closeIndex + 1))
-        }
-        return rebuilt.joined(separator: "\n")
-    }
-
-    private static func insertFreshFrontmatter(into markdown: String, key: String, value: String?) -> String {
-        guard let value, !value.isEmpty else { return markdown }
-        let block = "---\n\(key): \(value)\n---\n"
-        if markdown.isEmpty {
-            return block
-        }
-        return block + markdown
     }
 
     func clearTagAssignments(for tagId: String) {
@@ -621,6 +574,7 @@ class BlocksStore: ObservableObject {
         meta.status = markdownConverter.status(in: entry.content)
         meta.type = markdownConverter.type(in: entry.content)
         meta.layer = BlockLayer(rawValue: entry.layer) ?? .default
+        meta.frontmatter_version = markdownConverter.frontmatterVersion(in: entry.content)
         return meta
     }
 
@@ -637,6 +591,50 @@ class BlocksStore: ObservableObject {
             return
         }
         loadBlocksFromFiles()
+    }
+
+    @discardableResult
+    func mutateFrontmatter(blockID: String, merge: [String: AnyCodableValue]) async throws -> Int {
+        return try await frontmatterMutatorActor.enqueue(blockID: blockID) { [weak self] in
+            try await self?.performFrontmatterMutation(blockID: blockID, merge: merge) ?? 0
+        }
+    }
+
+    private func performFrontmatterMutation(blockID: String, merge: [String: AnyCodableValue]) async throws -> Int {
+        guard let current = self.blocks.first(where: { $0.id == blockID }) else {
+            throw FrontmatterMutationError.blockNotFound(blockID)
+        }
+        let currentVersion = current.metadata.frontmatter_version
+        let newVersion = currentVersion + 1
+        var mergeWithVersion = merge
+        mergeWithVersion["frontmatter_version"] = .int(newVersion)
+        let newMarkdown = FrontmatterEditor.upsert(in: current.markdown, values: mergeWithVersion)
+
+        try await fileService.writeMarkdownToDisk(newMarkdown, url: current.url)
+
+        guard let idx = self.blocks.firstIndex(where: { $0.id == blockID }) else { return newVersion }
+        let live = self.blocks[idx]
+        var meta = live.metadata
+        meta.frontmatter_version = newVersion
+        meta.status = self.markdownConverter.status(in: newMarkdown)
+        meta.type = self.markdownConverter.type(in: newMarkdown)
+        let updated = Block(
+            id: live.id,
+            title: live.title,
+            date: live.date,
+            lastEdited: Date(),
+            markdown: newMarkdown,
+            url: live.url,
+            tagId: meta.tagId,
+            metadata: meta
+        )
+        self.blocks[idx] = updated
+        self.changeReconciler.recordWrite(for: blockID)
+        Task { [indexCoordinator] in
+            await indexCoordinator.index(block: updated)
+        }
+
+        return newVersion
     }
 
     private func loadBlocksFromFiles() {
@@ -656,6 +654,118 @@ class BlocksStore: ObservableObject {
         }
     }
 
+}
+
+enum FrontmatterMutationError: Error, Equatable {
+    case blockNotFound(String)
+}
+
+actor FrontmatterMutatorActor {
+    private var tails: [String: Task<Int, Error>] = [:]
+
+    func enqueue(blockID: String, work: @escaping @Sendable () async throws -> Int) async throws -> Int {
+        let prior = tails[blockID]
+        let task = Task<Int, Error> {
+            if let prior {
+                _ = try? await prior.value
+            }
+            return try await work()
+        }
+        tails[blockID] = task
+        defer {
+            if tails[blockID] == task {
+                tails[blockID] = nil
+            }
+        }
+        return try await task.value
+    }
+}
+
+enum FrontmatterEditor {
+    static func upsert(in markdown: String, values: [String: AnyCodableValue]) -> String {
+        let lines = markdown.components(separatedBy: "\n")
+        var leadingBlankCount = 0
+        while leadingBlankCount < lines.count,
+              lines[leadingBlankCount].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            leadingBlankCount += 1
+        }
+        let hasOpen = leadingBlankCount < lines.count
+            && lines[leadingBlankCount].trimmingCharacters(in: .whitespacesAndNewlines) == "---"
+
+        guard hasOpen else {
+            return buildFresh(values: values) + (markdown.isEmpty ? "" : markdown)
+        }
+
+        var closeIndex: Int = -1
+        var frontmatterLines: [String] = []
+        var i = leadingBlankCount + 1
+        while i < lines.count {
+            let trimmed = lines[i].trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed == "---" {
+                closeIndex = i
+                break
+            }
+            frontmatterLines.append(lines[i])
+            i += 1
+        }
+        if closeIndex == -1 {
+            return buildFresh(values: values) + markdown
+        }
+
+        var remaining = values
+        var newFrontmatter: [String] = []
+        for line in frontmatterLines {
+            let parts = line.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
+            let key = parts.first.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) } ?? ""
+            if let newValue = remaining.removeValue(forKey: key) {
+                newFrontmatter.append("\(key): \(serialize(newValue))")
+            } else {
+                newFrontmatter.append(line)
+            }
+        }
+        for key in remaining.keys.sorted() {
+            guard let value = remaining[key] else { continue }
+            newFrontmatter.append("\(key): \(serialize(value))")
+        }
+
+        var rebuilt: [String] = []
+        rebuilt.append(contentsOf: lines.prefix(leadingBlankCount))
+        rebuilt.append("---")
+        rebuilt.append(contentsOf: newFrontmatter)
+        rebuilt.append("---")
+        rebuilt.append(contentsOf: lines.dropFirst(closeIndex + 1))
+        return rebuilt.joined(separator: "\n")
+    }
+
+    private static func buildFresh(values: [String: AnyCodableValue]) -> String {
+        var block = "---\n"
+        for key in values.keys.sorted() {
+            guard let value = values[key] else { continue }
+            block += "\(key): \(serialize(value))\n"
+        }
+        block += "---\n"
+        return block
+    }
+
+    static func serialize(_ value: AnyCodableValue) -> String {
+        switch value {
+        case .string(let s):
+            return s
+        case .int(let i):
+            return String(i)
+        case .double(let d):
+            return String(d)
+        case .bool(let b):
+            return b ? "true" : "false"
+        case .null:
+            return ""
+        case .array(let arr):
+            let items = arr.map { serialize($0) }
+            return "[\(items.joined(separator: ", "))]"
+        case .object:
+            return ""
+        }
+    }
 }
 
 struct BlockCheckbox: Hashable, Sendable {

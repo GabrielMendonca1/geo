@@ -7,7 +7,7 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
     case history
     case appearance
     case ai
-    case nanoClaw
+    case nanoHermes
     case advanced
 
     var id: String { rawValue }
@@ -24,8 +24,8 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
             return "Behavior"
         case .ai:
             return "AI"
-        case .nanoClaw:
-            return "Geo Claw"
+        case .nanoHermes:
+            return "Hermes"
         case .advanced:
             return "Advanced"
         }
@@ -43,7 +43,7 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
             return "slider.horizontal.3"
         case .ai:
             return "sparkles"
-        case .nanoClaw:
+        case .nanoHermes:
             return "antenna.radiowaves.left.and.right"
         case .advanced:
             return "wrench.and.screwdriver"
@@ -106,8 +106,8 @@ struct GeneralSettingsView: View {
                         appearancePane
                     case .ai:
                         aiPane
-                    case .nanoClaw:
-                        nanoClawPane
+                    case .nanoHermes:
+                        nanoHermesPane
                     case .advanced:
                         advancedPane
                     }
@@ -427,14 +427,14 @@ struct GeneralSettingsView: View {
         }
     }
 
-    private var nanoClawPane: some View {
+    private var nanoHermesPane: some View {
         VStack(alignment: .leading, spacing: 16) {
             SettingsSectionHeader(
-                title: "Geo Claw",
-                subtitle: "Daemon-backed connectors that keep WhatsApp, Gmail, and Telegram online for the agent."
+                title: "Hermes",
+                subtitle: "The hermes gateway runs as a LaunchAgent and bridges WhatsApp, Gmail, and Telegram for the agent."
             )
 
-            NanoClawSettingsView()
+            NanoHermesSettingsView()
         }
     }
 

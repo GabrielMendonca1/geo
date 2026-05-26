@@ -2,20 +2,41 @@ import SwiftUI
 
 enum AIAgentKind: String, CaseIterable, Codable, Hashable, Identifiable {
     case pi
+    case hermes
 
     var id: String { rawValue }
 
-    var label: String { "pi" }
+    var label: String {
+        switch self {
+        case .pi: return "pi"
+        case .hermes: return "hermes"
+        }
+    }
 
     var displayName: String { label }
 
-    var shortLabel: String { "pi" }
+    var shortLabel: String { label }
 
-    var executableName: String { "pi" }
+    var executableName: String {
+        switch self {
+        case .pi: return "pi"
+        case .hermes: return "hermes"
+        }
+    }
 
-    var symbolName: String { "sparkles" }
+    var symbolName: String {
+        switch self {
+        case .pi: return "sparkles"
+        case .hermes: return "wand.and.stars"
+        }
+    }
 
-    var tint: Color { Color(red: 0.40, green: 0.50, blue: 0.95) }
+    var tint: Color {
+        switch self {
+        case .pi: return Color(red: 0.40, green: 0.50, blue: 0.95)
+        case .hermes: return Color(red: 0.85, green: 0.60, blue: 0.20)
+        }
+    }
 }
 
 enum AIServiceStatus: String, Codable, Hashable {

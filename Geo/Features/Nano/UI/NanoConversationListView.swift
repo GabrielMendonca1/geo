@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct NanoConversationListView: View {
-    @ObservedObject var store: NanoConversationStore
+    @EnvironmentObject private var store: NanoConversationStore
     @State private var query: String = ""
 
     var body: some View {

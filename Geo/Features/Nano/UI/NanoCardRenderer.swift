@@ -109,11 +109,19 @@ struct NanoCardRenderer: View {
     let call: NanoToolCall
 
     var body: some View {
-        if call.status == .done, let kind = NanoNativeCardKind.from(call: call) {
+        if let kind = nativeKind {
             NanoNativeCard(for: kind)
         } else {
             genericCard
         }
+    }
+
+    private var nativeKind: NanoNativeCardKind? {
+        let lower = call.name.lowercased()
+        let isDispatch = lower.contains("dispatch_subagent") || lower.contains("dispatch_agent")
+        if isDispatch { return NanoNativeCardKind.from(call: call) }
+        if call.status == .done { return NanoNativeCardKind.from(call: call) }
+        return nil
     }
 
     private var genericCard: some View {

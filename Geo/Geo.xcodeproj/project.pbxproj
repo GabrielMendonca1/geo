@@ -82,9 +82,9 @@
 		A10000000000000000000011 /* MarkdownIndexingServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000003 /* MarkdownIndexingServiceTests.swift */; };
 		A10000000000000000000012 /* TaskItemTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000004 /* TaskItemTests.swift */; };
 		A10000000000000000000013 /* TagTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000005 /* TagTests.swift */; };
+		NANOCARD0000000000000BLD /* NanoCardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = NANOCARD0000000000000REF /* NanoCardTests.swift */; };
 		A10000000000000000000016 /* BlockModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000008 /* BlockModelTests.swift */; };
 		A4A384CF1B136CF1227F8E4A /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9937952854366473575ED09 /* NotificationManager.swift */; };
-		A86AAE2BE055BDE301CE3301 /* NanoClawService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5345E462EFDABBD6C919B781 /* NanoClawService.swift */; };
 		A908BF03CC92B0BAD6952899 /* TrafficLightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDDA921F883358420228E3B4 /* TrafficLightsView.swift */; };
 		AA00002FEED900000000001 /* GeoStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00002FEED900000000002 /* GeoStyle.swift */; };
 		AAAA000100000001 /* TaskItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAAA000100000002 /* TaskItem.swift */; };
@@ -96,6 +96,8 @@
 		AGENT0BLD00002 /* AgentWorkspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = AGENT0REF00002 /* AgentWorkspace.swift */; };
 		AGENT0BLD00003 /* AgentRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = AGENT0REF00003 /* AgentRepository.swift */; };
 		AGENT0BLD00004 /* AgentWorkspaceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AGENT0REF00004 /* AgentWorkspaceManager.swift */; };
+		HRMSSTAT0000000001 /* HermesStatusService.swift in Sources */ = {isa = PBXBuildFile; fileRef = HRMSSTAT0000000002 /* HermesStatusService.swift */; };
+		HRMSSETT0000000001 /* NanoHermesSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = HRMSSETT0000000002 /* NanoHermesSettingsView.swift */; };
 		AGENT0BLD00005 /* AgentWorkspaceRepositoryAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AGENT0REF00005 /* AgentWorkspaceRepositoryAdapter.swift */; };
 		AGENT0BLD00006 /* AgentViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AGENT0REF00006 /* AgentViewModel.swift */; };
 		AGENT0BLD00007 /* AgentSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = AGENT0REF00007 /* AgentSession.swift */; };
@@ -151,8 +153,6 @@
 		CALSB00000000000000000B5 /* CalendarEventDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CALSB00000000000000000F5 /* CalendarEventDetailView.swift */; };
 		CAP0A1B2C3D4E5F6080009 /* OCRsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAP0A1B2C3D4E5F6070009 /* OCRsListView.swift */; };
 		CD093D075F2FD5FF3611FA99 /* ShelfItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A300000000000000000011 /* ShelfItem.swift */; };
-		CL4W516NB1D00000001 /* ClawSignalBus.swift in Sources */ = {isa = PBXBuildFile; fileRef = CL4W516NREF0000001 /* ClawSignalBus.swift */; };
-		CL4W56VWB1D000001 /* NanoClawSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CL4W56VWREF000001 /* NanoClawSettingsView.swift */; };
 		CMDP0001BFIL0001 /* CommandPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = CMDP0001FREF0001 /* CommandPalette.swift */; };
 		CMDP0002BFIL0001 /* CommandPaletteViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CMDP0002FREF0001 /* CommandPaletteViewModel.swift */; };
 		D0A1B2C3D4E5F60718000001 /* TagsRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0A1B2C3D4E5F60718000011 /* TagsRepository.swift */; };
@@ -181,10 +181,10 @@
 		F5A300000000000000000032 /* ShelfStoreRepositoryAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A300000000000000000017 /* ShelfStoreRepositoryAdapter.swift */; };
 		F647E355467B97D72E413A2C /* NotificationPermission.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C3CB90D04F01EBFC5D01BF5 /* NotificationPermission.swift */; };
 		F77465EAD9372EFBA8B9F8EE /* UnifiedNavigationContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07C169CCA397394AAAC487B6 /* UnifiedNavigationContainer.swift */; };
-		LAUN00BLD00000001 /* ClaudeSessionLauncher.swift in Sources */ = {isa = PBXBuildFile; fileRef = LAUN00REF00000001 /* ClaudeSessionLauncher.swift */; };
 		MACT000000000000000B /* MenuActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = MACT000000000000000R /* MenuActions.swift */; };
 		MATH0001BFIL0001 /* MathRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = MATH0001FREF0001 /* MathRenderer.swift */; };
 		MCPUNIX0000000000000BLD /* MCPUnixSocketTransportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = MCPUNIX0000000000000REF /* MCPUnixSocketTransportTests.swift */; };
+		MCPCLIENTTESTS0000BLD /* MCPClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = MCPCLIENTTESTS0000REF /* MCPClientTests.swift */; };
 		NANO00BLD0000000001 /* NanoPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = NANO00REF0000000001 /* NanoPane.swift */; };
 		NANO00BLD0000000002 /* NanoGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = NANO00REF0000000002 /* NanoGridView.swift */; };
 		NANO00BLD0000000003 /* NanoTile.swift in Sources */ = {isa = PBXBuildFile; fileRef = NANO00REF0000000003 /* NanoTile.swift */; };
@@ -195,7 +195,6 @@
 		NANO00BLD0000000008 /* NanoProviderStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = NANO00REF0000000008 /* NanoProviderStore.swift */; };
 		NANO00BLD0000000009 /* JSONValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = NANO00REF0000000009 /* JSONValue.swift */; };
 		NANO00BLD0000000010 /* TurnEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = NANO00REF0000000010 /* TurnEvent.swift */; };
-		NANO00BLD0000000011 /* ClawIPCClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = NANO00REF0000000011 /* ClawIPCClient.swift */; };
 		NANO00BLD0000000012 /* NanoMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = NANO00REF0000000012 /* NanoMessage.swift */; };
 		NANO00BLD0000000013 /* NanoConversationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = NANO00REF0000000013 /* NanoConversationStore.swift */; };
 		NANO00BLD0000000014 /* NanoChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = NANO00REF0000000014 /* NanoChatView.swift */; };
@@ -203,7 +202,7 @@
 		NANO00BLD0000000016 /* NanoMessageBubble.swift in Sources */ = {isa = PBXBuildFile; fileRef = NANO00REF0000000016 /* NanoMessageBubble.swift */; };
 		NANO00BLD0000000017 /* NanoChatInputBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = NANO00REF0000000017 /* NanoChatInputBar.swift */; };
 		NANO00BLD0000000018 /* NanoCardRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = NANO00REF0000000018 /* NanoCardRenderer.swift */; };
-		NANO00BLD0000000019 /* ClawJobsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = NANO00REF0000000019 /* ClawJobsSection.swift */; };
+		NANO00BLD0000000019 /* HermesCronsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = NANO00REF0000000019 /* HermesCronsSection.swift */; };
 		NANO00BLD0000000020 /* MarkdownView.swift in Sources */ = {isa = PBXBuildFile; fileRef = NANO00REF0000000020 /* MarkdownView.swift */; };
 		NANO00BLD0000000021 /* CodeBlockView.swift in Sources */ = {isa = PBXBuildFile; fileRef = NANO00REF0000000021 /* CodeBlockView.swift */; };
 		NANO00BLD0000000022 /* NanoNativeCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = NANO00REF0000000022 /* NanoNativeCards.swift */; };
@@ -211,6 +210,11 @@
 		NANO00BLD0000000024 /* NanoAttachmentChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = NANO00REF0000000024 /* NanoAttachmentChip.swift */; };
 		NANO00BLD0000000025 /* NanoConversationListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = NANO00REF0000000025 /* NanoConversationListView.swift */; };
 		NANO00BLD0000000026 /* NanoSlashCommandOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = NANO00REF0000000026 /* NanoSlashCommandOverlay.swift */; };
+		HRMSBLD0000000001 /* NanoTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = HRMSREF0000000001 /* NanoTransport.swift */; };
+		HRMSBLD0000000002 /* HermesHTTPTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = HRMSREF0000000002 /* HermesHTTPTransport.swift */; };
+		HRMSBLD0000000004 /* NanoTransportFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = HRMSREF0000000004 /* NanoTransportFactory.swift */; };
+		HRMSBLD0000000005 /* HermesEnv.swift in Sources */ = {isa = PBXBuildFile; fileRef = HRMSREF0000000005 /* HermesEnv.swift */; };
+		HRMSTBLD000000001 /* NanoTransportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = HRMSTREF000000001 /* NanoTransportTests.swift */; };
 		NAV00000000000000000111 /* NavigationRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = NAV00000000000000000011 /* NavigationRepository.swift */; };
 		NAV00000000000000000112 /* NavigationStoreAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = NAV00000000000000000012 /* NavigationStoreAdapter.swift */; };
 		NEWF00000000000000000001B /* TemplatePickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEWF00000000000000000001A /* TemplatePickerSheet.swift */; };
@@ -249,6 +253,7 @@
 		NEWF00000000000000000037B /* MCPRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEWF00000000000000000037A /* MCPRouter.swift */; };
 		NEWF00000000000000000038B /* MCPToolRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEWF00000000000000000038A /* MCPToolRegistry.swift */; };
 		NEWF00000000000000000039B /* MCPTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEWF00000000000000000039A /* MCPTypes.swift */; };
+		HRMSMCPCLNT0001B /* MCPClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = HRMSMCPCLNT0001R /* MCPClient.swift */; };
 		NTCH00000000000001B /* NSScreen+Notch.swift in Sources */ = {isa = PBXBuildFile; fileRef = NTCH00000000000001R /* NSScreen+Notch.swift */; };
 		NTCH00000000000002B /* NotchPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = NTCH00000000000002R /* NotchPanel.swift */; };
 		NTCH00000000000003B /* NotchWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = NTCH00000000000003R /* NotchWindowController.swift */; };
@@ -321,6 +326,9 @@
 		TBU000104BLD /* AutoCompleteSuggestionServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBU000104REF /* AutoCompleteSuggestionServiceTests.swift */; };
 		TBU000105BLD /* HabitCompletionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBU000105REF /* HabitCompletionTests.swift */; };
 		TBU000106BLD /* TaskNotesMigrationServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBU000106REF /* TaskNotesMigrationServiceTests.swift */; };
+		TBU000107BLD /* BlocksStoreFrontmatterMutatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBU000107REF /* BlocksStoreFrontmatterMutatorTests.swift */; };
+		TBU000108BLD /* HermesMigrationFixesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBU000108REF /* HermesMigrationFixesTests.swift */; };
+		TBU000109BLD /* FrontmatterEditorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBU000109REF /* FrontmatterEditorTests.swift */; };
 		TERM00BLD00000001 /* GeoTerminalLauncher.swift in Sources */ = {isa = PBXBuildFile; fileRef = TERM00REF00000001 /* GeoTerminalLauncher.swift */; };
 		THEME00020000001 /* ThemePalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = THEME00020000002 /* ThemePalette.swift */; };
 		TNV00BLDR001 /* TaskNodeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = TNV00REFR001 /* TaskNodeView.swift */; };
@@ -383,7 +391,6 @@
 		4AD5BE2F11A36A20C7AA5F9C /* InputMonitoringPermission.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = InputMonitoringPermission.swift; sourceTree = "<group>"; };
 		4CE06F10D6B1A513C3381BD0 /* BlockGraphServiceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BlockGraphServiceTests.swift; sourceTree = "<group>"; };
 		51151077d4c3fe112d1efd4f /* TasksRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TasksRepository.swift; sourceTree = "<group>"; };
-		5345E462EFDABBD6C919B781 /* NanoClawService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NanoClawService.swift; sourceTree = "<group>"; };
 		5742DF9D235C487483B5A35B /* Fonts */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Fonts; sourceTree = "<group>"; };
 		58AE379798B38A5A3ECAA419 /* NavigationSegmentedControl.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NavigationSegmentedControl.swift; sourceTree = "<group>"; };
 		6A9E1A59E92DF21CE147B80B19AF8492 /* Day.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Day.swift; sourceTree = "<group>"; };
@@ -425,6 +432,7 @@
 		A10000000000000000000003 /* MarkdownIndexingServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownIndexingServiceTests.swift; sourceTree = "<group>"; };
 		A10000000000000000000004 /* TaskItemTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskItemTests.swift; sourceTree = "<group>"; };
 		A10000000000000000000005 /* TagTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagTests.swift; sourceTree = "<group>"; };
+		NANOCARD0000000000000REF /* NanoCardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoCardTests.swift; sourceTree = "<group>"; };
 		A10000000000000000000008 /* BlockModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockModelTests.swift; sourceTree = "<group>"; };
 		A1408468D59FA2213BCEB0B7 /* SubscriptionManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SubscriptionManager.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F60718293A0001 /* DatabaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseService.swift; sourceTree = "<group>"; };
@@ -448,6 +456,8 @@
 		AGENT0REF00002 /* AgentWorkspace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentWorkspace.swift; sourceTree = "<group>"; };
 		AGENT0REF00003 /* AgentRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentRepository.swift; sourceTree = "<group>"; };
 		AGENT0REF00004 /* AgentWorkspaceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentWorkspaceManager.swift; sourceTree = "<group>"; };
+		HRMSSTAT0000000002 /* HermesStatusService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HermesStatusService.swift; sourceTree = "<group>"; };
+		HRMSSETT0000000002 /* NanoHermesSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NanoHermesSettingsView.swift; sourceTree = "<group>"; };
 		AGENT0REF00005 /* AgentWorkspaceRepositoryAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentWorkspaceRepositoryAdapter.swift; sourceTree = "<group>"; };
 		AGENT0REF00006 /* AgentViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentViewModel.swift; sourceTree = "<group>"; };
 		AGENT0REF00007 /* AgentSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSession.swift; sourceTree = "<group>"; };
@@ -489,8 +499,6 @@
 		CALSB00000000000000000F4 /* CalendarFilterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarFilterView.swift; sourceTree = "<group>"; };
 		CALSB00000000000000000F5 /* CalendarEventDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarEventDetailView.swift; sourceTree = "<group>"; };
 		CAP0A1B2C3D4E5F6070009 /* OCRsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OCRsListView.swift; sourceTree = "<group>"; };
-		CL4W516NREF0000001 /* ClawSignalBus.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawSignalBus.swift; sourceTree = "<group>"; };
-		CL4W56VWREF000001 /* NanoClawSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NanoClawSettingsView.swift; sourceTree = "<group>"; };
 		CMDP0001FREF0001 /* CommandPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPalette.swift; sourceTree = "<group>"; };
 		CMDP0002FREF0001 /* CommandPaletteViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteViewModel.swift; sourceTree = "<group>"; };
 		D0A1B2C3D4E5F60718000011 /* TagsRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagsRepository.swift; sourceTree = "<group>"; };
@@ -521,10 +529,10 @@
 		F5A300000000000000000017 /* ShelfStoreRepositoryAdapter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShelfStoreRepositoryAdapter.swift; sourceTree = "<group>"; };
 		FCA54DB582FE4756E44D8476 /* OnboardingPermissionsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OnboardingPermissionsView.swift; sourceTree = "<group>"; };
 		FEF5F4442557D5D84EA83D7D592223EA /* DayStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayStore.swift; sourceTree = "<group>"; };
-		LAUN00REF00000001 /* ClaudeSessionLauncher.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClaudeSessionLauncher.swift; sourceTree = "<group>"; };
 		MACT000000000000000R /* MenuActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuActions.swift; sourceTree = "<group>"; };
 		MATH0001FREF0001 /* MathRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MathRenderer.swift; sourceTree = "<group>"; };
 		MCPUNIX0000000000000REF /* MCPUnixSocketTransportTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MCPUnixSocketTransportTests.swift; sourceTree = "<group>"; };
+		MCPCLIENTTESTS0000REF /* MCPClientTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MCPClientTests.swift; sourceTree = "<group>"; };
 		NANO00REF0000000001 /* NanoPane.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NanoPane.swift; sourceTree = "<group>"; };
 		NANO00REF0000000002 /* NanoGridView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NanoGridView.swift; sourceTree = "<group>"; };
 		NANO00REF0000000003 /* NanoTile.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NanoTile.swift; sourceTree = "<group>"; };
@@ -535,7 +543,6 @@
 		NANO00REF0000000008 /* NanoProviderStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NanoProviderStore.swift; sourceTree = "<group>"; };
 		NANO00REF0000000009 /* JSONValue.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = JSONValue.swift; sourceTree = "<group>"; };
 		NANO00REF0000000010 /* TurnEvent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TurnEvent.swift; sourceTree = "<group>"; };
-		NANO00REF0000000011 /* ClawIPCClient.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawIPCClient.swift; sourceTree = "<group>"; };
 		NANO00REF0000000012 /* NanoMessage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NanoMessage.swift; sourceTree = "<group>"; };
 		NANO00REF0000000013 /* NanoConversationStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NanoConversationStore.swift; sourceTree = "<group>"; };
 		NANO00REF0000000014 /* NanoChatView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NanoChatView.swift; sourceTree = "<group>"; };
@@ -543,7 +550,7 @@
 		NANO00REF0000000016 /* NanoMessageBubble.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NanoMessageBubble.swift; sourceTree = "<group>"; };
 		NANO00REF0000000017 /* NanoChatInputBar.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NanoChatInputBar.swift; sourceTree = "<group>"; };
 		NANO00REF0000000018 /* NanoCardRenderer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NanoCardRenderer.swift; sourceTree = "<group>"; };
-		NANO00REF0000000019 /* ClawJobsSection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ClawJobsSection.swift; sourceTree = "<group>"; };
+		NANO00REF0000000019 /* HermesCronsSection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HermesCronsSection.swift; sourceTree = "<group>"; };
 		NANO00REF0000000020 /* MarkdownView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MarkdownView.swift; sourceTree = "<group>"; };
 		NANO00REF0000000021 /* CodeBlockView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CodeBlockView.swift; sourceTree = "<group>"; };
 		NANO00REF0000000022 /* NanoNativeCards.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NanoNativeCards.swift; sourceTree = "<group>"; };
@@ -551,6 +558,11 @@
 		NANO00REF0000000024 /* NanoAttachmentChip.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NanoAttachmentChip.swift; sourceTree = "<group>"; };
 		NANO00REF0000000025 /* NanoConversationListView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NanoConversationListView.swift; sourceTree = "<group>"; };
 		NANO00REF0000000026 /* NanoSlashCommandOverlay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NanoSlashCommandOverlay.swift; sourceTree = "<group>"; };
+		HRMSREF0000000001 /* NanoTransport.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NanoTransport.swift; sourceTree = "<group>"; };
+		HRMSREF0000000002 /* HermesHTTPTransport.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HermesHTTPTransport.swift; sourceTree = "<group>"; };
+		HRMSREF0000000004 /* NanoTransportFactory.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NanoTransportFactory.swift; sourceTree = "<group>"; };
+		HRMSREF0000000005 /* HermesEnv.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HermesEnv.swift; sourceTree = "<group>"; };
+		HRMSTREF000000001 /* NanoTransportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoTransportTests.swift; sourceTree = "<group>"; };
 		NAV00000000000000000011 /* NavigationRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationRepository.swift; sourceTree = "<group>"; };
 		NAV00000000000000000012 /* NavigationStoreAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationStoreAdapter.swift; sourceTree = "<group>"; };
 		NEWF00000000000000000001A /* TemplatePickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplatePickerSheet.swift; sourceTree = "<group>"; };
@@ -589,6 +601,7 @@
 		NEWF00000000000000000037A /* MCPRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPRouter.swift; sourceTree = "<group>"; };
 		NEWF00000000000000000038A /* MCPToolRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPToolRegistry.swift; sourceTree = "<group>"; };
 		NEWF00000000000000000039A /* MCPTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPTypes.swift; sourceTree = "<group>"; };
+		HRMSMCPCLNT0001R /* MCPClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPClient.swift; sourceTree = "<group>"; };
 		NTCH00000000000001R /* NSScreen+Notch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSScreen+Notch.swift"; sourceTree = "<group>"; };
 		NTCH00000000000002R /* NotchPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchPanel.swift; sourceTree = "<group>"; };
 		NTCH00000000000003R /* NotchWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchWindowController.swift; sourceTree = "<group>"; };
@@ -661,6 +674,9 @@
 		TBU000104REF /* AutoCompleteSuggestionServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoCompleteSuggestionServiceTests.swift; sourceTree = "<group>"; };
 		TBU000105REF /* HabitCompletionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HabitCompletionTests.swift; sourceTree = "<group>"; };
 		TBU000106REF /* TaskNotesMigrationServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskNotesMigrationServiceTests.swift; sourceTree = "<group>"; };
+		TBU000107REF /* BlocksStoreFrontmatterMutatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlocksStoreFrontmatterMutatorTests.swift; sourceTree = "<group>"; };
+		TBU000108REF /* HermesMigrationFixesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesMigrationFixesTests.swift; sourceTree = "<group>"; };
+		TBU000109REF /* FrontmatterEditorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrontmatterEditorTests.swift; sourceTree = "<group>"; };
 		TERM00REF00000001 /* GeoTerminalLauncher.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GeoTerminalLauncher.swift; sourceTree = "<group>"; };
 		THEME00020000002 /* ThemePalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemePalette.swift; sourceTree = "<group>"; };
 		TNV00REFR001 /* TaskNodeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskNodeView.swift; sourceTree = "<group>"; };
@@ -863,6 +879,8 @@
 				A10000000000000000000003 /* MarkdownIndexingServiceTests.swift */,
 				A10000000000000000000004 /* TaskItemTests.swift */,
 				A10000000000000000000005 /* TagTests.swift */,
+				NANOCARD0000000000000REF /* NanoCardTests.swift */,
+				HRMSTREF000000001 /* NanoTransportTests.swift */,
 				A10000000000000000000008 /* BlockModelTests.swift */,
 				TBU000101REF /* TaskItemSchemaTests.swift */,
 				TBU000102REF /* BlocksStoreCheckboxTests.swift */,
@@ -870,8 +888,12 @@
 				TBU000104REF /* AutoCompleteSuggestionServiceTests.swift */,
 				TBU000105REF /* HabitCompletionTests.swift */,
 				TBU000106REF /* TaskNotesMigrationServiceTests.swift */,
+				TBU000107REF /* BlocksStoreFrontmatterMutatorTests.swift */,
+				TBU000108REF /* HermesMigrationFixesTests.swift */,
+				TBU000109REF /* FrontmatterEditorTests.swift */,
 				01A3D0FB81F1B00019995C2A /* JSONValueTests.swift */,
 				MCPUNIX0000000000000REF /* MCPUnixSocketTransportTests.swift */,
+				MCPCLIENTTESTS0000REF /* MCPClientTests.swift */,
 				EFC9FA8B1A8FCD006338E317 /* SubscriptionManagerTests.swift */,
 				4CE06F10D6B1A513C3381BD0 /* BlockGraphServiceTests.swift */,
 				RTEPDETT001A /* BlockPrefixDetectorTests.swift */,
@@ -935,7 +957,6 @@
 				TNV00REFR003 /* IssueSidebar.swift */,
 				TNV00REFR004 /* TurnSection.swift */,
 				TNV00REFR005 /* AcceptanceList.swift */,
-				CL4W56VWREF000001 /* NanoClawSettingsView.swift */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -958,8 +979,7 @@
 				AGENT0REF00004 /* AgentWorkspaceManager.swift */,
 				AGENT0REF00005 /* AgentWorkspaceRepositoryAdapter.swift */,
 				SYMPSTREF0001 /* AIProjectStateStore.swift */,
-				5345E462EFDABBD6C919B781 /* NanoClawService.swift */,
-				CL4W516NREF0000001 /* ClawSignalBus.swift */,
+				HRMSSTAT0000000002 /* HermesStatusService.swift */,
 			);
 			path = Data;
 			sourceTree = "<group>";
@@ -1286,7 +1306,7 @@
 				NANO00REF0000000016 /* NanoMessageBubble.swift */,
 				NANO00REF0000000017 /* NanoChatInputBar.swift */,
 				NANO00REF0000000018 /* NanoCardRenderer.swift */,
-				NANO00REF0000000019 /* ClawJobsSection.swift */,
+				NANO00REF0000000019 /* HermesCronsSection.swift */,
 				NANO00REF0000000020 /* MarkdownView.swift */,
 				NANO00REF0000000021 /* CodeBlockView.swift */,
 				NANO00REF0000000022 /* NanoNativeCards.swift */,
@@ -1300,15 +1320,17 @@
 		NANO00GRP00000003 /* Data */ = {
 			isa = PBXGroup;
 			children = (
-				LAUN00REF00000001 /* ClaudeSessionLauncher.swift */,
 				NANO00REF0000000007 /* JobStore.swift */,
 				NANO00REF0000000008 /* NanoProviderStore.swift */,
 				NANO00REF0000000009 /* JSONValue.swift */,
 				NANO00REF0000000010 /* TurnEvent.swift */,
-				NANO00REF0000000011 /* ClawIPCClient.swift */,
 				NANO00REF0000000012 /* NanoMessage.swift */,
 				NANO00REF0000000013 /* NanoConversationStore.swift */,
 				NANO00REF0000000023 /* NanoAttachment.swift */,
+				HRMSREF0000000001 /* NanoTransport.swift */,
+				HRMSREF0000000002 /* HermesHTTPTransport.swift */,
+				HRMSREF0000000004 /* NanoTransportFactory.swift */,
+				HRMSREF0000000005 /* HermesEnv.swift */,
 			);
 			path = Data;
 			sourceTree = "<group>";
@@ -1337,6 +1359,7 @@
 				NEWF00000000000000000037A /* MCPRouter.swift */,
 				NEWF00000000000000000038A /* MCPToolRegistry.swift */,
 				NEWF00000000000000000039A /* MCPTypes.swift */,
+				HRMSMCPCLNT0001R /* MCPClient.swift */,
 				V0PHMCPFRAM0001R /* MCPFramer.swift */,
 				V0PHMCPTRANS001R /* MCPTransport.swift */,
 				P4AUTHGR0000000001R /* MCPAuthGuard.swift */,
@@ -1538,6 +1561,7 @@
 				SETT00000000000000000013 /* SettingsViewModel.swift */,
 				SETT00000000000000000015 /* SettingsPane.swift */,
 				AIKS00000000000000001A /* AIKeySettingsView.swift */,
+				HRMSSETT0000000002 /* NanoHermesSettingsView.swift */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -1942,6 +1966,8 @@
 				AGENT0BLD00002 /* AgentWorkspace.swift in Sources */,
 				AGENT0BLD00003 /* AgentRepository.swift in Sources */,
 				AGENT0BLD00004 /* AgentWorkspaceManager.swift in Sources */,
+				HRMSSTAT0000000001 /* HermesStatusService.swift in Sources */,
+				HRMSSETT0000000001 /* NanoHermesSettingsView.swift in Sources */,
 				SHAREDKCBLD0001 /* KeychainHelper.swift in Sources */,
 				SHAREDWTNBLD0001 /* WikiTitleNormalizer.swift in Sources */,
 				AGENT0BLD00005 /* AgentWorkspaceRepositoryAdapter.swift in Sources */,
@@ -2064,6 +2090,7 @@
 				NEWF00000000000000000037B /* MCPRouter.swift in Sources */,
 				NEWF00000000000000000038B /* MCPToolRegistry.swift in Sources */,
 				NEWF00000000000000000039B /* MCPTypes.swift in Sources */,
+				HRMSMCPCLNT0001B /* MCPClient.swift in Sources */,
 				V0PHMCPFRAM0001B /* MCPFramer.swift in Sources */,
 				V0PHMCPTRANS001B /* MCPTransport.swift in Sources */,
 				V0PHAGNTENDPT01B /* AgentEndpoint.swift in Sources */,
@@ -2087,9 +2114,6 @@
 				TBU000006BLD /* AutoCompleteSuggestionService.swift in Sources */,
 				TBU000007BLD /* TaskNotesMigrationService.swift in Sources */,
 				3B789949C78845895F7BED3D /* SubscriptionManager.swift in Sources */,
-				A86AAE2BE055BDE301CE3301 /* NanoClawService.swift in Sources */,
-				CL4W516NB1D00000001 /* ClawSignalBus.swift in Sources */,
-				CL4W56VWB1D000001 /* NanoClawSettingsView.swift in Sources */,
 				TERM00BLD00000001 /* GeoTerminalLauncher.swift in Sources */,
 				NANO00BLD0000000001 /* NanoPane.swift in Sources */,
 				NANO00BLD0000000002 /* NanoGridView.swift in Sources */,
@@ -2101,7 +2125,6 @@
 				NANO00BLD0000000008 /* NanoProviderStore.swift in Sources */,
 				NANO00BLD0000000009 /* JSONValue.swift in Sources */,
 				NANO00BLD0000000010 /* TurnEvent.swift in Sources */,
-				NANO00BLD0000000011 /* ClawIPCClient.swift in Sources */,
 				NANO00BLD0000000012 /* NanoMessage.swift in Sources */,
 				NANO00BLD0000000013 /* NanoConversationStore.swift in Sources */,
 				NANO00BLD0000000014 /* NanoChatView.swift in Sources */,
@@ -2109,7 +2132,7 @@
 				NANO00BLD0000000016 /* NanoMessageBubble.swift in Sources */,
 				NANO00BLD0000000017 /* NanoChatInputBar.swift in Sources */,
 				NANO00BLD0000000018 /* NanoCardRenderer.swift in Sources */,
-				NANO00BLD0000000019 /* ClawJobsSection.swift in Sources */,
+				NANO00BLD0000000019 /* HermesCronsSection.swift in Sources */,
 				NANO00BLD0000000020 /* MarkdownView.swift in Sources */,
 				NANO00BLD0000000021 /* CodeBlockView.swift in Sources */,
 				NANO00BLD0000000022 /* NanoNativeCards.swift in Sources */,
@@ -2117,7 +2140,10 @@
 				NANO00BLD0000000024 /* NanoAttachmentChip.swift in Sources */,
 				NANO00BLD0000000025 /* NanoConversationListView.swift in Sources */,
 				NANO00BLD0000000026 /* NanoSlashCommandOverlay.swift in Sources */,
-				LAUN00BLD00000001 /* ClaudeSessionLauncher.swift in Sources */,
+				HRMSBLD0000000001 /* NanoTransport.swift in Sources */,
+				HRMSBLD0000000002 /* HermesHTTPTransport.swift in Sources */,
+				HRMSBLD0000000004 /* NanoTransportFactory.swift in Sources */,
+				HRMSBLD0000000005 /* HermesEnv.swift in Sources */,
 				F647E355467B97D72E413A2C /* NotificationPermission.swift in Sources */,
 				23F5C9A0056F7F524AE8C75D /* OnboardingPermissionsView.swift in Sources */,
 			);
@@ -2130,6 +2156,8 @@
 				A10000000000000000000011 /* MarkdownIndexingServiceTests.swift in Sources */,
 				A10000000000000000000012 /* TaskItemTests.swift in Sources */,
 				A10000000000000000000013 /* TagTests.swift in Sources */,
+				NANOCARD0000000000000BLD /* NanoCardTests.swift in Sources */,
+				HRMSTBLD000000001 /* NanoTransportTests.swift in Sources */,
 				A10000000000000000000016 /* BlockModelTests.swift in Sources */,
 				TBU000101BLD /* TaskItemSchemaTests.swift in Sources */,
 				TBU000102BLD /* BlocksStoreCheckboxTests.swift in Sources */,
@@ -2137,8 +2165,12 @@
 				TBU000104BLD /* AutoCompleteSuggestionServiceTests.swift in Sources */,
 				TBU000105BLD /* HabitCompletionTests.swift in Sources */,
 				TBU000106BLD /* TaskNotesMigrationServiceTests.swift in Sources */,
+				TBU000107BLD /* BlocksStoreFrontmatterMutatorTests.swift in Sources */,
+				TBU000108BLD /* HermesMigrationFixesTests.swift in Sources */,
+				TBU000109BLD /* FrontmatterEditorTests.swift in Sources */,
 				B241BDA8AEA52F58EE89AB10 /* JSONValueTests.swift in Sources */,
 				MCPUNIX0000000000000BLD /* MCPUnixSocketTransportTests.swift in Sources */,
+				MCPCLIENTTESTS0000BLD /* MCPClientTests.swift in Sources */,
 				D79B1530FA4C738B1BCA5FDC /* SubscriptionManagerTests.swift in Sources */,
 				C4DE45CE9E8EEE050CE9BCA8 /* BlockGraphServiceTests.swift in Sources */,
 				RTEPDETT001B /* BlockPrefixDetectorTests.swift in Sources */,

@@ -291,10 +291,51 @@ enum BlockTools {
                 case .allow: break
                 case .deny(let reason): return .error(reason)
                 }
-                try await blocks.update(id: id, markdown: content)
+
+                let incoming = MarkdownConverter.shared.parse(content)
+                let currentFM = MarkdownConverter.shared.parse(block.markdown).frontmatter
+                var frontmatterMerge: [String: AnyCodableValue] = [:]
+                var frontmatterChanged = false
+                for (key, value) in incoming.frontmatter {
+                    if key == "frontmatter_version" { continue }
+                    frontmatterMerge[key] = .string(value)
+                    if currentFM[key] != value {
+                        frontmatterChanged = true
+                    }
+                }
+                for key in currentFM.keys where key != "frontmatter_version" {
+                    if incoming.frontmatter[key] == nil {
+                        frontmatterChanged = true
+                    }
+                }
+
+                if frontmatterChanged {
+                    _ = try await blocks.mutateFrontmatter(blockId: id, merge: frontmatterMerge)
+                    guard let refreshed = try await loadBlock(blocks, id: id) else {
+                        return .error("Block not found after frontmatter mutation: \(id)")
+                    }
+                    let refreshedDoc = MarkdownConverter.shared.parse(refreshed.markdown)
+                    let bodyOnly = incoming.body
+                    let merged = reassembleMarkdown(frontmatter: refreshedDoc.frontmatter, body: bodyOnly)
+                    try await blocks.update(id: id, markdown: merged)
+                } else {
+                    try await blocks.update(id: id, markdown: content)
+                }
                 return .json(["success": true])
             }
         ).registered
+    }
+
+    private static func reassembleMarkdown(frontmatter: [String: String], body: String) -> String {
+        guard !frontmatter.isEmpty else { return body }
+        var out = "---\n"
+        for key in frontmatter.keys.sorted() {
+            guard let value = frontmatter[key] else { continue }
+            out += "\(key): \(value)\n"
+        }
+        out += "---\n"
+        let trimmedBody = body.hasPrefix("\n") ? String(body.dropFirst()) : body
+        return out + trimmedBody
     }
 
     private static func deleteBlock(_ blocks: any BlocksRepository) -> MCPRegisteredTool {

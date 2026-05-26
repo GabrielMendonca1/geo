@@ -25,10 +25,12 @@ final class NanoProviderStore: ObservableObject {
         self.current = NanoProvider(rawValue: stored) ?? .claude
     }
 
+    static let providerChangedNotification = Notification.Name("ai.geo.nano.providerChanged")
+
     func setProvider(_ provider: NanoProvider) {
         guard provider != current else { return }
         current = provider
         UserDefaults.standard.set(provider.rawValue, forKey: NanoProviderStore.defaultsKey)
-        try? ClawSignalBus.writeSignal(name: "set-provider:\(provider.rawValue)")
+        NotificationCenter.default.post(name: Self.providerChangedNotification, object: provider.rawValue)
     }
 }

@@ -91,6 +91,12 @@ private struct AIDetectedPiRuntime: Codable, Hashable {
     var isAvailable: Bool { executablePath?.isEmpty == false && authConfigured }
 }
 
+private struct AIDetectedHermesRuntime: Codable, Hashable {
+    var executablePath: String?
+    var lastCheckedAt: Date?
+    var isAvailable: Bool { executablePath?.isEmpty == false }
+}
+
 private struct AIPreparedAgentWorkspace: Hashable {
     var kind: AIAgentKind
     var rootURL: URL
@@ -321,6 +327,11 @@ private struct AILocalIssueDocument: Hashable {
     var issue: AIIssue
 }
 
+enum AIDispatchMode: String, Sendable {
+    case legacyPi
+    case hermesTool
+}
+
 actor AIWorkspaceManager {
     private let blocksRepository: any BlocksRepository
     private let dayRepository: any DayRepository
@@ -338,6 +349,8 @@ actor AIWorkspaceManager {
     private var lastProjectScanAt: Date?
     private var discoveredProjects: [AIDiscoveredProject] = []
     private var detectedPi = AIDetectedPiRuntime(executablePath: nil, version: nil, authConfigured: false, statusDetail: "Not scanned.")
+    private var detectedHermes = AIDetectedHermesRuntime(executablePath: nil, lastCheckedAt: nil)
+    private let hermesProbeIntervalSeconds: TimeInterval = 60
     private var workspaces: [String: AIWorkspace] = [:]
     private var attempts: [AIRunAttempt] = []
     private var liveSessions: [String: AILiveSession] = [:]
@@ -350,6 +363,7 @@ actor AIWorkspaceManager {
     private var retryTasks: [String: Task<Void, Never>] = [:]
     private var agentTotals = AIAgentTotals()
     private var lastPollAt: Date?
+    private var dispatchMode: AIDispatchMode
 
     init(
         blocksRepository: any BlocksRepository,
@@ -363,7 +377,16 @@ actor AIWorkspaceManager {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? FileManager.default.homeDirectoryForCurrentUser
         self.rootURL = appSupport.appendingPathComponent("Geo/Symphony", isDirectory: true)
+        self.dispatchMode = UserDefaults.standard.bool(forKey: "useHermesDispatch") ? .hermesTool : .legacyPi
     }
+
+    func setDispatchMode(_ mode: AIDispatchMode) async {
+        dispatchMode = mode
+        UserDefaults.standard.set(mode == .hermesTool, forKey: "useHermesDispatch")
+        appendLog(.info, "Dispatch mode set to \(mode.rawValue).")
+    }
+
+    func currentDispatchMode() -> AIDispatchMode { dispatchMode }
 
     deinit {
         loopTask?.cancel()
@@ -435,6 +458,7 @@ actor AIWorkspaceManager {
         lastPollAt = Date()
         detectStalls(workflow: workflow)
         refreshRuntimeDetection()
+        refreshHermesDetection()
         if detectedPi.isAvailable {
             attempts.removeAll { $0.status == .failed && $0.error == "Run: pi /login" }
         }
@@ -788,6 +812,45 @@ actor AIWorkspaceManager {
         workflow: AIWorkflowDefinition,
         forcedProject: AIDiscoveredProject?
     ) async {
+        switch dispatchMode {
+        case .legacyPi:
+            await dispatchViaPi(issue: issue, workflow: workflow, forcedProject: forcedProject)
+        case .hermesTool:
+            refreshHermesDetection()
+            if detectedHermes.isAvailable {
+                await dispatchViaHermes(issue: issue, workflow: workflow, forcedProject: forcedProject)
+            } else {
+                appendLog(.warning, "hermes not installed; falling back to pi spawn for \(issue.identifier).")
+                refreshRuntimeDetection()
+                if !detectedPi.isAvailable {
+                    let attemptID = UUID()
+                    attempts.insert(AIRunAttempt(
+                        id: attemptID,
+                        issueID: issue.id,
+                        issueIdentifier: issue.identifier,
+                        projectID: forcedProject?.id,
+                        projectName: forcedProject?.name,
+                        projectRootPath: forcedProject?.rootPath,
+                        agent: .hermes,
+                        attempt: nextAttemptNumber(for: issue.id),
+                        workspacePath: workspaces[issue.id]?.path ?? "",
+                        status: .failed,
+                        error: "Neither hermes nor pi runtime is available. Install hermes or pi."
+                    ), at: 0)
+                    attempts[0].finishedAt = Date()
+                    appendLog(.error, "Dispatch failed for \(issue.identifier): neither hermes nor pi available.")
+                    return
+                }
+                await dispatchViaPi(issue: issue, workflow: workflow, forcedProject: forcedProject)
+            }
+        }
+    }
+
+    private func dispatchViaPi(
+        issue: AIIssue,
+        workflow: AIWorkflowDefinition,
+        forcedProject: AIDiscoveredProject?
+    ) async {
         guard isEligible(issue, workflow: workflow) else {
             appendLog(.warning, "\(issue.identifier) is not eligible for dispatch.")
             return
@@ -982,6 +1045,350 @@ actor AIWorkspaceManager {
             markAttempt(issueID: issue.id, status: .failed, error: error.localizedDescription)
             appendLog(.error, "Dispatch failed for \(issue.identifier): \(error.localizedDescription)")
         }
+    }
+
+    private func dispatchViaHermes(
+        issue: AIIssue,
+        workflow: AIWorkflowDefinition,
+        forcedProject: AIDiscoveredProject?
+    ) async {
+        guard isEligible(issue, workflow: workflow) else {
+            appendLog(.warning, "\(issue.identifier) is not eligible for hermes dispatch.")
+            return
+        }
+
+        let preflightAttemptID = UUID()
+        let preflightAttemptNumber = nextAttemptNumber(for: issue.id)
+        attempts.insert(AIRunAttempt(
+            id: preflightAttemptID,
+            issueID: issue.id,
+            issueIdentifier: issue.identifier,
+            projectID: forcedProject?.id,
+            projectName: forcedProject?.name,
+            projectRootPath: forcedProject?.rootPath,
+            agent: .hermes,
+            attempt: preflightAttemptNumber,
+            workspacePath: workspaces[issue.id]?.path ?? "",
+            status: .preparing
+        ), at: 0)
+        claimedIssueIDs.insert(issue.id)
+
+        do {
+            let appConfig = currentAppConfig()
+            refreshProjectDiscoveryIfNeeded(config: appConfig, force: discoveredProjects.isEmpty)
+
+            guard let project = forcedProject ?? selectProject(for: issue, config: appConfig) else {
+                throw dispatchError("No local project was discovered for \(issue.identifier). Update WORKFLOW.md project discovery settings or search roots.")
+            }
+
+            let workspace = try prepareWorkspace(for: issue, workflow: workflow, project: project)
+            let attemptNumber = nextAttemptNumber(for: issue.id)
+            let maxTurns = max(workflow.config.agent.maxTurns, 1)
+            guard attemptNumber <= maxTurns else {
+                claimedIssueIDs.remove(issue.id)
+                appendLog(.warning, "Skipped hermes dispatch for \(issue.identifier): would exceed max_turns (\(maxTurns)).")
+                return
+            }
+
+            let nodeMarkdown = await issueNodeMarkdown(for: issue)
+            if let nextPromptText = extractNextPromptSection(from: nodeMarkdown), !nextPromptText.isEmpty {
+                lastSentPrompt[issue.id] = nextPromptText
+            } else {
+                lastSentPrompt.removeValue(forKey: issue.id)
+            }
+            let promptTemplate = attemptNumber > 1
+                ? continuationPromptTemplate(base: workflow.promptTemplate)
+                : workflow.promptTemplate
+            let renderedPrompt = try renderPrompt(
+                template: promptTemplate,
+                issue: issue,
+                nodeMarkdown: nodeMarkdown,
+                attempt: attemptNumber,
+                project: project,
+                agentWorkspacePath: workspace.path
+            )
+            try writeRunFiles(issue: issue, workspace: workspace, prompt: renderedPrompt, project: project, nodeMarkdown: nodeMarkdown)
+            try runHook(
+                workflow.config.hooks.beforeRun,
+                cwd: URL(fileURLWithPath: workspace.path, isDirectory: true),
+                timeoutMS: workflow.config.hooks.timeoutMS
+            )
+
+            let preparedAgent = try prepareAgentWorkspace(
+                issue: issue,
+                workflow: workflow,
+                workspace: workspace,
+                project: project,
+                attempt: attemptNumber,
+                nodeMarkdown: nodeMarkdown
+            )
+
+            if let index = attempts.firstIndex(where: { $0.id == preflightAttemptID }) {
+                attempts.remove(at: index)
+            }
+
+            let agentAttemptID = UUID()
+            let sessionID = "hermes-\(UUID().uuidString.prefix(8))"
+            let provider = await piProvider()
+            let effectiveModel: String? = {
+                let pinned = issue.symphonyModel?.trimmingCharacters(in: .whitespacesAndNewlines)
+                if let pinned, !pinned.isEmpty { return pinned }
+                let fallback = workflow.config.pi.model?.trimmingCharacters(in: .whitespacesAndNewlines)
+                if let fallback, !fallback.isEmpty { return fallback }
+                return defaultModel(for: provider)
+            }()
+            let effectiveEffort: String? = {
+                let pinned = issue.symphonyEffort?.trimmingCharacters(in: .whitespacesAndNewlines)
+                if let pinned, !pinned.isEmpty { return pinned }
+                let trimmed = workflow.config.pi.effort?.trimmingCharacters(in: .whitespacesAndNewlines)
+                return (trimmed?.isEmpty ?? true) ? nil : trimmed
+            }()
+            let resumePiSessionID = issue.symphonySessionID?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let systemPrompt = piSystemPrompt(reportPath: reportPath(forAgentWorkspacePath: preparedAgent.rootURL.path))
+
+            attempts.insert(AIRunAttempt(
+                id: agentAttemptID,
+                issueID: issue.id,
+                issueIdentifier: issue.identifier,
+                projectID: project.id,
+                projectName: project.name,
+                projectRootPath: project.rootPath,
+                agent: .hermes,
+                attempt: attemptNumber,
+                workspacePath: preparedAgent.rootURL.path,
+                status: .launching
+            ), at: 0)
+            liveSessions[sessionID] = AILiveSession(
+                issueID: issue.id,
+                issueIdentifier: issue.identifier,
+                sessionID: sessionID,
+                threadID: agentAttemptID.uuidString.lowercased(),
+                turnID: "background",
+                processID: nil,
+                lastEvent: "hermes launching",
+                lastTimestamp: Date(),
+                lastMessage: "hermes is starting for \(project.name).",
+                inputTokens: 0,
+                outputTokens: 0,
+                totalTokens: 0,
+                turnCount: 0,
+                startedAt: Date(),
+                workspacePath: preparedAgent.rootURL.path,
+                projectID: project.id,
+                projectName: project.name,
+                projectRootPath: project.rootPath,
+                agent: .hermes,
+                provider: provider,
+                modelLabel: effectiveModel,
+                piSessionID: (resumePiSessionID?.isEmpty == false) ? resumePiSessionID : nil
+            )
+
+            if let index = attempts.firstIndex(where: { $0.id == agentAttemptID }) {
+                attempts[index].status = .running
+            }
+
+            var toolInput: [String: AnyCodableValue] = [
+                "target": .string("local"),
+                "block_id": .string(issue.id),
+                "prompt": .string(preparedAgent.prompt),
+                "system_prompt": .string(systemPrompt),
+                "provider": .string(provider),
+                "working_directory": .string(preparedAgent.workingDirectoryURL.path),
+                "agent_root": .string(preparedAgent.rootURL.path)
+            ]
+            if let model = effectiveModel { toolInput["model"] = .string(model) }
+            if let effort = effectiveEffort { toolInput["effort"] = .string(effort) }
+            if let resume = resumePiSessionID, !resume.isEmpty {
+                toolInput["resume_pi_session_id"] = .string(resume)
+            }
+
+            if workflow.config.tracker.kind == "local" {
+                await writeLocalIssueState(issueID: issue.id, state: "In Progress")
+            }
+            appendLog(.info, "Dispatched \(issue.identifier) to hermes (\(provider)) for \(project.name) in \(workspace.path).")
+
+            let capturedIssueID = issue.id
+            let capturedSessionID = sessionID
+            Task { [weak self] in
+                await self?.runHermesToolCall(
+                    sessionID: capturedSessionID,
+                    issueID: capturedIssueID,
+                    input: .object(toolInput),
+                    workspacePath: preparedAgent.rootURL.path
+                )
+            }
+        } catch {
+            claimedIssueIDs.remove(issue.id)
+            liveSessions = liveSessions.filter { $0.value.issueID != issue.id }
+            markAttempt(issueID: issue.id, status: .failed, error: error.localizedDescription)
+            appendLog(.error, "Hermes dispatch failed for \(issue.identifier): \(error.localizedDescription)")
+        }
+    }
+
+    private func runHermesToolCall(
+        sessionID: String,
+        issueID: String,
+        input: AnyCodableValue,
+        workspacePath: String
+    ) async {
+        let spec = hermesServerSpec()
+        let stream = await MCPClient.shared.callTool(
+            spec: spec,
+            name: "mcp_hermes_dispatch_subagent",
+            input: input
+        )
+        do {
+            for try await event in stream {
+                switch event {
+                case .progress(let label):
+                    if var session = liveSessions[sessionID] {
+                        session.lastEvent = label
+                        session.lastTimestamp = Date()
+                        liveSessions[sessionID] = session
+                    }
+                case .partial(let value):
+                    await handleHermesPartial(sessionID: sessionID, issueID: issueID, value: value)
+                case .result(let value):
+                    await handleHermesResult(sessionID: sessionID, issueID: issueID, value: value, workspacePath: workspacePath)
+                    return
+                case .error(let message):
+                    markAttempt(issueID: issueID, status: .failed, error: message)
+                    appendLog(.error, "hermes tool error for \(identifier(for: issueID)): \(message)")
+                    liveSessions.removeValue(forKey: sessionID)
+                    claimedIssueIDs.remove(issueID)
+                    return
+                }
+            }
+            await handleHermesResult(sessionID: sessionID, issueID: issueID, value: .null, workspacePath: workspacePath)
+        } catch {
+            markAttempt(issueID: issueID, status: .failed, error: error.localizedDescription)
+            appendLog(.error, "hermes stream failed for \(identifier(for: issueID)): \(error.localizedDescription)")
+            liveSessions.removeValue(forKey: sessionID)
+            claimedIssueIDs.remove(issueID)
+        }
+    }
+
+    private func handleHermesPartial(sessionID: String, issueID: String, value: AnyCodableValue) async {
+        guard case .object(let obj) = value else { return }
+        let eventType: String? = {
+            if case .string(let s)? = obj["type"] { return s }
+            if case .string(let s)? = obj["event"] { return s }
+            return nil
+        }()
+        if eventType == "session" || eventType == "pi_session" {
+            let id: String? = {
+                if case .string(let s)? = obj["pi_session_id"] { return s }
+                return nil
+            }()
+            if let id, !id.isEmpty {
+                if var session = liveSessions[sessionID], session.piSessionID != id {
+                    session.piSessionID = id
+                    session.lastTimestamp = Date()
+                    liveSessions[sessionID] = session
+                }
+                await stampSymphonySessionID(issueID: issueID, sessionID: id)
+            }
+            return
+        }
+        if var session = liveSessions[sessionID] {
+            if let eventType { session.lastEvent = eventType }
+            if case .string(let msg)? = obj["message"] {
+                session.lastMessage = String(msg.suffix(160))
+            }
+            session.lastTimestamp = Date()
+            liveSessions[sessionID] = session
+        }
+    }
+
+    private func handleHermesResult(
+        sessionID: String,
+        issueID: String,
+        value: AnyCodableValue,
+        workspacePath: String
+    ) async {
+        var status: AIRunStatus = .succeeded
+        var errorMessage: String?
+        var noResult = false
+        switch value {
+        case .object(let obj):
+            if case .string(let s)? = obj["status"] {
+                switch s.lowercased() {
+                case "failed", "error": status = .failed
+                case "canceled", "cancelled": status = .canceled
+                default: status = .succeeded
+                }
+            }
+            if case .string(let s)? = obj["error"] { errorMessage = s }
+            if case .string(let id)? = obj["pi_session_id"], !id.isEmpty {
+                if var session = liveSessions[sessionID], session.piSessionID != id {
+                    session.piSessionID = id
+                    liveSessions[sessionID] = session
+                }
+                await stampSymphonySessionID(issueID: issueID, sessionID: id)
+            }
+        case .null:
+            status = .failed
+            errorMessage = "hermes returned no result — child likely crashed or hermes not installed correctly."
+            noResult = true
+            appendLog(.error, "hermes returned no result for \(identifier(for: issueID)); marking failed and skipping retry.")
+        default:
+            status = .failed
+            errorMessage = "hermes returned an unexpected result shape."
+            noResult = true
+            appendLog(.error, "hermes returned unexpected result for \(identifier(for: issueID)); marking failed and skipping retry.")
+        }
+
+        let workflow = await currentWorkflow()
+        do {
+            try runHook(
+                workflow.config.hooks.afterRun,
+                cwd: URL(fileURLWithPath: workspacePath, isDirectory: true),
+                timeoutMS: workflow.config.hooks.timeoutMS
+            )
+        } catch {
+            appendLog(.warning, "after_run failed for \(identifier(for: issueID)): \(error.localizedDescription)")
+        }
+
+        await ingestAgentReports()
+        liveSessions.removeValue(forKey: sessionID)
+        claimedIssueIDs.remove(issueID)
+        markAttempt(issueID: issueID, status: status, error: errorMessage)
+
+        if status == .succeeded {
+            let activeStates = Set(workflow.config.tracker.activeStates.map(normalizeState))
+            let terminalStates = Set(workflow.config.tracker.terminalStates.map(normalizeState))
+            let refreshed = try? await fetchIssueStatesByIDs([issueID], workflow: workflow).first
+            let normalizedState = refreshed.map { normalizeState($0.state) }
+            let stillActive = normalizedState.map { activeStates.contains($0) } ?? false
+            if let normalizedState, terminalStates.contains(normalizedState) {
+                completedIssueIDs.insert(issueID)
+                cleanupWorkspace(issueID: issueID)
+                appendLog(.info, "hermes finished \(identifier(for: issueID)); tracker state is terminal.")
+                return
+            }
+            let attemptCount = attempts.filter { $0.issueID == issueID }.count
+            let maxTurns = max(workflow.config.agent.maxTurns, 1)
+            if stillActive && attemptCount < maxTurns {
+                appendLog(.info, "hermes finished turn \(attemptCount) for \(identifier(for: issueID)); scheduling continuation.")
+                Task { [weak self] in
+                    guard let wf = await self?.currentWorkflow() else { return }
+                    await self?.scheduleRetry(issueID: issueID, workflow: wf, abnormal: false)
+                }
+                return
+            }
+        } else if !noResult {
+            Task { [weak self] in
+                guard let wf = await self?.currentWorkflow() else { return }
+                await self?.scheduleRetry(issueID: issueID, workflow: wf, abnormal: true)
+            }
+        }
+    }
+
+    private func hermesServerSpec() -> MCPServerSpec {
+        let command = ProcessInfo.processInfo.environment["HERMES_MCP_COMMAND"] ?? "hermes"
+        let argsRaw = ProcessInfo.processInfo.environment["HERMES_MCP_ARGS"] ?? "mcp"
+        let arguments = argsRaw.split(separator: " ").map(String.init)
+        return MCPServerSpec(name: "hermes", command: command, arguments: arguments, environment: backgroundAgentEnvironment())
     }
 
     private func handleAgentProcessTermination(sessionID: String, terminationStatus: Int32) async {
@@ -1393,9 +1800,15 @@ actor AIWorkspaceManager {
 
     private func appendReportToIssueNode(issue: AIIssue, report: String) async throws {
         guard let linkedBlockID = issue.linkedBlockID,
-              let block = try await blockEntity(id: linkedBlockID) else { return }
+              try await blockEntity(id: linkedBlockID) != nil else { return }
         let timestamp = ISO8601DateFormatter().string(from: Date())
-        var markdown = removeEmptyAgentReportPlaceholder(from: upsertIssueState(in: block.markdown, state: issue.state))
+        _ = try await blocksRepository.mutateFrontmatter(blockId: linkedBlockID, merge: [
+            "state": .string(issue.state),
+            "updated_at": .string(ISO8601DateFormatter().string(from: Date())),
+            "symphony": .bool(true)
+        ])
+        guard let refreshed = try await blockEntity(id: linkedBlockID) else { return }
+        var markdown = removeEmptyAgentReportPlaceholder(from: removeVisibleAIMetadata(from: refreshed.markdown))
         let trimmedReport = stripLeadingH1(from: report.trimmingCharacters(in: .whitespacesAndNewlines))
         let (progressBlock, remainingReport) = extractProgressBlock(from: trimmedReport)
         if let progressBlock {
@@ -1653,14 +2066,6 @@ actor AIWorkspaceManager {
         """
     }
 
-    private func upsertIssueState(in markdown: String, state: String) -> String {
-        let cleaned = removeVisibleAIMetadata(from: markdown)
-        return upsertFrontmatterValues(in: cleaned, values: [
-            "state": state,
-            "updated_at": ISO8601DateFormatter().string(from: Date())
-        ])
-    }
-
     private func removeVisibleAIMetadata(from markdown: String) -> String {
         markdown
             .components(separatedBy: .newlines)
@@ -1681,57 +2086,17 @@ actor AIWorkspaceManager {
             .replacingOccurrences(of: "\n\n\n", with: "\n\n")
     }
 
-    private func upsertFrontmatterValue(in markdown: String, key: String, value: String) -> String {
-        upsertFrontmatterValues(in: markdown, values: [key: value])
-    }
-
-    private func upsertFrontmatterValues(in markdown: String, values: [String: String]) -> String {
-        let lines = markdown.components(separatedBy: "\n")
-        guard lines.first?.trimmingCharacters(in: .whitespacesAndNewlines) == "---" else {
-            let frontmatter = values.sorted { $0.key < $1.key }.map { "\($0.key): \($0.value)" }
-            return """
-            ---
-            symphony: true
-            \(frontmatter.joined(separator: "\n"))
-            ---
-            \(markdown)
-            """
-        }
-
-        var closeIndex: Int?
-        var cursor = 1
-        while cursor < lines.count {
-            if lines[cursor].trimmingCharacters(in: .whitespacesAndNewlines) == "---" {
-                closeIndex = cursor
-                break
-            }
-            cursor += 1
-        }
-        guard let closeIndex else { return markdown }
-
-        var frontmatter = Array(lines[1..<closeIndex])
-        var remaining = values
-        frontmatter = frontmatter.map { line in
-            let parts = line.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
-            let lineKey = parts.first.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) } ?? ""
-            guard let value = remaining.removeValue(forKey: lineKey) else { return line }
-            return "\(lineKey): \(value)"
-        }
-        if !frontmatter.contains(where: { $0.split(separator: ":", maxSplits: 1).first?.trimmingCharacters(in: .whitespacesAndNewlines) == "symphony" }) {
-            frontmatter.insert("symphony: true", at: 0)
-        }
-        for key in remaining.keys.sorted() {
-            if let value = remaining[key] {
-                frontmatter.append("\(key): \(value)")
-            }
-        }
-
-        return (["---"] + frontmatter + ["---"] + Array(lines.dropFirst(closeIndex + 1))).joined(separator: "\n")
-    }
-
     private func updateLocalIssueFrontmatter(issueID: String, values: [String: String]) async throws {
         guard let doc = try await localIssueDocument(issueID: issueID) else { return }
-        try await blocksRepository.update(id: doc.block.id, markdown: upsertFrontmatterValues(in: doc.block.markdown, values: values))
+        var merge: [String: AnyCodableValue] = [:]
+        for (key, value) in values {
+            merge[key] = .string(value)
+        }
+        let parsedFM = MarkdownConverter.shared.parse(doc.block.markdown).frontmatter
+        if parsedFM["symphony"] == nil {
+            merge["symphony"] = .bool(true)
+        }
+        _ = try await blocksRepository.mutateFrontmatter(blockId: doc.block.id, merge: merge)
     }
 
     private func stampSymphonySessionID(issueID: String, sessionID: String) async {
@@ -2269,6 +2634,25 @@ actor AIWorkspaceManager {
             authConfigured: authConfigured || hasEnvKey,
             statusDetail: detail
         )
+    }
+
+    private func refreshHermesDetection(force: Bool = false) {
+        if !force,
+           let lastCheckedAt = detectedHermes.lastCheckedAt,
+           Date().timeIntervalSince(lastCheckedAt) < hermesProbeIntervalSeconds {
+            return
+        }
+        let envCommand = ProcessInfo.processInfo.environment["HERMES_MCP_COMMAND"] ?? "hermes"
+        let path = shellCommand("command -v \(shellQuote(envCommand))")
+        detectedHermes = AIDetectedHermesRuntime(
+            executablePath: path,
+            lastCheckedAt: Date()
+        )
+    }
+
+    func isHermesAvailable() -> Bool {
+        refreshHermesDetection()
+        return detectedHermes.isAvailable
     }
 
     private func publicAgentRuntimes() -> [AIAgentRuntime] {

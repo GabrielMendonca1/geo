@@ -3,7 +3,7 @@ import SwiftUI
 
 struct ConnectorDrawer: View {
     let id: String
-    @EnvironmentObject private var service: NanoClawService
+    @EnvironmentObject private var service: HermesStatusService
     @Environment(\.dismiss) private var dismiss
 
     @State private var telegramToken: String = ""
@@ -11,7 +11,7 @@ struct ConnectorDrawer: View {
     @State private var tokenSaved: Bool = false
     @State private var confirmDisconnect: Bool = false
 
-    private var connector: ClawConnector? {
+    private var connector: HermesConnector? {
         service.connectors.first(where: { $0.id == id })
     }
 
@@ -217,15 +217,18 @@ struct ConnectorDrawer: View {
     private func saveTelegramToken() {
         let trimmed = telegramToken.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        do {
-            try ClawSignalBus.writeTelegramToken(trimmed)
-            try ClawSignalBus.writeSignal(name: "request-pair-telegram")
-            tokenSaveError = nil
-            tokenSaved = true
-            telegramToken = ""
-        } catch {
-            tokenSaved = false
-            tokenSaveError = error.localizedDescription
+        tokenSaved = false
+        tokenSaveError = nil
+        Task {
+            do {
+                try await service.saveTelegramBotToken(trimmed)
+                tokenSaved = true
+                telegramToken = ""
+                try? await Task.sleep(nanoseconds: 800_000_000)
+                dismiss()
+            } catch {
+                tokenSaveError = "Hermes refused token: \(error.localizedDescription)"
+            }
         }
     }
 }

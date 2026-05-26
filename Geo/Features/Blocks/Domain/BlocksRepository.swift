@@ -14,6 +14,7 @@ protocol BlocksRepository: Sendable {
     func setStatus(blockId: String, status: String?) async throws
     func checkboxes(in blockId: String) async -> [BlockCheckbox]
     func toggleCheckbox(in blockId: String, lineNumber: Int) async throws
+    func mutateFrontmatter(blockId: String, merge: [String: AnyCodableValue]) async throws -> Int
     @MainActor func saveSync(id: String, markdown: String) -> Bool
 }
 

@@ -15,6 +15,7 @@ protocol BlocksStoreAccess: Sendable {
     func setStatus(_ status: String?, for blockId: String) async -> Bool
     func checkboxes(in blockId: String) async -> [BlockCheckbox]
     func toggleCheckbox(in blockId: String, lineNumber: Int) async throws
+    func mutateFrontmatter(blockId: String, merge: [String: AnyCodableValue]) async throws -> Int
     @MainActor func updateBlockAndFlush(id: String, markdown: String) -> Bool
 }
 
@@ -150,6 +151,12 @@ final class LiveBlocksStoreAccess: BlocksStoreAccess, @unchecked Sendable {
     func toggleCheckbox(in blockId: String, lineNumber: Int) async throws {
         try await Task(operation: { @MainActor in
             try await blocksStore.toggleCheckbox(in: blockId, lineNumber: lineNumber)
+        }).value
+    }
+
+    func mutateFrontmatter(blockId: String, merge: [String: AnyCodableValue]) async throws -> Int {
+        try await Task(operation: { @MainActor in
+            try await blocksStore.mutateFrontmatter(blockID: blockId, merge: merge)
         }).value
     }
 
@@ -290,6 +297,13 @@ struct BlocksStoreRepositoryAdapter: BlocksRepository, @unchecked Sendable {
 
     func toggleCheckbox(in blockId: String, lineNumber: Int) async throws {
         try await storeAccess.toggleCheckbox(in: blockId, lineNumber: lineNumber)
+    }
+
+    func mutateFrontmatter(blockId: String, merge: [String: AnyCodableValue]) async throws -> Int {
+        guard !blockId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw RepositoryError.invalidInput
+        }
+        return try await storeAccess.mutateFrontmatter(blockId: blockId, merge: merge)
     }
 
     @MainActor

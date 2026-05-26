@@ -919,6 +919,31 @@ private final class InMemoryBlocksStoreAccess: BlocksStoreAccess, @unchecked Sen
     func setType(_ type: BlockType, for blockId: String) async -> Bool { false }
     func setStatus(_ status: String?, for blockId: String) async -> Bool { false }
 
+    func mutateFrontmatter(blockId: String, merge: [String: AnyCodableValue]) async throws -> Int {
+        guard let index = blocks.firstIndex(where: { $0.id == blockId }) else {
+            throw FrontmatterMutationError.blockNotFound(blockId)
+        }
+        let existing = blocks[index]
+        let newVersion = existing.metadata.frontmatter_version + 1
+        var mergeWithVersion = merge
+        mergeWithVersion["frontmatter_version"] = .int(newVersion)
+        let newMarkdown = FrontmatterEditor.upsert(in: existing.markdown, values: mergeWithVersion)
+        var metadata = existing.metadata
+        metadata.frontmatter_version = newVersion
+        blocks[index] = BlocksStore.Block(
+            id: existing.id,
+            title: existing.title,
+            date: existing.date,
+            lastEdited: Date(),
+            markdown: newMarkdown,
+            url: existing.url,
+            tagId: existing.tagId,
+            metadata: metadata
+        )
+        publishSnapshot()
+        return newVersion
+    }
+
     @MainActor
     func updateBlockAndFlush(id: String, markdown: String) -> Bool {
         guard let index = blocks.firstIndex(where: { $0.id == id }) else {

@@ -61,7 +61,8 @@ final class AppContainer {
     let endpointRegistry: EndpointRegistry
     let workerSessionRegistry: WorkerSessionRegistry
     let workerInbox: WorkerInbox
-    let nanoClawService: NanoClawService
+    let nanoHermesService: HermesStatusService
+    let nanoConversationStore: NanoConversationStore
     let environment: AppEnvironment
 
     init() {
@@ -143,7 +144,10 @@ final class AppContainer {
         let workerSessionRegistry = MainActor.assumeIsolated { WorkerSessionRegistry() }
         let workerInbox = MainActor.assumeIsolated { WorkerInbox() }
         let workerDispatcher = WorkerDispatcher(registry: workerSessionRegistry)
-        let nanoClawService = MainActor.assumeIsolated { NanoClawService() }
+        let nanoHermesService = MainActor.assumeIsolated { HermesStatusService() }
+        let nanoConversationStore = MainActor.assumeIsolated {
+            NanoConversationStore(transport: NanoTransportFactory.makeDefault())
+        }
 
         mcpServer.onAuthenticatedConnection = { connection, endpoint in
             Task { @MainActor in
@@ -207,7 +211,8 @@ final class AppContainer {
         self.endpointRegistry = endpointRegistry
         self.workerSessionRegistry = workerSessionRegistry
         self.workerInbox = workerInbox
-        self.nanoClawService = nanoClawService
+        self.nanoHermesService = nanoHermesService
+        self.nanoConversationStore = nanoConversationStore
         self.environment = appEnvironment
     }
 }
@@ -254,7 +259,8 @@ struct GeoApp: App {
                 .environmentObject(container.endpointRegistry)
                 .environmentObject(container.workerSessionRegistry)
                 .environmentObject(container.workerInbox)
-                .environmentObject(container.nanoClawService)
+                .environmentObject(container.nanoHermesService)
+                .environmentObject(container.nanoConversationStore)
                 .environment(\.navigationStore, container.navigationStore)
                 .environment(\.tabRouter, container.navigationStore.tabRouter)
                 .environment(\.appEnvironment, container.environment)
@@ -408,7 +414,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         container.notificationManager.configure(tasksRepository: container.environment.tasksRepository)
         container.notificationManager.startMonitoring()
         container.watcher.startWatching()
-        Task { @MainActor in container.nanoClawService.start() }
+        Task { @MainActor in container.nanoHermesService.start() }
 
         do {
             try container.mcpServer.start()
@@ -481,7 +487,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         container.notificationManager.stopMonitoring()
         container.watcher.stopWatching()
         container.mcpServer.stop()
-        MainActor.assumeIsolated { container.nanoClawService.stop() }
+        MainActor.assumeIsolated { container.nanoHermesService.stop() }
     }
 
     @MainActor

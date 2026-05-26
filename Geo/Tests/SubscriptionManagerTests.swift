@@ -68,6 +68,7 @@ private final class FakeBlocksRepo: BlocksRepository, @unchecked Sendable {
     func setStatus(blockId: String, status: String?) async throws {}
     func checkboxes(in blockId: String) async -> [BlockCheckbox] { [] }
     func toggleCheckbox(in blockId: String, lineNumber: Int) async throws {}
+    func mutateFrontmatter(blockId: String, merge: [String: AnyCodableValue]) async throws -> Int { 0 }
     @MainActor func saveSync(id: String, markdown: String) -> Bool { false }
 }
 

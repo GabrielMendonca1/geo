@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct NanoChatView: View {
-    @ObservedObject var store: NanoConversationStore
+    @EnvironmentObject private var store: NanoConversationStore
     @State private var draft: String = ""
     @State private var attachments: [NanoAttachment] = []
 

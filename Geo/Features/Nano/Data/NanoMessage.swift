@@ -10,6 +10,7 @@ struct NanoToolCall: Identifiable, Sendable, Equatable {
     let name: String
     let input: JSONValue
     var result: JSONValue?
+    var partialResult: JSONValue? = nil
     var isError: Bool = false
     var startedAt: Date = Date()
     var endedAt: Date? = nil
@@ -34,6 +35,7 @@ struct NanoToolCall: Identifiable, Sendable, Equatable {
             && lhs.isError == rhs.isError
             && lhs.input == rhs.input
             && lhs.result == rhs.result
+            && lhs.partialResult == rhs.partialResult
             && lhs.endedAt == rhs.endedAt
     }
 }

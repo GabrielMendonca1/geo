@@ -3,28 +3,25 @@ import AppKit
 import Foundation
 import GRDB
 
-// Geo pane — mission control for the always-on geo-claw daemon.
-// The chat surface moved to Telegram. This pane is the dashboard.
-//
-// Composition (top → bottom):
-//   ┌─ TodayInsightsCard ───────────────────────────────────┐  hero: today's activity at a glance
-//   ┌─ ActivatedCard ───────────────────────────────────────┐  compact strip: connectors + MCP
-//   ┌─ CronsCard ──────────┐ ┌─ MemoryCard ─┐                 crons grid + memory legend
-//   ┌─ ActivityFeed ────────────────────────────────────────┐  live tail of claw.log
-//
-// Data sources:
-//   - NanoClawService       (EnvironmentObject) — watches status.json
-//   - TodayInsightsService  (@StateObject)      — reads claw.sqlite via GRDB for daily aggregates
-//   - ActivityFeedService   (@StateObject)      — tails claw.log via DispatchSource
+// Geo pane — mission control for the always-on hermes daemon.
 
 struct NanoPane: View {
-    @EnvironmentObject private var service: NanoClawService
+    @EnvironmentObject private var service: HermesStatusService
     @StateObject private var insights = TodayInsightsService()
     @StateObject private var activity = ActivityFeedService()
+    @State private var dismissedErrorId: UUID?
+    @State private var scrollTargetId: UUID?
 
     var body: some View {
         Pane {
             VStack(spacing: 12) {
+                if let banner = recentError {
+                    ErrorBanner(event: banner) {
+                        scrollTargetId = banner.id
+                    } onDismiss: {
+                        dismissedErrorId = banner.id
+                    }
+                }
                 TodayInsightsCard(insights: insights)
                 ActivatedStrip(service: service)
                 HStack(alignment: .top, spacing: 12) {
@@ -33,8 +30,9 @@ struct NanoPane: View {
                     MemoryCard()
                         .frame(width: 260)
                 }
-                ActivityFeed(events: activity.events)
+                ActivityFeed(events: activity.events, scrollTo: $scrollTargetId)
                     .frame(maxHeight: .infinity)
+                QuickActionsRow()
             }
             .padding(14)
         }
@@ -47,9 +45,16 @@ struct NanoPane: View {
             activity.stop()
         }
         .onChange(of: activity.events.count) { _, _ in
-            // Any new log event might mean new messages/memory/cron runs — refresh insights.
             insights.refresh()
         }
+    }
+
+    private var recentError: ActivityEvent? {
+        guard let last = activity.events.last,
+              last.level >= 50,
+              last.id != dismissedErrorId,
+              Date().timeIntervalSince(last.timestamp) <= 60 else { return nil }
+        return last
     }
 }
 
@@ -224,7 +229,7 @@ private struct ChannelBar: View {
 // MARK: - Activated strip (compact) -------------------------------------
 
 private struct ActivatedStrip: View {
-    @ObservedObject var service: NanoClawService
+    @ObservedObject var service: HermesStatusService
     @State private var connectorDrawer: String?
 
     var body: some View {
@@ -271,7 +276,7 @@ private struct ActivatedStrip: View {
         return items
     }
 
-    private func dotColor(for status: ClawConnectionStatus) -> DashDot {
+    private func dotColor(for status: HermesConnectionStatus) -> DashDot {
         switch status {
         case .connected: return .green
         case .connecting: return .yellow
@@ -294,7 +299,7 @@ private struct ConnectorDrawerItem: Identifiable { let id: String }
 private struct CronsCard: View {
     var body: some View {
         DashCard(title: "Crons", icon: "clock.fill", accent: nil) {
-            ClawJobsSection()
+            HermesCronsSection()
         }
     }
 }
@@ -302,12 +307,18 @@ private struct CronsCard: View {
 // MARK: - Memory card ----------------------------------------------------
 
 private struct MemoryCard: View {
+    @EnvironmentObject private var blocksStore: BlocksStore
+
     var body: some View {
         DashCard(title: "Memory", icon: "brain.head.profile", accent: nil) {
-            VStack(alignment: .leading, spacing: 8) {
-                MemoryRow(name: "Soul", blurb: "identity, capabilities", tag: "soul")
-                MemoryRow(name: "Memory", blurb: "runtime facts · 2200", tag: "memory")
-                MemoryRow(name: "User Profile", blurb: "about you · 1375", tag: "profile")
+            VStack(alignment: .leading, spacing: 10) {
+                if blocksStore.blocks.isEmpty {
+                    MemoryLoadingRow()
+                } else {
+                    MemoryRow(spec: .soul, blocks: blocksStore.blocks)
+                    MemoryRow(spec: .memory, blocks: blocksStore.blocks)
+                    MemoryRow(spec: .profile, blocks: blocksStore.blocks)
+                }
                 Divider().padding(.vertical, 2)
                 Text("Edit any of these blocks in the Blocks pane to change what the agent knows. Restart the daemon to pick up Soul edits.")
                     .font(.system(size: 9.5))
@@ -318,27 +329,228 @@ private struct MemoryCard: View {
     }
 }
 
-private struct MemoryRow: View {
+private struct MemorySpec {
     let name: String
-    let blurb: String
     let tag: String
+    let titleMatches: [String]
+    let cap: Int?
+
+    static let soul = MemorySpec(
+        name: "Soul",
+        tag: "soul",
+        titleMatches: ["soul", "soul of geo"],
+        cap: nil
+    )
+    static let memory = MemorySpec(
+        name: "Memory",
+        tag: "memory",
+        titleMatches: ["memory", "geo memory"],
+        cap: 2200
+    )
+    static let profile = MemorySpec(
+        name: "User Profile",
+        tag: "profile",
+        titleMatches: ["user profile", "profile"],
+        cap: 1375
+    )
+}
+
+private struct MemoryLoadingRow: View {
     var body: some View {
         HStack(spacing: 8) {
             Circle()
-                .fill(Color(red: 0.55, green: 0.40, blue: 0.93))
+                .fill(Color.secondary.opacity(0.3))
                 .frame(width: 5, height: 5)
+            Text("loading…")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+            Spacer()
+        }
+    }
+}
+
+private struct MemoryRow: View {
+    let spec: MemorySpec
+    let blocks: [BlocksStore.Block]
+    @EnvironmentObject private var blocksStore: BlocksStore
+    @Environment(\.openWindow) private var openWindow
+    @State private var creating = false
+
+    var body: some View {
+        if let block = matchedBlock {
+            populated(block)
+        } else {
+            empty()
+        }
+    }
+
+    private var matchedBlock: BlocksStore.Block? {
+        if let byTag = blocks.first(where: { $0.markdown.contains("tag: \(spec.tag)") }) {
+            return byTag
+        }
+        let wanted = Set(spec.titleMatches.map { $0.lowercased() })
+        return blocks.first { wanted.contains($0.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()) }
+    }
+
+    private var purple: Color { Color(red: 0.55, green: 0.40, blue: 0.93) }
+
+    @ViewBuilder
+    private func populated(_ block: BlocksStore.Block) -> some View {
+        let preview = bodyPreview(block.markdown)
+        let chars = bodyCharCount(block.markdown)
+        Button(action: { MenuActions.openBlockEditor(block.id, openWindow: openWindow) }) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 8) {
+                    Circle().fill(purple).frame(width: 5, height: 5)
+                    Text(spec.name).font(.system(size: 11, weight: .medium))
+                    Spacer(minLength: 0)
+                    Text(usageLabel(chars: chars))
+                        .font(.system(size: 9, design: .monospaced))
+                        .foregroundStyle(usageColor(chars: chars))
+                    Text(relative(block.lastEdited))
+                        .font(.system(size: 9))
+                        .foregroundStyle(.secondary.opacity(0.8))
+                }
+                if !preview.isEmpty {
+                    Text(preview)
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .padding(.leading, 13)
+                }
+                if spec.cap != nil {
+                    UsageBar(chars: chars, cap: spec.cap!)
+                        .frame(height: 3)
+                        .padding(.leading, 13)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private func empty() -> some View {
+        HStack(spacing: 8) {
+            Circle().fill(Color.secondary.opacity(0.3)).frame(width: 5, height: 5)
             VStack(alignment: .leading, spacing: 0) {
-                Text(name).font(.system(size: 11, weight: .medium))
-                Text(blurb).font(.system(size: 9.5)).foregroundStyle(.secondary)
+                Text(spec.name).font(.system(size: 11, weight: .medium))
+                Text("not seeded").font(.system(size: 9.5)).foregroundStyle(.secondary)
             }
             Spacer()
-            Text("#\(tag)")
-                .font(.system(size: 9, design: .monospaced))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 5).padding(.vertical, 1.5)
-                .background(Color.secondary.opacity(0.08))
-                .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+            Button(action: createBlock) {
+                Text(creating ? "creating…" : "create")
+                    .font(.system(size: 9.5, weight: .medium))
+                    .padding(.horizontal, 7).padding(.vertical, 2)
+                    .background(
+                        Capsule().fill(purple.opacity(0.15))
+                    )
+                    .foregroundStyle(purple)
+            }
+            .buttonStyle(.plain)
+            .disabled(creating)
         }
+    }
+
+    private func createBlock() {
+        guard !creating else { return }
+        creating = true
+        let title = spec.name
+        let markdown = "---\ntag: \(spec.tag)\nsymphony: false\n---\n\n# \(title)\n\n"
+        Task { @MainActor in
+            _ = await blocksStore.createBlock(title: title, markdown: markdown)
+            creating = false
+        }
+    }
+
+    private func bodyPreview(_ markdown: String) -> String {
+        let stripped = stripFrontmatter(markdown)
+            .components(separatedBy: "\n")
+            .filter { !$0.hasPrefix("#") }
+            .joined(separator: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if stripped.count <= 80 { return stripped }
+        return String(stripped.prefix(80)) + "…"
+    }
+
+    private func bodyCharCount(_ markdown: String) -> Int {
+        stripFrontmatter(markdown)
+            .components(separatedBy: "\n")
+            .filter { !$0.hasPrefix("#") }
+            .joined(separator: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .count
+    }
+
+    private func stripFrontmatter(_ markdown: String) -> String {
+        let lines = markdown.components(separatedBy: "\n")
+        guard let first = lines.first, first.trimmingCharacters(in: .whitespaces) == "---" else {
+            return markdown
+        }
+        var idx = 1
+        while idx < lines.count {
+            if lines[idx].trimmingCharacters(in: .whitespaces) == "---" {
+                return lines.dropFirst(idx + 1).joined(separator: "\n")
+            }
+            idx += 1
+        }
+        return markdown
+    }
+
+    private func usageLabel(chars: Int) -> String {
+        if let cap = spec.cap {
+            return "\(chars) / \(cap)"
+        }
+        return "\(chars)"
+    }
+
+    private func usageColor(chars: Int) -> Color {
+        guard let cap = spec.cap, cap > 0 else { return .secondary }
+        let ratio = Double(chars) / Double(cap)
+        if ratio > 0.85 { return Color(red: 0.95, green: 0.32, blue: 0.32) }
+        if ratio > 0.60 { return Color(red: 0.95, green: 0.65, blue: 0.20) }
+        return Color(red: 0.18, green: 0.70, blue: 0.42)
+    }
+
+    private func relative(_ date: Date) -> String {
+        let f = RelativeDateTimeFormatter()
+        f.unitsStyle = .short
+        return f.localizedString(for: date, relativeTo: Date())
+    }
+}
+
+private struct UsageBar: View {
+    let chars: Int
+    let cap: Int
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                    .fill(Color.secondary.opacity(0.10))
+                RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [tint, tint.opacity(0.7)],
+                            startPoint: .leading, endPoint: .trailing
+                        )
+                    )
+                    .frame(width: geo.size.width * CGFloat(min(ratio, 1.0)))
+                    .animation(.easeOut(duration: 0.4), value: chars)
+            }
+        }
+    }
+
+    private var ratio: Double {
+        guard cap > 0 else { return 0 }
+        return Double(chars) / Double(cap)
+    }
+
+    private var tint: Color {
+        if ratio > 0.85 { return Color(red: 0.95, green: 0.32, blue: 0.32) }
+        if ratio > 0.60 { return Color(red: 0.95, green: 0.65, blue: 0.20) }
+        return Color(red: 0.18, green: 0.70, blue: 0.42)
     }
 }
 
@@ -346,6 +558,7 @@ private struct MemoryRow: View {
 
 private struct ActivityFeed: View {
     let events: [ActivityEvent]
+    @Binding var scrollTo: UUID?
 
     var body: some View {
         DashCard(title: "Activity", icon: "waveform", accent: nil) {
@@ -368,6 +581,16 @@ private struct ActivityFeed: View {
                         if let id = newValue {
                             withAnimation(.easeOut(duration: 0.2)) {
                                 proxy.scrollTo(id, anchor: .bottom)
+                            }
+                        }
+                    }
+                    .onChange(of: scrollTo) { _, newValue in
+                        if let id = newValue {
+                            withAnimation(.easeOut(duration: 0.25)) {
+                                proxy.scrollTo(id, anchor: .center)
+                            }
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                scrollTo = nil
                             }
                         }
                     }
@@ -671,7 +894,7 @@ private final class ActivityFeedService: ObservableObject {
 
     private var logURL: URL {
         let home = FileManager.default.homeDirectoryForCurrentUser
-        return home.appendingPathComponent("Library/Logs/GeoClaw/claw.log")
+        return home.appendingPathComponent(".hermes/logs/gateway.log")
     }
 
     func start() {
@@ -753,7 +976,7 @@ private final class TodayInsightsService: ObservableObject {
 
     private var dbPath: String {
         let home = FileManager.default.homeDirectoryForCurrentUser
-        return home.appendingPathComponent("Library/Application Support/GeoClaw/db/claw.sqlite").path
+        return home.appendingPathComponent(".hermes/db/hermes.sqlite").path
     }
 
     func start() {
@@ -867,6 +1090,167 @@ private final class TodayInsightsService: ObservableObject {
               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let text = obj["text"] as? String else { return json }
         return text
+    }
+}
+
+// MARK: - Quick actions --------------------------------------------------
+
+private struct QuickActionsRow: View {
+    @State private var feedback: String?
+    @State private var feedbackIsError: Bool = false
+
+    var body: some View {
+        HStack(spacing: 8) {
+            QuickActionChip(label: "Open SOUL.md", icon: "doc.text", action: openSoul)
+            QuickActionChip(label: "Tail gateway.log", icon: "list.bullet.rectangle", action: tailLog)
+            QuickActionChip(label: "Restart hermes", icon: "arrow.clockwise", action: restartHermes)
+            QuickActionChip(label: "Reveal ~/.hermes/", icon: "folder", action: revealHermes)
+            if let feedback {
+                Text(feedback)
+                    .font(.system(size: 10))
+                    .foregroundStyle(feedbackIsError ? Color(red: 0.95, green: 0.32, blue: 0.32) : .secondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .transition(.opacity)
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func openSoul() {
+        let path = NSString(string: "~/.hermes/SOUL.md").expandingTildeInPath
+        NSWorkspace.shared.open(URL(fileURLWithPath: path))
+    }
+
+    private func tailLog() {
+        let logURL = URL(fileURLWithPath: NSString(string: "~/.hermes/logs/gateway.log").expandingTildeInPath)
+        let consoleURL = URL(fileURLWithPath: "/System/Applications/Utilities/Console.app")
+        let config = NSWorkspace.OpenConfiguration()
+        NSWorkspace.shared.open([logURL], withApplicationAt: consoleURL, configuration: config) { _, error in
+            if let error {
+                show("console: \(error.localizedDescription)", isError: true)
+            }
+        }
+    }
+
+    private func restartHermes() {
+        show("restarting…", isError: false)
+        Task.detached {
+            let uid = getuid()
+            let target = "gui/\(uid)/ai.hermes.gateway"
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+            process.arguments = ["kickstart", "-k", target]
+            let pipe = Pipe()
+            process.standardError = pipe
+            process.standardOutput = pipe
+            do {
+                try process.run()
+                process.waitUntilExit()
+                if process.terminationStatus == 0 {
+                    await MainActor.run { show("restarted hermes", isError: false) }
+                } else {
+                    let data = (try? pipe.fileHandleForReading.readToEnd()) ?? Data()
+                    let msg = String(data: data ?? Data(), encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+                    await MainActor.run {
+                        show(msg?.isEmpty == false ? msg! : "exit \(process.terminationStatus)", isError: true)
+                    }
+                }
+            } catch {
+                await MainActor.run { show(error.localizedDescription, isError: true) }
+            }
+        }
+    }
+
+    private func revealHermes() {
+        let path = NSString(string: "~/.hermes").expandingTildeInPath
+        let url = URL(fileURLWithPath: path)
+        NSWorkspace.shared.activateFileViewerSelecting([url])
+    }
+
+    private func show(_ text: String, isError: Bool) {
+        feedback = text
+        feedbackIsError = isError
+        let snapshot = text
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
+            if feedback == snapshot { feedback = nil }
+        }
+    }
+}
+
+private struct QuickActionChip: View {
+    let label: String
+    let icon: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: icon)
+                    .font(.system(size: 10, weight: .medium))
+                Text(label)
+                    .font(.system(size: 11, weight: .medium))
+            }
+            .padding(.horizontal, 10)
+            .frame(height: 28)
+            .background(
+                Capsule().fill(Color.secondary.opacity(0.07))
+            )
+            .overlay(
+                Capsule().strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
+            )
+            .foregroundStyle(.primary)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Error banner ---------------------------------------------------
+
+private struct ErrorBanner: View {
+    let event: ActivityEvent
+    let onView: () -> Void
+    let onDismiss: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Rectangle()
+                .fill(Color(red: 0.95, green: 0.32, blue: 0.32))
+                .frame(width: 3)
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Color(red: 0.95, green: 0.32, blue: 0.32))
+            Text(event.msg)
+                .font(.system(size: 11.5, weight: .medium))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+            Spacer(minLength: 8)
+            Button(action: onView) {
+                Text("view")
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(GeoColors.blue)
+            }
+            .buttonStyle(.plain)
+            Button(action: onDismiss) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(4)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.vertical, 6)
+        .padding(.trailing, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color(red: 0.95, green: 0.32, blue: 0.32).opacity(0.08))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(Color(red: 0.95, green: 0.32, blue: 0.32).opacity(0.25), lineWidth: 0.5)
+        )
     }
 }
 

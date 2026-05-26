@@ -20,29 +20,32 @@ final class NanoConversationStore: ObservableObject {
     @Published private(set) var channelId: String
     @Published private(set) var conversations: [NanoConversationSummary] = []
 
-    private let client: ClawIPCClient
+    private let transport: any NanoTransport
     private var fullChannelId: String { "nano:\(channelId)" }
 
-    init(client: ClawIPCClient = .shared, channelId: String = "main") {
-        self.client = client
+    init(transport: any NanoTransport, channelId: String = "main") {
+        self.transport = transport
         self.channelId = channelId
     }
 
     func hydrate() async {
         do {
-            let history = try await client.getHistory(channelId: fullChannelId, limit: 100)
+            let history = try await transport.getHistory(channelID: fullChannelId, limit: 100, afterCursor: nil)
             self.messages = history.map { entry in
                 NanoMessage(
-                    role: entry.role == "user" ? .user : .assistant,
+                    role: entry.role,
                     text: entry.text,
                     isStreaming: false,
                     ts: Date(timeIntervalSince1970: TimeInterval(entry.ts) / 1000.0)
                 )
             }
-        } catch ClawIPCError.socketMissing {
-            self.error = "geo-claw daemon isn't running. Start it with `launchctl load ~/Library/LaunchAgents/ai.geo.claw.plist` or check Settings."
         } catch {
-            storeLogger.warning("hydrate failed: \(error.localizedDescription)")
+            let msg = error.localizedDescription.lowercased()
+            if msg.contains("connection refused") || msg.contains("could not connect") || msg.contains("not connected") {
+                self.error = "hermes gateway isn't running. Start it with `hermes gateway start` (or `launchctl load ~/Library/LaunchAgents/ai.hermes.gateway.plist`)."
+            } else {
+                storeLogger.warning("hydrate failed: \(error.localizedDescription)")
+            }
         }
     }
 
@@ -50,7 +53,7 @@ final class NanoConversationStore: ObservableObject {
         guard !isSending else { return }
         self.error = nil
         do {
-            _ = try await client.resetSession(channelId: channelId)
+            try await transport.resetSession(channelID: channelId)
             self.messages = []
             await refreshConversations()
         } catch {
@@ -74,9 +77,9 @@ final class NanoConversationStore: ObservableObject {
 
     func refreshConversations() async {
         do {
-            let channels = try await client.listChannels(prefix: "nano:", limit: 50)
+            let channels = try await transport.listChannels(prefix: "nano:")
             self.conversations = channels.map { chan in
-                let suffix = chan.channelId.replacingOccurrences(of: "nano:", with: "")
+                let suffix = chan.channelID.replacingOccurrences(of: "nano:", with: "")
                 return NanoConversationSummary(
                     id: suffix,
                     title: suffix == "main" ? "Main" : suffix,
@@ -103,11 +106,11 @@ final class NanoConversationStore: ObservableObject {
         messages.append(assistantMessage)
         let assistantId = assistantMessage.id
 
-        let ipcAttachments: [ClawIPCClient.IPCAttachment] = attachments.compactMap { attachment in
+        let transportAttachments: [NanoTransportAttachment] = attachments.compactMap { attachment in
             switch attachment.kind {
             case .image(let image, let name):
                 guard let data = imageData(image) else { return nil }
-                return ClawIPCClient.IPCAttachment(
+                return NanoTransportAttachment(
                     type: "image",
                     mediaType: "image/png",
                     base64: data.base64EncodedString(),
@@ -116,7 +119,7 @@ final class NanoConversationStore: ObservableObject {
             case .file(let url):
                 guard let data = try? Data(contentsOf: url) else { return nil }
                 let media = mediaType(for: url)
-                return ClawIPCClient.IPCAttachment(
+                return NanoTransportAttachment(
                     type: "file",
                     mediaType: media,
                     base64: data.base64EncodedString(),
@@ -126,7 +129,7 @@ final class NanoConversationStore: ObservableObject {
         }
 
         do {
-            let stream = try await client.runTurn(channelId: channelId, userText: userText, attachments: ipcAttachments)
+            let stream = try await transport.runTurn(channelID: channelId, text: userText, attachments: transportAttachments)
             for try await event in stream {
                 apply(event: event, toAssistant: assistantId)
             }
@@ -138,7 +141,7 @@ final class NanoConversationStore: ObservableObject {
 
     func cancel() async {
         guard isSending else { return }
-        _ = try? await client.cancel(channelId: channelId)
+        try? await transport.cancel(channelID: channelId)
     }
 
     private func imageData(_ image: NSImage) -> Data? {
@@ -173,6 +176,18 @@ final class NanoConversationStore: ObservableObject {
                 messages[idx].toolCalls[callIdx].result = content
                 messages[idx].toolCalls[callIdx].isError = isError
                 messages[idx].toolCalls[callIdx].endedAt = Date()
+            }
+        case .toolPartial(let callID, let partial):
+            if let callIdx = messages[idx].toolCalls.firstIndex(where: { $0.id == callID }) {
+                messages[idx].toolCalls[callIdx].partialResult = partial
+            }
+        case .agentDispatch(let workspaceID, let status, let lastLine):
+            if let callIdx = messages[idx].toolCalls.firstIndex(where: {
+                $0.name == "mcp_hermes_dispatch_subagent" || $0.name == "ai_dispatch_agent"
+            }) {
+                var partial: [String: JSONValue] = ["workspace_id": .string(workspaceID), "status": .string(status)]
+                if let lastLine { partial["tail"] = .array([.string(lastLine)]) }
+                messages[idx].toolCalls[callIdx].partialResult = .object(partial)
             }
         case .done(let reply):
             messages[idx].isStreaming = false

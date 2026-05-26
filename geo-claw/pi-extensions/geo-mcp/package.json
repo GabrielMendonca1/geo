@@ -1,9 +1,0 @@
-{
-  "name": "geo-mcp-pi-extension",
-  "version": "0.1.0",
-  "private": true,
-  "type": "module",
-  "dependencies": {
-    "typebox": "1.1.38"
-  }
-}

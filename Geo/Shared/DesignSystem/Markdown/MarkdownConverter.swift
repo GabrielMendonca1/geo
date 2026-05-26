@@ -34,6 +34,18 @@ final class MarkdownConverter {
         return BlockType(rawValue: trimmed) ?? .fleeting
     }
 
+    static func frontmatterVersion(_ raw: String?) -> Int {
+        guard let raw else { return 0 }
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
+        return Int(trimmed) ?? 0
+    }
+
+    func frontmatterVersion(in markdown: String) -> Int {
+        let document = parse(markdown)
+        return Self.frontmatterVersion(document.frontmatter["frontmatter_version"])
+    }
+
     func parse(_ markdown: String) -> MarkdownDocument {
         let lines = markdown.components(separatedBy: .newlines)
         var index = 0

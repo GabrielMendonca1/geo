@@ -58,6 +58,7 @@ final class BlockFileService {
                     let title = Self.titleFromLines(body, allowTodoTitle: false)
                     blockMetadata.status = MarkdownConverter.normalizedStatus(document.frontmatter["status"])
                     blockMetadata.type = MarkdownConverter.normalizedType(document.frontmatter["type"])
+                    blockMetadata.frontmatter_version = MarkdownConverter.frontmatterVersion(document.frontmatter["frontmatter_version"])
 
                     let resourceValues = try? url.resourceValues(forKeys: resourceKeys)
                     let date = resourceValues?.creationDate ?? resourceValues?.contentModificationDate ?? .distantPast
