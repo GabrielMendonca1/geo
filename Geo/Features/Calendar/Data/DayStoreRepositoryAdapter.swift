@@ -1,0 +1,135 @@
+import Foundation
+import Combine
+
+protocol DayStoreAccess: Sendable {
+    func observeDays() -> AsyncStream<[Day]>
+    func day(for date: Date) -> Day?
+    func addOrUpdateDay(_ day: Day)
+    func addBlockToDay(date: Date, blockId: String)
+    func addCaptureToDay(date: Date, captureId: UUID)
+    func deleteDay(date: Date) -> Bool
+}
+
+private final class DayObservationBox: @unchecked Sendable {
+    var cancellable: AnyCancellable?
+}
+
+final class LiveDayStoreAccess: DayStoreAccess, @unchecked Sendable {
+    private let dayStore: DayStore
+
+    init(dayStore: DayStore) {
+        self.dayStore = dayStore
+    }
+
+    func observeDays() -> AsyncStream<[Day]> {
+        AsyncStream { continuation in
+            let box = DayObservationBox()
+            let setupTask = Task { @MainActor [dayStore] in
+                continuation.yield(dayStore.days)
+                box.cancellable = dayStore.$days
+                    .dropFirst()
+                    .sink { days in
+                        continuation.yield(days)
+                    }
+            }
+
+            continuation.onTermination = { @Sendable _ in
+                setupTask.cancel()
+                Task { @MainActor in
+                    box.cancellable?.cancel()
+                    box.cancellable = nil
+                }
+            }
+        }
+    }
+
+    func day(for date: Date) -> Day? {
+        MainActor.assumeIsolated {
+            dayStore.day(for: date)
+        }
+    }
+
+    func addOrUpdateDay(_ day: Day) {
+        MainActor.assumeIsolated {
+            dayStore.addOrUpdateDay(day)
+        }
+    }
+
+    func addBlockToDay(date: Date, blockId: String) {
+        MainActor.assumeIsolated {
+            dayStore.addBlockToDay(date: date, blockId: blockId)
+        }
+    }
+
+    func addCaptureToDay(date: Date, captureId: UUID) {
+        MainActor.assumeIsolated {
+            dayStore.addCaptureToDay(date: date, captureId: captureId)
+        }
+    }
+
+    func deleteDay(date: Date) -> Bool {
+        MainActor.assumeIsolated {
+            guard let day = dayStore.day(for: date) else { return false }
+            dayStore.deleteDay(id: day.id)
+            return true
+        }
+    }
+}
+
+struct DayStoreRepositoryAdapter: DayRepository, @unchecked Sendable {
+    private let access: any DayStoreAccess
+
+    init(dayStore: DayStore) {
+        self.access = LiveDayStoreAccess(dayStore: dayStore)
+    }
+
+    init(access: any DayStoreAccess) {
+        self.access = access
+    }
+
+    func observe() -> AsyncStream<[Day]> {
+        access.observeDays()
+    }
+
+    func day(for date: Date) async -> Day? {
+        await MainActor.run {
+            access.day(for: date)
+        }
+    }
+
+    func addOrUpdateDay(_ day: Day) async throws {
+        guard !day.id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw RepositoryError.invalidInput
+        }
+
+        await MainActor.run {
+            access.addOrUpdateDay(day)
+        }
+    }
+
+    func addBlockToDay(date: Date, blockId: String) async throws {
+        guard !blockId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw RepositoryError.invalidInput
+        }
+
+        await MainActor.run {
+            access.addBlockToDay(date: date, blockId: blockId)
+        }
+    }
+
+    func addCaptureToDay(date: Date, captureId: UUID) async throws {
+        await MainActor.run {
+            access.addCaptureToDay(date: date, captureId: captureId)
+        }
+    }
+
+    func deleteDay(date: Date) async throws {
+        let deleted = await MainActor.run {
+            access.deleteDay(date: date)
+        }
+
+        guard deleted else {
+            throw RepositoryError.notFound
+        }
+    }
+}

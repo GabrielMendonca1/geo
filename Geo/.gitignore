@@ -1,0 +1,33 @@
+# macOS
+.DS_Store
+
+# Xcode user data
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+
+# Workspace user data
+*.xcworkspace/xcuserdata/
+
+# Build artifacts
+build/
+build-iso/
+build-iso-baseline/
+DerivedData/
+*.dSYM
+*.dSYM.zip
+*.xcarchive/
+*.ipa
+default.profraw
+*.profraw
+
+# SwiftPM
+.build/
+.swiftpm/
+
+# Local tooling
+.idea/
+
+# Claude Code worktrees / session state
+.claude/worktrees/
+*.xcresult/
