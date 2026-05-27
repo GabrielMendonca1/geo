@@ -360,13 +360,63 @@ final class HermesStatusService: ObservableObject {
     }
 
     private static func openTerminal(command: String) {
-        let escaped = command.replacingOccurrences(of: "\"", with: "\\\"")
-        let script = "tell application \"Terminal\" to do script \"\(escaped)\""
         Task.detached(priority: .userInitiated) {
+            _ = await Self.openTerminalAsync(command: command)
+        }
+    }
+
+    @discardableResult
+    private static func openTerminalAsync(command: String) async -> String? {
+        // Write a .command shell script and open it. macOS opens .command files in
+        // Terminal.app automatically — no AppleScript / Automation permission needed.
+        let tmpDir = FileManager.default.temporaryDirectory
+        let scriptURL = tmpDir.appendingPathComponent("hermes-\(UUID().uuidString.prefix(8)).command")
+        let body = """
+        #!/bin/bash
+        set -e
+        echo
+        echo "[geo] running: \(command)"
+        echo
+        \(command)
+        echo
+        echo "[geo] done. press return to close."
+        read
+        """
+        do {
+            try body.write(to: scriptURL, atomically: true, encoding: .utf8)
+            try FileManager.default.setAttributes(
+                [.posixPermissions: 0o755],
+                ofItemAtPath: scriptURL.path
+            )
+        } catch {
+            return "couldn't write install script: \(error.localizedDescription)"
+        }
+        let opened = await MainActor.run {
+            NSWorkspace.shared.open(scriptURL)
+        }
+        if !opened {
+            // Fall back to AppleScript if NSWorkspace declines (Terminal.app missing
+            // a default association, for example).
+            let escaped = command.replacingOccurrences(of: "\"", with: "\\\"")
+            let script = "tell application \"Terminal\" to do script \"\(escaped)\""
             let task = Process()
             task.launchPath = "/usr/bin/osascript"
             task.arguments = ["-e", script]
-            try? task.run()
+            let errPipe = Pipe()
+            task.standardError = errPipe
+            do {
+                try task.run()
+                task.waitUntilExit()
+                if task.terminationStatus != 0 {
+                    let data = (try? errPipe.fileHandleForReading.readToEnd()) ?? Data()
+                    let stderr = String(data: data, encoding: .utf8)?
+                        .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                    return stderr.isEmpty ? "couldn't open Terminal" : stderr
+                }
+            } catch {
+                return "couldn't launch osascript: \(error.localizedDescription)"
+            }
         }
+        return nil
     }
 }
