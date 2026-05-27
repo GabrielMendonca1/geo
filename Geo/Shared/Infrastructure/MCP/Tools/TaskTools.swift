@@ -362,7 +362,7 @@ enum TaskTools {
                 }
                 task.modifiedAt = Date()
                 try await tasks.update(task)
-                return .json(["success": .bool(true)])
+                return .json(["success": true])
             }
         ).registered
     }
@@ -375,7 +375,7 @@ enum TaskTools {
             handler: { args in
                 guard let id = args["id"]?.stringValue else { return .error("Missing required parameter: id") }
                 try await tasks.delete(id: id)
-                return .json(["success": .bool(true)])
+                return .json(["success": true])
             }
         ).registered
     }
@@ -395,7 +395,7 @@ enum TaskTools {
                 task.status = .completed
                 task.modifiedAt = Date()
                 try await tasks.update(task)
-                return .json(["success": .bool(true)])
+                return .json(["success": true])
             }
         ).registered
     }
