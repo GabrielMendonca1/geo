@@ -270,7 +270,7 @@ enum TaskTools {
             description: "Create a task. Required: title, body (with kind=task|event|habit|milestone and its fields).",
             schema: JSONSchemaObject(properties: [
                 "title": .string("Task title"),
-                "body": .object("Body — shape depends on kind", properties: bodyShape.properties, required: bodyShape.required),
+                "body": .object("Body — shape depends on kind", properties: bodyProperties, required: ["kind"]),
                 "notes": .string("Task notes"),
                 "linked_block_id": .string("Block ID to link"),
                 "priority": .string("Task priority", enum: TaskPriority.allCases.map(\.rawValue)),
