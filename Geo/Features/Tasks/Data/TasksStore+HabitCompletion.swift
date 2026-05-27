@@ -43,95 +43,43 @@ extension TasksStore {
         guard var task = persister.task(for: taskId) else {
             throw HabitCompletionError.taskNotFound
         }
-        guard task.kind == .habit else {
+        guard case .habit(let rule, let timeOfDay, var occurrences) = task.body else {
             throw HabitCompletionError.notAHabit
         }
 
-        let snapshot: [CheckboxSnapshot]
-        if let blockId = task.linkedBlockId {
-            snapshot = blocksStore.checkboxes(in: blockId).map {
-                CheckboxSnapshot(text: $0.text, wasChecked: $0.checked)
-            }
-        } else {
-            snapshot = []
-        }
-
-        var habitState = task.habitState ?? HabitState()
-        if habitState.occurrences.contains(where: { Calendar.current.isDate($0.date, inSameDayAs: date) }) {
+        let cal = Calendar.current
+        if occurrences.contains(where: { cal.isDate($0, inSameDayAs: date) }) {
             return
         }
-        habitState.occurrences.append(HabitOccurrence(date: date, checkboxes: snapshot))
-        let streaks = computeStreaks(history: habitState.occurrences.map(\.date))
-        habitState.currentStreak = streaks.current
-        habitState.longestStreak = max(habitState.longestStreak, streaks.longest)
+        occurrences.append(date)
 
-        if let blockId = task.linkedBlockId, habitState.resetCheckboxesOnComplete {
+        if let blockId = task.linkedBlockId {
             _ = try await blocksStore.resetCheckedCheckboxes(in: blockId)
         }
 
-        task.habitState = habitState
-        task.completionHistory = habitState.occurrences.map(\.date)
-        task.currentStreak = habitState.currentStreak
-        task.longestStreak = habitState.longestStreak
-        task.firedReminders = []
-        task.modifiedAt = Date()
-
-        if case .recurring(let rule, let timeOfDay) = task.schedule {
-            if let nextDate = rule.nextDate(after: task.startTime) {
-                task.startTime = nextDate
-                task.schedule = .recurring(rule: rule, timeOfDay: timeOfDay)
-                task.status = .pending
-            } else {
-                task.status = .completed
-            }
-        } else if let nextDate = task.recurrence.nextDate(after: task.startTime) {
-            task.startTime = nextDate
+        // Advance the anchor (timeOfDay carries the next occurrence's date)
+        let advancedTimeOfDay: Date
+        if let next = rule.nextDate(after: timeOfDay) {
+            advancedTimeOfDay = next
             task.status = .pending
         } else {
+            advancedTimeOfDay = timeOfDay
             task.status = .completed
         }
 
-        persister.replaceTask(task)
-    }
+        task.body = .habit(rule: rule, timeOfDay: advancedTimeOfDay, occurrences: occurrences)
+        task.reminders = task.reminders.map { var r = $0; r.fired = false; return r }
+        task.modifiedAt = Date()
 
-    static func computeStreaks(history: [Date], calendar: Calendar = .current) -> (current: Int, longest: Int) {
-        guard !history.isEmpty else { return (0, 0) }
-        let sortedDays = history
-            .map { calendar.startOfDay(for: $0) }
-            .sorted()
-        var current = 1
-        var longest = 1
-        var run = 1
-        for i in 1..<sortedDays.count {
-            let gap = calendar.dateComponents([.day], from: sortedDays[i - 1], to: sortedDays[i]).day ?? 0
-            if gap == 0 {
-                continue
-            } else if gap == 1 {
-                run += 1
-            } else {
-                run = 1
-            }
-            longest = max(longest, run)
-        }
-        current = run
-        return (current, longest)
+        persister.replaceTask(task)
     }
 }
 
 private final class TasksStoreHabitPersister: HabitTaskPersisting {
     private let store: TasksStore
 
-    init(store: TasksStore) {
-        self.store = store
-    }
+    init(store: TasksStore) { self.store = store }
 
-    @MainActor
-    func task(for id: String) -> TaskItem? {
-        store.task(for: id)
-    }
-
-    @MainActor
-    func replaceTask(_ task: TaskItem) {
-        store.replaceTask(task)
-    }
+    @MainActor func task(for id: String) -> TaskItem? { store.task(for: id) }
+    @MainActor func replaceTask(_ task: TaskItem) { store.replaceTask(task) }
 }
