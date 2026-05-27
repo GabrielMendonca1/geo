@@ -350,16 +350,15 @@ enum TaskTools {
                 if let priStr = args["priority"]?.stringValue, let p = TaskPriority(rawValue: priStr) { task.priority = p }
                 if let tagValues = args["tag_ids"]?.arrayValue { task.tagIds = tagValues.compactMap(\.stringValue) }
                 if args["body"]?.objectValue != nil {
-                    switch parseBody(args) {
-                    case .success(let newBody):
-                        // Preserve habit occurrences across same-kind body replacement
+                    do {
+                        let newBody = try parseBody(args)
                         if case .habit(_, _, let oldOccs) = task.body, case .habit(let rule, let tod, _) = newBody {
                             task.body = .habit(rule: rule, timeOfDay: tod, occurrences: oldOccs)
                         } else {
                             task.body = newBody
                         }
-                    case .failure(let msg): return .error(msg)
-                    }
+                    } catch let e as BodyParseFailure { return .error(e.message) }
+                    catch { return .error(error.localizedDescription) }
                 }
                 task.modifiedAt = Date()
                 try await tasks.update(task)
