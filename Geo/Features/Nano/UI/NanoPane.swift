@@ -1098,7 +1098,7 @@ private final class TodayInsightsService: ObservableObject {
 
     private var dbPath: String {
         let home = FileManager.default.homeDirectoryForCurrentUser
-        return home.appendingPathComponent(".hermes/db/hermes.sqlite").path
+        return home.appendingPathComponent(".hermes/state.db").path
     }
 
     func start() {
@@ -1132,10 +1132,10 @@ private final class TodayInsightsService: ObservableObject {
         refreshTask?.cancel()
         refreshTask = Task { [weak self] in
             guard let self else { return }
-            let startOfDayMs = Int(Calendar.current.startOfDay(for: Date()).timeIntervalSince1970 * 1000)
+            let startOfDaySec = Calendar.current.startOfDay(for: Date()).timeIntervalSince1970
 
             do {
-                let (perChannel, lastReply) = try await Self.query(db: db, startOfDayMs: startOfDayMs)
+                let (perChannel, lastReply) = try await Self.query(db: db, startOfDaySec: startOfDaySec)
                 guard !Task.isCancelled else { return }
                 await MainActor.run {
                     self.perChannel = perChannel
@@ -1151,41 +1151,43 @@ private final class TodayInsightsService: ObservableObject {
 
     nonisolated private static func query(
         db: DatabaseQueue,
-        startOfDayMs: Int
+        startOfDaySec: Double
     ) async throws -> ([ChannelCount], LastReply?) {
         try await Task.detached(priority: .userInitiated) {
             try db.read { d in
+                // Hermes schema: messages JOIN sessions, where sessions.source is the
+                // channel kind (telegram/whatsapp/gmail/...). timestamp is REAL seconds.
                 let rows = try Row.fetchAll(d, sql: """
-                    SELECT
-                      CASE
-                        WHEN instr(channel_id, ':') > 0 THEN substr(channel_id, 1, instr(channel_id, ':') - 1)
-                        ELSE channel_id
-                      END AS kind,
-                      COUNT(*) AS n
-                    FROM conversations
-                    WHERE ts >= ? AND role = 'user'
-                    GROUP BY kind
+                    SELECT s.source AS kind, COUNT(*) AS n
+                    FROM messages m
+                    JOIN sessions s ON s.id = m.session_id
+                    WHERE m.timestamp >= ?
+                      AND m.role = 'user'
+                    GROUP BY s.source
                     ORDER BY n DESC
-                """, arguments: [startOfDayMs])
+                """, arguments: [startOfDaySec])
 
                 let counts: [ChannelCount] = rows.map { r in
                     ChannelCount(kind: r["kind"] ?? "unknown", count: r["n"] ?? 0)
                 }
 
                 let lastRow = try Row.fetchOne(d, sql: """
-                    SELECT channel_id, content, ts FROM conversations
-                    WHERE role = 'assistant' ORDER BY ts DESC LIMIT 1
+                    SELECT s.source AS kind, m.content AS content, m.timestamp AS ts
+                    FROM messages m
+                    JOIN sessions s ON s.id = m.session_id
+                    WHERE m.role = 'assistant'
+                    ORDER BY m.timestamp DESC
+                    LIMIT 1
                 """)
                 var last: LastReply? = nil
                 if let r = lastRow {
-                    let cid: String = r["channel_id"] ?? ""
-                    let contentJson: String = r["content"] ?? ""
-                    let ts: Int64 = r["ts"] ?? 0
-                    let kind = String(cid.split(separator: ":").first ?? Substring(cid))
+                    let kind: String = r["kind"] ?? "unknown"
+                    let content: String = r["content"] ?? ""
+                    let ts: Double = r["ts"] ?? 0
                     last = LastReply(
                         kind: kind,
-                        ts: Date(timeIntervalSince1970: Double(ts) / 1000),
-                        text: extractText(contentJson)
+                        ts: Date(timeIntervalSince1970: ts),
+                        text: extractText(content)
                     )
                 }
                 return (counts, last)
