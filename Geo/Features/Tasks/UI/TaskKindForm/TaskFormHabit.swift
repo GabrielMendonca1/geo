@@ -18,16 +18,6 @@ struct TaskFormHabit: View {
 
             TaskFormSectionCard(title: "Behavior", icon: "checkmark.circle") {
                 VStack(alignment: .leading, spacing: 8) {
-                    Toggle(isOn: $viewModel.resetCheckboxesOnComplete) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Reset checkboxes on complete")
-                                .font(.system(size: 13, weight: .medium))
-                            Text("Uncheck the linked block's checkboxes after each occurrence.")
-                                .font(.caption)
-                                .foregroundStyle(Palette.tertiaryForeground)
-                        }
-                    }
-
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Status")
                             .font(.caption)
