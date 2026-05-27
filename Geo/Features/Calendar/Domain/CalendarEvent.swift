@@ -38,10 +38,18 @@ struct CalendarEvent: Identifiable, Hashable {
     }
 
     static func from(task: TaskItem, occurrenceDate: Date, blocksById: [String: BlockEntity], tagsById: [String: Tag]) -> CalendarEvent {
-        let duration = task.endTime.map { $0.timeIntervalSince(task.startTime) }
         var shifted = task
-        shifted.startTime = occurrenceDate
-        shifted.endTime = duration.map { occurrenceDate.addingTimeInterval($0) }
+        switch task.body {
+        case .event(let start, let end):
+            let duration = end.timeIntervalSince(start)
+            shifted.body = .event(start: occurrenceDate, end: occurrenceDate.addingTimeInterval(duration))
+        case .habit(let rule, _, let occurrences):
+            shifted.body = .habit(rule: rule, timeOfDay: occurrenceDate, occurrences: occurrences)
+        case .task(_, let est):
+            shifted.body = .task(due: occurrenceDate, estimatedMinutes: est)
+        case .milestone:
+            shifted.body = .milestone(target: occurrenceDate)
+        }
         let suffix = "\(Int(occurrenceDate.timeIntervalSinceReferenceDate))"
         return from(task: shifted, occurrenceSuffix: suffix, blocksById: blocksById, tagsById: tagsById)
     }
