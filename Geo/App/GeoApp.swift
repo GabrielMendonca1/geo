@@ -397,14 +397,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
         }
-        Task { @MainActor in
-            let migrator = TaskNotesMigrationService(
-                tasksStore: container.tasksStore,
-                blocksStore: container.blocksStore,
-                blocksRepository: container.environment.blocksRepository
-            )
-            try? await migrator.runIfNeeded()
-        }
         container.blocksStore.reload()
         container.templateService.loadTemplates()
         container.notchWindowController.show()
