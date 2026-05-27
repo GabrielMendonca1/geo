@@ -374,9 +374,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         DayMigrationService.shared.migrateIfNeeded()
         Task { [container] in
-            await TaskMigrationService.shared.migrateIfNeeded(
-                tasksRepository: container.environment.tasksRepository
-            )
             await FrontmatterStripMigrationService.shared.runIfNeeded()
             await MainActor.run {
                 container.blocksStore.reload()
