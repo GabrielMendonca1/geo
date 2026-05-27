@@ -18,8 +18,7 @@ struct MainView: View {
 
             TitleBarOverlay(navigationStore: navigationStore)
 
-            CommandPaletteOverlay(viewModel: commandPalette)
-        }
+            CommandPaletteOverlay(viewModel: commandPalette)             }
         .ignoresSafeArea()
         .clipShape(RoundedRectangle(cornerRadius: GeoStyle.Layout.windowCornerRadius, style: .continuous))
         .geoWindowChrome(window: $window)
