@@ -108,43 +108,45 @@ enum TaskTools {
 
     // MARK: - Body parsing from args
 
-    private static func parseBody(_ args: [String: AnyCodableValue]) -> Result<TaskBody, String> {
+    private struct BodyParseFailure: Error { let message: String }
+
+    private static func parseBody(_ args: [String: AnyCodableValue]) throws -> TaskBody {
         guard let bodyObj = args["body"]?.objectValue,
               let kindStr = bodyObj["kind"]?.stringValue else {
-            return .failure("Missing required parameter: body.kind")
+            throw BodyParseFailure(message: "Missing required parameter: body.kind")
         }
         let iso = DateFormatters.iso8601
         switch kindStr {
         case "task":
             guard let dueStr = bodyObj["due"]?.stringValue, let due = iso.date(from: dueStr) else {
-                return .failure("task body requires due (ISO 8601 UTC)")
+                throw BodyParseFailure(message: "task body requires due (ISO 8601 UTC)")
             }
             let est = bodyObj["estimated_minutes"]?.intValue
-            return .success(.task(due: due, estimatedMinutes: est))
+            return .task(due: due, estimatedMinutes: est)
         case "event":
             guard let startStr = bodyObj["start"]?.stringValue, let start = iso.date(from: startStr),
                   let endStr = bodyObj["end"]?.stringValue, let end = iso.date(from: endStr) else {
-                return .failure("event body requires start and end (ISO 8601 UTC)")
+                throw BodyParseFailure(message: "event body requires start and end (ISO 8601 UTC)")
             }
-            return .success(.event(start: start, end: max(end, start)))
+            return .event(start: start, end: max(end, start))
         case "habit":
             guard let recStr = bodyObj["recurrence"]?.stringValue,
                   let ruleType = RecurrenceRule.RuleType(rawValue: recStr) else {
-                return .failure("habit body requires recurrence (\(RecurrenceRule.RuleType.daily.rawValue), weekdays, weekly, biweekly, monthly, yearly)")
+                throw BodyParseFailure(message: "habit body requires recurrence (daily, weekdays, weekly, biweekly, monthly, yearly)")
             }
             guard let todStr = bodyObj["time_of_day"]?.stringValue, let tod = iso.date(from: todStr) else {
-                return .failure("habit body requires time_of_day (ISO 8601 UTC)")
+                throw BodyParseFailure(message: "habit body requires time_of_day (ISO 8601 UTC)")
             }
             let weekdays = bodyObj["selected_weekdays"]?.arrayValue?.compactMap(\.intValue)
             let rule = RecurrenceRule(type: ruleType, selectedWeekdays: weekdays)
-            return .success(.habit(rule: rule, timeOfDay: tod, occurrences: []))
+            return .habit(rule: rule, timeOfDay: tod, occurrences: [])
         case "milestone":
             guard let targetStr = bodyObj["target"]?.stringValue, let target = iso.date(from: targetStr) else {
-                return .failure("milestone body requires target (ISO 8601 UTC)")
+                throw BodyParseFailure(message: "milestone body requires target (ISO 8601 UTC)")
             }
-            return .success(.milestone(target: target))
+            return .milestone(target: target)
         default:
-            return .failure("Unknown body.kind: \(kindStr)")
+            throw BodyParseFailure(message: "Unknown body.kind: \(kindStr)")
         }
     }
 
