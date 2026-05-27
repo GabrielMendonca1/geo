@@ -299,70 +299,151 @@ struct RecurrenceRule: Codable, Hashable {
     }
 }
 
-struct RecurringReminder: Identifiable, Codable, Hashable {
-    let id: UUID
-    var interval: Int {
-        didSet {
-            if interval < 1 {
-                interval = 1
-            }
+enum TaskBody: Hashable {
+    case task(due: Date, estimatedMinutes: Int?)
+    case event(start: Date, end: Date)
+    case habit(rule: RecurrenceRule, timeOfDay: Date, occurrences: [Date])
+    case milestone(target: Date)
+
+    var kind: TaskKind {
+        switch self {
+        case .task: return .task
+        case .event: return .event
+        case .habit: return .habit
+        case .milestone: return .milestone
         }
     }
-    var frequency: RecurrenceFrequency
-    var timeOfDay: Date
-    var lastFired: Date?
 
-    init(
-        id: UUID = UUID(),
-        interval: Int = 1,
-        frequency: RecurrenceFrequency = .daily,
-        timeOfDay: Date = Date(),
-        lastFired: Date? = nil
-    ) {
-        self.id = id
-        self.interval = max(1, interval)
-        self.frequency = frequency
-        self.timeOfDay = timeOfDay
-        self.lastFired = lastFired
+    var anchorDate: Date {
+        switch self {
+        case .task(let due, _): return due
+        case .event(let start, _): return start
+        case .habit(_, let timeOfDay, _): return timeOfDay
+        case .milestone(let target): return target
+        }
+    }
+}
+
+extension TaskBody: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case kind
+        case due
+        case estimatedMinutes
+        case start
+        case end
+        case rule
+        case timeOfDay
+        case occurrences
+        case target
     }
 
-    private enum CodingKeys: String, CodingKey {
-        case id
-        case interval
-        case frequency
-        case timeOfDay
-        case lastFired
+    private enum Tag: String, Codable {
+        case task, event, habit, milestone
     }
 
     init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decode(UUID.self, forKey: .id)
-        interval = max(1, try container.decode(Int.self, forKey: .interval))
-        frequency = try container.decode(RecurrenceFrequency.self, forKey: .frequency)
-        timeOfDay = try container.decode(Date.self, forKey: .timeOfDay)
-        lastFired = try container.decodeIfPresent(Date.self, forKey: .lastFired)
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let tag = try c.decode(Tag.self, forKey: .kind)
+        switch tag {
+        case .task:
+            let due = try c.decode(Date.self, forKey: .due)
+            let est = try c.decodeIfPresent(Int.self, forKey: .estimatedMinutes)
+            self = .task(due: due, estimatedMinutes: est)
+        case .event:
+            let start = try c.decode(Date.self, forKey: .start)
+            let end = try c.decode(Date.self, forKey: .end)
+            self = .event(start: start, end: end)
+        case .habit:
+            let rule = try c.decode(RecurrenceRule.self, forKey: .rule)
+            let tod = try c.decode(Date.self, forKey: .timeOfDay)
+            let occs = try c.decodeIfPresent([Date].self, forKey: .occurrences) ?? []
+            self = .habit(rule: rule, timeOfDay: tod, occurrences: occs)
+        case .milestone:
+            let target = try c.decode(Date.self, forKey: .target)
+            self = .milestone(target: target)
+        }
     }
 
-    func nextFireDate(after date: Date) -> Date? {
-        let calendar = Calendar.current
-        let timeComponents = calendar.dateComponents([.hour, .minute], from: timeOfDay)
-        let safeInterval = max(1, interval)
-
-        let baseDate: Date
-        switch frequency {
-        case .daily:
-            baseDate = calendar.date(byAdding: .day, value: safeInterval, to: date) ?? date
-        case .weekly:
-            baseDate = calendar.date(byAdding: .weekOfYear, value: safeInterval, to: date) ?? date
-        case .monthly:
-            baseDate = calendar.date(byAdding: .month, value: safeInterval, to: date) ?? date
-        case .yearly:
-            baseDate = calendar.date(byAdding: .year, value: safeInterval, to: date) ?? date
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .task(let due, let est):
+            try c.encode(Tag.task, forKey: .kind)
+            try c.encode(due, forKey: .due)
+            try c.encodeIfPresent(est, forKey: .estimatedMinutes)
+        case .event(let start, let end):
+            try c.encode(Tag.event, forKey: .kind)
+            try c.encode(start, forKey: .start)
+            try c.encode(end, forKey: .end)
+        case .habit(let rule, let tod, let occurrences):
+            try c.encode(Tag.habit, forKey: .kind)
+            try c.encode(rule, forKey: .rule)
+            try c.encode(tod, forKey: .timeOfDay)
+            try c.encode(occurrences, forKey: .occurrences)
+        case .milestone(let target):
+            try c.encode(Tag.milestone, forKey: .kind)
+            try c.encode(target, forKey: .target)
         }
+    }
+}
 
-        let hour = timeComponents.hour ?? 0
-        let minute = timeComponents.minute ?? 0
-        return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: baseDate)
+enum ReminderTrigger: Hashable {
+    case offset(ReminderOffset)
+    case absolute(Date)
+}
+
+extension ReminderTrigger: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case kind, offset, date
+    }
+
+    private enum Tag: String, Codable {
+        case offset, absolute
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let tag = try c.decode(Tag.self, forKey: .kind)
+        switch tag {
+        case .offset:
+            let raw = try c.decode(ReminderOffset.self, forKey: .offset)
+            self = .offset(raw)
+        case .absolute:
+            self = .absolute(try c.decode(Date.self, forKey: .date))
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .offset(let offset):
+            try c.encode(Tag.offset, forKey: .kind)
+            try c.encode(offset, forKey: .offset)
+        case .absolute(let date):
+            try c.encode(Tag.absolute, forKey: .kind)
+            try c.encode(date, forKey: .date)
+        }
+    }
+}
+
+struct Reminder: Identifiable, Codable, Hashable {
+    let id: UUID
+    var trigger: ReminderTrigger
+    var fired: Bool
+
+    init(id: UUID = UUID(), trigger: ReminderTrigger, fired: Bool = false) {
+        self.id = id
+        self.trigger = trigger
+        self.fired = fired
+    }
+
+    static func atTime() -> Reminder { Reminder(trigger: .offset(.atTime)) }
+
+    func fireDate(forAnchor anchor: Date) -> Date {
+        switch trigger {
+        case .offset(let offset): return anchor.addingTimeInterval(offset.timeInterval)
+        case .absolute(let date): return date
+        }
     }
 }
 
@@ -370,51 +451,36 @@ struct TaskDraft: Hashable, Sendable {
     var title: String
     var notes: String
     var linkedBlockId: String?
-    var startTime: Date
-    var endTime: Date?
-    var reminders: [ReminderOffset]
-    var recurringReminders: [RecurringReminder]
-    var recurrence: RecurrenceRule
-    var smartReminder: Bool
-    var kind: TaskKind
+    var status: TaskStatus
     var priority: TaskPriority
     var tagIds: [String]
-    var parentId: String?
+    var orderIndex: Int
     var estimatedMinutes: Int?
-    var context: String?
+    var body: TaskBody
+    var reminders: [Reminder]
 
     init(
         title: String,
         notes: String = "",
         linkedBlockId: String? = nil,
-        startTime: Date,
-        endTime: Date? = nil,
-        reminders: [ReminderOffset] = [.atTime],
-        recurringReminders: [RecurringReminder] = [],
-        recurrence: RecurrenceRule = .never,
-        smartReminder: Bool = false,
-        kind: TaskKind = .task,
+        status: TaskStatus = .pending,
         priority: TaskPriority = .unset,
         tagIds: [String] = [],
-        parentId: String? = nil,
+        orderIndex: Int = 0,
         estimatedMinutes: Int? = nil,
-        context: String? = nil
+        body: TaskBody,
+        reminders: [Reminder] = [.atTime()]
     ) {
         self.title = title
         self.notes = notes
         self.linkedBlockId = linkedBlockId
-        self.startTime = startTime
-        self.endTime = endTime
-        self.reminders = reminders
-        self.recurringReminders = recurringReminders
-        self.recurrence = recurrence
-        self.smartReminder = smartReminder
-        self.kind = kind
+        self.status = status
         self.priority = priority
         self.tagIds = tagIds
-        self.parentId = parentId
+        self.orderIndex = orderIndex
         self.estimatedMinutes = estimatedMinutes
-        self.context = context
+        self.body = body
+        self.reminders = reminders
     }
 }
 
@@ -424,60 +490,14 @@ struct TaskItem: Identifiable, Codable, Hashable {
     var notes: String
     var linkedBlockId: String?
     var status: TaskStatus
-    var startTime: Date
-    var endTime: Date?
-    var reminders: [ReminderOffset]
-    var recurringReminders: [RecurringReminder]
-    var recurrence: RecurrenceRule
-    var firedReminders: [ReminderOffset]
-    var orderIndex: Int
-    var smartReminder: Bool
-    var snoozedUntil: Date?
-    let createdAt: Date
-    var modifiedAt: Date
-    var kind: TaskKind
     var priority: TaskPriority
     var tagIds: [String]
-    var parentId: String?
+    var orderIndex: Int
     var estimatedMinutes: Int?
-    var context: String?
-    var completionHistory: [Date]
-    var currentStreak: Int
-    var longestStreak: Int
-    var schedule: Schedule
-    var scheduleAlerts: ScheduleAlerts
-    var habitState: HabitState?
-
-    private enum CodingKeys: String, CodingKey {
-        case id
-        case title
-        case notes
-        case linkedBlockId
-        case status
-        case startTime
-        case endTime
-        case reminders
-        case recurringReminders
-        case recurrence
-        case firedReminders
-        case orderIndex
-        case smartReminder
-        case snoozedUntil
-        case createdAt
-        case modifiedAt
-        case kind
-        case priority
-        case tagIds
-        case parentId
-        case estimatedMinutes
-        case context
-        case completionHistory
-        case currentStreak
-        case longestStreak
-        case schedule
-        case scheduleAlerts
-        case habitState
-    }
+    let createdAt: Date
+    var modifiedAt: Date
+    var body: TaskBody
+    var reminders: [Reminder]
 
     init(
         id: String,
@@ -485,204 +505,39 @@ struct TaskItem: Identifiable, Codable, Hashable {
         notes: String = "",
         linkedBlockId: String? = nil,
         status: TaskStatus = .pending,
-        startTime: Date,
-        endTime: Date? = nil,
-        reminders: [ReminderOffset] = [.atTime],
-        recurringReminders: [RecurringReminder] = [],
-        recurrence: RecurrenceRule = .never,
-        firedReminders: [ReminderOffset] = [],
-        orderIndex: Int = 0,
-        smartReminder: Bool = false,
-        snoozedUntil: Date? = nil,
-        createdAt: Date = Date(),
-        modifiedAt: Date = Date(),
-        kind: TaskKind = .task,
         priority: TaskPriority = .unset,
         tagIds: [String] = [],
-        parentId: String? = nil,
+        orderIndex: Int = 0,
         estimatedMinutes: Int? = nil,
-        context: String? = nil,
-        completionHistory: [Date] = [],
-        currentStreak: Int = 0,
-        longestStreak: Int = 0,
-        schedule: Schedule? = nil,
-        scheduleAlerts: ScheduleAlerts? = nil,
-        habitState: HabitState? = nil
+        createdAt: Date = Date(),
+        modifiedAt: Date = Date(),
+        body: TaskBody,
+        reminders: [Reminder] = [.atTime()]
     ) {
         self.id = id
         self.title = title
         self.notes = notes
         self.linkedBlockId = linkedBlockId
         self.status = status
-        self.startTime = startTime
-        self.endTime = endTime
-        self.reminders = reminders
-        self.recurringReminders = recurringReminders
-        self.recurrence = recurrence
-        self.firedReminders = firedReminders
-        self.orderIndex = orderIndex
-        self.smartReminder = smartReminder
-        self.snoozedUntil = snoozedUntil
-        self.createdAt = createdAt
-        self.modifiedAt = modifiedAt
-        self.kind = kind
         self.priority = priority
         self.tagIds = tagIds
-        self.parentId = parentId
+        self.orderIndex = orderIndex
         self.estimatedMinutes = estimatedMinutes
-        self.context = context
-        self.completionHistory = completionHistory
-        self.currentStreak = currentStreak
-        self.longestStreak = longestStreak
-        self.schedule = schedule ?? Schedule.fromLegacyFields(
-            kind: kind,
-            startTime: startTime,
-            endTime: endTime,
-            recurrence: recurrence
-        )
-        self.scheduleAlerts = scheduleAlerts ?? ScheduleAlerts.fromLegacyFields(
-            reminders: reminders,
-            recurringReminders: recurringReminders,
-            firedReminders: firedReminders,
-            smartReminder: smartReminder,
-            snoozedUntil: snoozedUntil
-        )
-        if let habitState {
-            self.habitState = habitState
-        } else {
-            self.habitState = HabitState.fromLegacyFields(
-                kind: kind,
-                completionHistory: completionHistory,
-                currentStreak: currentStreak,
-                longestStreak: longestStreak
-            )
-        }
-    }
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decode(String.self, forKey: .id)
-        title = try container.decode(String.self, forKey: .title)
-        notes = try container.decode(String.self, forKey: .notes)
-        linkedBlockId = try container.decodeIfPresent(String.self, forKey: .linkedBlockId)
-        status = try container.decode(TaskStatus.self, forKey: .status)
-        startTime = try container.decode(Date.self, forKey: .startTime)
-        endTime = try container.decodeIfPresent(Date.self, forKey: .endTime)
-        reminders = try container.decode([ReminderOffset].self, forKey: .reminders)
-        recurringReminders = try container.decode([RecurringReminder].self, forKey: .recurringReminders)
-        recurrence = try container.decode(RecurrenceRule.self, forKey: .recurrence)
-        firedReminders = try container.decode([ReminderOffset].self, forKey: .firedReminders)
-        orderIndex = try container.decode(Int.self, forKey: .orderIndex)
-        smartReminder = try container.decode(Bool.self, forKey: .smartReminder)
-        snoozedUntil = try container.decodeIfPresent(Date.self, forKey: .snoozedUntil)
-        createdAt = try container.decode(Date.self, forKey: .createdAt)
-        modifiedAt = try container.decode(Date.self, forKey: .modifiedAt)
-        kind = try container.decodeIfPresent(TaskKind.self, forKey: .kind) ?? .task
-        priority = try container.decodeIfPresent(TaskPriority.self, forKey: .priority) ?? .unset
-        tagIds = try container.decodeIfPresent([String].self, forKey: .tagIds) ?? []
-        parentId = try container.decodeIfPresent(String.self, forKey: .parentId)
-        estimatedMinutes = try container.decodeIfPresent(Int.self, forKey: .estimatedMinutes)
-        context = try container.decodeIfPresent(String.self, forKey: .context)
-        completionHistory = try container.decodeIfPresent([Date].self, forKey: .completionHistory) ?? []
-        currentStreak = try container.decodeIfPresent(Int.self, forKey: .currentStreak) ?? 0
-        longestStreak = try container.decodeIfPresent(Int.self, forKey: .longestStreak) ?? 0
-
-        if let decodedSchedule = try container.decodeIfPresent(Schedule.self, forKey: .schedule) {
-            schedule = decodedSchedule
-        } else {
-            schedule = Schedule.fromLegacyFields(
-                kind: kind,
-                startTime: startTime,
-                endTime: endTime,
-                recurrence: recurrence
-            )
-        }
-
-        if let decodedAlerts = try container.decodeIfPresent(ScheduleAlerts.self, forKey: .scheduleAlerts) {
-            scheduleAlerts = decodedAlerts
-        } else {
-            scheduleAlerts = ScheduleAlerts.fromLegacyFields(
-                reminders: reminders,
-                recurringReminders: recurringReminders,
-                firedReminders: firedReminders,
-                smartReminder: smartReminder,
-                snoozedUntil: snoozedUntil
-            )
-        }
-
-        if let decodedHabit = try container.decodeIfPresent(HabitState.self, forKey: .habitState) {
-            habitState = decodedHabit
-        } else {
-            habitState = HabitState.fromLegacyFields(
-                kind: kind,
-                completionHistory: completionHistory,
-                currentStreak: currentStreak,
-                longestStreak: longestStreak
-            )
-        }
-    }
-
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(id, forKey: .id)
-        try container.encode(title, forKey: .title)
-        try container.encode(notes, forKey: .notes)
-        try container.encodeIfPresent(linkedBlockId, forKey: .linkedBlockId)
-        try container.encode(status, forKey: .status)
-        try container.encode(startTime, forKey: .startTime)
-        try container.encodeIfPresent(endTime, forKey: .endTime)
-        try container.encode(reminders, forKey: .reminders)
-        try container.encode(recurringReminders, forKey: .recurringReminders)
-        try container.encode(recurrence, forKey: .recurrence)
-        try container.encode(firedReminders, forKey: .firedReminders)
-        try container.encode(orderIndex, forKey: .orderIndex)
-        try container.encode(smartReminder, forKey: .smartReminder)
-        try container.encodeIfPresent(snoozedUntil, forKey: .snoozedUntil)
-        try container.encode(createdAt, forKey: .createdAt)
-        try container.encode(modifiedAt, forKey: .modifiedAt)
-        try container.encode(kind, forKey: .kind)
-        try container.encode(priority, forKey: .priority)
-        try container.encode(tagIds, forKey: .tagIds)
-        try container.encodeIfPresent(parentId, forKey: .parentId)
-        try container.encodeIfPresent(estimatedMinutes, forKey: .estimatedMinutes)
-        try container.encodeIfPresent(context, forKey: .context)
-        try container.encode(completionHistory, forKey: .completionHistory)
-        try container.encode(currentStreak, forKey: .currentStreak)
-        try container.encode(longestStreak, forKey: .longestStreak)
-        try container.encode(schedule, forKey: .schedule)
-        try container.encode(scheduleAlerts, forKey: .scheduleAlerts)
-        try container.encodeIfPresent(habitState, forKey: .habitState)
+        self.createdAt = createdAt
+        self.modifiedAt = modifiedAt
+        self.body = body
+        self.reminders = reminders
     }
 }
 
 extension TaskItem {
-    var isPeriodTask: Bool { endTime != nil }
-    var isHabit: Bool { kind == .habit }
-    var isEvent: Bool { kind == .event }
-    var isMilestone: Bool { kind == .milestone }
+    var kind: TaskKind { body.kind }
+    var anchorDate: Date { body.anchorDate }
 
-    var hasSubtasks: Bool { false }
-
-    var daysUntilMilestone: Int? {
-        guard kind == .milestone, status == .pending else { return nil }
-        let calendar = Calendar.current
-        let now = calendar.startOfDay(for: Date())
-        let target = calendar.startOfDay(for: startTime)
-        return calendar.dateComponents([.day], from: now, to: target).day
-    }
-
-    var estimatedDuration: String? {
-        guard let minutes = estimatedMinutes, minutes > 0 else { return nil }
-        if minutes < 60 {
-            return "\(minutes)m"
-        }
-        let hours = minutes / 60
-        let remainder = minutes % 60
-        if remainder == 0 {
-            return "\(hours)h"
-        }
-        return "\(hours)h \(remainder)m"
-    }
+    var isTask: Bool { if case .task = body { return true }; return false }
+    var isEvent: Bool { if case .event = body { return true }; return false }
+    var isHabit: Bool { if case .habit = body { return true }; return false }
+    var isMilestone: Bool { if case .milestone = body { return true }; return false }
 
     var priorityColor: String {
         switch priority {
@@ -694,75 +549,68 @@ extension TaskItem {
         }
     }
 
-    mutating func recordHabitCompletion(at date: Date = Date()) {
-        guard kind == .habit else { return }
-        completionHistory.append(date)
+    var estimatedDuration: String? {
+        guard let minutes = estimatedMinutes, minutes > 0 else { return nil }
+        if minutes < 60 { return "\(minutes)m" }
+        let hours = minutes / 60
+        let remainder = minutes % 60
+        return remainder == 0 ? "\(hours)h" : "\(hours)h \(remainder)m"
+    }
+
+    var daysUntilMilestone: Int? {
+        guard case .milestone(let target) = body, status == .pending else { return nil }
         let calendar = Calendar.current
-        let sorted = completionHistory.sorted()
-        var streak = 1
-        for i in stride(from: sorted.count - 1, through: 1, by: -1) {
-            let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: sorted[i - 1]), to: calendar.startOfDay(for: sorted[i])).day ?? 0
-            if days <= 1 {
-                streak += 1
-            } else {
-                break
-            }
-        }
-        currentStreak = streak
-        longestStreak = max(longestStreak, streak)
+        return calendar.dateComponents(
+            [.day],
+            from: calendar.startOfDay(for: Date()),
+            to: calendar.startOfDay(for: target)
+        ).day
     }
 
-    func nextReminderTime(at date: Date = Date()) -> Date? {
-        guard status == .pending else { return nil }
-        let reminders = reminders.sorted { $0.timeInterval < $1.timeInterval }
-        for reminder in reminders {
-            if firedReminders.contains(reminder) { continue }
-            let reminderTime = startTime.addingTimeInterval(reminder.timeInterval)
-            if reminderTime > date {
-                return reminderTime
-            }
-        }
-        return nil
+    var habitOccurrences: [Date] {
+        if case .habit(_, _, let occurrences) = body { return occurrences }
+        return []
     }
 
-    var nextReminderTime: Date? { nextReminderTime(at: Date()) }
-
-    func isDue(at date: Date) -> Bool {
-        guard status == .pending else { return false }
-
-        if let snoozedUntil = snoozedUntil {
-            return snoozedUntil <= date
-        }
-
-        let unfired = reminders.filter { !firedReminders.contains($0) }
-
-        return unfired.contains { reminder in
-            let reminderTime = startTime.addingTimeInterval(reminder.timeInterval)
-            return reminderTime <= date
-        }
-    }
-
-    func currentDueReminder(at date: Date) -> ReminderOffset? {
-        guard status == .pending, snoozedUntil == nil else { return nil }
-
-        let unfired = reminders.filter { !firedReminders.contains($0) }
-
-        return unfired.first { reminder in
-            let reminderTime = startTime.addingTimeInterval(reminder.timeInterval)
-            return reminderTime <= date
-        }
-    }
-
-    var currentDueReminder: ReminderOffset? { currentDueReminder(at: Date()) }
+    var habitCurrentStreak: Int { Self.computeStreaks(history: habitOccurrences).current }
+    var habitLongestStreak: Int { Self.computeStreaks(history: habitOccurrences).longest }
 
     var isOverdue: Bool {
         guard status == .pending else { return false }
-        guard !recurrence.isRepeating else { return false }
         let now = Date()
-        if let snoozedUntil, snoozedUntil > now { return false }
-        if let endTime {
-            return endTime < now
+        switch body {
+        case .task(let due, _):
+            return due < Calendar.current.startOfDay(for: now)
+        case .event(_, let end):
+            return end < now
+        case .habit, .milestone:
+            return false
         }
-        return startTime < Calendar.current.startOfDay(for: now)
+    }
+
+    func isDue(at date: Date) -> Bool {
+        guard status == .pending else { return false }
+        let anchor = body.anchorDate
+        return reminders.contains { !$0.fired && $0.fireDate(forAnchor: anchor) <= date }
+    }
+
+    func currentDueReminder(at date: Date = Date()) -> Reminder? {
+        guard status == .pending else { return nil }
+        let anchor = body.anchorDate
+        return reminders.first { !$0.fired && $0.fireDate(forAnchor: anchor) <= date }
+    }
+
+    static func computeStreaks(history: [Date], calendar: Calendar = .current) -> (current: Int, longest: Int) {
+        guard !history.isEmpty else { return (0, 0) }
+        let sortedDays = history.map { calendar.startOfDay(for: $0) }.sorted()
+        var longest = 1
+        var run = 1
+        for i in 1..<sortedDays.count {
+            let gap = calendar.dateComponents([.day], from: sortedDays[i - 1], to: sortedDays[i]).day ?? 0
+            if gap == 0 { continue }
+            if gap == 1 { run += 1 } else { run = 1 }
+            longest = max(longest, run)
+        }
+        return (run, longest)
     }
 }
