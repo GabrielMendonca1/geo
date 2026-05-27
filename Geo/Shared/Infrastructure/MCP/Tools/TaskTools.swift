@@ -304,7 +304,7 @@ enum TaskTools {
                     reminders: reminders
                 )
                 let task = try await tasks.create(draft)
-                return .json(["id": .string(task.id), "title": .string(task.title)])
+                return .json(["id": task.id, "title": task.title])
             }
         ).registered
     }
