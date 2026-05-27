@@ -336,7 +336,7 @@ enum TaskTools {
                 "linked_block_id": .string("Block ID to link"),
                 "priority": .string("New priority", enum: TaskPriority.allCases.map(\.rawValue)),
                 "tag_ids": .array("New tag IDs", items: .string()),
-                "body": .object("Replacement body (preserves habit occurrences if same kind)", properties: bodyShape.properties),
+                "body": .object("Replacement body (preserves habit occurrences if same kind)", properties: bodyProperties),
             ], required: ["id"]),
             handler: { args in
                 guard let id = args["id"]?.stringValue else { return .error("Missing required parameter: id") }
