@@ -336,53 +336,6 @@ private struct InlineBlockEditorSheet: View {
     }
 }
 
-struct RecurringReminderRow: View {
-    @Binding var reminder: RecurringReminder
-    let onDelete: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            HStack(spacing: 10) {
-                Stepper("Every \(reminder.interval)", value: $reminder.interval, in: 1...365)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                Picker("Unit", selection: $reminder.frequency) {
-                    ForEach(RecurrenceFrequency.allCases) { freq in
-                        Text(reminder.interval == 1 ? freq.rawValue : freq.plural).tag(freq)
-                    }
-                }
-                .pickerStyle(.menu)
-                .frame(width: 120)
-
-                Button(role: .destructive) {
-                    onDelete()
-                } label: {
-                    Image(systemName: "trash")
-                }
-                .buttonStyle(.plain)
-                .pointingHandCursor()
-            }
-
-            DatePicker("Time", selection: $reminder.timeOfDay, displayedComponents: .hourAndMinute)
-                .datePickerStyle(.field)
-        }
-        .padding(10)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Palette.secondaryBackground.opacity(0.35))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Palette.border.opacity(0.16), lineWidth: 1)
-        )
-        .onChange(of: reminder.interval) { _, newValue in
-            if newValue < 1 {
-                reminder.interval = 1
-            }
-        }
-    }
-}
-
 enum TaskFormWeekday {
     static let options: [(label: String, value: Int)] = [
         ("Sun", 1), ("Mon", 2), ("Tue", 3), ("Wed", 4),
