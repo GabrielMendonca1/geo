@@ -53,41 +53,11 @@ enum AITaskParser {
             return candidate
         }()
 
-        let kind: TaskKind = parsed.confidence == .low ? .task : parsed.kind
-        let scheduleFields = scheduleFields(from: parsed.schedule, now: now)
+        let body: TaskBody = parsed.confidence == .low
+            ? .task(due: Calendar.current.date(bySettingHour: 23, minute: 59, second: 59, of: now) ?? now, estimatedMinutes: nil)
+            : parsed.body
 
-        return TaskDraft(
-            title: title,
-            startTime: scheduleFields.startTime,
-            endTime: scheduleFields.endTime,
-            recurrence: scheduleFields.recurrence,
-            kind: kind
-        )
-    }
-
-    private struct ScheduleFields {
-        var startTime: Date
-        var endTime: Date?
-        var recurrence: RecurrenceRule
-    }
-
-    private static func scheduleFields(from schedule: Schedule, now: Date) -> ScheduleFields {
-        switch schedule {
-        case .anytime:
-            return ScheduleFields(startTime: now, endTime: nil, recurrence: .never)
-        case .dueBy(let date):
-            return ScheduleFields(startTime: date, endTime: nil, recurrence: .never)
-        case .at(let date, let duration):
-            let end = duration.map { date.addingTimeInterval($0) }
-            return ScheduleFields(startTime: date, endTime: end, recurrence: .never)
-        case .recurring(let rule, let timeOfDay):
-            let cal = Calendar.current
-            let comps = cal.dateComponents([.hour, .minute], from: timeOfDay)
-            let start = cal.date(bySettingHour: comps.hour ?? 9, minute: comps.minute ?? 0, second: 0, of: now) ?? now
-            return ScheduleFields(startTime: start, endTime: nil, recurrence: rule)
-        case .targeting(let date):
-            return ScheduleFields(startTime: date, endTime: nil, recurrence: .never)
-        }
+        return TaskDraft(title: title, body: body)
     }
 
     private static func aiDraft(
@@ -109,15 +79,21 @@ enum AITaskParser {
         let notes = json.notes ?? ""
         let tagIds = await resolveTagIds(names: json.tag_names ?? [])
 
-        return TaskDraft(
-            title: title,
-            notes: notes,
-            startTime: startTime,
-            endTime: endTime,
-            kind: kind,
-            priority: priority,
-            tagIds: tagIds
-        )
+        let body: TaskBody = {
+            switch kind {
+            case .event:
+                let end = endTime ?? startTime.addingTimeInterval(3600)
+                return .event(start: startTime, end: end)
+            case .habit:
+                return .habit(rule: .daily, timeOfDay: startTime, occurrences: [])
+            case .milestone:
+                return .milestone(target: Calendar.current.startOfDay(for: startTime))
+            case .task:
+                return .task(due: startTime, estimatedMinutes: nil)
+            }
+        }()
+
+        return TaskDraft(title: title, notes: notes, priority: priority, tagIds: tagIds, body: body)
     }
 
     private static func parseISODate(_ string: String?) -> Date? {
