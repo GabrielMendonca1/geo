@@ -286,10 +286,9 @@ enum TaskTools {
                     return .error("Missing required parameter: title")
                 }
                 let body: TaskBody
-                switch parseBody(args) {
-                case .success(let b): body = b
-                case .failure(let msg): return .error(msg)
-                }
+                do { body = try parseBody(args) }
+                catch let e as BodyParseFailure { return .error(e.message) }
+                catch { return .error(error.localizedDescription) }
                 var priority: TaskPriority = .unset
                 if let priStr = args["priority"]?.stringValue, let p = TaskPriority(rawValue: priStr) { priority = p }
                 let tagIds = args["tag_ids"]?.arrayValue?.compactMap(\.stringValue) ?? []
