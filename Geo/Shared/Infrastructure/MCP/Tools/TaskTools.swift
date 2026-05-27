@@ -150,7 +150,7 @@ enum TaskTools {
         }
     }
 
-    private static let bodyShape = JSONSchemaObject(properties: [
+    private static let bodyProperties: [String: JSONSchemaProperty] = [
         "kind": .string("Body kind", enum: TaskKind.allCases.map(\.rawValue)),
         "due": .string("ISO 8601 — for kind=task"),
         "estimated_minutes": .integer("Estimated minutes — for kind=task (optional)"),
@@ -160,7 +160,7 @@ enum TaskTools {
         "time_of_day": .string("ISO 8601 — for kind=habit"),
         "selected_weekdays": .array("Weekdays 1=Sun..7=Sat — for kind=habit (optional)", items: .integer()),
         "target": .string("ISO 8601 — for kind=milestone"),
-    ], required: ["kind"])
+    ]
 
     // MARK: - Window helpers
 
