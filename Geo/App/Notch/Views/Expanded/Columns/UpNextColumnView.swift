@@ -124,12 +124,12 @@ struct UpNextColumnView: View {
                     .font(.system(size: 10.5, design: .monospaced))
                     .foregroundStyle(Palette.tertiaryForeground)
             }
-        } else if let end = task.endTime {
-            Text("\(Self.timeFormatter.string(from: task.startTime)) – \(Self.timeFormatter.string(from: end))")
+        } else if case .event(let start, let end) = task.body {
+            Text("\(Self.timeFormatter.string(from: start)) – \(Self.timeFormatter.string(from: end))")
                 .font(.system(size: 10.5, design: .monospaced))
                 .foregroundStyle(Palette.tertiaryForeground)
         } else {
-            Text(Self.timeFormatter.string(from: task.startTime))
+            Text(Self.timeFormatter.string(from: task.anchorDate))
                 .font(.system(size: 10.5, design: .monospaced))
                 .foregroundStyle(Palette.tertiaryForeground)
         }
