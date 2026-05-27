@@ -65,44 +65,7 @@ final class NotificationManager: NSObject, ObservableObject {
         }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
-            self?.triggerSmartRemindersOnLaunch()
             self?.checkForDueTasks()
-        }
-    }
-
-    private func triggerSmartRemindersOnLaunch() {
-        let calendar = Calendar.current
-        let todayTasks = tasks
-            .filter { $0.status == .pending }
-            .filter { task in
-            task.smartReminder && (calendar.isDateInToday(task.startTime) || task.isOverdue || (task.recurrence.isRepeating && task.startTime < Date()))
-        }
-
-        guard !todayTasks.isEmpty else { return }
-
-        for task in todayTasks {
-            let notificationKey = "launch-\(task.id)"
-            guard !shownNotifications.contains(notificationKey) else { continue }
-
-            let content = UNMutableNotificationContent()
-            content.title = "Geo - Today's Tasks"
-            content.body = task.title
-            content.sound = .default
-            content.userInfo = ["taskId": task.id, "isLaunchReminder": true]
-
-            let request = UNNotificationRequest(
-                identifier: "launch-\(task.id)",
-                content: content,
-                trigger: nil
-            )
-
-            UNUserNotificationCenter.current().add(request) { [weak self] error in
-                Task { @MainActor in
-                    if error == nil {
-                        self?.shownNotifications.insert(notificationKey)
-                    }
-                }
-            }
         }
     }
 
@@ -141,10 +104,7 @@ final class NotificationManager: NSObject, ObservableObject {
                 trigger: nil
             )
 
-            do {
-                try await UNUserNotificationCenter.current().add(request)
-            } catch {
-            }
+            try? await UNUserNotificationCenter.current().add(request)
         }
     }
 
@@ -154,16 +114,10 @@ final class NotificationManager: NSObject, ObservableObject {
         }
     }
 
-    private enum DueSignalKind {
-        case snooze(until: Date)
-        case oneShot(reminder: ReminderOffset)
-        case recurring(reminder: RecurringReminder, fireDate: Date)
-    }
-
     private struct DueSignal {
         let task: TaskItem
+        let reminder: Reminder
         let fireDate: Date
-        let kind: DueSignalKind
     }
 
     private func checkForDueTasks() {
@@ -172,148 +126,37 @@ final class NotificationManager: NSObject, ObservableObject {
         let now = Date()
         let dueSignals = tasks
             .filter { $0.status == .pending }
-            .compactMap { dueSignal(for: $0, now: now) }
+            .flatMap { dueSignals(for: $0, now: now) }
             .sorted { $0.fireDate < $1.fireDate }
 
         for signal in dueSignals {
-            if scheduleDueSignal(signal) {
+            if scheduleSignal(signal) {
                 return
             }
         }
     }
 
-    private func dueSignal(for task: TaskItem, now: Date) -> DueSignal? {
-        guard task.status == .pending else { return nil }
-
-        if let snoozedUntil = task.snoozedUntil {
-            guard snoozedUntil <= now else { return nil }
-            return DueSignal(task: task, fireDate: snoozedUntil, kind: .snooze(until: snoozedUntil))
-        }
-
-        var candidates: [DueSignal] = []
-
-        if let oneShot = oneShotDueReminder(for: task, now: now) {
-            candidates.append(
-                DueSignal(
-                    task: task,
-                    fireDate: oneShot.fireDate,
-                    kind: .oneShot(reminder: oneShot.reminder)
-                )
-            )
-        }
-
-        if let recurring = dueRecurringReminder(for: task, now: now) {
-            candidates.append(
-                DueSignal(
-                    task: task,
-                    fireDate: recurring.fireDate,
-                    kind: .recurring(reminder: recurring.reminder, fireDate: recurring.fireDate)
-                )
-            )
-        }
-
-        return candidates.min { $0.fireDate < $1.fireDate }
-    }
-
-    private func oneShotDueReminder(for task: TaskItem, now: Date) -> (reminder: ReminderOffset, fireDate: Date)? {
-        let dueReminders = task.reminders
-            .filter { !task.firedReminders.contains($0) }
+    private func dueSignals(for task: TaskItem, now: Date) -> [DueSignal] {
+        let anchor = task.anchorDate
+        return task.reminders
+            .filter { !$0.fired }
             .map { reminder in
-                (reminder: reminder, fireDate: task.startTime.addingTimeInterval(reminder.timeInterval))
+                DueSignal(task: task, reminder: reminder, fireDate: reminder.fireDate(forAnchor: anchor))
             }
             .filter { $0.fireDate <= now }
-            .sorted { $0.fireDate < $1.fireDate }
-        return dueReminders.first
     }
 
-    private func dueRecurringReminder(for task: TaskItem, now: Date) -> (reminder: RecurringReminder, fireDate: Date)? {
-        guard !task.recurringReminders.isEmpty else { return nil }
-        var dueCandidates: [(reminder: RecurringReminder, fireDate: Date)] = []
-
-        for reminder in task.recurringReminders {
-            guard let nextFire = nextRecurringFireDate(for: reminder, taskStart: task.startTime, now: now) else { continue }
-            guard nextFire <= now else { continue }
-            dueCandidates.append((reminder: reminder, fireDate: nextFire))
-        }
-
-        return dueCandidates.min { $0.fireDate < $1.fireDate }
-    }
-
-    private func nextRecurringFireDate(for reminder: RecurringReminder, taskStart: Date, now: Date) -> Date? {
-        var candidate: Date
-        if let lastFired = reminder.lastFired {
-            guard let next = reminder.nextFireDate(after: lastFired) else { return nil }
-            candidate = next
-        } else {
-            guard let initial = initialRecurringFireDate(for: reminder, taskStart: taskStart) else { return nil }
-            candidate = initial
-        }
-
-        var safety = 0
-        while safety < 1000 {
-            guard let next = reminder.nextFireDate(after: candidate) else { break }
-            guard next <= now else { break }
-            candidate = next
-            safety += 1
-        }
-
-        return candidate
-    }
-
-    private func initialRecurringFireDate(for reminder: RecurringReminder, taskStart: Date) -> Date? {
-        let calendar = Calendar.current
-        let timeComponents = calendar.dateComponents([.hour, .minute], from: reminder.timeOfDay)
-        return calendar.date(
-            bySettingHour: timeComponents.hour ?? 9,
-            minute: timeComponents.minute ?? 0,
-            second: 0,
-            of: taskStart
-        )
-    }
-
-    private func scheduleDueSignal(_ signal: DueSignal) -> Bool {
-        switch signal.kind {
-        case .snooze(let until):
-            return scheduleSnoozeNotification(for: signal.task, until: until)
-        case .oneShot(let reminder):
-            return scheduleOneShotNotification(for: signal.task, reminder: reminder)
-        case .recurring(let reminder, let fireDate):
-            return scheduleRecurringNotification(for: signal.task, reminder: reminder, fireDate: fireDate)
-        }
-    }
-
-    private func scheduleOneShotNotification(for task: TaskItem, reminder: ReminderOffset) -> Bool {
-        let keyComponent = sanitizedKeyComponent(reminder.rawValue)
-        let requestIdentifier = "oneshot-\(task.id)-\(keyComponent)"
-        let notificationKey = "\(task.id)-\(reminder.rawValue)"
-
-        let content = UNMutableNotificationContent()
-        content.title = "Geo"
-        content.body = task.title
-        content.sound = .default
-        content.userInfo = ["taskId": task.id, "reminder": reminder.rawValue]
-
-        return scheduleNotification(
-            requestIdentifier: requestIdentifier,
-            notificationKey: notificationKey,
-            content: content
-        ) { [weak self] in
-            self?.markNotificationDismissed(taskId: task.id, reminder: reminder)
-        }
-    }
-
-    private func scheduleRecurringNotification(for task: TaskItem, reminder: RecurringReminder, fireDate: Date) -> Bool {
-        let requestIdentifier = "recurring-\(task.id)-\(reminder.id.uuidString)-\(Int(fireDate.timeIntervalSince1970))"
+    private func scheduleSignal(_ signal: DueSignal) -> Bool {
+        let requestIdentifier = "reminder-\(signal.task.id)-\(signal.reminder.id.uuidString)"
         let notificationKey = requestIdentifier
 
         let content = UNMutableNotificationContent()
         content.title = "Geo"
-        content.body = task.title
+        content.body = signal.task.title
         content.sound = .default
         content.userInfo = [
-            "taskId": task.id,
-            "recurringReminderId": reminder.id.uuidString,
-            "recurringReminderFireDate": fireDate.timeIntervalSince1970
+            "taskId": signal.task.id,
+            "reminderId": signal.reminder.id.uuidString,
         ]
 
         return scheduleNotification(
@@ -321,30 +164,7 @@ final class NotificationManager: NSObject, ObservableObject {
             notificationKey: notificationKey,
             content: content
         ) { [weak self] in
-            self?.markRecurringReminderDismissed(taskId: task.id, reminderId: reminder.id, firedAt: fireDate)
-        }
-    }
-
-    private func scheduleSnoozeNotification(for task: TaskItem, until: Date) -> Bool {
-        let requestIdentifier = "snooze-\(task.id)-\(Int(until.timeIntervalSince1970))"
-        let notificationKey = requestIdentifier
-
-        let content = UNMutableNotificationContent()
-        content.title = "Geo"
-        content.body = task.title
-        content.sound = .default
-        content.userInfo = [
-            "taskId": task.id,
-            "isSnoozeReminder": true,
-            "snoozedUntil": until.timeIntervalSince1970
-        ]
-
-        return scheduleNotification(
-            requestIdentifier: requestIdentifier,
-            notificationKey: notificationKey,
-            content: content
-        ) { [weak self] in
-            self?.markSnoozedReminderDismissed(taskId: task.id, firedAt: until)
+            self?.markReminderFired(taskId: signal.task.id, reminderId: signal.reminder.id)
         }
     }
 
@@ -393,13 +213,6 @@ final class NotificationManager: NSObject, ObservableObject {
         dismissTimer = nil
     }
 
-    private func sanitizedKeyComponent(_ value: String) -> String {
-        let raw = value
-            .lowercased()
-            .replacingOccurrences(of: "[^a-z0-9]+", with: "-", options: .regularExpression)
-        return raw.trimmingCharacters(in: CharacterSet(charactersIn: "-"))
-    }
-
     private func scheduleFollowUpCheck(after delay: TimeInterval = 2) {
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
             self?.checkForDueTasks()
@@ -425,43 +238,14 @@ final class NotificationManager: NSObject, ObservableObject {
         mutate(&task)
         task.modifiedAt = Date()
 
-        do {
-            try await tasksRepository.update(task)
-        } catch {
-        }
+        try? await tasksRepository.update(task)
     }
 
-    private func markNotificationDismissed(taskId: String, reminder: ReminderOffset) {
+    private func markReminderFired(taskId: String, reminderId: UUID) {
         Task { @MainActor in
             await updateTask(id: taskId) { task in
-                if !task.firedReminders.contains(reminder) {
-                    task.firedReminders.append(reminder)
-                }
-            }
-            clearActiveNotificationState()
-            scheduleFollowUpCheck()
-        }
-    }
-
-    private func markRecurringReminderDismissed(taskId: String, reminderId: UUID, firedAt: Date) {
-        Task { @MainActor in
-            await updateTask(id: taskId) { task in
-                guard let index = task.recurringReminders.firstIndex(where: { $0.id == reminderId }) else { return }
-                task.recurringReminders[index].lastFired = firedAt
-            }
-            clearActiveNotificationState()
-            scheduleFollowUpCheck()
-        }
-    }
-
-    private func markSnoozedReminderDismissed(taskId: String, firedAt: Date) {
-        Task { @MainActor in
-            await updateTask(id: taskId) { task in
-                task.snoozedUntil = nil
-                if let dueReminder = oneShotDueReminder(for: task, now: firedAt)?.reminder,
-                   !task.firedReminders.contains(dueReminder) {
-                    task.firedReminders.append(dueReminder)
-                }
+                guard let idx = task.reminders.firstIndex(where: { $0.id == reminderId }) else { return }
+                task.reminders[idx].fired = true
             }
             clearActiveNotificationState()
             scheduleFollowUpCheck()
@@ -485,11 +269,7 @@ extension NotificationManager: UNUserNotificationCenterDelegate {
     ) {
         let userInfo = response.notification.request.content.userInfo
         let taskIdString = userInfo["taskId"] as? String
-        let reminderRaw = userInfo["reminder"] as? String
-        let recurringReminderIdString = userInfo["recurringReminderId"] as? String
-        let recurringReminderFireDateInterval = userInfo["recurringReminderFireDate"] as? TimeInterval
-        let isSnoozeReminder = userInfo["isSnoozeReminder"] as? Bool ?? false
-        let snoozedUntilInterval = userInfo["snoozedUntil"] as? TimeInterval
+        let reminderIdString = userInfo["reminderId"] as? String
 
         Task { @MainActor in
             NSApp.activate(ignoringOtherApps: true)
@@ -500,20 +280,10 @@ extension NotificationManager: UNUserNotificationCenterDelegate {
 
             navigateToTab(.tasks)
 
-            if let taskIdString {
-                if isSnoozeReminder {
-                    let firedAt = snoozedUntilInterval.map { Date(timeIntervalSince1970: $0) } ?? Date()
-                    markSnoozedReminderDismissed(taskId: taskIdString, firedAt: firedAt)
-                } else if let reminderRaw,
-                   let reminder = ReminderOffset(rawValue: reminderRaw) {
-                    markNotificationDismissed(taskId: taskIdString, reminder: reminder)
-                } else if let recurringReminderIdString,
-                          let reminderId = UUID(uuidString: recurringReminderIdString) {
-                    let firedAt = recurringReminderFireDateInterval.map { Date(timeIntervalSince1970: $0) } ?? Date()
-                    markRecurringReminderDismissed(taskId: taskIdString, reminderId: reminderId, firedAt: firedAt)
-                } else {
-                    clearActiveNotificationState()
-                }
+            if let taskIdString,
+               let reminderIdString,
+               let reminderId = UUID(uuidString: reminderIdString) {
+                markReminderFired(taskId: taskIdString, reminderId: reminderId)
             } else {
                 clearActiveNotificationState()
             }
