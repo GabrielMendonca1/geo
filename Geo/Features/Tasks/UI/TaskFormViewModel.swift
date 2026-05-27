@@ -13,7 +13,6 @@ final class TaskFormViewModel: ObservableObject {
     @Published var notes: String = ""
     @Published var taskStatus: TaskStatus = .pending
     @Published var priority: TaskPriority = .unset
-    @Published var context: String = ""
 
     @Published var date: Date
     @Published var time: Date
@@ -34,11 +33,8 @@ final class TaskFormViewModel: ObservableObject {
     @Published var selectedWeekdays: Set<Int> = []
 
     @Published var reminders: Set<ReminderOffset> = [.atTime]
-    @Published var smartReminder: Bool = false
-    @Published var recurringReminders: [RecurringReminder] = []
 
     @Published var linkedBlockId: String?
-    @Published var resetCheckboxesOnComplete: Bool = true
 
     @Published var pendingKindSwitch: PendingKindSwitch?
     @Published var pendingHabitTimeChoice: PendingHabitTimeChoice?
@@ -110,7 +106,7 @@ final class TaskFormViewModel: ObservableObject {
     var headerBadgeText: String {
         if taskStatus == .completed { return "Completed" }
         if kind == .habit, let task = editingTask {
-            return "Streak: \(task.currentStreak)d"
+            return "Streak: \(task.habitCurrentStreak)d"
         }
         if kind == .milestone, let task = editingTask, let days = task.daysUntilMilestone {
             return days >= 0 ? "\(days)d remaining" : "\(-days)d overdue"
@@ -128,36 +124,46 @@ final class TaskFormViewModel: ObservableObject {
         }
         title = task.title.trimmingCharacters(in: .whitespacesAndNewlines)
         notes = task.notes
-        date = task.startTime
-        time = task.startTime
         taskStatus = task.status
-        reminders = Set(task.reminders)
+        reminders = Set(task.reminders.compactMap { r -> ReminderOffset? in
+            if case .offset(let off) = r.trigger { return off }
+            return nil
+        })
         linkedBlockId = task.linkedBlockId
-        recurringReminders = task.recurringReminders
-        smartReminder = task.smartReminder
-        recurrenceType = task.recurrence.type
-        if task.recurrence.type == .custom {
-            customFrequency = task.recurrence.customFrequency ?? .daily
-            customInterval = task.recurrence.customInterval ?? 1
-        }
-        if let rEnd = task.recurrence.endDate {
-            hasRecurrenceEndDate = true
-            recurrenceEndDate = rEnd
-        }
-        if let days = task.recurrence.selectedWeekdays {
-            selectedWeekdays = Set(days)
-        }
-        kind = task.kind
         priority = task.priority
         estimatedMinutes = task.estimatedMinutes ?? 30
         hasEstimate = task.estimatedMinutes != nil
-        context = task.context ?? ""
-        if let end = task.endTime {
+        kind = task.kind
+
+        switch task.body {
+        case .task(let due, _):
+            date = due
+            time = due
+        case .event(let start, let end):
+            date = start
+            time = start
             hasEndDate = true
             endDate = end
             endTime = end
+        case .habit(let rule, let tod, _):
+            date = tod
+            time = tod
+            recurrenceType = rule.type
+            if rule.type == .custom {
+                customFrequency = rule.customFrequency ?? .daily
+                customInterval = rule.customInterval ?? 1
+            }
+            if let rEnd = rule.endDate {
+                hasRecurrenceEndDate = true
+                recurrenceEndDate = rEnd
+            }
+            if let days = rule.selectedWeekdays {
+                selectedWeekdays = Set(days)
+            }
+        case .milestone(let target):
+            date = target
+            time = target
         }
-        resetCheckboxesOnComplete = task.habitState?.resetCheckboxesOnComplete ?? true
     }
 
     func requestKindSwitch(to newKind: TaskKind) {
@@ -165,8 +171,8 @@ final class TaskFormViewModel: ObservableObject {
         let previous = kind
 
         if previous == .habit,
-           editingTask != nil,
-           !(editingTask?.completionHistory.isEmpty ?? true),
+           let editing = editingTask,
+           !editing.habitOccurrences.isEmpty,
            newKind != .habit {
             pendingKindSwitch = PendingKindSwitch(
                 from: previous,
@@ -269,30 +275,12 @@ final class TaskFormViewModel: ObservableObject {
                 task.notes = draft.notes
                 task.linkedBlockId = draft.linkedBlockId
                 task.status = taskStatus
-                task.startTime = draft.startTime
-                task.endTime = draft.endTime
+                task.body = preserveOccurrencesIfHabit(old: task.body, new: draft.body)
                 task.reminders = draft.reminders
-                task.recurringReminders = draft.recurringReminders
-                task.recurrence = draft.recurrence
-                task.smartReminder = draft.smartReminder
-                task.kind = draft.kind
                 task.priority = draft.priority
                 task.tagIds = draft.tagIds
-                task.parentId = draft.parentId
                 task.estimatedMinutes = draft.estimatedMinutes
-                task.context = draft.context
                 task.modifiedAt = Date()
-                if task.kind == .habit {
-                    if task.habitState == nil {
-                        task.habitState = HabitState.fromLegacyFields(
-                            kind: .habit,
-                            completionHistory: task.completionHistory,
-                            currentStreak: task.currentStreak,
-                            longestStreak: task.longestStreak
-                        )
-                    }
-                    task.habitState?.resetCheckboxesOnComplete = resetCheckboxesOnComplete
-                }
                 try await repository.update(task)
             } else {
                 _ = try await repository.create(draft)
@@ -305,44 +293,25 @@ final class TaskFormViewModel: ObservableObject {
         }
     }
 
+    private func preserveOccurrencesIfHabit(old: TaskBody, new: TaskBody) -> TaskBody {
+        if case .habit(_, _, let oldOccs) = old, case .habit(let rule, let tod, _) = new {
+            return .habit(rule: rule, timeOfDay: tod, occurrences: oldOccs)
+        }
+        return new
+    }
+
     private func buildDraft() -> TaskDraft {
-        let resolvedRecurrenceEnd: Date? = hasRecurrenceEndDate ? recurrenceEndDate : nil
-        let resolvedWeekdays: [Int]? = selectedWeekdays.isEmpty ? nil : Array(selectedWeekdays)
-
-        let recurrence: RecurrenceRule
-        if recurrenceType == .custom {
-            var rule = RecurrenceRule.custom(every: max(1, customInterval), frequency: customFrequency)
-            rule.endDate = resolvedRecurrenceEnd
-            rule.selectedWeekdays = resolvedWeekdays
-            recurrence = rule
-        } else {
-            recurrence = RecurrenceRule(
-                type: recurrenceType,
-                endDate: resolvedRecurrenceEnd,
-                selectedWeekdays: resolvedWeekdays
-            )
-        }
-
-        let sanitizedRecurringReminders = recurringReminders.map { reminder in
-            var sanitized = reminder
-            sanitized.interval = max(1, sanitized.interval)
-            return sanitized
-        }
-
-        let effectiveReminders: [ReminderOffset]
+        let body = buildBody()
+        let effectiveReminders: [Reminder]
         if kind == .milestone {
             effectiveReminders = []
         } else {
-            effectiveReminders = Array(reminders)
+            effectiveReminders = reminders.map { Reminder(trigger: .offset($0)) }
         }
 
         let trimmedNotes: String
         if kind == .event, !location.isEmpty {
-            if notes.isEmpty {
-                trimmedNotes = "Location: \(location)"
-            } else {
-                trimmedNotes = notes + "\n\nLocation: \(location)"
-            }
+            trimmedNotes = notes.isEmpty ? "Location: \(location)" : notes + "\n\nLocation: \(location)"
         } else {
             trimmedNotes = notes
         }
@@ -351,16 +320,46 @@ final class TaskFormViewModel: ObservableObject {
             title: trimmedTitle,
             notes: trimmedNotes,
             linkedBlockId: linkedBlockId,
-            startTime: resolvedStartTime,
-            endTime: resolvedEndTime,
-            reminders: effectiveReminders,
-            recurringReminders: sanitizedRecurringReminders,
-            recurrence: recurrence,
-            smartReminder: kind == .milestone ? false : smartReminder,
-            kind: kind,
+            status: taskStatus,
             priority: priority,
+            tagIds: [],
             estimatedMinutes: hasEstimate ? estimatedMinutes : nil,
-            context: context.isEmpty ? nil : context
+            body: body,
+            reminders: effectiveReminders.isEmpty ? [] : effectiveReminders
+        )
+    }
+
+    private func buildBody() -> TaskBody {
+        switch kind {
+        case .task:
+            return .task(due: resolvedStartTime, estimatedMinutes: hasEstimate ? estimatedMinutes : nil)
+        case .event:
+            let end = resolvedEndTime ?? resolvedStartTime.addingTimeInterval(3600)
+            return .event(start: resolvedStartTime, end: max(end, resolvedStartTime))
+        case .habit:
+            let rule = buildRecurrenceRule()
+            return .habit(rule: rule, timeOfDay: resolvedStartTime, occurrences: [])
+        case .milestone:
+            return .milestone(target: Calendar.current.startOfDay(for: resolvedStartTime))
+        }
+    }
+
+    private func buildRecurrenceRule() -> RecurrenceRule {
+        let resolvedRecurrenceEnd: Date? = hasRecurrenceEndDate ? recurrenceEndDate : nil
+        let resolvedWeekdays: [Int]? = selectedWeekdays.isEmpty ? nil : Array(selectedWeekdays)
+
+        let effectiveType: RecurrenceRule.RuleType = recurrenceType == .never ? .daily : recurrenceType
+
+        if effectiveType == .custom {
+            var rule = RecurrenceRule.custom(every: max(1, customInterval), frequency: customFrequency)
+            rule.endDate = resolvedRecurrenceEnd
+            rule.selectedWeekdays = resolvedWeekdays
+            return rule
+        }
+        return RecurrenceRule(
+            type: effectiveType,
+            endDate: resolvedRecurrenceEnd,
+            selectedWeekdays: resolvedWeekdays
         )
     }
 
@@ -375,14 +374,6 @@ final class TaskFormViewModel: ObservableObject {
         combined.hour = timeComponents.hour
         combined.minute = timeComponents.minute
         return calendar.date(from: combined)
-    }
-
-    private static func today() -> Date {
-        Calendar.current.startOfDay(for: Date())
-    }
-
-    private static func defaultTime() -> Date {
-        Date()
     }
 
     private static func defaultHabitTime() -> Date {
