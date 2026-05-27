@@ -52,16 +52,12 @@ final class LiveTasksStoreAccess: TasksStoreAccess, @unchecked Sendable {
     }
 
     func allTasks() async -> [TaskItem] {
-        await MainActor.run {
-            tasksStore.tasks
-        }
+        await MainActor.run { tasksStore.tasks }
     }
 
     func importTask(_ task: TaskItem) async -> Bool {
         await MainActor.run {
-            guard tasksStore.task(for: task.id) == nil else {
-                return false
-            }
+            guard tasksStore.task(for: task.id) == nil else { return false }
             tasksStore.importTask(task)
             return true
         }
@@ -73,45 +69,29 @@ final class LiveTasksStoreAccess: TasksStoreAccess, @unchecked Sendable {
                 title: draft.title,
                 notes: draft.notes,
                 linkedBlockId: draft.linkedBlockId,
-                startTime: draft.startTime,
-                endTime: draft.endTime,
+                body: draft.body,
                 reminders: draft.reminders,
-                recurringReminders: draft.recurringReminders,
-                recurrence: draft.recurrence,
-                smartReminder: draft.smartReminder,
-                kind: draft.kind,
                 priority: draft.priority,
                 tagIds: draft.tagIds,
-                parentId: draft.parentId,
-                estimatedMinutes: draft.estimatedMinutes,
-                context: draft.context
+                estimatedMinutes: draft.estimatedMinutes
             )
         }
     }
 
     func updateTask(_ task: TaskItem) async -> Bool {
         await MainActor.run {
-            guard tasksStore.task(for: task.id) != nil else {
-                return false
-            }
+            guard tasksStore.task(for: task.id) != nil else { return false }
             tasksStore.updateTask(
                 id: task.id,
                 title: task.title,
                 notes: task.notes,
                 linkedBlockId: task.linkedBlockId,
-                startTime: task.startTime,
-                endTime: task.endTime,
+                body: task.body,
                 reminders: task.reminders,
-                recurringReminders: task.recurringReminders,
-                recurrence: task.recurrence,
-                smartReminder: task.smartReminder,
                 status: task.status,
-                kind: task.kind,
                 priority: task.priority,
                 tagIds: task.tagIds,
-                parentId: task.parentId,
-                estimatedMinutes: task.estimatedMinutes,
-                context: task.context
+                estimatedMinutes: task.estimatedMinutes
             )
             return true
         }
@@ -119,9 +99,7 @@ final class LiveTasksStoreAccess: TasksStoreAccess, @unchecked Sendable {
 
     func deleteTask(id: String) async -> Bool {
         await MainActor.run {
-            guard tasksStore.task(for: id) != nil else {
-                return false
-            }
+            guard tasksStore.task(for: id) != nil else { return false }
             tasksStore.deleteTask(id: id)
             return true
         }
@@ -151,18 +129,14 @@ struct TasksStoreRepositoryAdapter: TasksRepository, @unchecked Sendable {
         guard !task.id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw RepositoryError.invalidInput
         }
-
         let imported = await storeAccess.importTask(task)
-        guard imported else {
-            throw RepositoryError.invalidInput
-        }
+        guard imported else { throw RepositoryError.invalidInput }
     }
 
     func create(_ draft: TaskDraft) async throws -> TaskItem {
         guard !draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw RepositoryError.invalidInput
         }
-
         guard let task = await storeAccess.createTask(from: draft) else {
             throw RepositoryError.invalidInput
         }
@@ -173,21 +147,15 @@ struct TasksStoreRepositoryAdapter: TasksRepository, @unchecked Sendable {
         guard !task.id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw RepositoryError.invalidInput
         }
-
         let updated = await storeAccess.updateTask(task)
-        guard updated else {
-            throw RepositoryError.notFound
-        }
+        guard updated else { throw RepositoryError.notFound }
     }
 
     func delete(id: String) async throws {
         guard !id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw RepositoryError.invalidInput
         }
-
         let deleted = await storeAccess.deleteTask(id: id)
-        if !deleted {
-            throw RepositoryError.notFound
-        }
+        if !deleted { throw RepositoryError.notFound }
     }
 }
