@@ -312,7 +312,7 @@ final class HermesStatusService: ObservableObject {
 
     static func hermesServerSpec() -> MCPServerSpec {
         let command = ProcessInfo.processInfo.environment["HERMES_MCP_COMMAND"] ?? "hermes"
-        let argsRaw = ProcessInfo.processInfo.environment["HERMES_MCP_ARGS"] ?? "mcp"
+        let argsRaw = ProcessInfo.processInfo.environment["HERMES_MCP_ARGS"] ?? "mcp serve"
         let arguments = argsRaw.split(separator: " ").map(String.init)
         return MCPServerSpec(name: "hermes", command: command, arguments: arguments, environment: nil)
     }
