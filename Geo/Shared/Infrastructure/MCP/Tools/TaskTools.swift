@@ -473,7 +473,7 @@ enum TaskTools {
                 task.reminders.append(reminder)
                 task.modifiedAt = Date()
                 try await tasks.update(task)
-                return .json(["success": .bool(true), "reminder_id": .string(reminder.id.uuidString)])
+                return .json(["success": "true", "reminder_id": reminder.id.uuidString])
             }
         ).registered
     }
