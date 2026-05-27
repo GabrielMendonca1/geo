@@ -34,10 +34,10 @@ struct UpNextColumnView: View {
         let window = now.addingTimeInterval(48 * 3600)
         return tasks
             .filter { $0.status == .pending }
-            .filter { $0.startTime <= window || $0.isOverdue }
+            .filter { $0.anchorDate <= window || $0.isOverdue }
             .sorted { lhs, rhs in
                 if lhs.isOverdue != rhs.isOverdue { return lhs.isOverdue }
-                return lhs.startTime < rhs.startTime
+                return lhs.anchorDate < rhs.anchorDate
             }
     }
 
@@ -48,7 +48,7 @@ struct UpNextColumnView: View {
         var tomorrow: [TaskItem] = []
         for item in items {
             if item.isOverdue { overdue.append(item) }
-            else if cal.isDateInToday(item.startTime) { today.append(item) }
+            else if cal.isDateInToday(item.anchorDate) { today.append(item) }
             else { tomorrow.append(item) }
         }
         var groups: [(String, [TaskItem])] = []
