@@ -2,8 +2,7 @@ import Foundation
 
 struct ParsedQuickAdd: Equatable {
     let title: String
-    let kind: TaskKind
-    let schedule: Schedule
+    let body: TaskBody
     let confidence: Confidence
 
     enum Confidence: Equatable {
@@ -11,13 +10,15 @@ struct ParsedQuickAdd: Equatable {
         case medium
         case low
     }
+
+    var kind: TaskKind { body.kind }
 }
 
 enum QuickAddParser {
     static func parse(_ input: String, now: Date = Date(), calendar: Calendar = .current) -> ParsedQuickAdd {
         let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
-            return ParsedQuickAdd(title: "", kind: .task, schedule: .anytime, confidence: .low)
+            return ParsedQuickAdd(title: "", body: .task(due: endOfDay(for: now, calendar: calendar), estimatedMinutes: nil), confidence: .low)
         }
 
         var ranges: [Range<String.Index>] = []
@@ -28,8 +29,7 @@ enum QuickAddParser {
             let title = stripRanges(from: trimmed, ranges: ranges)
             return ParsedQuickAdd(
                 title: title,
-                kind: .habit,
-                schedule: .recurring(rule: recurrence.rule, timeOfDay: recurrence.timeOfDay),
+                body: .habit(rule: recurrence.rule, timeOfDay: recurrence.timeOfDay, occurrences: []),
                 confidence: recurrence.confidence
             )
         }
@@ -38,23 +38,20 @@ enum QuickAddParser {
             let title = stripRanges(from: trimmed, ranges: ranges)
             let dayDelta = calendar.dateComponents([.day], from: calendar.startOfDay(for: now), to: calendar.startOfDay(for: target.date)).day ?? 0
             let isMilestoneVerb = containsMilestoneVerb(title)
-            let kind: TaskKind = (dayDelta > 7 || (isMilestoneVerb && dayDelta >= 7)) ? .milestone : .task
-            let schedule: Schedule
-            if kind == .milestone {
-                schedule = .targeting(calendar.startOfDay(for: target.date))
-            } else {
-                schedule = .dueBy(endOfDay(for: target.date, calendar: calendar))
-            }
-            return ParsedQuickAdd(title: title, kind: kind, schedule: schedule, confidence: .high)
+            let isMilestone = dayDelta > 7 || (isMilestoneVerb && dayDelta >= 7)
+            let body: TaskBody = isMilestone
+                ? .milestone(target: calendar.startOfDay(for: target.date))
+                : .task(due: endOfDay(for: target.date, calendar: calendar), estimatedMinutes: nil)
+            return ParsedQuickAdd(title: title, body: body, confidence: .high)
         }
 
         if let timeMatch = extractAbsoluteTime(from: trimmed, ranges: &ranges, now: now, calendar: calendar) {
             let title = stripRanges(from: trimmed, ranges: ranges)
             let resolvedDuration = duration ?? 3600
+            let end = timeMatch.date.addingTimeInterval(resolvedDuration)
             return ParsedQuickAdd(
                 title: title,
-                kind: .event,
-                schedule: .at(timeMatch.date, duration: resolvedDuration),
+                body: .event(start: timeMatch.date, end: end),
                 confidence: .high
             )
         }
@@ -62,15 +59,18 @@ enum QuickAddParser {
         if let dateOnly = extractStandaloneDate(from: trimmed, ranges: &ranges, now: now, calendar: calendar) {
             let title = stripRanges(from: trimmed, ranges: ranges)
             let dayDelta = calendar.dateComponents([.day], from: calendar.startOfDay(for: now), to: calendar.startOfDay(for: dateOnly)).day ?? 0
-            let kind: TaskKind = dayDelta > 7 ? .milestone : .task
-            let schedule: Schedule = kind == .milestone
-                ? .targeting(calendar.startOfDay(for: dateOnly))
-                : .dueBy(endOfDay(for: dateOnly, calendar: calendar))
-            return ParsedQuickAdd(title: title, kind: kind, schedule: schedule, confidence: .medium)
+            let body: TaskBody = dayDelta > 7
+                ? .milestone(target: calendar.startOfDay(for: dateOnly))
+                : .task(due: endOfDay(for: dateOnly, calendar: calendar), estimatedMinutes: nil)
+            return ParsedQuickAdd(title: title, body: body, confidence: .medium)
         }
 
         let title = stripRanges(from: trimmed, ranges: ranges)
-        return ParsedQuickAdd(title: title.isEmpty ? trimmed : title, kind: .task, schedule: .anytime, confidence: .low)
+        return ParsedQuickAdd(
+            title: title.isEmpty ? trimmed : title,
+            body: .task(due: endOfDay(for: now, calendar: calendar), estimatedMinutes: nil),
+            confidence: .low
+        )
     }
 }
 
