@@ -539,6 +539,18 @@ extension TaskItem {
     var isHabit: Bool { if case .habit = body { return true }; return false }
     var isMilestone: Bool { if case .milestone = body { return true }; return false }
 
+    var startTime: Date { anchorDate }
+
+    var endTime: Date? {
+        if case .event(_, let end) = body { return end }
+        return nil
+    }
+
+    var recurrence: RecurrenceRule {
+        if case .habit(let rule, _, _) = body { return rule }
+        return .never
+    }
+
     var priorityColor: String {
         switch priority {
         case .urgent: return "red"
