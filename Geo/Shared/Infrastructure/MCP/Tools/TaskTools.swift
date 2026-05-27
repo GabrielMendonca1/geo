@@ -429,11 +429,12 @@ enum TaskTools {
                 task.reminders = task.reminders.map { var r = $0; r.fired = false; return r }
                 task.modifiedAt = Date()
                 try await tasks.update(task)
-                return .json([
+                let result: [String: AnyCodableValue] = [
                     "success": .bool(true),
                     "current_streak": .int(task.habitCurrentStreak),
                     "longest_streak": .int(task.habitLongestStreak),
-                ])
+                ]
+                return .json(result)
             }
         ).registered
     }
