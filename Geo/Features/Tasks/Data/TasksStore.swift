@@ -93,27 +93,17 @@ final class TasksStore: ObservableObject {
         title: String,
         notes: String = "",
         linkedBlockId: String? = nil,
-        startTime: Date,
-        endTime: Date? = nil,
-        reminders: [ReminderOffset] = [.atTime],
-        recurringReminders: [RecurringReminder] = [],
-        recurrence: RecurrenceRule = .never,
-        smartReminder: Bool = false,
-        kind: TaskKind = .task,
+        body: TaskBody,
+        reminders: [Reminder] = [.atTime()],
         priority: TaskPriority = .unset,
         tagIds: [String] = [],
-        parentId: String? = nil,
-        estimatedMinutes: Int? = nil,
-        context: String? = nil
+        estimatedMinutes: Int? = nil
     ) -> TaskItem? {
         let spStart = CFAbsoluteTimeGetCurrent()
         let spID = PerformanceTracker.shared.beginStoreOperation("TasksStore", operation: "create")
         defer { PerformanceTracker.shared.endStoreOperation("TasksStore", operation: "create", signpostID: spID, startTime: spStart) }
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedTitle.isEmpty else { return nil }
-        let normalizedEnd = normalizedEndTime(startTime: startTime, endTime: endTime)
-        let sanitizedRecurring = sanitizeRecurringReminders(recurringReminders)
-        let sanitizedRecurrence = sanitizeRecurrence(recurrence)
         let maxOrder = pendingTasks().map(\.orderIndex).max() ?? -1
         let now = Date()
         let task = TaskItem(
@@ -122,23 +112,14 @@ final class TasksStore: ObservableObject {
             notes: notes,
             linkedBlockId: linkedBlockId,
             status: .pending,
-            startTime: startTime,
-            endTime: normalizedEnd,
-            reminders: reminders,
-            recurringReminders: sanitizedRecurring,
-            recurrence: sanitizedRecurrence,
-            firedReminders: [],
-            orderIndex: maxOrder + 1,
-            smartReminder: smartReminder,
-            snoozedUntil: nil,
-            createdAt: now,
-            modifiedAt: now,
-            kind: kind,
             priority: priority,
             tagIds: tagIds,
-            parentId: parentId,
+            orderIndex: maxOrder + 1,
             estimatedMinutes: estimatedMinutes,
-            context: context
+            createdAt: now,
+            modifiedAt: now,
+            body: sanitize(body: body),
+            reminders: reminders
         )
         tasks.append(task)
         indexInsert(task)
@@ -151,19 +132,12 @@ final class TasksStore: ObservableObject {
         title: String,
         notes: String,
         linkedBlockId: String?,
-        startTime: Date,
-        endTime: Date?,
-        reminders: [ReminderOffset],
-        recurringReminders: [RecurringReminder],
-        recurrence: RecurrenceRule,
-        smartReminder: Bool,
+        body: TaskBody,
+        reminders: [Reminder],
         status: TaskStatus,
-        kind: TaskKind = .task,
         priority: TaskPriority = .unset,
         tagIds: [String] = [],
-        parentId: String? = nil,
-        estimatedMinutes: Int? = nil,
-        context: String? = nil
+        estimatedMinutes: Int? = nil
     ) {
         let spStart = CFAbsoluteTimeGetCurrent()
         let spID = PerformanceTracker.shared.beginStoreOperation("TasksStore", operation: "update")
@@ -171,61 +145,22 @@ final class TasksStore: ObservableObject {
         guard let index = tasks.firstIndex(where: { $0.id == id }) else { return }
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedTitle.isEmpty else { return }
-        let normalizedEnd = normalizedEndTime(startTime: startTime, endTime: endTime)
-        let sanitizedRecurring = sanitizeRecurringReminders(recurringReminders)
-        let sanitizedRecurrence = sanitizeRecurrence(recurrence)
         let existing = tasks[index]
-        let preservedHabitState: HabitState?
-        if let existingHabit = existing.habitState, kind == .habit {
-            preservedHabitState = existingHabit
-        } else {
-            preservedHabitState = HabitState.fromLegacyFields(
-                kind: kind,
-                completionHistory: existing.completionHistory,
-                currentStreak: existing.currentStreak,
-                longestStreak: existing.longestStreak
-            )
-        }
+        let newBody = preserveOccurrencesIfHabit(old: existing.body, new: body)
         let updated = TaskItem(
             id: existing.id,
             title: trimmedTitle,
             notes: notes,
             linkedBlockId: linkedBlockId,
             status: status,
-            startTime: startTime,
-            endTime: normalizedEnd,
-            reminders: reminders,
-            recurringReminders: sanitizedRecurring,
-            recurrence: sanitizedRecurrence,
-            firedReminders: existing.firedReminders,
-            orderIndex: existing.orderIndex,
-            smartReminder: smartReminder,
-            snoozedUntil: existing.snoozedUntil,
-            createdAt: existing.createdAt,
-            modifiedAt: Date(),
-            kind: kind,
             priority: priority,
             tagIds: tagIds,
-            parentId: parentId,
+            orderIndex: existing.orderIndex,
             estimatedMinutes: estimatedMinutes,
-            context: context,
-            completionHistory: existing.completionHistory,
-            currentStreak: existing.currentStreak,
-            longestStreak: existing.longestStreak,
-            schedule: Schedule.fromLegacyFields(
-                kind: kind,
-                startTime: startTime,
-                endTime: normalizedEnd,
-                recurrence: sanitizedRecurrence
-            ),
-            scheduleAlerts: ScheduleAlerts.fromLegacyFields(
-                reminders: reminders,
-                recurringReminders: sanitizedRecurring,
-                firedReminders: existing.firedReminders,
-                smartReminder: smartReminder,
-                snoozedUntil: existing.snoozedUntil
-            ),
-            habitState: preservedHabitState
+            createdAt: existing.createdAt,
+            modifiedAt: Date(),
+            body: sanitize(body: newBody),
+            reminders: reminders
         )
         let previous = tasks[index]
         tasks[index] = updated
@@ -239,10 +174,6 @@ final class TasksStore: ObservableObject {
 
     func tasksByPriority(_ priority: TaskPriority) -> [TaskItem] {
         tasks.filter { $0.priority == priority }
-    }
-
-    func subtasks(of parentId: String) -> [TaskItem] {
-        tasks.filter { $0.parentId == parentId }
     }
 
     func deleteTask(id: String) {
@@ -279,30 +210,10 @@ final class TasksStore: ObservableObject {
         updateOrderIndices(for: ordered)
     }
 
-    func snoozeTask(id: String, until date: Date) {
+    func markReminderFired(id: String, reminderId: UUID) {
         updateTaskField(id: id) { task in
-            task.snoozedUntil = date
-        }
-    }
-
-    func markReminderFired(id: String, reminder: ReminderOffset) {
-        updateTaskField(id: id) { task in
-            if !task.firedReminders.contains(reminder) {
-                task.firedReminders.append(reminder)
-            }
-        }
-    }
-
-    func markRecurringReminderFired(id: String, reminderId: UUID, firedAt: Date = Date()) {
-        updateTaskField(id: id) { task in
-            guard let index = task.recurringReminders.firstIndex(where: { $0.id == reminderId }) else { return }
-            task.recurringReminders[index].lastFired = firedAt
-        }
-    }
-
-    func clearSnoozedUntil(id: String) {
-        updateTaskField(id: id) { task in
-            task.snoozedUntil = nil
+            guard let idx = task.reminders.firstIndex(where: { $0.id == reminderId }) else { return }
+            task.reminders[idx].fired = true
         }
     }
 
@@ -335,17 +246,22 @@ final class TasksStore: ObservableObject {
         persist(updated)
     }
 
-    private func normalizedEndTime(startTime: Date, endTime: Date?) -> Date? {
-        guard let endTime else { return nil }
-        return endTime < startTime ? startTime : endTime
+    private func sanitize(body: TaskBody) -> TaskBody {
+        switch body {
+        case .event(let start, let end):
+            return .event(start: start, end: max(end, start))
+        case .habit(let rule, let tod, let occurrences):
+            return .habit(rule: sanitizeRecurrence(rule), timeOfDay: tod, occurrences: occurrences)
+        case .task, .milestone:
+            return body
+        }
     }
 
-    private func sanitizeRecurringReminders(_ reminders: [RecurringReminder]) -> [RecurringReminder] {
-        reminders.map { reminder in
-            var sanitized = reminder
-            sanitized.interval = max(1, sanitized.interval)
-            return sanitized
+    private func preserveOccurrencesIfHabit(old: TaskBody, new: TaskBody) -> TaskBody {
+        if case .habit(_, _, let oldOccs) = old, case .habit(let rule, let tod, _) = new {
+            return .habit(rule: rule, timeOfDay: tod, occurrences: oldOccs)
         }
+        return new
     }
 
     private func sanitizeRecurrence(_ rule: RecurrenceRule) -> RecurrenceRule {
