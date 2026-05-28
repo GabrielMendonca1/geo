@@ -585,7 +585,7 @@ struct GraphView: View {
     }
 
     private var simulationCanvas: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: simulation.isSettled && draggingNodeID == nil)) { context in
+        TimelineView(.animation(minimumInterval: 1.0 / Double(NSScreen.main?.maximumFramesPerSecond ?? 60), paused: simulation.isSettled && draggingNodeID == nil)) { context in
             Canvas(rendersAsynchronously: true) { canvasContext, size in
                 renderCanvas(canvasContext: canvasContext, size: size)
             }
