@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>ai.hermes.whatsapp-ingest</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/caffeinate</string>
+    <string>-i</string>
+    <string>/opt/homebrew/bin/node</string>
+    <string>/Users/biel/.hermes/whatsapp-ingest/ingest.js</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/biel/.hermes/whatsapp-ingest</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+  </dict>
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>StandardOutPath</key>
+  <string>/Users/biel/.hermes/logs/whatsapp-ingest.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/biel/.hermes/logs/whatsapp-ingest.err.log</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/Users/biel/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <key>HERMES_INGEST_LOG_LEVEL</key>
+    <string>info</string>
+  </dict>
+</dict>
+</plist>

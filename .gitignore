@@ -38,3 +38,9 @@ build/
 
 timeline.xctimeline
 playground.xcworkspace
+
+### Hermes runtime artifacts (kept out of repo) ###
+**/__pycache__/
+hermes/whatsapp-ingest/node_modules/
+hermes/whatsapp-ingest/auth/
+hermes/hooks/*/\.state.json
