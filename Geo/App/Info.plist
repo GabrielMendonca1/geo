@@ -60,9 +60,5 @@
 	<string>Geo needs camera access to capture screenshots and images.</string>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>Geo needs to send Apple Events to automate tasks and manage system functionality.</string>
-	<key>NSDesktopFolderUsageDescription</key>
-	<string>Geo needs access to your Desktop folder to save and organize captured files.</string>
-	<key>NSUserNotificationUsageDescription</key>
-	<string>Geo sends notifications for reminders, daily reviews, and agent activity.</string>
 </dict>
 </plist>
