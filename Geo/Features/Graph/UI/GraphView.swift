@@ -530,6 +530,22 @@ struct GraphView: View {
                     if let sel = selectedNodeID, !valid.contains(sel) { selectedNodeID = nil }
                     if let hov = hoverNodeID, !valid.contains(hov) { hoverNodeID = nil }
                     if let drag = draggingNodeID, !valid.contains(drag) { draggingNodeID = nil }
+                    if !externalPulses.isEmpty {
+                        externalPulses = externalPulses.filter { valid.contains($0.key) }
+                    }
+                }
+                .onChange(of: externalChangeSignal) { _, signal in
+                    guard let signal else { return }
+                    let now = signal.timestamp
+                    var updated: [UUID: Date] = [:]
+                    for (id, start) in externalPulses where now.timeIntervalSince(start) < Self.pulseDuration {
+                        updated[id] = start
+                    }
+                    for id in signal.nodeIds {
+                        updated[id] = now
+                    }
+                    externalPulses = updated
+                    simulation.nudge()
                 }
                 .onChange(of: simulation.isSettled) { _, settled in
                     if settled {
