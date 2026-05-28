@@ -20,7 +20,7 @@ struct GeoWindowChrome: ViewModifier {
     private func configureWindow(_ window: NSWindow?) {
         removeObservers()
         guard let window else { return }
-        window.styleMask.insert(.titled)
+        window.styleMask.remove(.titled)
         window.styleMask.insert(.resizable)
         window.styleMask.insert(.closable)
         window.styleMask.insert(.miniaturizable)
