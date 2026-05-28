@@ -357,6 +357,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             logger.error("Failed to start MCP server: \(error.localizedDescription)")
         }
 
+        APITokenStore.shared.ensureBootstrapTokens()
+        do {
+            try container.httpServer.start()
+        } catch {
+            logger.error("Failed to start HTTP API server: \(error.localizedDescription)")
+        }
+
         PermissionRegistry.shared.refreshAll()
         Task { @MainActor in
             self.startProtectedMonitoringIfAuthorized()
