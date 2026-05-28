@@ -971,7 +971,7 @@ actor AIWorkspaceManager {
             }
         } catch {
             claimedIssueIDs.remove(issue.id)
-            liveSessions = liveSessions.filter { $0.value.issueID != issue.id }
+            removeLiveSessions(forIssueID: issue.id)
             markAttempt(issueID: issue.id, status: .failed, error: error.localizedDescription)
             appendLog(.error, "Hermes dispatch failed for \(issue.identifier): \(error.localizedDescription)")
         }
