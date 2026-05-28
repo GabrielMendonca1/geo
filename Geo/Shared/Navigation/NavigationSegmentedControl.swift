@@ -84,9 +84,6 @@ struct TabIconView: View {
             case .nodes:
                 Image(systemName: tab.icon)
                     .symbolEffect(.bounce, value: animationTrigger)
-            case .ai:
-                Image(systemName: tab.icon)
-                    .symbolEffect(.breathe, value: animationTrigger)
             case .nano:
                 Image(systemName: tab.icon)
                     .symbolEffect(.pulse, value: animationTrigger)
