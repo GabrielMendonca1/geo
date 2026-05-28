@@ -620,6 +620,13 @@
 		WCHROME0002FREF /* GeoWindowChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeoWindowChrome.swift; sourceTree = "<group>"; };
 		ae30c086f028af5e1b9ee4ec /* TasksStoreRepositoryAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TasksStoreRepositoryAdapter.swift; sourceTree = "<group>"; };
 		f4a0389564bd4d8a8d3f2ff7 /* TaskFormViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskFormViewModel.swift; sourceTree = "<group>"; };
+		HTTP000000000000001R /* GeoHTTPServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeoHTTPServer.swift; sourceTree = "<group>"; };
+		HTTP000000000000002R /* GeoAPIRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeoAPIRouter.swift; sourceTree = "<group>"; };
+		HTTP000000000000003R /* APITokenStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APITokenStore.swift; sourceTree = "<group>"; };
+		HTTP000000000000004R /* PendingTransactionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingTransactionStore.swift; sourceTree = "<group>"; };
+		HTTP000000000000005R /* APIAuditLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIAuditLogger.swift; sourceTree = "<group>"; };
+		HTTP000000000000006R /* APIAccessSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIAccessSettingsView.swift; sourceTree = "<group>"; };
+		HTTP000000000000007R /* GeoHTTPServerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GeoHTTPServerTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
