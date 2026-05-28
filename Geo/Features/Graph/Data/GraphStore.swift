@@ -2,18 +2,31 @@ import Foundation
 import SwiftUI
 import Combine
 
+struct ExternalChangeSignal: Equatable {
+    let nodeIds: Set<UUID>
+    let timestamp: Date
+}
+
 @MainActor
 final class GraphStore: ObservableObject {
     static let shared = GraphStore()
 
     @Published private(set) var graph: BlockGraph = .empty
     @Published private(set) var idLookup: [UUID: String] = [:]
+    @Published private(set) var externalChangeSignal: ExternalChangeSignal?
 
     private(set) var cachedPositions: [UUID: CGPoint] = [:]
     private(set) var simulationSettled: Bool = false
 
     private var lastFingerprint: [String: Int] = [:]
     private var observationTask: Task<Void, Never>?
+    private var externalChangeObserver: NSObjectProtocol?
+
+    deinit {
+        if let token = externalChangeObserver {
+            NotificationCenter.default.removeObserver(token)
+        }
+    }
 
     private init() {}
 
