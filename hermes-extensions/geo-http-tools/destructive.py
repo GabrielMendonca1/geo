@@ -162,26 +162,27 @@ async def _two_phase_delete(
         f"Diff preview:\n{diff_preview}\n"
         f"Reply Y within 30 s to confirm, N or no reply to deny."
     )
-    since = time.time()
-    try:
-        await _send_telegram_sync(warn)
-    except Exception as e:
-        return _result(False, reason="telegram_send_failed", detail=str(e))
+    async with _confirm_gate:
+        since = time.time()
+        try:
+            await _send_telegram_sync(warn)
+        except Exception as e:
+            return _result(False, reason="telegram_send_failed", detail=str(e))
 
-    verdict = await _await_confirmation(since)
-    if verdict == "no":
-        return _result(False, reason="user_denied", transaction_id=transaction_id)
-    if verdict == "timeout":
-        return _result(False, reason="timeout", transaction_id=transaction_id)
+        verdict = await _await_confirmation(since)
+        if verdict == "no":
+            return _result(False, reason="user_denied", transaction_id=transaction_id)
+        if verdict == "timeout":
+            return _result(False, reason="timeout", transaction_id=transaction_id)
 
-    try:
-        commit_result = await client.commit_destructive(
-            transaction_id, block_version=server_version,
-        )
-    except GeoConflict as e:
-        return _result(False, reason="stale_version", detail=str(e.body))
-    except GeoError as e:
-        return _result(False, reason="commit_failed", detail=str(e))
+        try:
+            commit_result = await client.commit_destructive(
+                transaction_id, block_version=server_version,
+            )
+        except GeoConflict as e:
+            return _result(False, reason="stale_version", detail=str(e.body))
+        except GeoError as e:
+            return _result(False, reason="commit_failed", detail=str(e))
 
     return _result(True, transaction_id=transaction_id, result=commit_result)
 
