@@ -430,8 +430,30 @@ final class BlockGraphService: @unchecked Sendable {
         return (incoming, outgoing)
     }
 
+    private static let linkCacheLock = NSLock()
+    private static var linkCache: [Int: [String]] = [:]
+    private static let linkCacheLimit = 20000
+
     internal static func extractWikiLinks(from content: String) -> [String] {
         guard !content.isEmpty else { return [] }
+        let key = content.hashValue
+        linkCacheLock.lock()
+        if let cached = linkCache[key] {
+            linkCacheLock.unlock()
+            return cached
+        }
+        linkCacheLock.unlock()
+        let parsed = parseWikiLinks(from: content)
+        linkCacheLock.lock()
+        if linkCache.count >= linkCacheLimit {
+            linkCache.removeAll(keepingCapacity: true)
+        }
+        linkCache[key] = parsed
+        linkCacheLock.unlock()
+        return parsed
+    }
+
+    private static func parseWikiLinks(from content: String) -> [String] {
         guard let regex = try? NSRegularExpression(pattern: "\\[\\[([^\\[\\]]+)\\]\\]") else {
             return []
         }
