@@ -144,9 +144,6 @@ final class AppContainer {
         let workerInbox = MainActor.assumeIsolated { WorkerInbox() }
         let workerDispatcher = WorkerDispatcher(registry: workerSessionRegistry)
         let nanoHermesService = MainActor.assumeIsolated { HermesStatusService() }
-        let nanoConversationStore = MainActor.assumeIsolated {
-            NanoConversationStore(transport: NanoTransportFactory.makeDefault())
-        }
 
         mcpServer.onAuthenticatedConnection = { connection, endpoint in
             Task { @MainActor in
