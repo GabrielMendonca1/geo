@@ -531,25 +531,17 @@ private struct MemoryLoadingRow: View {
 
 private struct MemoryRow: View {
     let spec: MemorySpec
-    let blocks: [BlocksStore.Block]
+    let block: BlocksStore.Block?
     @EnvironmentObject private var blocksStore: BlocksStore
     @Environment(\.openWindow) private var openWindow
     @State private var creating = false
 
     var body: some View {
-        if let block = matchedBlock {
+        if let block {
             populated(block)
         } else {
             empty()
         }
-    }
-
-    private var matchedBlock: BlocksStore.Block? {
-        if let byTag = blocks.first(where: { $0.markdown.contains("tag: \(spec.tag)") }) {
-            return byTag
-        }
-        let wanted = Set(spec.titleMatches.map { $0.lowercased() })
-        return blocks.first { wanted.contains($0.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()) }
     }
 
     private var purple: Color { Color(red: 0.55, green: 0.40, blue: 0.93) }
