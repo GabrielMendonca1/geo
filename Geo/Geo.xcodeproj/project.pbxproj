@@ -627,7 +627,6 @@
 		HTTP000000000000005R /* APIAuditLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIAuditLogger.swift; sourceTree = "<group>"; };
 		HTTP000000000000006R /* APIAccessSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIAccessSettingsView.swift; sourceTree = "<group>"; };
 		HTTP000000000000007R /* GeoHTTPServerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GeoHTTPServerTests.swift; sourceTree = "<group>"; };
-		HTTP000000000000010G /* HTTP */ = {isa = PBXFileReference; lastKnownFileType = folder; path = HTTP; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
