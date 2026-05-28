@@ -148,6 +148,7 @@ def _run_task(
                 kb._append_event(conn, task_id, f"cc_{kind}", evt)
 
             if kind == "result":
+                saw_result = True
                 summary = evt.get("result")
                 if evt.get("is_error"):
                     final_error = (summary or "claude reported error")[:500]
