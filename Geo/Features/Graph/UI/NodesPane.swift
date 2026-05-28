@@ -45,6 +45,7 @@ struct NodesPane: View {
                     graph: graphStore.graph,
                     seedPositions: graphStore.cachedPositions,
                     wasSettled: graphStore.simulationSettled,
+                    externalChangeSignal: graphStore.externalChangeSignal,
                     onLayoutChange: { positions, settled in
                         graphStore.updateLayoutCache(positions: positions, settled: settled)
                     }
