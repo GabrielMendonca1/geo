@@ -89,6 +89,7 @@ final class BlockChangeReconciler {
         var updatedBlocks = latestBlocks
         var blocksToIndex: [BlocksStore.Block] = []
         var removedIds: [String] = []
+        var externallyChangedIds: [String] = []
         var metadataDirty = false
 
         for url in relevant {
@@ -103,19 +104,10 @@ final class BlockChangeReconciler {
                 blockMetadata.type = MarkdownConverter.shared.type(in: content)
                 let diskFrontmatterVersion = MarkdownConverter.shared.frontmatterVersion(in: content)
                 let memBlock = blocks.first(where: { $0.id == blockId })
-                let memFrontmatterVersion = memBlock?.metadata.frontmatter_version ?? 0
-                if memBlock != nil, diskFrontmatterVersion == memFrontmatterVersion, memBlock?.markdown == content {
+                if memBlock?.markdown == content {
                     continue
                 }
-                if memBlock != nil, diskFrontmatterVersion < memFrontmatterVersion {
-                    let liveMarkdown = memBlock!.markdown
-                    let liveURL = memBlock!.url
-                    Task.detached(priority: .utility) { [fileService = self.fileService] in
-                        try? await fileService.writeMarkdownToDisk(liveMarkdown, url: liveURL)
-                    }
-                    continue
-                }
-                blockMetadata.frontmatter_version = diskFrontmatterVersion
+                blockMetadata.frontmatter_version = max(diskFrontmatterVersion, memBlock?.metadata.frontmatter_version ?? 0)
                 let title = fileService.titleFromMarkdown(content, fallback: "", allowTodoTitle: false)
                 let resourceValues = try? url.resourceValues(forKeys: resourceKeys)
                 let date = resourceValues?.creationDate ?? Date()
