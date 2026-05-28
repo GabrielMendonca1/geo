@@ -110,7 +110,8 @@ final class BlockChangeReconciler {
         var metadataDirty = false
 
         for url in relevant {
-            let blockId = url.lastPathComponent
+            let blockId = fileService.relativeId(for: url)
+            if blockId.hasPrefix("Attachments/") { continue }
             if shouldIgnoreExternalChange(for: blockId, at: now) {
                 continue
             }
