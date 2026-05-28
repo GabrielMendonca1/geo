@@ -866,10 +866,10 @@ private struct TaskCard: View {
                         .frame(width: max(0, geo.size.width * checkboxProgress))
                 }
             }
-            .frame(height: 3 * layoutScale)
+            .frame(height: 5 * layoutScale)
 
             Text("\(checkboxesCompletedCount)/\(checkboxesTotalCount) done")
-                .font(.system(size: chipFontSize, weight: .medium))
+                .font(.system(size: chipFontSize, weight: .regular))
                 .foregroundStyle(Palette.tertiaryForeground)
                 .fixedSize(horizontal: true, vertical: false)
         }
