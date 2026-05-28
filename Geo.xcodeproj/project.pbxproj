@@ -2024,6 +2024,12 @@
 				KANBSVC00000000001 /* HermesKanbanService.swift in Sources */,
 				F647E355467B97D72E413A2C /* NotificationPermission.swift in Sources */,
 				23F5C9A0056F7F524AE8C75D /* OnboardingPermissionsView.swift in Sources */,
+				HTTP000000000000001B /* GeoHTTPServer.swift in Sources */,
+				HTTP000000000000002B /* GeoAPIRouter.swift in Sources */,
+				HTTP000000000000003B /* APITokenStore.swift in Sources */,
+				HTTP000000000000004B /* PendingTransactionStore.swift in Sources */,
+				HTTP000000000000005B /* APIAuditLogger.swift in Sources */,
+				HTTP000000000000006B /* APIAccessSettingsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
