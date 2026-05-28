@@ -113,6 +113,8 @@ struct GeneralSettingsView: View {
                         aiPane
                     case .nanoHermes:
                         nanoHermesPane
+                    case .apiAccess:
+                        apiAccessPane
                     case .advanced:
                         advancedPane
                     }
