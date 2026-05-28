@@ -75,7 +75,7 @@ final class BlockFileService {
                     let lastEdited = resourceValues?.contentModificationDate ?? date
 
                     return BlocksStore.Block(
-                        id: url.lastPathComponent,
+                        id: blockId,
                         title: title,
                         date: date,
                         lastEdited: lastEdited,
