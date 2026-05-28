@@ -489,7 +489,13 @@ struct GraphView: View {
                     onLayoutChange?(simulation.layout.positions, simulation.isSettled)
                 }
                 .onChange(of: geo.size) { _, newSize in canvasSize = newSize }
-                .onChange(of: graph) { _, newGraph in simulation.ingest(graph: newGraph) }
+                .onChange(of: graph) { _, newGraph in
+                    simulation.ingest(graph: newGraph)
+                    let valid = Set(newGraph.nodes.map(\.id))
+                    if let sel = selectedNodeID, !valid.contains(sel) { selectedNodeID = nil }
+                    if let hov = hoverNodeID, !valid.contains(hov) { hoverNodeID = nil }
+                    if let drag = draggingNodeID, !valid.contains(drag) { draggingNodeID = nil }
+                }
                 .onChange(of: simulation.isSettled) { _, settled in
                     if settled {
                         onLayoutChange?(simulation.layout.positions, true)
