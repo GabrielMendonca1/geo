@@ -255,7 +255,6 @@ struct GeoApp: App {
                 .environmentObject(container.workerSessionRegistry)
                 .environmentObject(container.workerInbox)
                 .environmentObject(container.nanoHermesService)
-                .environmentObject(container.nanoConversationStore)
                 .environment(\.navigationStore, container.navigationStore)
                 .environment(\.tabRouter, container.navigationStore.tabRouter)
                 .environment(\.appEnvironment, container.environment)
