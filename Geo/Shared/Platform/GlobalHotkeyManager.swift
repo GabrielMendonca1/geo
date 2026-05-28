@@ -99,13 +99,15 @@ class GlobalHotkeyManager {
 
         CGEvent.tapEnable(tap: tap, enable: true)
         logger.info("Event tap started successfully")
+        retryDelay = Self.minRetryDelay
         startHealthTimer()
     }
 
     private func startHealthTimer() {
         healthTimer?.cancel()
+        let interval: TimeInterval = (eventTap != nil) ? 5 : retryDelay
         let timer = DispatchSource.makeTimerSource(queue: .main)
-        timer.schedule(deadline: .now() + 5, repeating: 5, leeway: .seconds(1))
+        timer.schedule(deadline: .now() + interval, repeating: interval, leeway: .seconds(1))
         timer.setEventHandler { [weak self] in
             guard let self else { return }
             if let tap = self.eventTap {
@@ -117,7 +119,10 @@ class GlobalHotkeyManager {
             }
             if AXIsProcessTrusted() {
                 self.startMonitoring()
+                return
             }
+            self.retryDelay = min(Self.maxRetryDelay, self.retryDelay * 2)
+            self.startHealthTimer()
         }
         healthTimer = timer
         timer.resume()
