@@ -215,10 +215,13 @@ def _tick(conn) -> None:
 
 def main() -> None:
     _log(f"start claimer={CLAIMER_ID} cc_bin={CC_BIN} perm={PERMISSION_MODE}")
-    conn = kb.connect()
     while True:
         try:
-            _tick(conn)
+            conn = kb.connect()
+            try:
+                _tick(conn)
+            finally:
+                conn.close()
         except Exception as e:  # noqa: BLE001
             _log(f"tick error: {e!r}")
         time.sleep(POLL_INTERVAL_S)
