@@ -971,7 +971,8 @@ private extension BlockEditorView {
         guard !Task.isCancelled else { return }
         let currentBlockId = block.id
         let blockTypeById: [String: BlockType] = Dictionary(
-            uniqueKeysWithValues: actions.blocksSnapshot().map { ($0.id, $0.metadata.type) }
+            actions.blocksSnapshot().map { ($0.id, $0.metadata.type) },
+            uniquingKeysWith: { _, new in new }
         )
         let items = entries
             .filter { $0.id != currentBlockId }
