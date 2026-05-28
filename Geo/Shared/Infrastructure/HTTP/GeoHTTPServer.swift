@@ -147,7 +147,7 @@ final class GeoHTTPServer: @unchecked Sendable {
             return
         }
 
-        Task { [router] in
+        Task { [router, weak self] in
             let started = Date()
             let response = await router.handle(request)
             let latency = Int(Date().timeIntervalSince(started) * 1000)
@@ -161,11 +161,12 @@ final class GeoHTTPServer: @unchecked Sendable {
             )
             var clean = response
             clean.headers.removeValue(forKey: "X-Geo-Caller")
-            await MainActor.run { [weak self] in
-                self?.send(clean, on: conn, keepAlive: keepAlive)
-                self?.inFlightLock.withLock { count in count -= 1 }
+            guard let self else { return }
+            self.queue.async {
+                self.send(clean, on: conn, keepAlive: keepAlive)
+                self.inFlightLock.withLock { count in count -= 1 }
                 if keepAlive {
-                    self?.readRequest(conn: conn, buffer: pipelinedBuffer)
+                    self.readRequest(conn: conn, buffer: pipelinedBuffer)
                 }
             }
         }
