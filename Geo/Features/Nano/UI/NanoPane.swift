@@ -1305,7 +1305,7 @@ private struct QuickActionsRow: View {
                     await MainActor.run { show("restarted hermes", isError: false) }
                 } else {
                     let data = (try? pipe.fileHandleForReading.readToEnd()) ?? Data()
-                    let msg = String(data: data ?? Data(), encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let msg = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
                     await MainActor.run {
                         if let msg, !msg.isEmpty {
                             show(msg, isError: true)
