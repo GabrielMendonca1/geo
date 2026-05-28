@@ -315,7 +315,7 @@ class BlocksStore: ObservableObject {
 
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                guard let liveIndex = self.blocks.firstIndex(where: { $0.id == blockId }),
+                guard let liveIndex = self.indexOfBlock(id: blockId),
                       self.blocks[liveIndex].markdown == newMarkdown else { return }
                 let live = self.blocks[liveIndex]
                 var meta = self.metadataService.currentMetadata(for: blockId) ?? live.metadata
