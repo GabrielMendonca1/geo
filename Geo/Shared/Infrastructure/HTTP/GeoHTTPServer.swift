@@ -58,10 +58,14 @@ final class GeoHTTPServer: @unchecked Sendable {
     }
 
     func start() throws {
-        let params = NWParameters.tcp
+        let tcpOptions = NWProtocolTCP.Options()
+        tcpOptions.noDelay = true
+        tcpOptions.enableKeepalive = true
+        tcpOptions.keepaliveIdle = 60
+
+        let params = NWParameters(tls: nil, tcp: tcpOptions)
+        params.acceptLocalOnly = true
         params.allowLocalEndpointReuse = true
-        params.requiredLocalEndpoint = NWEndpoint.hostPort(host: .ipv4(.loopback), port: .any)
-        params.requiredInterfaceType = .loopback
 
         let listener = try NWListener(using: params)
         self.listener = listener
