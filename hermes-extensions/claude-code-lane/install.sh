@@ -36,6 +36,9 @@ rsync -a --delete \
     --exclude 'ai.hermes.claude-code-lane.plist' \
     "$SRC_DIR/" "$PLUGIN_DEST/"
 
+echo "==> Enabling plugin in hermes config"
+hermes plugins enable claude-code-lane || true
+
 echo "==> Templating LaunchAgent plist"
 PLIST_DEST="$LAUNCH_AGENTS_DIR/ai.hermes.claude-code-lane.plist"
 PATH_VAL="/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:$HOME/.local/bin"
