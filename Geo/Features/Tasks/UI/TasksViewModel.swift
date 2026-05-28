@@ -377,16 +377,8 @@ final class TasksViewModel: ObservableObject {
         pendingTasks.filter { !$0.isOverdue }
     }
 
-    var availableContexts: [String] {
-        Array(Set(tasks.compactMap(\.context))).sorted()
-    }
-
     var habits: [TaskItem] {
         pendingTasks.filter { $0.kind == .habit }
-    }
-
-    func subtasks(of taskId: String) -> [TaskItem] {
-        tasks.filter { $0.parentId == taskId }
     }
 
     var completedTasks: [TaskItem] {
