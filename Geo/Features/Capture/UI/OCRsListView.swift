@@ -45,30 +45,32 @@ struct OCRCaptureRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 10) {
-                if let img = decodedPreview {
-                    Image(nsImage: img)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(width: 56, height: 42)
-                        .clipped()
-                        .cornerRadius(4)
-                } else {
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Palette.tertiaryForeground.opacity(0.1))
-                        .frame(width: 56, height: 42)
-                        .overlay(
-                            Image(systemName: "photo")
-                                .font(.system(size: 14))
-                                .foregroundColor(Palette.tertiaryForeground)
-                        )
-                        .task(id: capture.id) {
-                            let data = capture.previewData
-                            let image: NSImage? = await Task.detached(priority: .userInitiated) {
-                                guard let data else { return nil }
-                                return NSImage(data: data)
-                            }.value
-                            decodedPreview = image
-                        }
+                Group {
+                    if let img = decodedPreview {
+                        Image(nsImage: img)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 56, height: 42)
+                            .clipped()
+                            .cornerRadius(4)
+                    } else {
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Palette.tertiaryForeground.opacity(0.1))
+                            .frame(width: 56, height: 42)
+                            .overlay(
+                                Image(systemName: "photo")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(Palette.tertiaryForeground)
+                            )
+                    }
+                }
+                .task(id: capture.id) {
+                    let data = capture.previewData
+                    let image: NSImage? = await Task.detached(priority: .userInitiated) {
+                        guard let data else { return nil }
+                        return NSImage(data: data)
+                    }.value
+                    decodedPreview = image
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
