@@ -165,9 +165,6 @@ final class AppContainer {
         self.dayManager = dayManager
         self.mcpServer = mcpServer
         self.templateService = templateService
-        self.endpointRegistry = endpointRegistry
-        self.workerSessionRegistry = workerSessionRegistry
-        self.workerInbox = workerInbox
         self.nanoHermesService = nanoHermesService
         self.environment = appEnvironment
     }
