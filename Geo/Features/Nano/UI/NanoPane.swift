@@ -511,6 +511,8 @@ private struct MemorySpec {
         titleMatches: ["user profile", "profile"],
         cap: 1375
     )
+
+    static let all: [MemorySpec] = [.soul, .memory, .profile]
 }
 
 private struct MemoryLoadingRow: View {
