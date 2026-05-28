@@ -8,6 +8,7 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
     case appearance
     case ai
     case nanoHermes
+    case apiAccess
     case advanced
 
     var id: String { rawValue }
