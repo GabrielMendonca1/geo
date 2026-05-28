@@ -520,7 +520,7 @@ class BlocksStore: ObservableObject {
                 merge = ["status": .null]
             }
             _ = try await mutateFrontmatter(blockID: blockId, merge: merge)
-            if let live = blocks.first(where: { $0.id == blockId }) {
+            if let live = block(withId: blockId) {
                 metadataService.persistMetadata(live.metadata, for: blockId)
             }
             return true
