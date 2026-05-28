@@ -2,16 +2,11 @@ import AppKit
 import SwiftUI
 
 struct NanoHermesSettingsView: View {
-    @EnvironmentObject private var endpointRegistry: EndpointRegistry
-
     @State private var daemonRunning: Bool = NanoHermesSettingsView.checkDaemonRunning()
     @State private var installRunning: Bool = false
     @State private var installLog: String = ""
     @State private var installError: String?
-    @State private var tokenMessage: String?
-    @State private var tokenAlert: String?
 
-    private static let endpointName = "hermes"
     private static let launchAgentLabel = "ai.hermes.gateway"
     private var homeURL: URL { FileManager.default.homeDirectoryForCurrentUser }
     private var soulURL: URL { homeURL.appendingPathComponent(".hermes/SOUL.md") }
