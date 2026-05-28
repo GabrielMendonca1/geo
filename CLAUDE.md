@@ -134,7 +134,7 @@ cd geo-mcp-bridge && ./build.sh
 
 ## AI pane (`Geo/Features/Agent/`)
 
-Kanban-over-CLI. `AgentWorkspaceManager` (Swift actor) polls a tracker (`linear` or `local` Geo blocks with `symphony: true` frontmatter) and dispatches eligible issues into per-issue workspaces under `~/.symphony/workspaces/`. The hybrid `dispatchMode` flag chooses between the legacy `pi` CLI path and the new `hermes-extensions/dispatch-subagent` MCP tool. Provider is derived from `NanoProviderStore.current`.
+Kanban-over-CLI. `AgentWorkspaceManager` (Swift actor) polls a tracker (`linear` or `local` Geo blocks with `symphony: true` frontmatter) and dispatches eligible issues into per-issue workspaces under `~/.symphony/workspaces/`. The `dispatchMode` flag chooses between the legacy `pi` CLI path and a hermes-tool path; the hermes-tool path is currently stubbed (`AgentWorkspaceManager.swift:985` errors out — the in-app surface predates `claude-code-lane` and needs rewiring to call `claude_code_run` via the hermes api_server). Provider is derived from `NanoProviderStore.current`.
 
 Frontmatter writes go through `BlocksStore.FrontmatterMutator` with a monotonic `frontmatter_version` counter to avoid lost updates between the app and hermes.
 
