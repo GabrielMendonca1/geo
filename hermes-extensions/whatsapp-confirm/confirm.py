@@ -127,21 +127,22 @@ async def pre_tool_call_hook(
         f"Reply Y within 30 s to send, N or no reply to deny."
     )
 
-    since = time.time()
-    try:
-        await _send_telegram(prompt)
-    except Exception as e:
-        logger.warning("telegram confirm DM failed: %s", e)
-        return {
-            "action": "block",
-            "message": (
-                "WhatsApp send blocked: could not reach Gabriel on Telegram to "
-                f"request approval ({e}). Do not retry without rephrasing or "
-                "switching to a different platform."
-            ),
-        }
+    async with _confirm_gate:
+        since = time.time()
+        try:
+            await _send_telegram(prompt)
+        except Exception as e:
+            logger.warning("telegram confirm DM failed: %s", e)
+            return {
+                "action": "block",
+                "message": (
+                    "WhatsApp send blocked: could not reach Gabriel on Telegram to "
+                    f"request approval ({e}). Do not retry without rephrasing or "
+                    "switching to a different platform."
+                ),
+            }
 
-    verdict = await _await_confirmation(since)
+        verdict = await _await_confirmation(since)
     if verdict == "yes":
         return None
     reason = "user denied" if verdict == "no" else "no reply within 30 s"
