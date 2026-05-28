@@ -672,7 +672,6 @@ private struct TaskCard: View {
             || reminderCount > 0
             || (linkedBlockTitle != nil && !showsLinkedBlockSection)
             || task.isOverdue
-            || task.priority != .unset
             || task.estimatedDuration != nil
             || (task.isHabit && task.habitCurrentStreak > 0)
             || task.daysUntilMilestone != nil
