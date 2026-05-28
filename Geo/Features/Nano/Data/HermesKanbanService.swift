@@ -72,7 +72,7 @@ final class HermesKanbanService: ObservableObject {
     private func tick() async {
         guard let q = openIfNeeded() else { return }
         do {
-            let rows = try q.read { db -> [Row] in
+            let rows = try await q.read { db -> [Row] in
                 try Row.fetchAll(db, sql: """
                     SELECT t.id, t.title, t.assignee, t.status, t.workspace_kind,
                            t.workspace_path, t.priority, t.created_at, t.started_at,
