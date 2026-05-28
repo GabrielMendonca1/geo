@@ -136,7 +136,7 @@ final class NotificationManager: NSObject, ObservableObject {
         }
     }
 
-    private func dueSignals(for task: TaskItem, now: Date) -> [DueSignal] {
+    private func makeDueSignals(for task: TaskItem, now: Date) -> [DueSignal] {
         let anchor = task.anchorDate
         return task.reminders
             .filter { !$0.fired }
