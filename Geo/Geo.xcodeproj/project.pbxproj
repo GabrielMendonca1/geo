@@ -59,7 +59,6 @@
 		958371A62F1D5C7000FB7A7C /* FABConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 958371A32F1D5C7000FB7A7C /* FABConfiguration.swift */; };
 		958371A72F1D5C7000FB7A7C /* FABAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 958371A22F1D5C7000FB7A7C /* FABAction.swift */; };
 		958371A82F1D5C7000FB7A7C /* FABMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 958371A42F1D5C7000FB7A7C /* FABMenu.swift */; };
-		958371C42F21001700FB7A7C /* TaskMigrationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 958371C32F21001700FB7A7C /* TaskMigrationService.swift */; };
 		958371D42F210BB000FB7A7C /* Holiday.swift in Sources */ = {isa = PBXBuildFile; fileRef = 958371D32F210BB000FB7A7C /* Holiday.swift */; };
 		958371D52F210BB000FB7A7C /* CalendarEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 958371D22F210BB000FB7A7C /* CalendarEvent.swift */; };
 		958371D72F210BBD00FB7A7C /* HolidayService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 958371D62F210BBD00FB7A7C /* HolidayService.swift */; };
@@ -306,13 +305,9 @@
 		TBLM0001BFIL0001 /* TableModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBLM0001FREF0001 /* TableModel.swift */; };
 		TBMETR00001BFIL /* TitleBarMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBMETR00001FREF /* TitleBarMetrics.swift */; };
 		TBOVRL00001BFIL /* TitleBarOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBOVRL00001FREF /* TitleBarOverlay.swift */; };
-		TBU000001BLD /* Schedule.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBU000001REF /* Schedule.swift */; };
-		TBU000002BLD /* ScheduleAlerts.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBU000002REF /* ScheduleAlerts.swift */; };
-		TBU000003BLD /* HabitState.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBU000003REF /* HabitState.swift */; };
 		TBU000004BLD /* QuickAddParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBU000004REF /* QuickAddParser.swift */; };
 		TBU000005BLD /* TasksStore+HabitCompletion.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBU000005REF /* TasksStore+HabitCompletion.swift */; };
 		TBU000006BLD /* AutoCompleteSuggestionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBU000006REF /* AutoCompleteSuggestionService.swift */; };
-		TBU000007BLD /* TaskNotesMigrationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBU000007REF /* TaskNotesMigrationService.swift */; };
 		TBU000008BLD /* BlockLinkedSchedulesHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBU000008REF /* BlockLinkedSchedulesHeader.swift */; };
 		TBU000009BLD /* TaskFormHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBU000009REF /* TaskFormHeader.swift */; };
 		TBU000010BLD /* TaskFormFooter.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBU000010REF /* TaskFormFooter.swift */; };
@@ -325,7 +320,6 @@
 		TBU000103BLD /* QuickAddParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBU000103REF /* QuickAddParserTests.swift */; };
 		TBU000104BLD /* AutoCompleteSuggestionServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBU000104REF /* AutoCompleteSuggestionServiceTests.swift */; };
 		TBU000105BLD /* HabitCompletionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBU000105REF /* HabitCompletionTests.swift */; };
-		TBU000106BLD /* TaskNotesMigrationServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBU000106REF /* TaskNotesMigrationServiceTests.swift */; };
 		TBU000107BLD /* BlocksStoreFrontmatterMutatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBU000107REF /* BlocksStoreFrontmatterMutatorTests.swift */; };
 		TBU000108BLD /* HermesMigrationFixesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBU000108REF /* HermesMigrationFixesTests.swift */; };
 		TBU000109BLD /* FrontmatterEditorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBU000109REF /* FrontmatterEditorTests.swift */; };
@@ -409,7 +403,6 @@
 		958371A22F1D5C7000FB7A7C /* FABAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FABAction.swift; sourceTree = "<group>"; };
 		958371A32F1D5C7000FB7A7C /* FABConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FABConfiguration.swift; sourceTree = "<group>"; };
 		958371A42F1D5C7000FB7A7C /* FABMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FABMenu.swift; sourceTree = "<group>"; };
-		958371C32F21001700FB7A7C /* TaskMigrationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskMigrationService.swift; sourceTree = "<group>"; };
 		958371D22F210BB000FB7A7C /* CalendarEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarEvent.swift; sourceTree = "<group>"; };
 		958371D32F210BB000FB7A7C /* Holiday.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Holiday.swift; sourceTree = "<group>"; };
 		958371D62F210BBD00FB7A7C /* HolidayService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HolidayService.swift; sourceTree = "<group>"; };
@@ -654,13 +647,9 @@
 		TBLM0001FREF0001 /* TableModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TableModel.swift; sourceTree = "<group>"; };
 		TBMETR00001FREF /* TitleBarMetrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TitleBarMetrics.swift; sourceTree = "<group>"; };
 		TBOVRL00001FREF /* TitleBarOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TitleBarOverlay.swift; sourceTree = "<group>"; };
-		TBU000001REF /* Schedule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Tasks/Domain/Schedule.swift; sourceTree = SOURCE_ROOT; };
-		TBU000002REF /* ScheduleAlerts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Tasks/Domain/ScheduleAlerts.swift; sourceTree = SOURCE_ROOT; };
-		TBU000003REF /* HabitState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Tasks/Domain/HabitState.swift; sourceTree = SOURCE_ROOT; };
 		TBU000004REF /* QuickAddParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Tasks/Domain/QuickAddParser.swift; sourceTree = SOURCE_ROOT; };
 		TBU000005REF /* TasksStore+HabitCompletion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Features/Tasks/Data/TasksStore+HabitCompletion.swift"; sourceTree = SOURCE_ROOT; };
 		TBU000006REF /* AutoCompleteSuggestionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Tasks/Data/AutoCompleteSuggestionService.swift; sourceTree = SOURCE_ROOT; };
-		TBU000007REF /* TaskNotesMigrationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskNotesMigrationService.swift; sourceTree = "<group>"; };
 		TBU000008REF /* BlockLinkedSchedulesHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Blocks/UI/BlockLinkedSchedulesHeader.swift; sourceTree = SOURCE_ROOT; };
 		TBU000009REF /* TaskFormHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Tasks/UI/TaskFormHeader.swift; sourceTree = SOURCE_ROOT; };
 		TBU000010REF /* TaskFormFooter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Tasks/UI/TaskFormFooter.swift; sourceTree = SOURCE_ROOT; };
@@ -673,7 +662,6 @@
 		TBU000103REF /* QuickAddParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickAddParserTests.swift; sourceTree = "<group>"; };
 		TBU000104REF /* AutoCompleteSuggestionServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoCompleteSuggestionServiceTests.swift; sourceTree = "<group>"; };
 		TBU000105REF /* HabitCompletionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HabitCompletionTests.swift; sourceTree = "<group>"; };
-		TBU000106REF /* TaskNotesMigrationServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskNotesMigrationServiceTests.swift; sourceTree = "<group>"; };
 		TBU000107REF /* BlocksStoreFrontmatterMutatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlocksStoreFrontmatterMutatorTests.swift; sourceTree = "<group>"; };
 		TBU000108REF /* HermesMigrationFixesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesMigrationFixesTests.swift; sourceTree = "<group>"; };
 		TBU000109REF /* FrontmatterEditorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrontmatterEditorTests.swift; sourceTree = "<group>"; };
@@ -887,7 +875,6 @@
 				TBU000103REF /* QuickAddParserTests.swift */,
 				TBU000104REF /* AutoCompleteSuggestionServiceTests.swift */,
 				TBU000105REF /* HabitCompletionTests.swift */,
-				TBU000106REF /* TaskNotesMigrationServiceTests.swift */,
 				TBU000107REF /* BlocksStoreFrontmatterMutatorTests.swift */,
 				TBU000108REF /* HermesMigrationFixesTests.swift */,
 				TBU000109REF /* FrontmatterEditorTests.swift */,
@@ -1606,11 +1593,9 @@
 		SHAREDGROUP0003 /* Migrations */ = {
 			isa = PBXGroup;
 			children = (
-				958371C32F21001700FB7A7C /* TaskMigrationService.swift */,
 				BB8F6CA6E512384139322DC58ABB4DA0 /* DayMigrationService.swift */,
 				A1B2C3D4E5F60718293A0004 /* StorageMigrationService.swift */,
 				A1B2C3D4E5F60718293A0040 /* FrontmatterStripMigrationService.swift */,
-				TBU000007REF /* TaskNotesMigrationService.swift */,
 			);
 			path = Migrations;
 			sourceTree = "<group>";
@@ -1724,9 +1709,6 @@
 			children = (
 				AAAA000100000002 /* TaskItem.swift */,
 				51151077d4c3fe112d1efd4f /* TasksRepository.swift */,
-				TBU000001REF /* Schedule.swift */,
-				TBU000002REF /* ScheduleAlerts.swift */,
-				TBU000003REF /* HabitState.swift */,
 				TBU000004REF /* QuickAddParser.swift */,
 			);
 			path = Domain;
@@ -1995,7 +1977,6 @@
 				922A364190AFE0DAB677C90C84C1BA2B /* DayRow.swift in Sources */,
 				6668456E982D2C659A36580A /* AppTab.swift in Sources */,
 				DF4243497589DCE9D4E1D84A /* NavigationSegmentedControl.swift in Sources */,
-				958371C42F21001700FB7A7C /* TaskMigrationService.swift in Sources */,
 				F77465EAD9372EFBA8B9F8EE /* UnifiedNavigationContainer.swift in Sources */,
 				CD093D075F2FD5FF3611FA99 /* ShelfItem.swift in Sources */,
 				F5A300000000000000000031 /* ShelfRepository.swift in Sources */,
@@ -2106,13 +2087,9 @@
 				P6WSESREG0000000001B /* WorkerSessionRegistry.swift in Sources */,
 				P6WINBOX00000000001B /* WorkerInbox.swift in Sources */,
 				P6WDISP000000000001B /* WorkerDispatcher.swift in Sources */,
-				TBU000001BLD /* Schedule.swift in Sources */,
-				TBU000002BLD /* ScheduleAlerts.swift in Sources */,
-				TBU000003BLD /* HabitState.swift in Sources */,
 				TBU000004BLD /* QuickAddParser.swift in Sources */,
 				TBU000005BLD /* TasksStore+HabitCompletion.swift in Sources */,
 				TBU000006BLD /* AutoCompleteSuggestionService.swift in Sources */,
-				TBU000007BLD /* TaskNotesMigrationService.swift in Sources */,
 				3B789949C78845895F7BED3D /* SubscriptionManager.swift in Sources */,
 				TERM00BLD00000001 /* GeoTerminalLauncher.swift in Sources */,
 				NANO00BLD0000000001 /* NanoPane.swift in Sources */,
@@ -2164,7 +2141,6 @@
 				TBU000103BLD /* QuickAddParserTests.swift in Sources */,
 				TBU000104BLD /* AutoCompleteSuggestionServiceTests.swift in Sources */,
 				TBU000105BLD /* HabitCompletionTests.swift in Sources */,
-				TBU000106BLD /* TaskNotesMigrationServiceTests.swift in Sources */,
 				TBU000107BLD /* BlocksStoreFrontmatterMutatorTests.swift in Sources */,
 				TBU000108BLD /* HermesMigrationFixesTests.swift in Sources */,
 				TBU000109BLD /* FrontmatterEditorTests.swift in Sources */,
