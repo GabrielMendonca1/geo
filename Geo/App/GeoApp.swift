@@ -359,16 +359,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             logger.error("Failed to start MCP server: \(error.localizedDescription)")
         }
 
-        let endpointCount = container.endpointRegistry.endpoints.count
-        if endpointCount > 0 {
-            do {
-                try container.mcpServer.enableTCPListener(port: 7878, bindToAllInterfaces: false)
-                logger.info("MCP TCP listener enabled on 127.0.0.1:7878 for \(endpointCount) endpoint(s)")
-            } catch {
-                logger.error("Failed to enable MCP TCP listener: \(error.localizedDescription)")
-            }
-        }
-
         PermissionRegistry.shared.refreshAll()
         Task { @MainActor in
             self.startProtectedMonitoringIfAuthorized()
