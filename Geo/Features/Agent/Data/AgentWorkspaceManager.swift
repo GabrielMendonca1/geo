@@ -2635,17 +2635,74 @@ actor AIWorkspaceManager {
     }
 
     private func nextAttemptNumber(for issueID: String) -> Int {
-        (attempts.filter { $0.issueID == issueID && $0.status != .preparing }.map(\.attempt).max() ?? 0) + 1
+        let bucket = attemptsByIssueID[issueID] ?? []
+        let highest = bucket.lazy.filter { $0.status != .preparing }.map(\.attempt).max() ?? 0
+        return highest + 1
+    }
+
+    private func insertAttempt(_ attempt: AIRunAttempt, at index: Int) {
+        attempts.insert(attempt, at: index)
+        attemptsByIssueID[attempt.issueID, default: []].append(attempt)
+    }
+
+    private func removeAttempt(at index: Int) {
+        let removed = attempts.remove(at: index)
+        guard var bucket = attemptsByIssueID[removed.issueID] else { return }
+        if let i = bucket.firstIndex(where: { $0.id == removed.id }) {
+            bucket.remove(at: i)
+        }
+        if bucket.isEmpty {
+            attemptsByIssueID.removeValue(forKey: removed.issueID)
+        } else {
+            attemptsByIssueID[removed.issueID] = bucket
+        }
+    }
+
+    private func mutateAttempt(at index: Int, _ body: (inout AIRunAttempt) -> Void) {
+        body(&attempts[index])
+        let updated = attempts[index]
+        guard var bucket = attemptsByIssueID[updated.issueID],
+              let i = bucket.firstIndex(where: { $0.id == updated.id }) else { return }
+        bucket[i] = updated
+        attemptsByIssueID[updated.issueID] = bucket
+    }
+
+    private func registerLiveSession(_ session: AILiveSession) {
+        liveSessions[session.sessionID] = session
+        liveSessionsByIssueID[session.issueID, default: []].insert(session.sessionID)
+    }
+
+    private func removeLiveSession(sessionID: String) {
+        guard let removed = liveSessions.removeValue(forKey: sessionID) else { return }
+        guard var bucket = liveSessionsByIssueID[removed.issueID] else { return }
+        bucket.remove(sessionID)
+        if bucket.isEmpty {
+            liveSessionsByIssueID.removeValue(forKey: removed.issueID)
+        } else {
+            liveSessionsByIssueID[removed.issueID] = bucket
+        }
+    }
+
+    private func removeLiveSessions(forIssueID issueID: String) {
+        guard let sessionIDs = liveSessionsByIssueID.removeValue(forKey: issueID) else { return }
+        for sessionID in sessionIDs {
+            liveSessions.removeValue(forKey: sessionID)
+        }
     }
 
     private func markAttempt(issueID: String, status: AIRunStatus, error: String?) {
         guard let index = attempts.firstIndex(where: { $0.issueID == issueID && $0.finishedAt == nil }) else { return }
-        attempts[index].status = status
-        attempts[index].error = error
-        if status != .running && status != .launching && status != .preparing {
-            attempts[index].finishedAt = Date()
-            if let session = liveSessions.values.first(where: { $0.issueID == issueID }), !session.recentToolCalls.isEmpty {
-                attempts[index].toolCalls = session.recentToolCalls
+        mutateAttempt(at: index) { attempt in
+            attempt.status = status
+            attempt.error = error
+            if status != .running && status != .launching && status != .preparing {
+                attempt.finishedAt = Date()
+                if let sessionIDs = liveSessionsByIssueID[issueID],
+                   let firstSessionID = sessionIDs.first,
+                   let session = liveSessions[firstSessionID],
+                   !session.recentToolCalls.isEmpty {
+                    attempt.toolCalls = session.recentToolCalls
+                }
             }
         }
     }
