@@ -106,7 +106,7 @@ actor SubscriptionManager {
     }
 
     private func ingestBlocks(_ entities: [BlockEntity]) {
-        let snapshot = Dictionary(uniqueKeysWithValues: entities.map { ($0.id, $0.lastEdited) })
+        let snapshot = Dictionary(entities.map { ($0.id, $0.lastEdited) }, uniquingKeysWith: { _, new in new })
         if !blocksSeeded {
             lastBlocks = snapshot
             blocksSeeded = true
