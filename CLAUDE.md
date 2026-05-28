@@ -94,8 +94,10 @@ hermes/
   memories/        long-term memory blocks
   install.sh       drops the LaunchAgent plist into ~/Library/LaunchAgents and starts it
 hermes-extensions/
-  dispatch-subagent/   Python MCP tool — spawned by hermes to dispatch Claude Code subagents
-                       (replaces the legacy pi-spawning flow)
+  claude-code-lane/    Hermes plugin (`claude_code_run` MCP tool) + LaunchAgent daemon
+                       (`ai.hermes.claude-code-lane`). Spawns `claude -p` instances in
+                       arbitrary directories as kanban workers (assignee=claude-code).
+                       Has its own `install.sh`; see hermes-extensions/claude-code-lane/README.md.
 ```
 
 Install:
