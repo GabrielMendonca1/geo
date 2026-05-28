@@ -225,40 +225,6 @@ struct NanoHermesSettingsView: View {
         return nil
     }
 
-    private func reissueToken() {
-        do {
-            let token = try ensureEndpointToken(forceRotate: true)
-            tokenMessage = "Token re-issued. Length: \(token.count) chars. Drop into ~/.hermes/.env as MCP_TOKEN if needed."
-        } catch {
-            tokenMessage = nil
-            tokenAlert = "Token rotation failed: \(error.localizedDescription)"
-        }
-    }
-
-    private func ensureEndpointToken(forceRotate: Bool = false) throws -> String {
-        let endpointName = NanoHermesSettingsView.endpointName
-        if let existing = endpointRegistry.endpoints.first(where: { $0.name == endpointName }) {
-            if forceRotate { return try endpointRegistry.regenerateToken(for: existing.id) }
-            if let token = endpointRegistry.token(for: existing) { return token }
-            return try endpointRegistry.regenerateToken(for: existing.id)
-        }
-        let endpoint = OmniEndpoint(
-            name: endpointName,
-            host: "127.0.0.1",
-            port: 7878,
-            useTLS: false,
-            tokenKeychainRef: "",
-            repos: [],
-            safeMode: false
-        )
-        var bytes = [UInt8](repeating: 0, count: 32)
-        if SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) != errSecSuccess {
-            for i in 0..<bytes.count { bytes[i] = UInt8.random(in: 0...255) }
-        }
-        let token = Data(bytes).base64EncodedString()
-        try endpointRegistry.add(endpoint, token: token)
-        return token
-    }
 }
 
 private struct HermesCard<Content: View>: View {
