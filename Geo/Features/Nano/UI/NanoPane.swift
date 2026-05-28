@@ -1400,30 +1400,30 @@ private struct StatusBar: View {
     }
 }
 
-private struct QuickActionChip: View {
-    let label: String
+private struct OpsButton: View {
     let icon: String
+    let help: String
     let action: () -> Void
+    @State private var hovering = false
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 5) {
-                Image(systemName: icon)
-                    .font(.system(size: 10, weight: .medium))
-                Text(label)
-                    .font(.system(size: 11, weight: .medium))
-            }
-            .padding(.horizontal, 10)
-            .frame(height: 28)
-            .background(
-                Capsule().fill(Color.secondary.opacity(0.07))
-            )
-            .overlay(
-                Capsule().strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
-            )
-            .foregroundStyle(.primary)
+            Image(systemName: icon)
+                .font(.system(size: 11, weight: .medium))
+                .frame(width: 26, height: 26)
+                .background(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(Color.secondary.opacity(hovering ? 0.14 : 0.07))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
+                )
+                .foregroundStyle(.primary)
         }
         .buttonStyle(.plain)
+        .help(help)
+        .onHover { hovering = $0 }
     }
 }
 
