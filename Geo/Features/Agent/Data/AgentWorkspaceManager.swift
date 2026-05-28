@@ -876,7 +876,7 @@ actor AIWorkspaceManager {
             )
 
             if let index = attempts.firstIndex(where: { $0.id == preflightAttemptID }) {
-                attempts.remove(at: index)
+                removeAttempt(at: index)
             }
 
             let agentAttemptID = UUID()
