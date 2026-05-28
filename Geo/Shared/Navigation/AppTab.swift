@@ -4,11 +4,10 @@ enum AppTab: String, CaseIterable {
     case home = "Home"
     case tasks = "Tasks"
     case nodes = "Nodes"
-    case ai = "Omni"
     case nano = "Nano"
     case settings = "Settings"
 
-    static let defaultNavigationOrder: [AppTab] = [.home, .ai, .nano, .tasks, .nodes]
+    static let defaultNavigationOrder: [AppTab] = [.home, .nano, .tasks, .nodes]
 
     func nextTab() -> AppTab? {
         let order = Self.defaultNavigationOrder
