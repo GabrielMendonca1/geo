@@ -134,7 +134,7 @@ final class GraphStore: ObservableObject {
         let useDelta = !snapshotEmpty && !lastFingerprint.isEmpty && totalChange <= fullRebuildThreshold
 
         if useDelta {
-            let blockById = Dictionary(uniqueKeysWithValues: blocks.map { ($0.id, $0) })
+            let blockById = Dictionary(blocks.map { ($0.id, $0) }, uniquingKeysWith: { _, new in new })
             let changedEntries: [BlockIndexEntry] = changedIds.compactMap { id in
                 guard let block = blockById[id] else { return nil }
                 return BlockIndexEntry(
