@@ -19,21 +19,8 @@ struct NanoHermesSettingsView: View {
             installCard
             apiKeyCard
             filesCard
-            tokenCard
         }
         .onAppear { refreshStatus() }
-        .alert(
-            "Token error",
-            isPresented: Binding(
-                get: { tokenAlert != nil },
-                set: { if !$0 { tokenAlert = nil } }
-            ),
-            presenting: tokenAlert
-        ) { _ in
-            Button("OK", role: .cancel) {}
-        } message: { message in
-            Text(message)
-        }
     }
 
     private var header: some View {
