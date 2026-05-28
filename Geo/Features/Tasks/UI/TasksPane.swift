@@ -318,8 +318,8 @@ struct TasksPane: View {
             do {
                 let result = try await AITaskParser.parse(trimmed)
                 var draft = result.draft
-                if result.source == .local, draft.kind == .task, let filterKind {
-                    draft.kind = filterKind
+                if result.source == .local, draft.body.kind == .task, let filterKind {
+                    draft.body = coerceBodyKind(draft.body, to: filterKind)
                 }
                 _ = try? await appEnvironment.tasksRepository.create(draft)
             } catch {
