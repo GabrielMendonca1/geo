@@ -898,7 +898,7 @@ actor AIWorkspaceManager {
             let resumePiSessionID = issue.symphonySessionID?.trimmingCharacters(in: .whitespacesAndNewlines)
             let systemPrompt = piSystemPrompt(reportPath: reportPath(forAgentWorkspacePath: preparedAgent.rootURL.path))
 
-            attempts.insert(AIRunAttempt(
+            insertAttempt(AIRunAttempt(
                 id: agentAttemptID,
                 issueID: issue.id,
                 issueIdentifier: issue.identifier,
@@ -910,7 +910,7 @@ actor AIWorkspaceManager {
                 workspacePath: preparedAgent.rootURL.path,
                 status: .launching
             ), at: 0)
-            liveSessions[sessionID] = AILiveSession(
+            registerLiveSession(AILiveSession(
                 issueID: issue.id,
                 issueIdentifier: issue.identifier,
                 sessionID: sessionID,
@@ -933,10 +933,10 @@ actor AIWorkspaceManager {
                 provider: provider,
                 modelLabel: effectiveModel,
                 piSessionID: (resumePiSessionID?.isEmpty == false) ? resumePiSessionID : nil
-            )
+            ))
 
             if let index = attempts.firstIndex(where: { $0.id == agentAttemptID }) {
-                attempts[index].status = .running
+                mutateAttempt(at: index) { $0.status = .running }
             }
 
             var toolInput: [String: AnyCodableValue] = [
