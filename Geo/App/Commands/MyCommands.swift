@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct GeoCommands: Commands {
@@ -22,6 +23,13 @@ struct GeoCommands: Commands {
                 MenuActions.createAndOpenTodo(openWindow: openWindow, environment: appEnvironment)
             }
             .keyboardShortcut("n", modifiers: [.command, .shift])
+
+            Divider()
+
+            Button("Close Window") {
+                NSApp.keyWindow?.performClose(nil)
+            }
+            .keyboardShortcut("w", modifiers: [.command])
         }
 
         CommandGroup(after: .toolbar) {
