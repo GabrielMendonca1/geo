@@ -197,7 +197,7 @@ private struct ScheduleChip: View {
                         .foregroundStyle(titleColor)
                         .lineLimit(1)
 
-                    Text(task.schedule.displayLabel)
+                    Text(task.scheduleDisplayLabel)
                         .font(.system(size: 10.5, weight: .medium))
                         .foregroundStyle(Palette.tertiaryForeground)
                         .lineLimit(1)
