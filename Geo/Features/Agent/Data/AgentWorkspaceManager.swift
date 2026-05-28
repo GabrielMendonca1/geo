@@ -1142,7 +1142,7 @@ actor AIWorkspaceManager {
     private func reconcileAgainstLatestIssues(workflow: AIWorkflowDefinition) async {
         let activeStates = Set(workflow.config.tracker.activeStates.map(normalizeState))
         let terminalStates = Set(workflow.config.tracker.terminalStates.map(normalizeState))
-        let runningIssueIDs = Array(Set(liveSessions.values.map(\.issueID)))
+        let runningIssueIDs = Array(liveSessionsByIssueID.keys)
         guard !runningIssueIDs.isEmpty else { return }
 
         let refreshedIssues: [AIIssue]
