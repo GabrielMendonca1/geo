@@ -55,23 +55,45 @@ final class GraphStore: ObservableObject {
             guard let self else { return }
             let changed = note.userInfo?[BlockExternalChangeKey.changedIds] as? [String] ?? []
             let removed = note.userInfo?[BlockExternalChangeKey.removedIds] as? [String] ?? []
-            let allIds = changed + removed
+            let allIds = Set(changed + removed)
             guard !allIds.isEmpty else { return }
             Task { @MainActor in
-                let uuids = self.uuidsForBlockIds(allIds)
-                guard !uuids.isEmpty else { return }
-                self.externalChangeSignal = ExternalChangeSignal(nodeIds: uuids, timestamp: Date())
+                self.pendingExternalStringIds.append((allIds, Date()))
+                self.resolvePendingExternalIds()
             }
         }
     }
 
-    private func uuidsForBlockIds(_ stringIds: [String]) -> Set<UUID> {
-        let inverse = Dictionary(uniqueKeysWithValues: idLookup.map { ($1, $0) })
-        var set = Set<UUID>()
-        for id in stringIds {
-            if let uuid = inverse[id] { set.insert(uuid) }
+    private func resolvePendingExternalIds() {
+        guard !pendingExternalStringIds.isEmpty else { return }
+        let now = Date()
+        var inverse: [String: UUID] = [:]
+        inverse.reserveCapacity(idLookup.count)
+        for (uuid, stringId) in idLookup { inverse[stringId] = uuid }
+
+        var resolvedUUIDs = Set<UUID>()
+        var latestTimestamp: Date = .distantPast
+        var stillPending: [(ids: Set<String>, timestamp: Date)] = []
+
+        for entry in pendingExternalStringIds {
+            guard now.timeIntervalSince(entry.timestamp) < pendingExternalTTL else { continue }
+            var unresolved = Set<String>()
+            for id in entry.ids {
+                if let uuid = inverse[id] {
+                    resolvedUUIDs.insert(uuid)
+                    if entry.timestamp > latestTimestamp { latestTimestamp = entry.timestamp }
+                } else {
+                    unresolved.insert(id)
+                }
+            }
+            if !unresolved.isEmpty {
+                stillPending.append((unresolved, entry.timestamp))
+            }
         }
-        return set
+        pendingExternalStringIds = stillPending
+        if !resolvedUUIDs.isEmpty {
+            externalChangeSignal = ExternalChangeSignal(nodeIds: resolvedUUIDs, timestamp: latestTimestamp)
+        }
     }
 
     func updateLayoutCache(positions: [UUID: CGPoint], settled: Bool) {
