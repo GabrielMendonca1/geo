@@ -86,6 +86,7 @@ class GlobalHotkeyManager {
             userInfo: Unmanaged.passUnretained(self).toOpaque()
         ) else {
             logger.error("Failed to create event tap. Will retry. Check Accessibility permissions.")
+            retryDelay = min(Self.maxRetryDelay, max(retryDelay, Self.minRetryDelay) * 2)
             startHealthTimer()
             return
         }
