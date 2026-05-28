@@ -2062,6 +2062,7 @@
 				STR03B /* BlockEditOpsStressTests.swift in Sources */,
 				STR04B /* AttachmentStressTests.swift in Sources */,
 				STR05B /* AutoFormatAndOverlaysStressTests.swift in Sources */,
+				HTTP000000000000007B /* GeoHTTPServerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
