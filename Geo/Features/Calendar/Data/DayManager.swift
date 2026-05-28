@@ -5,7 +5,7 @@ import os.log
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "geo", category: "DayManager")
 
 class DayManager: ObservableObject {
-    private(set) var currentDayId: String?
+    @Published private(set) var currentDayId: String?
     private var midnightCheckTimer: AnyCancellable?
     private let dayRepository: any DayRepository
     private let captureRepository: any CaptureRepository
