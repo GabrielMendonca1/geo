@@ -689,7 +689,7 @@
 				NEWGROUP0006 /* Utilities */,
 				NEWGROUP0007 /* Resources */,
 			);
-			name = Geo;
+			path = Geo;
 			sourceTree = "<group>";
 		};
 		4180AEB32839753F0054FEA9 /* Preview Content */ = {
