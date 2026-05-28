@@ -600,14 +600,10 @@ actor AIWorkspaceManager {
     }
 
     private func stopSessions(forIssueID issueID: String) {
-        let sessionIDs = liveSessions.values.filter { $0.issueID == issueID }.map(\.sessionID)
+        guard let sessionIDs = liveSessionsByIssueID.removeValue(forKey: issueID) else { return }
         for sessionID in sessionIDs {
-            if let process = runningProcesses[sessionID] {
-                if process.isRunning { process.terminate() }
-                runningProcesses.removeValue(forKey: sessionID)
-            }
+            liveSessions.removeValue(forKey: sessionID)
         }
-        liveSessions = liveSessions.filter { $0.value.issueID != issueID }
     }
 
     func release(issueID: String) async -> AISnapshot {
