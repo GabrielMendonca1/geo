@@ -891,7 +891,7 @@ private enum BlockCheckboxParsing {
 extension BlocksStore {
 
     func checkboxes(in blockId: String) -> [BlockCheckbox] {
-        guard let block = blocks.first(where: { $0.id == blockId }) else { return [] }
+        guard let block = block(withId: blockId) else { return [] }
         let lines = BlockCheckboxParsing.splitLines(block.markdown)
         let inCode = BlockCheckboxParsing.codeBlockMask(for: lines)
         var result: [BlockCheckbox] = []
