@@ -449,7 +449,7 @@ class BlocksStore: ObservableObject {
         update(&meta)
         metadataService.persistMetadata(meta, for: blockId)
 
-        if let index = blocks.firstIndex(where: { $0.id == blockId }) {
+        if let index = indexOfBlock(id: blockId) {
             let block = blocks[index]
             let updatedBlock = Block(
                 id: block.id,
