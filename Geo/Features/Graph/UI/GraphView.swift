@@ -488,11 +488,14 @@ struct GraphView: View {
     let graph: BlockGraph
     var seedPositions: [UUID: CGPoint] = [:]
     var wasSettled: Bool = false
+    var externalChangeSignal: ExternalChangeSignal? = nil
     var onLayoutChange: (([UUID: CGPoint], Bool) -> Void)? = nil
     var onNodeTap: (UUID) -> Void
 
     @Environment(\.colorScheme) private var colorScheme
     @StateObject private var simulation = GraphSimulation()
+    @State private var externalPulses: [UUID: Date] = [:]
+    private static let pulseDuration: TimeInterval = 1.2
 
     @State private var zoom: CGFloat = CGFloat(GraphView.bootstrappedSettings().zoom)
     @State private var pendingZoom: CGFloat = CGFloat(GraphView.bootstrappedSettings().zoom)
