@@ -35,7 +35,7 @@ macOS productivity hub (Swift/SwiftUI, local-first) + the hermes LaunchAgent tha
 │  │ geo-mcp-bridge   │   │  hermes  (LaunchAgent, ~/.hermes)│   │
 │  │ Swift binary     │   │  • WhatsApp/Gmail/Telegram bridge│   │
 │  │ thin MCP bridge  │   │  • cron prompts                  │   │
-│  └──────────────────┘   │  • dispatch-subagent MCP tool    │   │
+│  └──────────────────┘   │  • claude-code-lane (CC workers) │   │
 │                         │  • api_server HTTP+SSE @ 8642    │   │
 │                         └──────────────────────────────────┘   │
 │                                  ▲                             │
