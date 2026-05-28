@@ -41,8 +41,8 @@ memory:
 # are now served by hermes's built-in memory store above.
 mcp_servers:
   geo:
-    # __GEO_MCP_BRIDGE_BIN__ is substituted by hermes/install.sh at install time,
-    # resolved from $REPO_ROOT/geo-mcp-bridge/geo-mcp-bridge.
+    # The placeholder below is substituted by hermes/install.sh at install time,
+    # resolved from $REPO_ROOT/geo-mcp-bridge/geo-mcp-bridge (or $GEO_MCP_BRIDGE_BIN).
     command: __GEO_MCP_BRIDGE_BIN__
     args: []
     env: {}
