@@ -44,3 +44,9 @@ playground.xcworkspace
 hermes/whatsapp-ingest/node_modules/
 hermes/whatsapp-ingest/auth/
 hermes/hooks/*/\.state.json
+
+### Build / coverage artifacts ###
+Geo/build-iso/
+Geo/*.xcresult/
+Geo/default.profraw
+*.profraw
