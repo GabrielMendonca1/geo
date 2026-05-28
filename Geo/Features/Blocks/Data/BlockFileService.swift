@@ -29,6 +29,15 @@ final class BlockFileService {
         blocksDirectory.appendingPathComponent(filename)
     }
 
+    func relativeId(for url: URL) -> String {
+        let basePath = blocksDirectory.standardizedFileURL.path
+        let fullPath = url.standardizedFileURL.path
+        if fullPath.hasPrefix(basePath + "/") {
+            return String(fullPath.dropFirst(basePath.count + 1))
+        }
+        return url.lastPathComponent
+    }
+
     func loadBlocksFromFiles(
         metadata: [String: BlocksStore.BlockMetadata],
         converter: MarkdownConverter
