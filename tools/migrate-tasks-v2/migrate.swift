@@ -50,7 +50,7 @@ var failed: [(URL, String)] = []
 
 for url in jsonURLs {
     guard let data = try? Data(contentsOf: url),
-          var obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
+          let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
         failed.append((url, "unreadable"))
         continue
     }
