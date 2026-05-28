@@ -179,7 +179,7 @@ class BlocksStore: ObservableObject {
             Task.detached(priority: .userInitiated) { [weak self, weak metadataService, indexCoordinator] in
                 await self?.loadBlocks()
                 let snapshot = await indexCoordinator.fetchAllMetadata()
-                await MainActor.run {
+                await MainActor.run { [weak self, weak metadataService] in
                     metadataService?.hydrateFromIndex(snapshot)
                     if startWatcher {
                         self?.changeReconciler.startWatching()
