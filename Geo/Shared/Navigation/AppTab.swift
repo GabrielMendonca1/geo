@@ -74,8 +74,6 @@ extension AppTab {
             TasksPane()
         case .nodes:
             NodesPane()
-        case .ai:
-            AIPane()
         case .nano:
             NanoPane()
         case .settings:
