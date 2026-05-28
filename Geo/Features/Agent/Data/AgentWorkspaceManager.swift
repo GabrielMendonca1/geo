@@ -721,7 +721,7 @@ actor AIWorkspaceManager {
             serviceStatus: serviceStatus,
             pollIntervalMS: workflow.config.polling.intervalMS,
             maxConcurrentAgents: workflow.config.agent.maxConcurrentAgents,
-            runningIssueIDs: Set(liveSessions.values.map(\.issueID)),
+            runningIssueIDs: Set(liveSessionsByIssueID.keys),
             runningSessionIDs: Set(liveSessions.keys),
             claimedIssueIDs: claimedIssueIDs,
             retryEntries: Array(retryEntries.values),
