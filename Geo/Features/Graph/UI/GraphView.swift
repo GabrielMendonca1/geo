@@ -1033,6 +1033,7 @@ struct GraphView: View {
             }
         }
 
+        let renderNow = Date()
         for node in graph.nodes {
             guard visibleSet.contains(node.id) else { continue }
             guard let worldPos = simulation.position(for: node.id), let radius = simulation.radius(for: node.id) else { continue }
@@ -1059,6 +1060,18 @@ struct GraphView: View {
                 else { alpha = 0.15 }
             } else {
                 alpha = 1.0
+            }
+
+            if let pulseStart = externalPulses[node.id] {
+                let elapsed = renderNow.timeIntervalSince(pulseStart)
+                if elapsed >= 0, elapsed < Self.pulseDuration {
+                    let t = elapsed / Self.pulseDuration
+                    let eased = 1 - (1 - t) * (1 - t)
+                    let pulseRadius = scaledRadius + 4 + CGFloat(eased) * 18
+                    let pulseAlpha = (1 - t) * 0.55
+                    let pulseRect = CGRect(x: center.x - pulseRadius, y: center.y - pulseRadius, width: pulseRadius * 2, height: pulseRadius * 2)
+                    ctx.stroke(Path(ellipseIn: pulseRect), with: .color(baseColor.opacity(pulseAlpha)), lineWidth: 1.5)
+                }
             }
 
             let bodyRect = CGRect(x: center.x - scaledRadius, y: center.y - scaledRadius, width: scaledRadius * 2, height: scaledRadius * 2)
