@@ -524,44 +524,12 @@ struct GraphView: View {
                     onLayoutChange?(simulation.layout.positions, simulation.isSettled)
                 }
                 .onChange(of: geo.size) { _, newSize in canvasSize = newSize }
-                .onChange(of: graph) { _, newGraph in
-                    simulation.ingest(graph: newGraph)
-                    let valid = Set(newGraph.nodes.map(\.id))
-                    if let sel = selectedNodeID, !valid.contains(sel) { selectedNodeID = nil }
-                    if let hov = hoverNodeID, !valid.contains(hov) { hoverNodeID = nil }
-                    if let drag = draggingNodeID, !valid.contains(drag) { draggingNodeID = nil }
-                    if !externalPulses.isEmpty {
-                        externalPulses = externalPulses.filter { valid.contains($0.key) }
-                    }
-                }
-                .onChange(of: externalChangeSignal) { _, signal in
-                    guard let signal else { return }
-                    let now = signal.timestamp
-                    var updated: [UUID: Date] = [:]
-                    for (id, start) in externalPulses where now.timeIntervalSince(start) < Self.pulseDuration {
-                        updated[id] = start
-                    }
-                    for id in signal.nodeIds {
-                        updated[id] = now
-                    }
-                    externalPulses = updated
-                    simulation.nudge()
-                }
-                .onChange(of: simulation.isSettled) { _, settled in
-                    if settled {
-                        onLayoutChange?(simulation.layout.positions, true)
-                    }
-                }
-                .onChange(of: forcesTuple) { _, _ in
-                    applyForcesToSimulation()
-                    simulation.reheat()
-                }
-                .onChange(of: settings) { _, newSettings in
-                    Self.saveSettings(newSettings)
-                }
-                .onChange(of: settings.colorBy) { _, _ in
-                    settings.hiddenGroups.removeAll()
-                }
+                .onChange(of: graph) { _, newGraph in handleGraphChange(newGraph) }
+                .onChange(of: externalChangeSignal) { _, signal in handleExternalSignal(signal) }
+                .onChange(of: simulation.isSettled) { _, settled in handleSettledChange(settled) }
+                .onChange(of: forcesTuple) { _, _ in handleForcesChange() }
+                .onChange(of: settings) { _, newSettings in Self.saveSettings(newSettings) }
+                .onChange(of: settings.colorBy) { _, _ in settings.hiddenGroups.removeAll() }
         }
     }
 
