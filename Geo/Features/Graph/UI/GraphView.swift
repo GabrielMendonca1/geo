@@ -145,7 +145,7 @@ private final class GraphSimulation: ObservableObject {
                 resolvedEdges.append((edge.sourceId, target, true))
             } else if let source = newNodes[edge.sourceId] {
                 let virtualID = edge.id
-                let angle = Double(edge.id.uuidString.hashValue % 360) * .pi / 180
+                let angle = Double(abs(edge.id.uuidString.hashValue) % 360) * .pi / 180
                 let offset = CGVector(dx: CGFloat(Foundation.cos(angle)) * 90,
                                        dy: CGFloat(Foundation.sin(angle)) * 90)
                 virtuals[virtualID] = CGPoint(x: source.position.x + offset.dx, y: source.position.y + offset.dy)
