@@ -63,7 +63,7 @@ final class BlockChangeReconciler {
         if metadataChanged && now.timeIntervalSince(metadataService.currentLastWriteTime()) >= externalWriteGracePeriod {
             metadataService.loadMetadata()
             var updatedBlocks = blocks
-            var changed = false
+            var metadataChangedIds: [String] = []
             for i in updatedBlocks.indices {
                 let block = updatedBlocks[i]
                 let meta = metadataService.metadata(for: block.id)
@@ -78,11 +78,19 @@ final class BlockChangeReconciler {
                         tagId: meta.tagId,
                         metadata: meta
                     )
-                    changed = true
+                    metadataChangedIds.append(block.id)
                 }
             }
-            if changed {
+            if !metadataChangedIds.isEmpty {
                 onBlocksChanged?(updatedBlocks)
+                NotificationCenter.default.post(
+                    name: .blocksExternallyChanged,
+                    object: nil,
+                    userInfo: [
+                        BlockExternalChangeKey.changedIds: metadataChangedIds,
+                        BlockExternalChangeKey.removedIds: [String]()
+                    ]
+                )
             }
         }
 
