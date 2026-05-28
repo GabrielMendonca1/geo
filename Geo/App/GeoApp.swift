@@ -68,7 +68,7 @@ final class AppContainer {
     init() {
         let ocrService = OCRService.shared
         let markdownConverter = MarkdownConverter.shared
-        let indexCoordinator = IndexCoordinator(database: .shared, indexer: MarkdownIndexingService(markdownConverter: markdownConverter))
+        let indexCoordinator = IndexCoordinator.shared
         let storageMigration = StorageMigrationService.shared
         let permissionRegistry = MainActor.assumeIsolated { PermissionRegistry.shared }
 
