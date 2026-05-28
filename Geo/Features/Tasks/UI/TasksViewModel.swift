@@ -186,46 +186,21 @@ final class TasksViewModel: ObservableObject {
         guard let tasksRepository else { return }
         guard var task = tasks.first(where: { $0.id == id }) else { return }
 
-        if task.kind == .habit {
-            task.recordHabitCompletion()
-        }
-
-        if task.recurrence.isRepeating {
+        if case .habit(let rule, let timeOfDay, var occurrences) = task.body {
             let now = Date()
-            let duration = task.endTime.map { $0.timeIntervalSince(task.startTime) }
-            var nextStart = task.startTime
-            var safety = 0
-            while nextStart <= now, safety < 1000 {
-                guard let next = task.recurrence.nextDate(after: nextStart) else { break }
-                nextStart = next
-                safety += 1
+            let cal = Calendar.current
+            if !occurrences.contains(where: { cal.isDate($0, inSameDayAs: now) }) {
+                occurrences.append(now)
             }
-
-            if let recurrenceEnd = task.recurrence.endDate, nextStart > recurrenceEnd {
-                task.status = .completed
-                task.modifiedAt = Date()
-                do { try await tasksRepository.update(task) } catch { logger.error("Failed to complete recurring task \(id): \(error.localizedDescription)"); return }
-                return
-            }
-
-            if nextStart <= now, task.recurrence.nextDate(after: nextStart) == nil {
-                task.status = .completed
-                task.modifiedAt = Date()
-                do { try await tasksRepository.update(task) } catch { logger.error("Failed to complete recurring task \(id): \(error.localizedDescription)"); return }
-                return
-            }
-
-            task.startTime = nextStart
-            task.endTime = duration.map { nextStart.addingTimeInterval($0) }
-            task.firedReminders = []
-            task.recurringReminders = task.recurringReminders.map { var r = $0; r.lastFired = nil; return r }
-            task.snoozedUntil = nil
+            let nextTimeOfDay = rule.nextDate(after: timeOfDay)
+            task.body = .habit(rule: rule, timeOfDay: nextTimeOfDay ?? timeOfDay, occurrences: occurrences)
+            task.reminders = task.reminders.map { var r = $0; r.fired = false; return r }
+            task.status = nextTimeOfDay == nil ? .completed : .pending
             task.modifiedAt = Date()
             do {
                 try await tasksRepository.update(task)
             } catch {
-                logger.error("Failed to advance recurring task \(id): \(error.localizedDescription)")
-                return
+                logger.error("Failed to advance habit \(id): \(error.localizedDescription)")
             }
         } else {
             await updateTask(id: id, status: .completed)
