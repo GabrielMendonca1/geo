@@ -543,6 +543,7 @@ struct GraphView: View {
         if !externalPulses.isEmpty {
             externalPulses = externalPulses.filter { valid.contains($0.key) }
         }
+        frameInitialLayoutIfNeeded()
     }
 
     private func handleExternalSignal(_ signal: ExternalChangeSignal?) {
