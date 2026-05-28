@@ -154,7 +154,7 @@ struct BlockLinkedSchedulesHeader: View {
             return lhs.status == .pending
         }
         let lhsDate = lhs.anchorDate
-        let rhsDate = rhs.schedule.anchorDate ?? Date.distantFuture
+        let rhsDate = rhs.anchorDate
         if lhsDate != rhsDate { return lhsDate < rhsDate }
         return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
     }
