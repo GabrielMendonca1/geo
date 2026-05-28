@@ -122,7 +122,7 @@ In-app surface:
 - Nano pane (`Geo/Features/Nano/`) reads hermes status, tails the log, shows cron tiles, and routes chat through `HermesHTTPTransport`.
 - Settings → Hermes (`NanoHermesSettingsView`) installs the daemon, opens SOUL/.env, surfaces the API key, and rotates the MCP endpoint token.
 
-The `dispatch-subagent` MCP tool is how hermes hands off long-running work to Claude Code subagents — replacing the old `pi`-spawning code in `AgentWorkspaceManager`. The Swift manager keeps a hybrid `dispatchMode` flag (`legacyPi` vs `hermesTool`) during the migration window.
+The `claude-code-lane` is how hermes hands off bounded work to Claude Code instances. The MCP tool `claude_code_run(directory, prompt, model?, max_runtime_seconds?, title?)` enqueues a kanban row with `assignee=claude-code` and `workspace_kind=dir`; the lane's LaunchAgent daemon polls `~/.hermes/kanban.db`, claims the row, and spawns `claude -p <prompt> --output-format stream-json --permission-mode acceptEdits` in the workspace dir, streaming events back into `task_events`. Multiple parallel runs supported — call `claude_code_run` repeatedly with different directories. The upstream Hermes dispatcher silently skips `assignee=claude-code` rows (no Hermes profile of that name), so the lane coexists without forking upstream.
 
 ## geo-mcp-bridge
 
