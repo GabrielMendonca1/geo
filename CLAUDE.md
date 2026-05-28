@@ -15,7 +15,7 @@ macOS productivity hub (Swift/SwiftUI, local-first) + the hermes LaunchAgent tha
 │  │       │                                                  │  │
 │  │       ▼                                                  │  │
 │  │  Features: Blocks · Tasks · Tags · Graph · Capture ·     │  │
-│  │            Calendar · Agent · Nano · Settings · About    │  │
+│  │            Calendar · Nano · Settings · About            │  │
 │  │       │                                                  │  │
 │  │       ▼                                                  │  │
 │  │  Stores (@ObservableObject + Combine, singletons)        │  │
