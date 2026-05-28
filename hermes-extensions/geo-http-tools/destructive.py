@@ -102,10 +102,14 @@ def _classify_reply(text: str) -> Optional[str]:
 
 
 async def _await_confirmation(since_ts: float) -> str:
-    """Poll the inbound queue for up to 30 s. Returns 'yes' | 'no' | 'timeout'."""
+    """Poll the inbound queue for up to 30 s. Returns 'yes' | 'no' | 'timeout'.
+
+    A matched reply is consumed via _consumed_ts so it can authorize at most one
+    operation; callers must hold _confirm_gate so only one flow polls at a time.
+    """
+    global _consumed_ts
     deadline = since_ts + CONFIRM_TIMEOUT_S
     reminder_sent = False
-    seen_idx = 0
     while True:
         now = time.time()
         if now >= deadline:
@@ -118,13 +122,13 @@ async def _await_confirmation(since_ts: float) -> str:
                 pass
         async with _inbound_lock:
             messages = list(_inbound_queue)
-        for ts, text in messages[seen_idx:]:
-            if ts < since_ts:
+        for ts, text in messages:
+            if ts < since_ts or ts <= _consumed_ts:
                 continue
             verdict = _classify_reply(text)
             if verdict is not None:
+                _consumed_ts = ts
                 return verdict
-        seen_idx = len(messages)
         await asyncio.sleep(POLL_INTERVAL_S)
 
 
