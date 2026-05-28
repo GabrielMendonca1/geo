@@ -258,7 +258,7 @@ class BlocksStore: ObservableObject {
         let spStart = CFAbsoluteTimeGetCurrent()
         let spID = PerformanceTracker.shared.beginStoreOperation("BlocksStore", operation: "update")
         defer { PerformanceTracker.shared.endStoreOperation("BlocksStore", operation: "update", signpostID: spID, startTime: spStart) }
-        guard let index = self.blocks.firstIndex(where: { $0.id == block.id }) else {
+        guard let index = self.indexOfBlock(id: block.id) else {
             return false
         }
 
