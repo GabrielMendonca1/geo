@@ -674,6 +674,36 @@ struct GraphView: View {
             simulation.seedCachedPositions(seedPositions, settled: wasSettled)
         }
         simulation.ingest(graph: graph)
+        frameInitialLayoutIfNeeded()
+    }
+
+    private func frameInitialLayoutIfNeeded() {
+        guard !hasFramedInitialLayout,
+              seedPositions.isEmpty,
+              canvasSize.width > 0, canvasSize.height > 0,
+              !simulation.layout.positions.isEmpty else { return }
+        hasFramedInitialLayout = true
+        simulation.prewarm(maxSteps: 480)
+        fitToView(in: canvasSize)
+    }
+
+    private func fitToView(in size: CGSize) {
+        let positions = simulation.layout.positions
+        guard !positions.isEmpty else { return }
+        var minX = CGFloat.greatestFiniteMagnitude, minY = CGFloat.greatestFiniteMagnitude
+        var maxX = -CGFloat.greatestFiniteMagnitude, maxY = -CGFloat.greatestFiniteMagnitude
+        for (id, p) in positions {
+            let r = (simulation.layout.radii[id] ?? 8) * CGFloat(settings.nodeSizeScale)
+            minX = min(minX, p.x - r); maxX = max(maxX, p.x + r)
+            minY = min(minY, p.y - r); maxY = max(maxY, p.y + r)
+        }
+        let bboxW = max(maxX - minX, 1), bboxH = max(maxY - minY, 1)
+        let fit = min(size.width / bboxW, size.height / bboxH) * 0.85
+        let newZoom = max(0.4, min(2.4, fit))
+        zoom = newZoom
+        pendingZoom = newZoom
+        pan = CGSize(width: -(minX + maxX) / 2 * newZoom, height: -(minY + maxY) / 2 * newZoom)
+        pendingPan = .zero
     }
 
     private var backgroundColor: Color {
