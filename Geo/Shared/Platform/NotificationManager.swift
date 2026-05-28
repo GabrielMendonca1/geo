@@ -126,7 +126,7 @@ final class NotificationManager: NSObject, ObservableObject {
         let now = Date()
         let dueSignals = tasks
             .filter { $0.status == .pending }
-            .flatMap { dueSignals(for: $0, now: now) }
+            .flatMap { makeDueSignals(for: $0, now: now) }
             .sorted { $0.fireDate < $1.fireDate }
 
         for signal in dueSignals {
