@@ -3,6 +3,15 @@ import os.log
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "geo", category: "BlockChangeReconciler")
 
+extension Notification.Name {
+    static let blocksExternallyChanged = Notification.Name("ai.geo.blocksExternallyChanged")
+}
+
+enum BlockExternalChangeKey {
+    static let changedIds = "changedIds"
+    static let removedIds = "removedIds"
+}
+
 @MainActor
 final class BlockChangeReconciler {
     private let fileManager = FileManager.default
