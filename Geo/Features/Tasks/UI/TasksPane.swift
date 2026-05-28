@@ -951,10 +951,6 @@ private struct TaskCard: View {
 
                 if hasMetaRow {
                     HStack(spacing: 6 * layoutScale) {
-                        if task.priority != .unset {
-                            metaChip(task.priority.displayName, icon: task.priority.icon, foreground: task.priority.tintColor ?? Palette.tertiaryForeground)
-                        }
-
                         if task.recurrence.isRepeating {
                             metaChip(task.recurrence.displayName, icon: "repeat")
                         }
