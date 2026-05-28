@@ -418,7 +418,7 @@ class BlocksStore: ObservableObject {
 
         fileService.deleteAttachmentsDirectory(for: block.url)
 
-        if let index = self.blocks.firstIndex(where: { $0.id == block.id }) {
+        if let index = self.indexOfBlock(id: block.id) {
             self.blocks.remove(at: index)
         }
         if focusedBlockId == block.id {
