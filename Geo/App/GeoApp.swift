@@ -57,9 +57,6 @@ final class AppContainer {
     let dayManager: DayManager
     let mcpServer: MCPServer
     let templateService: TemplateService
-    let endpointRegistry: EndpointRegistry
-    let workerSessionRegistry: WorkerSessionRegistry
-    let workerInbox: WorkerInbox
     let nanoHermesService: HermesStatusService
     let environment: AppEnvironment
 
