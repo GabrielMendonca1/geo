@@ -133,7 +133,6 @@ final class AppContainer {
                 + DayTools.register(days: dayStoreAdapter, blocks: blocksAdapter)
                 + TagTools.register(tags: tagsAdapter, blocks: blocksAdapter)
                 + AITools.register()
-                + AgentDispatchTools.register(ai: aiRepository)
         }
         let mcpAuthGuard = MCPAuthGuard()
         let endpointRegistry = MainActor.assumeIsolated { EndpointRegistry(authGuard: mcpAuthGuard) }
