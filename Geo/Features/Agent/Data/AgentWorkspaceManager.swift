@@ -1408,7 +1408,11 @@ actor AIWorkspaceManager {
                   !report.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { continue }
 
             markAttempt(issueID: attempt.issueID, status: .succeeded, error: nil)
-            liveSessions = liveSessions.filter { $0.value.issueID != attempt.issueID || $0.value.agent != attempt.agent }
+            if let sessionIDs = liveSessionsByIssueID[attempt.issueID] {
+                for sessionID in sessionIDs where liveSessions[sessionID]?.agent == attempt.agent {
+                    removeLiveSession(sessionID: sessionID)
+                }
+            }
             claimedIssueIDs.remove(attempt.issueID)
             await moveLocalIssueToHumanReview(issueID: attempt.issueID, report: report)
             appendLog(.info, "Ingested pi report for \(attempt.issueIdentifier).")
