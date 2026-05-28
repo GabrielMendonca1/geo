@@ -622,7 +622,7 @@ class BlocksStore: ObservableObject {
     }
 
     private func performFrontmatterMutation(blockID: String, merge: [String: AnyCodableValue]) async throws -> Int {
-        guard let current = self.blocks.first(where: { $0.id == blockID }) else {
+        guard let current = self.block(withId: blockID) else {
             throw FrontmatterMutationError.blockNotFound(blockID)
         }
         let currentVersion = current.metadata.frontmatter_version
