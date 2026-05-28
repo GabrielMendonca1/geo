@@ -33,6 +33,7 @@ struct NanoPane: View {
                     MemoryCard()
                         .frame(width: 260)
                 }
+                WorkersCard()
                 ActivityFeed(events: activity.events, scrollTo: $scrollTargetId)
                     .frame(maxHeight: .infinity)
                 QuickActionsRow()
