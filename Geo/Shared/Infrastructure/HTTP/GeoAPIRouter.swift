@@ -125,7 +125,7 @@ final class GeoAPIRouter: @unchecked Sendable {
             if let id = pathParam(path: path, prefix: "/v1/blocks/", suffix: "/backlinks") {
                 return await call("find_backlinks", args: ["block_id": .string(id)])
             }
-            if let id = pathParam(path: path, prefix: "/v1/blocks/", suffix: nil), !id.contains("/") {
+            if let id = pathParam(path: path, prefix: "/v1/blocks/", suffix: nil) {
                 return await call("get_block", args: ["id": .string(id)])
             }
             if let id = pathParam(path: path, prefix: "/v1/tasks/", suffix: nil), !id.contains("/") {
