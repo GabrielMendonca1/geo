@@ -212,11 +212,10 @@ struct FileAttachmentService: AttachmentService, @unchecked Sendable {
     }
 
     func deleteAttachmentsDirectory(for blockURL: URL) {
-        let blocksDirectory = blockURL.deletingLastPathComponent()
-        let blockFolderName = blockURL.deletingPathExtension().lastPathComponent
-        let attachmentsDir = blocksDirectory
+        let ns = blockAttachmentNamespace(for: blockURL)
+        let attachmentsDir = ns.root
             .appendingPathComponent("Attachments", isDirectory: true)
-            .appendingPathComponent(blockFolderName, isDirectory: true)
+            .appendingPathComponent(ns.folderName, isDirectory: true)
         try? fileManager.removeItem(at: attachmentsDir)
     }
 
