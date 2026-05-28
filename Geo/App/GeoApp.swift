@@ -427,25 +427,3 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
-extension AppContainer {
-    fileprivate static func makeInboxEntry(method: String, params: [String: AnyCodableValue]?, endpointName: String) -> WorkerInbox.Entry {
-        let kind: WorkerInbox.Entry.Kind
-        let defaultTitle: String
-        switch method {
-        case "dispatch.progress": kind = .dispatchProgress; defaultTitle = "Running…"
-        case "dispatch.complete": kind = .dispatchComplete; defaultTitle = "Done"
-        case "dispatch.error":    kind = .dispatchError;    defaultTitle = "Failed"
-        default:                  kind = .generic;          defaultTitle = method
-        }
-        let title: String = {
-            if case .string(let msg)? = params?["message"] { return msg }
-            if case .string(let summary)? = params?["summary"] { return summary }
-            return defaultTitle
-        }()
-        let detail: String? = {
-            if case .string(let id)? = params?["id"] { return id }
-            return nil
-        }()
-        return WorkerInbox.Entry(workerName: endpointName, kind: kind, title: title, detail: detail)
-    }
-}
