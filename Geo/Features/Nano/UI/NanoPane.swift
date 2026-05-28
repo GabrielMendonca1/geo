@@ -14,32 +14,35 @@ struct NanoPane: View {
 
     var body: some View {
         Pane {
-            ScrollView {
-                VStack(spacing: 12) {
-                    if service.setupState != .running {
-                        HermesSetupBanner(service: service)
-                    }
-                    if let banner = recentError, service.setupState == .running {
-                        ErrorBanner(event: banner) {
-                            scrollTargetId = banner.id
-                        } onDismiss: {
-                            dismissedErrorId = banner.id
+            VStack(spacing: 0) {
+                StatusBar(service: service, totalToday: insights.totalToday)
+                Divider().opacity(0.5)
+                ScrollView {
+                    VStack(spacing: 12) {
+                        if service.setupState != .running {
+                            HermesSetupBanner(service: service)
                         }
+                        if let banner = recentError, service.setupState == .running {
+                            ErrorBanner(event: banner) {
+                                scrollTargetId = banner.id
+                            } onDismiss: {
+                                dismissedErrorId = banner.id
+                            }
+                        }
+                        TodayInsightsCard(insights: insights)
+                        ActivatedStrip(service: service)
+                        HStack(alignment: .top, spacing: 12) {
+                            CronsCard()
+                                .frame(maxWidth: .infinity)
+                            MemoryCard()
+                                .frame(width: 260)
+                        }
+                        WorkersCard()
+                        ActivityFeed(events: activity.events, scrollTo: $scrollTargetId)
+                            .frame(height: 320)
                     }
-                    TodayInsightsCard(insights: insights)
-                    ActivatedStrip(service: service)
-                    HStack(alignment: .top, spacing: 12) {
-                        CronsCard()
-                            .frame(maxWidth: .infinity)
-                        MemoryCard()
-                            .frame(width: 260)
-                    }
-                    WorkersCard()
-                    ActivityFeed(events: activity.events, scrollTo: $scrollTargetId)
-                        .frame(height: 320)
-                    QuickActionsRow()
+                    .padding(14)
                 }
-                .padding(14)
             }
         }
         .onAppear {
