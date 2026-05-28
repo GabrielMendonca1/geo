@@ -128,21 +128,6 @@ struct NanoHermesSettingsView: View {
         }
     }
 
-    private var tokenCard: some View {
-        HermesCard(title: "MCP token", icon: "lock.fill", iconTint: .green) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Issue or rotate the token hermes uses to talk to Geo's MCP server (endpoint: \(NanoHermesSettingsView.endpointName)).")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Button("Re-issue token") { reissueToken() }
-                    .buttonStyle(.bordered)
-                if let tokenMessage {
-                    Text(tokenMessage).font(.caption).foregroundStyle(.secondary)
-                }
-            }
-        }
-    }
-
     private var maskedKey: String {
         guard let key = HermesEnv.shared.apiServerKey, !key.isEmpty else { return "" }
         if key.count <= 6 { return String(repeating: "•", count: key.count) }
