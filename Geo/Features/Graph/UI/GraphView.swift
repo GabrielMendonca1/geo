@@ -122,9 +122,14 @@ private final class GraphSimulation: ObservableObject {
                 degree[target, default: 0] += 1
             }
         }
+
+        let priorNodeIDs = Set(nodeOrder)
+        var addedCount = 0
+
         for (idx, node) in graph.nodes.enumerated() {
             let radius = Self.radius(for: degree[node.id] ?? 0) * Self.typeWeight(for: node.type)
             let prior = nodes[node.id]
+            if prior == nil { addedCount += 1 }
             let position = prior?.position ?? Self.seedPosition(index: idx, total: max(graph.nodes.count, 1), canvas: canvasSize)
             let velocity = prior?.velocity ?? .zero
             newNodes[node.id] = GraphPhysicsNode(position: position, velocity: velocity, radius: radius, pinned: prior?.pinned ?? false)
@@ -147,13 +152,35 @@ private final class GraphSimulation: ObservableObject {
                 resolvedEdges.append((edge.sourceId, virtualID, false))
             }
         }
+
+        let newNodeIDs = Set(newOrder)
+        let removedCount = priorNodeIDs.subtracting(newNodeIDs).count
+        let nodeStructural = addedCount > 0 || removedCount > 0
+
+        var priorResolvedEdges = Set<EdgeKey>()
+        for (s, t, resolved) in adjacency where resolved {
+            priorResolvedEdges.insert(EdgeKey(source: s, target: t))
+        }
+        var newResolvedEdges = Set<EdgeKey>()
+        for (s, t, resolved) in resolvedEdges where resolved {
+            newResolvedEdges.insert(EdgeKey(source: s, target: t))
+        }
+        let edgeStructural = priorResolvedEdges != newResolvedEdges
+        let firstIngest = priorNodeIDs.isEmpty
+
         nodes = newNodes
         nodeOrder = newOrder
         adjacency = resolvedEdges
         virtualTargets = virtuals
         groupKey = newGroupKey
-        isSettled = false
-        iterationCount = 0
+
+        if firstIngest || nodeStructural {
+            isSettled = false
+            iterationCount = 0
+        } else if edgeStructural {
+            isSettled = false
+            iterationCount = max(iterationCount, maxIterations - 200)
+        }
         publishLayout()
     }
 
