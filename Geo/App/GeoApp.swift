@@ -36,7 +36,6 @@ struct AppEnvironment: Sendable {
     let attachmentService: any AttachmentService
     let usageTracker: any UsageTracker
     let holidayService: any HolidayServiceProviding
-    let aiRepository: any AIRepository
 }
 
 final class AppContainer {
