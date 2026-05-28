@@ -495,7 +495,7 @@ class BlocksStore: ObservableObject {
     @MainActor
     @discardableResult
     func setType(_ type: BlockType, for blockId: String) async -> Bool {
-        guard blocks.contains(where: { $0.id == blockId }) else { return false }
+        guard indexOfBlock(id: blockId) != nil else { return false }
         do {
             _ = try await mutateFrontmatter(blockID: blockId, merge: ["type": .string(type.rawValue)])
             if let live = block(withId: blockId) {
