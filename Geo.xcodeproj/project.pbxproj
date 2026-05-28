@@ -1487,6 +1487,7 @@
 				SETT00000000000000000015 /* SettingsPane.swift */,
 				AIKS00000000000000001A /* AIKeySettingsView.swift */,
 				HRMSSETT0000000002 /* NanoHermesSettingsView.swift */,
+				HTTP000000000000006R /* APIAccessSettingsView.swift */,
 			);
 			path = UI;
 			sourceTree = "<group>";
