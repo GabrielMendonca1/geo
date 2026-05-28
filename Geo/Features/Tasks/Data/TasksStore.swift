@@ -258,8 +258,9 @@ final class TasksStore: ObservableObject {
     }
 
     private func preserveOccurrencesIfHabit(old: TaskBody, new: TaskBody) -> TaskBody {
-        if case .habit(_, _, let oldOccs) = old, case .habit(let rule, let tod, _) = new {
-            return .habit(rule: rule, timeOfDay: tod, occurrences: oldOccs)
+        if case .habit(_, _, let oldOccs) = old, case .habit(let rule, let tod, let newOccs) = new {
+            let merged = oldOccs + newOccs.filter { !oldOccs.contains($0) }
+            return .habit(rule: rule, timeOfDay: tod, occurrences: merged)
         }
         return new
     }
