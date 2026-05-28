@@ -170,7 +170,7 @@ def _run_task(
 
     if timed_out.is_set() and final_error is None:
         final_error = "max_runtime exceeded"
-    if final_error is None and final_summary is None:
+    if final_error is None and not saw_result:
         final_error = f"claude-code exited without a result (code {proc.returncode})"
 
     if final_error:
