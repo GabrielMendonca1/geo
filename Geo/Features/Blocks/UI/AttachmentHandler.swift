@@ -156,15 +156,14 @@ struct AttachmentHandler {
     }
 
     private func attachmentsDirectoryURL() -> URL {
-        let blocksDirectory = blockURL.deletingLastPathComponent()
-        let blockFolderName = blockURL.deletingPathExtension().lastPathComponent
-        return blocksDirectory
+        let ns = blockAttachmentNamespace(for: blockURL)
+        return ns.root
             .appendingPathComponent("Attachments", isDirectory: true)
-            .appendingPathComponent(blockFolderName, isDirectory: true)
+            .appendingPathComponent(ns.folderName, isDirectory: true)
     }
 
     private func attachmentMarkdown(for url: URL, isImage: Bool) -> String? {
-        let blockFolderName = blockURL.deletingPathExtension().lastPathComponent
+        let blockFolderName = blockAttachmentNamespace(for: blockURL).folderName
         let fileName = sanitizeAttachmentFilename(url.lastPathComponent)
         let relativePath = "Attachments/\(blockFolderName)/\(fileName)"
         let encodedPath = relativePath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? relativePath
