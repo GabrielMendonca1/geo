@@ -1,0 +1,40 @@
+name: geo-http-tools
+version: 0.1.0
+description: "Authenticated HTTP API client for Gabriel's Geo macOS app (no MCP, no `mcp_` prefix). Bearer auth via macOS Keychain; two-phase destructive flow with Telegram confirm."
+author: ARC/Geo
+kind: standalone
+provides_tools:
+  - geo_get_block
+  - geo_get_block_by_title
+  - geo_list_blocks
+  - geo_list_by_status
+  - geo_list_by_type
+  - geo_list_neighbors
+  - geo_search_blocks
+  - geo_find_backlinks
+  - geo_find_orphans
+  - geo_find_unresolved_links
+  - geo_get_graph_snapshot
+  - geo_create_block
+  - geo_update_block
+  - geo_set_block_tag
+  - geo_set_layer
+  - geo_extract_permanent_from
+  - geo_promote_to_permanent
+  - geo_link_block_to_day
+  - geo_delete_block
+  - geo_get_task
+  - geo_list_tasks
+  - geo_list_tasks_for_day
+  - geo_list_upcoming
+  - geo_create_task
+  - geo_update_task
+  - geo_complete_task
+  - geo_add_reminder
+  - geo_ai_parse_task
+  - geo_delete_task
+  - geo_list_tags
+  - geo_create_tag
+  - geo_get_today
+  - geo_get_day
+  - geo_record_habit_occurrence
