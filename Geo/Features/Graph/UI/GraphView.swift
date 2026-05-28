@@ -533,6 +533,42 @@ struct GraphView: View {
         }
     }
 
+    private func handleGraphChange(_ newGraph: BlockGraph) {
+        simulation.ingest(graph: newGraph)
+        let valid = Set(newGraph.nodes.map(\.id))
+        if let sel = selectedNodeID, !valid.contains(sel) { selectedNodeID = nil }
+        if let hov = hoverNodeID, !valid.contains(hov) { hoverNodeID = nil }
+        if let drag = draggingNodeID, !valid.contains(drag) { draggingNodeID = nil }
+        if !externalPulses.isEmpty {
+            externalPulses = externalPulses.filter { valid.contains($0.key) }
+        }
+    }
+
+    private func handleExternalSignal(_ signal: ExternalChangeSignal?) {
+        guard let signal else { return }
+        let now = signal.timestamp
+        var updated: [UUID: Date] = [:]
+        for (id, start) in externalPulses where now.timeIntervalSince(start) < Self.pulseDuration {
+            updated[id] = start
+        }
+        for id in signal.nodeIds {
+            updated[id] = now
+        }
+        externalPulses = updated
+        simulation.nudge()
+    }
+
+    private func handleSettledChange(_ settled: Bool) {
+        if settled {
+            onLayoutChange?(simulation.layout.positions, true)
+        }
+    }
+
+    private func handleForcesChange() {
+        applyForcesToSimulation()
+        simulation.reheat()
+    }
+
     private func handleHoverPhase(_ phase: HoverPhase) {
         switch phase {
         case .active(let location): handleHover(at: location)
