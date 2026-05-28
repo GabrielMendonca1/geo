@@ -327,11 +327,6 @@ private struct AILocalIssueDocument: Hashable {
     var issue: AIIssue
 }
 
-enum AIDispatchMode: String, Sendable {
-    case legacyPi
-    case hermesTool
-}
-
 actor AIWorkspaceManager {
     private let blocksRepository: any BlocksRepository
     private let dayRepository: any DayRepository
