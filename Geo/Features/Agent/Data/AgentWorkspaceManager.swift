@@ -2557,9 +2557,7 @@ actor AIWorkspaceManager {
             let lastActive = session.lastTimestamp ?? session.startedAt
             let elapsedMS = now.timeIntervalSince(lastActive) * 1000
             guard elapsedMS > Double(stallTimeoutMS) else { continue }
-            if let process = runningProcesses[sessionID], process.isRunning { process.terminate() }
-            runningProcesses.removeValue(forKey: sessionID)
-            liveSessions.removeValue(forKey: sessionID)
+            removeLiveSession(sessionID: sessionID)
             claimedIssueIDs.remove(session.issueID)
             markAttempt(issueID: session.issueID, status: .stalled, error: "No activity for \(stallTimeoutMS / 1_000)s.")
             stalled.append((session.issueID, session.issueIdentifier, Int(elapsedMS / 1_000)))
