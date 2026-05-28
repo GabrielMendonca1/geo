@@ -7,8 +7,29 @@ private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "geo", ca
 @MainActor
 class BlocksStore: ObservableObject {
 
-    @Published private(set) var blocks: [Block] = []
+    @Published private(set) var blocks: [Block] = [] {
+        didSet { rebuildBlocksIndex() }
+    }
     @Published private(set) var focusedBlockId: String?
+
+    private var blocksById: [String: Int] = [:]
+
+    private func rebuildBlocksIndex() {
+        var map: [String: Int] = [:]
+        map.reserveCapacity(blocks.count)
+        for (i, b) in blocks.enumerated() { map[b.id] = i }
+        blocksById = map
+    }
+
+    private func indexOfBlock(id: String) -> Int? {
+        if let i = blocksById[id], i < blocks.count, blocks[i].id == id { return i }
+        return blocks.firstIndex(where: { $0.id == id })
+    }
+
+    private func block(withId id: String) -> Block? {
+        guard let i = indexOfBlock(id: id) else { return nil }
+        return blocks[i]
+    }
 
     @MainActor
     func setFocusedBlock(_ id: String?) {
