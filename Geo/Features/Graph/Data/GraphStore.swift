@@ -21,12 +21,42 @@ final class GraphStore: ObservableObject {
         guard observationTask == nil else { return }
         observationTask = Task { [weak self] in
             let stream = blocksViewModel.$blocks
-                .debounce(for: .milliseconds(400), scheduler: DispatchQueue.main)
+                .debounce(for: .milliseconds(100), scheduler: DispatchQueue.main)
                 .values
             for await blocks in stream {
                 await self?.refresh(from: blocks)
             }
         }
+        startObservingExternalChanges()
+    }
+
+    private func startObservingExternalChanges() {
+        guard externalChangeObserver == nil else { return }
+        externalChangeObserver = NotificationCenter.default.addObserver(
+            forName: .blocksExternallyChanged,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            guard let self else { return }
+            let changed = note.userInfo?[BlockExternalChangeKey.changedIds] as? [String] ?? []
+            let removed = note.userInfo?[BlockExternalChangeKey.removedIds] as? [String] ?? []
+            let allIds = changed + removed
+            guard !allIds.isEmpty else { return }
+            Task { @MainActor in
+                let uuids = self.uuidsForBlockIds(allIds)
+                guard !uuids.isEmpty else { return }
+                self.externalChangeSignal = ExternalChangeSignal(nodeIds: uuids, timestamp: Date())
+            }
+        }
+    }
+
+    private func uuidsForBlockIds(_ stringIds: [String]) -> Set<UUID> {
+        let inverse = Dictionary(uniqueKeysWithValues: idLookup.map { ($1, $0) })
+        var set = Set<UUID>()
+        for id in stringIds {
+            if let uuid = inverse[id] { set.insert(uuid) }
+        }
+        return set
     }
 
     func updateLayoutCache(positions: [UUID: CGPoint], settled: Bool) {
