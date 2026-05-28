@@ -67,8 +67,9 @@ echo "  Verify:  launchctl list ai.hermes.claude-code-lane"
 echo
 echo "  To enqueue a run from the CLI:"
 echo "    hermes kanban create --assignee claude-code \\"
-echo "        --workspace-kind dir --workspace-path /abs/dir \\"
-echo "        --title 'test run' --body 'list files in the current directory'"
+echo "        --workspace dir:/abs/dir \\"
+echo "        --body 'list files in the current directory' \\"
+echo "        'test run'"
 echo
 echo "  From hermes chat, the agent can call the MCP tool:"
 echo "    claude_code_run(directory='/abs/dir', prompt='list files...')"
