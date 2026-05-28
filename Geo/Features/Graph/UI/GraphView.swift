@@ -691,8 +691,11 @@ struct GraphView: View {
               canvasSize.width > 0, canvasSize.height > 0,
               !simulation.layout.positions.isEmpty else { return }
         hasFramedInitialLayout = true
-        simulation.prewarm(maxSteps: 480)
-        fitToView(in: canvasSize)
+        let size = canvasSize
+        DispatchQueue.main.async {
+            simulation.prewarm(maxSteps: 480)
+            fitToView(in: size)
+        }
     }
 
     private func fitToView(in size: CGSize) {
