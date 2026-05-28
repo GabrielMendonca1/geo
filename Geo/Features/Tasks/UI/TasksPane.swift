@@ -661,9 +661,7 @@ private struct TaskCard: View {
 
     private var detailText: String { "\(dateText) · \(timeText)" }
 
-    private var reminderCount: Int {
-        task.reminders.count + task.recurringReminders.count
-    }
+    private var reminderCount: Int { task.reminders.count }
 
     private var showsLinkedBlockSection: Bool {
         hasLinkedBlock && linkedBlockTitle != nil
@@ -673,12 +671,10 @@ private struct TaskCard: View {
         task.recurrence.isRepeating
             || reminderCount > 0
             || (linkedBlockTitle != nil && !showsLinkedBlockSection)
-            || (task.smartReminder && task.status == .pending)
             || task.isOverdue
             || task.priority != .unset
             || task.estimatedDuration != nil
-            || task.context != nil
-            || (task.kind == .habit && task.currentStreak > 0)
+            || (task.isHabit && task.habitCurrentStreak > 0)
             || task.daysUntilMilestone != nil
     }
 
