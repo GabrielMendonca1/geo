@@ -164,6 +164,7 @@ final class GraphStore: ObservableObject {
             graph = result.graph
             idLookup = result.idLookup
             lastFingerprint = newFingerprint
+            resolvePendingExternalIds()
             return
         }
 
@@ -175,5 +176,6 @@ final class GraphStore: ObservableObject {
             idLookup = [:]
         }
         lastFingerprint = newFingerprint
+        resolvePendingExternalIds()
     }
 }
