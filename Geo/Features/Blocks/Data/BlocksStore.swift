@@ -908,7 +908,7 @@ extension BlocksStore {
     }
 
     func toggleCheckbox(in blockId: String, lineNumber: Int) async throws {
-        guard let block = blocks.first(where: { $0.id == blockId }) else {
+        guard let block = block(withId: blockId) else {
             throw BlockCheckboxError.blockNotFound
         }
         var lines = BlockCheckboxParsing.splitLines(block.markdown)
