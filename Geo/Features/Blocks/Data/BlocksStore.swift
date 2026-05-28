@@ -288,7 +288,7 @@ class BlocksStore: ObservableObject {
             tagId: currentBlock.tagId,
             metadata: currentBlock.metadata
         )
-        if let liveIndex = self.blocks.firstIndex(where: { $0.id == currentBlock.id }) {
+        if let liveIndex = self.indexOfBlock(id: currentBlock.id) {
             self.blocks[liveIndex] = interimBlock
         } else {
             self.blocks.append(interimBlock)
