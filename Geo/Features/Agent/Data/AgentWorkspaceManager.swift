@@ -427,9 +427,6 @@ actor AIWorkspaceManager {
         detectStalls(workflow: workflow)
         refreshRuntimeDetection()
         refreshHermesDetection()
-        if detectedPi.isAvailable {
-            attempts.removeAll { $0.status == .failed && $0.error == "Run: pi /login" }
-        }
 
         if let error = workflow.parseError ?? workflow.config.dispatchValidationError {
             serviceStatus = serviceStatus == .running ? .degraded : serviceStatus
