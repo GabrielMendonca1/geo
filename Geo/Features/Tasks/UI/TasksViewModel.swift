@@ -28,7 +28,6 @@ final class TasksViewModel: ObservableObject {
     @Published var showCompleted = true
     @Published var filterKind: TaskKind? = nil
     @Published var filterPriority: TaskPriority? = nil
-    @Published var filterContext: String? = nil
     @Published private(set) var tasks: [TaskItem] = []
     @Published private(set) var linkedBlockCounts: [String: Int] = [:]
     @Published private(set) var linkedPendingBlockIds: Set<String> = []
