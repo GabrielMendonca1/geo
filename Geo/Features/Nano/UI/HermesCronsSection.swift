@@ -5,20 +5,27 @@ struct HermesCronsSection: View {
     @State private var showAdd: Bool = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Text("Hermes cron")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
+                Text("Crons")
+                    .font(GeoStyle.Typography.titleFont(size: 17))
+                    .foregroundStyle(Palette.foreground)
                 Spacer()
                 Button {
                     showAdd = true
                 } label: {
-                    Label("Add", systemImage: "plus")
-                        .font(.caption)
+                    HStack(spacing: 5) {
+                        Image(systemName: "plus").font(.system(size: 11, weight: .medium))
+                        Text("Add").font(.system(size: 13, weight: .medium))
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .foregroundStyle(Palette.foreground)
+                    .overlay(Capsule().strokeBorder(Palette.border, lineWidth: 1))
+                    .contentShape(Capsule())
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
+                .buttonStyle(.plain)
+                .pointingHandCursor()
             }
 
             if store.jobs.isEmpty {
