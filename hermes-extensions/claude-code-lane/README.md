@@ -44,10 +44,10 @@ Hermes calls the MCP tool, which creates the kanban row. The daemon picks it up 
 ```bash
 hermes kanban create \
     --assignee claude-code \
-    --workspace-kind dir \
-    --workspace-path /abs/path/to/repo \
-    --title "rate limiter" \
-    --body "implement a token-bucket rate limiter at rate_limiter.py with tests"
+    --workspace dir:/abs/path/to/repo \
+    --body "implement a token-bucket rate limiter at rate_limiter.py with tests" \
+    --max-runtime 1h \
+    "rate limiter"
 ```
 
 **Inspect a running task:**
