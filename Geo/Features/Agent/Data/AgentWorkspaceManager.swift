@@ -1125,7 +1125,7 @@ actor AIWorkspaceManager {
         let activeStates = Set(workflow.config.tracker.activeStates.map(normalizeState))
         let terminalStates = Set(workflow.config.tracker.terminalStates.map(normalizeState))
         guard activeStates.contains(issue.normalizedState), !terminalStates.contains(issue.normalizedState) else { return false }
-        let isRunning = liveSessions.values.contains { $0.issueID == issue.id }
+        let isRunning = (liveSessionsByIssueID[issue.id]?.isEmpty == false)
         guard !claimedIssueIDs.contains(issue.id), !isRunning, !completedIssueIDs.contains(issue.id) else { return false }
 
         if issue.normalizedState == "todo" {
