@@ -3,8 +3,6 @@ import AppKit
 import Foundation
 import GRDB
 
-// Geo pane — mission control for the always-on hermes daemon.
-
 struct NanoPane: View {
     @EnvironmentObject private var service: HermesStatusService
     @StateObject private var insights = TodayInsightsService()
@@ -15,10 +13,10 @@ struct NanoPane: View {
     var body: some View {
         Pane {
             VStack(spacing: 0) {
-                StatusBar(service: service, totalToday: insights.totalToday)
-                Divider().opacity(0.5)
+                DashHeader(service: service, totalToday: insights.totalToday)
+                Divider().overlay(Palette.border)
                 ScrollView {
-                    VStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 24) {
                         if service.setupState != .running {
                             HermesSetupBanner(service: service)
                         }
@@ -29,19 +27,24 @@ struct NanoPane: View {
                                 dismissedErrorId = banner.id
                             }
                         }
-                        TodayInsightsCard(insights: insights)
-                        ActivatedStrip(service: service)
-                        HStack(alignment: .top, spacing: 12) {
-                            CronsCard()
-                                .frame(maxWidth: .infinity)
+
+                        TodayCard(insights: insights)
+
+                        HStack(alignment: .top, spacing: 24) {
+                            ChannelsCard(service: service)
                             MemoryCard()
-                                .frame(width: 260)
                         }
-                        WorkersCard()
-                        ActivityFeed(events: activity.events, scrollTo: $scrollTargetId)
-                            .frame(height: 320)
+
+                        HStack(alignment: .top, spacing: 24) {
+                            GeoCard { HermesCronsSection() }
+                            GeoCard { WorkersCard() }
+                        }
+
+                        ActivityCard(events: activity.events, scrollTo: $scrollTargetId)
                     }
-                    .padding(14)
+                    .padding(.horizontal, 24)
+                    .padding(.top, 24)
+                    .padding(.bottom, 40)
                 }
             }
         }
@@ -67,187 +70,265 @@ struct NanoPane: View {
     }
 }
 
-// MARK: - Setup banner --------------------------------------------------
+// Header -----------------------------------------------------------------
 
-private struct HermesSetupBanner: View {
-    @ObservedObject var service: HermesStatusService
+private enum HealthVerdict {
+    case healthy, degraded, down
 
-    var body: some View {
-        let copy = bannerCopy
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: copy.icon)
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(GeoColors.blue)
-                .frame(width: 22, alignment: .center)
-                .padding(.top, 2)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(copy.title)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.primary)
-                Text(copy.body)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                if let hint = copy.hint {
-                    Text(hint)
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundStyle(.secondary.opacity(0.85))
-                        .padding(.top, 1)
-                }
-                if let error = service.lastError, !error.isEmpty {
-                    Text(error)
-                        .font(.system(size: 10))
-                        .foregroundStyle(Color(red: 0.95, green: 0.32, blue: 0.32))
-                        .padding(.top, 2)
-                }
-            }
-            Spacer(minLength: 8)
-            Button {
-                copy.action()
-            } label: {
-                HStack(spacing: 5) {
-                    if service.setupActionInFlight {
-                        ProgressView()
-                            .controlSize(.small)
-                            .scaleEffect(0.7)
-                    } else {
-                        Image(systemName: copy.buttonIcon)
-                            .font(.system(size: 10, weight: .medium))
-                    }
-                    Text(copy.buttonLabel)
-                        .font(.system(size: 11, weight: .medium))
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .fill(GeoColors.blue)
-                )
-                .foregroundStyle(.white)
-            }
-            .buttonStyle(.plain)
-            .disabled(service.setupActionInFlight)
+    var label: String {
+        switch self {
+        case .healthy: return "Healthy"
+        case .degraded: return "Degraded"
+        case .down: return "Down"
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(GeoColors.blue.opacity(0.06))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(GeoColors.blue.opacity(0.30), lineWidth: 0.7)
-        )
     }
 
-    private struct BannerCopy {
-        let icon: String
-        let title: String
-        let body: String
-        let hint: String?
-        let buttonLabel: String
-        let buttonIcon: String
-        let action: () -> Void
-    }
-
-    private var bannerCopy: BannerCopy {
-        switch service.setupState {
-        case .notInstalled:
-            return BannerCopy(
-                icon: "shippingbox.fill",
-                title: "Hermes is not installed",
-                body: "Hermes is the always-on agent that powers Geo's Telegram, WhatsApp, and Gmail integration. Install it to enable channels and the kanban dispatch.",
-                hint: "After install, run ./hermes/install.sh from this repo to seed config + ~/.hermes/.env.",
-                buttonLabel: "Install Hermes",
-                buttonIcon: "arrow.down.circle.fill",
-                action: { [service] in service.installHermes() }
-            )
-        case .installedNotRunning:
-            return BannerCopy(
-                icon: "power.circle.fill",
-                title: "Hermes is installed but not running",
-                body: "The hermes binary is on PATH but the LaunchAgent is stopped. Start the gateway to enable channels.",
-                hint: nil,
-                buttonLabel: "Start Hermes",
-                buttonIcon: "play.fill",
-                action: { [service] in service.startGateway() }
-            )
-        case .running:
-            return BannerCopy(
-                icon: "checkmark.circle.fill",
-                title: "Hermes is running",
-                body: "",
-                hint: nil,
-                buttonLabel: "OK",
-                buttonIcon: "checkmark",
-                action: {}
-            )
+    var dot: DashDot {
+        switch self {
+        case .healthy: return .green
+        case .degraded: return .yellow
+        case .down: return .red
         }
     }
 }
 
-// MARK: - Today insights (hero card) ------------------------------------
+private struct DashHeader: View {
+    @ObservedObject var service: HermesStatusService
+    let totalToday: Int
+    @State private var feedback: String?
+    @State private var feedbackIsError = false
 
-private struct TodayInsightsCard: View {
+    var body: some View {
+        HStack(spacing: 14) {
+            Text("Hermes")
+                .font(GeoStyle.Typography.titleFont(size: 26))
+                .foregroundStyle(Palette.foreground)
+
+            StatusChip(verdict: verdict)
+
+            Text("\(totalToday) handled")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Palette.tertiaryForeground)
+                .contentTransition(.numericText())
+                .animation(.spring(response: 0.5), value: totalToday)
+
+            if let tick = service.lastTick {
+                Text("· tick \(relativeTime(tick))")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Palette.tertiaryForeground.opacity(0.8))
+            }
+
+            if let feedback {
+                Text(feedback)
+                    .font(.system(size: 12))
+                    .foregroundStyle(feedbackIsError ? Color(nsColor: Palette.agentDanger) : Palette.tertiaryForeground)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .transition(.opacity)
+            }
+
+            Spacer(minLength: 12)
+
+            OpsPill(label: "Restart", icon: "arrow.clockwise", action: restartHermes)
+            OpsPill(label: "SOUL", icon: "doc.text", action: openSoul)
+            OpsPill(label: "Log", icon: "list.bullet.rectangle", action: tailLog)
+            OpsPill(label: "Files", icon: "folder", action: revealHermes)
+        }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 16)
+    }
+
+    private var verdict: HealthVerdict {
+        guard service.setupState == .running, service.mcpConnected else { return .down }
+        let bad = service.connectors.contains { c in
+            switch c.status {
+            case .error, .disconnected: return true
+            case .connected, .connecting: return false
+            }
+        }
+        return bad ? .degraded : .healthy
+    }
+
+    private func openSoul() {
+        let path = NSString(string: "~/.hermes/SOUL.md").expandingTildeInPath
+        NSWorkspace.shared.open(URL(fileURLWithPath: path))
+    }
+
+    private func tailLog() {
+        let logURL = URL(fileURLWithPath: NSString(string: "~/.hermes/logs/gateway.log").expandingTildeInPath)
+        let consoleURL = URL(fileURLWithPath: "/System/Applications/Utilities/Console.app")
+        let config = NSWorkspace.OpenConfiguration()
+        NSWorkspace.shared.open([logURL], withApplicationAt: consoleURL, configuration: config) { _, error in
+            if let error {
+                show("console: \(error.localizedDescription)", isError: true)
+            }
+        }
+    }
+
+    private func restartHermes() {
+        show("restarting…", isError: false)
+        Task.detached {
+            let uid = getuid()
+            let target = "gui/\(uid)/ai.hermes.gateway"
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+            process.arguments = ["kickstart", "-k", target]
+            let pipe = Pipe()
+            process.standardError = pipe
+            process.standardOutput = pipe
+            do {
+                try process.run()
+                process.waitUntilExit()
+                if process.terminationStatus == 0 {
+                    await MainActor.run { show("restarted hermes", isError: false) }
+                } else {
+                    let data = (try? pipe.fileHandleForReading.readToEnd()) ?? Data()
+                    let msg = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+                    await MainActor.run {
+                        if let msg, !msg.isEmpty {
+                            show(msg, isError: true)
+                        } else {
+                            show("exit \(process.terminationStatus)", isError: true)
+                        }
+                    }
+                }
+            } catch {
+                await MainActor.run { show(error.localizedDescription, isError: true) }
+            }
+        }
+    }
+
+    private func revealHermes() {
+        let path = NSString(string: "~/.hermes").expandingTildeInPath
+        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
+    }
+
+    private func show(_ text: String, isError: Bool) {
+        feedback = text
+        feedbackIsError = isError
+        let snapshot = text
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
+            if feedback == snapshot { feedback = nil }
+        }
+    }
+}
+
+private struct StatusChip: View {
+    let verdict: HealthVerdict
+
+    var body: some View {
+        HStack(spacing: 7) {
+            PulsingDot(dot: verdict.dot).frame(width: 12, height: 12)
+            Text(verdict.label)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(verdict.dot.color)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(Capsule().fill(verdict.dot.color.opacity(0.12)))
+    }
+}
+
+private struct OpsPill: View {
+    let label: String
+    let icon: String
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: icon).font(.system(size: 12, weight: .medium))
+                Text(label).font(.system(size: 13, weight: .medium))
+            }
+            .padding(.horizontal, 13)
+            .padding(.vertical, 8)
+            .foregroundStyle(Palette.foreground)
+            .background(Capsule().fill(hovering ? Palette.foreground.opacity(0.06) : Color.clear))
+            .overlay(Capsule().strokeBorder(Palette.border, lineWidth: 1))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .pointingHandCursor()
+        .onHover { hovering = $0 }
+    }
+}
+
+// Card primitives --------------------------------------------------------
+
+private struct GeoCard<Content: View>: View {
+    var title: String? = nil
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            if let title {
+                Text(title)
+                    .font(GeoStyle.Typography.titleFont(size: 17))
+                    .foregroundStyle(Palette.foreground)
+            }
+            content
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Palette.background))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Palette.border, lineWidth: 1))
+        .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
+    }
+}
+
+// Today ------------------------------------------------------------------
+
+private struct TodayCard: View {
     @ObservedObject var insights: TodayInsightsService
 
     var body: some View {
-        DashCard(title: "Today", icon: "sparkles", accent: GeoColors.blue) {
-            HStack(alignment: .top, spacing: 18) {
-                // Big number on the left
-                VStack(alignment: .leading, spacing: 2) {
+        GeoCard(title: "Today") {
+            HStack(alignment: .top, spacing: 28) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text("\(insights.totalToday)")
-                        .font(.system(size: 36, weight: .semibold, design: .rounded))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [GeoColors.blue, GeoColors.blueLight],
-                                startPoint: .topLeading, endPoint: .bottomTrailing
-                            )
-                        )
+                        .font(.system(size: 52, weight: .semibold, design: .rounded))
+                        .foregroundStyle(GeoColors.blue)
                         .contentTransition(.numericText())
                         .animation(.spring(response: 0.5), value: insights.totalToday)
                     Text(insights.totalToday == 1 ? "message handled" : "messages handled")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 13))
+                        .foregroundStyle(Palette.tertiaryForeground)
                 }
-                .frame(width: 130, alignment: .leading)
+                .frame(width: 150, alignment: .leading)
 
-                Divider().frame(height: 60)
-
-                // Per-channel bars in the middle
-                VStack(alignment: .leading, spacing: 5) {
+                VStack(alignment: .leading, spacing: 9) {
                     if insights.perChannel.isEmpty {
                         Text("nothing yet — geo is awake and waiting")
-                            .font(.system(size: 11))
+                            .font(.system(size: 13))
                             .italic()
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Palette.tertiaryForeground)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     } else {
                         let maxCount = insights.perChannel.map(\.count).max() ?? 1
                         ForEach(insights.perChannel, id: \.kind) { item in
-                            HStack(spacing: 8) {
-                                Text(label(for: item.kind))
-                                    .font(.system(size: 11, weight: .medium))
-                                    .frame(width: 64, alignment: .leading)
-                                ChannelBar(value: item.count, max: maxCount, tint: tint(for: item.kind))
-                                    .frame(height: 6)
+                            HStack(spacing: 12) {
+                                Text(ChannelStyle.label(item.kind))
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundStyle(Palette.foreground)
+                                    .frame(width: 80, alignment: .leading)
+                                ChannelBar(value: item.count, max: maxCount, tint: ChannelStyle.tint(item.kind))
+                                    .frame(height: 8)
                                 Text("\(item.count)")
-                                    .font(.system(size: 11, design: .monospaced))
-                                    .foregroundStyle(.secondary)
-                                    .frame(width: 24, alignment: .trailing)
+                                    .font(.system(size: 13, weight: .medium, design: .monospaced))
+                                    .foregroundStyle(Palette.tertiaryForeground)
+                                    .frame(width: 28, alignment: .trailing)
                             }
                         }
                     }
 
-                    if insights.todayLabels.count > 0 {
-                        HStack(spacing: 10) {
+                    if !insights.todayLabels.isEmpty {
+                        HStack(spacing: 8) {
                             ForEach(insights.todayLabels, id: \.self) { label in
                                 Text(label)
-                                    .font(.system(size: 10, weight: .medium))
-                                    .padding(.horizontal, 7).padding(.vertical, 2)
-                                    .background(
-                                        Capsule().fill(GeoColors.blue.opacity(0.10))
-                                    )
+                                    .font(.system(size: 12, weight: .medium))
+                                    .padding(.horizontal, 10).padding(.vertical, 4)
+                                    .background(Capsule().fill(GeoColors.blue.opacity(0.10)))
                                     .foregroundStyle(GeoColors.blue)
                             }
                             Spacer()
@@ -257,76 +338,34 @@ private struct TodayInsightsCard: View {
                 }
                 .frame(maxWidth: .infinity)
 
-                // Last reply preview on the right
                 if let reply = insights.lastReply {
-                    Divider().frame(height: 60)
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack(spacing: 4) {
-                            Image(systemName: icon(for: reply.kind))
-                                .font(.system(size: 9))
-                                .foregroundStyle(.secondary)
-                            Text("\(reply.kind) · \(relative(reply.ts))")
-                                .font(.system(size: 9, weight: .medium))
-                                .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 5) {
+                            Image(systemName: ChannelStyle.icon(reply.kind))
+                                .font(.system(size: 10))
+                            Text("\(reply.kind) · \(relativeTime(reply.ts))")
+                                .font(.system(size: 10, weight: .semibold))
                                 .textCase(.uppercase)
                                 .tracking(0.5)
                         }
+                        .foregroundStyle(Palette.tertiaryForeground)
                         Text(reply.text)
-                            .font(.system(size: 11.5, weight: .regular))
-                            .foregroundStyle(.primary)
+                            .font(.system(size: 13))
+                            .foregroundStyle(Palette.foreground)
                             .lineLimit(3)
-                            .multilineTextAlignment(.leading)
-                            .padding(.leading, 8)
+                            .padding(.leading, 10)
                             .overlay(
-                                Rectangle()
-                                    .fill(GeoColors.blue.opacity(0.5))
-                                    .frame(width: 2),
+                                Rectangle().fill(GeoColors.blue.opacity(0.5)).frame(width: 2),
                                 alignment: .leading
                             )
                         Text("most recent reply")
-                            .font(.system(size: 9))
-                            .foregroundStyle(.secondary.opacity(0.7))
+                            .font(.system(size: 10))
+                            .foregroundStyle(Palette.tertiaryForeground.opacity(0.7))
                     }
-                    .frame(width: 220, alignment: .leading)
+                    .frame(width: 240, alignment: .leading)
                 }
             }
         }
-    }
-
-    private func label(for kind: String) -> String {
-        switch kind {
-        case "telegram": return "Telegram"
-        case "whatsapp": return "WhatsApp"
-        case "gmail": return "Gmail"
-        case "nano": return "Nano"
-        default: return kind.capitalized
-        }
-    }
-
-    private func tint(for kind: String) -> Color {
-        switch kind {
-        case "telegram": return Color(red: 0.15, green: 0.59, blue: 0.91)
-        case "whatsapp": return Color(red: 0.07, green: 0.71, blue: 0.42)
-        case "gmail": return Color(red: 0.96, green: 0.55, blue: 0.13)
-        case "nano": return Color(red: 0.55, green: 0.40, blue: 0.93)
-        default: return GeoColors.blue
-        }
-    }
-
-    private func icon(for kind: String) -> String {
-        switch kind {
-        case "telegram": return "paperplane.fill"
-        case "whatsapp": return "bubble.left.fill"
-        case "gmail": return "envelope.fill"
-        case "nano": return "rectangle.grid.2x2.fill"
-        default: return "circle.fill"
-        }
-    }
-
-    private func relative(_ date: Date) -> String {
-        let f = RelativeDateTimeFormatter()
-        f.unitsStyle = .short
-        return f.localizedString(for: date, relativeTo: Date())
     }
 }
 
@@ -338,15 +377,9 @@ private struct ChannelBar: View {
     var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 3, style: .continuous)
-                    .fill(Color.secondary.opacity(0.10))
-                RoundedRectangle(cornerRadius: 3, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [tint, tint.opacity(0.6)],
-                            startPoint: .leading, endPoint: .trailing
-                        )
-                    )
+                Capsule().fill(Palette.secondaryBackground)
+                Capsule()
+                    .fill(LinearGradient(colors: [tint, tint.opacity(0.6)], startPoint: .leading, endPoint: .trailing))
                     .frame(width: geo.size.width * CGFloat(Double(value) / Double(Swift.max(max, 1))))
                     .animation(.easeOut(duration: 0.6), value: value)
             }
@@ -354,54 +387,46 @@ private struct ChannelBar: View {
     }
 }
 
-// MARK: - Activated strip (compact) -------------------------------------
+// Channels ---------------------------------------------------------------
 
-private struct ActivatedStrip: View {
+private struct ChannelsCard: View {
     @ObservedObject var service: HermesStatusService
     @State private var connectorDrawer: String?
 
     var body: some View {
-        DashCard(title: "Activated", icon: "dot.radiowaves.left.and.right", accent: nil) {
-            VStack(alignment: .leading, spacing: 8) {
-                FlowChips(items: chips)
+        GeoCard(title: "Channels") {
+            VStack(alignment: .leading, spacing: 10) {
+                ChannelRow(
+                    name: "MCP",
+                    detail: service.mcpConnected ? "connected" : (service.mcpError ?? "down"),
+                    dot: service.mcpConnected ? .green : .red,
+                    tap: nil
+                )
+                ForEach(service.connectors) { c in
+                    ChannelRow(
+                        name: c.name,
+                        detail: c.identity ?? c.status.label,
+                        dot: dotColor(for: c.status),
+                        tap: { connectorDrawer = c.id }
+                    )
+                }
+                Divider().overlay(Palette.border).padding(.vertical, 2)
                 HStack(spacing: 16) {
                     Label("provider: \(service.provider)", systemImage: "cpu")
                     if let tick = service.lastTick {
-                        Label("last tick \(relative(tick))", systemImage: "clock")
+                        Label("last tick \(relativeTime(tick))", systemImage: "clock")
                     }
                 }
-                .font(.system(size: 10))
-                .foregroundStyle(.secondary)
+                .font(.system(size: 11))
+                .foregroundStyle(Palette.tertiaryForeground)
             }
         }
         .sheet(item: Binding(
             get: { connectorDrawer.map { ConnectorDrawerItem(id: $0) } },
             set: { connectorDrawer = $0?.id }
         )) { item in
-            ConnectorDrawer(id: item.id)
-                .environmentObject(service)
+            ConnectorDrawer(id: item.id).environmentObject(service)
         }
-    }
-
-    private var chips: [ChipModel] {
-        var items: [ChipModel] = []
-        items.append(ChipModel(
-            id: "mcp",
-            label: "MCP",
-            detail: service.mcpConnected ? "connected" : (service.mcpError ?? "down"),
-            dot: service.mcpConnected ? .green : .red,
-            tap: nil
-        ))
-        for c in service.connectors {
-            items.append(ChipModel(
-                id: c.id,
-                label: c.name,
-                detail: c.identity ?? c.status.label,
-                dot: dotColor(for: c.status),
-                tap: { connectorDrawer = c.id }
-            ))
-        }
-        return items
     }
 
     private func dotColor(for status: HermesConnectionStatus) -> DashDot {
@@ -412,35 +437,60 @@ private struct ActivatedStrip: View {
         case .error: return .red
         }
     }
+}
 
-    private func relative(_ date: Date) -> String {
-        let f = RelativeDateTimeFormatter()
-        f.unitsStyle = .short
-        return f.localizedString(for: date, relativeTo: Date())
+private struct ChannelRow: View {
+    let name: String
+    let detail: String
+    let dot: DashDot
+    let tap: (() -> Void)?
+    @State private var hovering = false
+
+    var body: some View {
+        let row = HStack(spacing: 11) {
+            PulsingDot(dot: dot).frame(width: 12, height: 12)
+            Text(name)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(Palette.foreground)
+            Text(detail)
+                .font(.system(size: 13))
+                .foregroundStyle(Palette.tertiaryForeground)
+                .lineLimit(1)
+                .truncationMode(.middle)
+            Spacer(minLength: 0)
+            if tap != nil {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Palette.tertiaryForeground.opacity(hovering ? 0.9 : 0.4))
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(hovering ? Palette.secondaryBackground : Color.clear))
+        .contentShape(Rectangle())
+
+        if let tap {
+            Button(action: tap) { row }
+                .buttonStyle(.plain)
+                .pointingHandCursor()
+                .onHover { hovering = $0 }
+        } else {
+            row
+        }
     }
 }
 
 private struct ConnectorDrawerItem: Identifiable { let id: String }
 
-// MARK: - Crons card -----------------------------------------------------
-
-private struct CronsCard: View {
-    var body: some View {
-        DashCard(title: "Crons", icon: "clock.fill", accent: nil) {
-            HermesCronsSection()
-        }
-    }
-}
-
-// MARK: - Memory card ----------------------------------------------------
+// Memory -----------------------------------------------------------------
 
 private struct MemoryCard: View {
     @EnvironmentObject private var blocksStore: BlocksStore
     @State private var memoryIndex: [String: BlocksStore.Block] = [:]
 
     var body: some View {
-        DashCard(title: "Memory", icon: "brain.head.profile", accent: nil) {
-            VStack(alignment: .leading, spacing: 10) {
+        GeoCard(title: "Memory") {
+            VStack(alignment: .leading, spacing: 12) {
                 if blocksStore.blocks.isEmpty {
                     MemoryLoadingRow()
                 } else {
@@ -448,10 +498,10 @@ private struct MemoryCard: View {
                     MemoryRow(spec: .memory, block: memoryIndex[MemorySpec.memory.tag])
                     MemoryRow(spec: .profile, block: memoryIndex[MemorySpec.profile.tag])
                 }
-                Divider().padding(.vertical, 2)
+                Divider().overlay(Palette.border).padding(.vertical, 2)
                 Text("Edit any of these blocks in the Blocks pane to change what the agent knows. Restart the daemon to pick up Soul edits.")
-                    .font(.system(size: 9.5))
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Palette.tertiaryForeground)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -499,37 +549,17 @@ private struct MemorySpec {
     let titleMatches: [String]
     let cap: Int?
 
-    static let soul = MemorySpec(
-        name: "Soul",
-        tag: "soul",
-        titleMatches: ["soul", "soul of geo"],
-        cap: nil
-    )
-    static let memory = MemorySpec(
-        name: "Memory",
-        tag: "memory",
-        titleMatches: ["memory", "geo memory"],
-        cap: 2200
-    )
-    static let profile = MemorySpec(
-        name: "User Profile",
-        tag: "profile",
-        titleMatches: ["user profile", "profile"],
-        cap: 1375
-    )
-
+    static let soul = MemorySpec(name: "Soul", tag: "soul", titleMatches: ["soul", "soul of geo"], cap: nil)
+    static let memory = MemorySpec(name: "Memory", tag: "memory", titleMatches: ["memory", "geo memory"], cap: 2200)
+    static let profile = MemorySpec(name: "User Profile", tag: "profile", titleMatches: ["user profile", "profile"], cap: 1375)
     static let all: [MemorySpec] = [.soul, .memory, .profile]
 }
 
 private struct MemoryLoadingRow: View {
     var body: some View {
         HStack(spacing: 8) {
-            Circle()
-                .fill(Color.secondary.opacity(0.3))
-                .frame(width: 5, height: 5)
-            Text("loading…")
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
+            Circle().fill(Palette.tertiaryForeground.opacity(0.3)).frame(width: 6, height: 6)
+            Text("loading…").font(.system(size: 13)).foregroundStyle(Palette.tertiaryForeground)
             Spacer()
         }
     }
@@ -541,6 +571,7 @@ private struct MemoryRow: View {
     @EnvironmentObject private var blocksStore: BlocksStore
     @Environment(\.openWindow) private var openWindow
     @State private var creating = false
+    @State private var hovering = false
 
     var body: some View {
         if let block {
@@ -557,58 +588,61 @@ private struct MemoryRow: View {
         let preview = bodyPreview(block.markdown)
         let chars = bodyCharCount(block.markdown)
         Button(action: { MenuActions.openBlockEditor(block.id, openWindow: openWindow) }) {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 5) {
                 HStack(spacing: 8) {
-                    Circle().fill(purple).frame(width: 5, height: 5)
-                    Text(spec.name).font(.system(size: 11, weight: .medium))
+                    Circle().fill(purple).frame(width: 6, height: 6)
+                    Text(spec.name).font(.system(size: 14, weight: .medium)).foregroundStyle(Palette.foreground)
                     Spacer(minLength: 0)
                     Text(usageLabel(chars: chars))
-                        .font(.system(size: 9, design: .monospaced))
+                        .font(.system(size: 10, design: .monospaced))
                         .foregroundStyle(usageColor(chars: chars))
-                    Text(relative(block.lastEdited))
-                        .font(.system(size: 9))
-                        .foregroundStyle(.secondary.opacity(0.8))
+                    Text(relativeTime(block.lastEdited))
+                        .font(.system(size: 10))
+                        .foregroundStyle(Palette.tertiaryForeground.opacity(0.8))
                 }
                 if !preview.isEmpty {
                     Text(preview)
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 12))
+                        .foregroundStyle(Palette.tertiaryForeground)
                         .lineLimit(1)
                         .truncationMode(.tail)
-                        .padding(.leading, 13)
+                        .padding(.leading, 14)
                 }
                 if spec.cap != nil {
-                    UsageBar(chars: chars, cap: spec.cap!)
-                        .frame(height: 3)
-                        .padding(.leading, 13)
+                    UsageBar(chars: chars, cap: spec.cap!).frame(height: 3).padding(.leading, 14)
                 }
             }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(hovering ? Palette.secondaryBackground : Color.clear))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .pointingHandCursor()
+        .onHover { hovering = $0 }
     }
 
     @ViewBuilder
     private func empty() -> some View {
         HStack(spacing: 8) {
-            Circle().fill(Color.secondary.opacity(0.3)).frame(width: 5, height: 5)
+            Circle().fill(Palette.tertiaryForeground.opacity(0.3)).frame(width: 6, height: 6)
             VStack(alignment: .leading, spacing: 0) {
-                Text(spec.name).font(.system(size: 11, weight: .medium))
-                Text("not seeded").font(.system(size: 9.5)).foregroundStyle(.secondary)
+                Text(spec.name).font(.system(size: 14, weight: .medium)).foregroundStyle(Palette.foreground)
+                Text("not seeded").font(.system(size: 11)).foregroundStyle(Palette.tertiaryForeground)
             }
             Spacer()
             Button(action: createBlock) {
                 Text(creating ? "creating…" : "create")
-                    .font(.system(size: 9.5, weight: .medium))
-                    .padding(.horizontal, 7).padding(.vertical, 2)
-                    .background(
-                        Capsule().fill(purple.opacity(0.15))
-                    )
+                    .font(.system(size: 11, weight: .medium))
+                    .padding(.horizontal, 10).padding(.vertical, 4)
+                    .background(Capsule().fill(purple.opacity(0.15)))
                     .foregroundStyle(purple)
             }
             .buttonStyle(.plain)
             .disabled(creating)
         }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
     }
 
     private func createBlock() {
@@ -657,24 +691,16 @@ private struct MemoryRow: View {
     }
 
     private func usageLabel(chars: Int) -> String {
-        if let cap = spec.cap {
-            return "\(chars) / \(cap)"
-        }
+        if let cap = spec.cap { return "\(chars) / \(cap)" }
         return "\(chars)"
     }
 
     private func usageColor(chars: Int) -> Color {
-        guard let cap = spec.cap, cap > 0 else { return .secondary }
+        guard let cap = spec.cap, cap > 0 else { return Palette.tertiaryForeground }
         let ratio = Double(chars) / Double(cap)
-        if ratio > 0.85 { return Color(red: 0.95, green: 0.32, blue: 0.32) }
-        if ratio > 0.60 { return Color(red: 0.95, green: 0.65, blue: 0.20) }
-        return Color(red: 0.18, green: 0.70, blue: 0.42)
-    }
-
-    private func relative(_ date: Date) -> String {
-        let f = RelativeDateTimeFormatter()
-        f.unitsStyle = .short
-        return f.localizedString(for: date, relativeTo: Date())
+        if ratio > 0.85 { return Color(nsColor: Palette.agentDanger) }
+        if ratio > 0.60 { return Color(nsColor: Palette.agentWarning) }
+        return Color(nsColor: Palette.agentSuccess)
     }
 }
 
@@ -685,15 +711,9 @@ private struct UsageBar: View {
     var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-                    .fill(Color.secondary.opacity(0.10))
-                RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [tint, tint.opacity(0.7)],
-                            startPoint: .leading, endPoint: .trailing
-                        )
-                    )
+                Capsule().fill(Palette.secondaryBackground)
+                Capsule()
+                    .fill(tint)
                     .frame(width: geo.size.width * CGFloat(min(ratio, 1.0)))
                     .animation(.easeOut(duration: 0.4), value: chars)
             }
@@ -706,49 +726,46 @@ private struct UsageBar: View {
     }
 
     private var tint: Color {
-        if ratio > 0.85 { return Color(red: 0.95, green: 0.32, blue: 0.32) }
-        if ratio > 0.60 { return Color(red: 0.95, green: 0.65, blue: 0.20) }
-        return Color(red: 0.18, green: 0.70, blue: 0.42)
+        if ratio > 0.85 { return Color(nsColor: Palette.agentDanger) }
+        if ratio > 0.60 { return Color(nsColor: Palette.agentWarning) }
+        return Color(nsColor: Palette.agentSuccess)
     }
 }
 
-// MARK: - Activity feed --------------------------------------------------
+// Activity ---------------------------------------------------------------
 
-private struct ActivityFeed: View {
+private struct ActivityCard: View {
     let events: [ActivityEvent]
     @Binding var scrollTo: UUID?
 
     var body: some View {
-        DashCard(title: "Activity", icon: "waveform", accent: nil) {
-            if events.isEmpty {
-                Text("waiting for log events …")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-            } else {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 3) {
-                            ForEach(events) { evt in
-                                ActivityRow(event: evt).id(evt.id)
+        GeoCard(title: "Activity") {
+            Group {
+                if events.isEmpty {
+                    Text("waiting for log events …")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Palette.tertiaryForeground)
+                        .frame(maxWidth: .infinity, minHeight: 240, alignment: .center)
+                } else {
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            LazyVStack(alignment: .leading, spacing: 3) {
+                                ForEach(events) { evt in
+                                    ActivityRow(event: evt).id(evt.id)
+                                }
+                            }
+                            .padding(.vertical, 2)
+                        }
+                        .frame(height: 300)
+                        .onChange(of: events.last?.id) { _, newValue in
+                            if let id = newValue {
+                                withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(id, anchor: .bottom) }
                             }
                         }
-                        .padding(.vertical, 2)
-                    }
-                    .onChange(of: events.last?.id) { _, newValue in
-                        if let id = newValue {
-                            withAnimation(.easeOut(duration: 0.2)) {
-                                proxy.scrollTo(id, anchor: .bottom)
-                            }
-                        }
-                    }
-                    .onChange(of: scrollTo) { _, newValue in
-                        if let id = newValue {
-                            withAnimation(.easeOut(duration: 0.25)) {
-                                proxy.scrollTo(id, anchor: .center)
-                            }
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                scrollTo = nil
+                        .onChange(of: scrollTo) { _, newValue in
+                            if let id = newValue {
+                                withAnimation(.easeOut(duration: 0.25)) { proxy.scrollTo(id, anchor: .center) }
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { scrollTo = nil }
                             }
                         }
                     }
@@ -767,48 +784,44 @@ private struct ActivityRow: View {
     }()
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 9) {
             Image(systemName: kind.icon)
-                .font(.system(size: 10))
-                .foregroundStyle(kind.color)
-                .frame(width: 14, alignment: .center)
-            Text(Self.timeFormatter.string(from: event.timestamp))
-                .font(.system(size: 9.5, design: .monospaced))
-                .foregroundStyle(.secondary.opacity(0.8))
-            Text(event.msg)
                 .font(.system(size: 11))
+                .foregroundStyle(kind.color)
+                .frame(width: 16, alignment: .center)
+            Text(Self.timeFormatter.string(from: event.timestamp))
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(Palette.tertiaryForeground.opacity(0.8))
+            Text(event.msg)
+                .font(.system(size: 13))
+                .foregroundStyle(Palette.foreground)
                 .lineLimit(1)
                 .truncationMode(.tail)
             if let extra = event.extra {
                 Text(extra)
-                    .font(.system(size: 9.5, design: .monospaced))
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(Palette.tertiaryForeground)
                     .lineLimit(1)
                     .truncationMode(.tail)
             }
             Spacer(minLength: 0)
             if event.level >= 40 {
-                Circle()
-                    .fill(levelColor)
-                    .frame(width: 5, height: 5)
+                Circle().fill(levelColor).frame(width: 6, height: 6)
             }
         }
-        .padding(.horizontal, 4)
-        .padding(.vertical, 2)
-        .background(
-            RoundedRectangle(cornerRadius: 4, style: .continuous)
-                .fill(event.level >= 40 ? levelColor.opacity(0.06) : Color.clear)
-        )
+        .padding(.horizontal, 6)
+        .padding(.vertical, 4)
+        .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(event.level >= 40 ? levelColor.opacity(0.06) : Color.clear))
     }
 
     private var kind: EventKind { EventKind.from(event) }
 
     private var levelColor: Color {
         switch event.level {
-        case ..<30: return Color(white: 0.55)
-        case 30..<40: return Color(red: 0.18, green: 0.78, blue: 0.46)
-        case 40..<50: return Color(red: 0.99, green: 0.78, blue: 0.22)
-        default: return Color(red: 0.95, green: 0.32, blue: 0.32)
+        case ..<30: return Palette.tertiaryForeground
+        case 30..<40: return Color(nsColor: Palette.agentSuccess)
+        case 40..<50: return Color(nsColor: Palette.agentWarning)
+        default: return Color(nsColor: Palette.agentDanger)
         }
     }
 }
@@ -840,9 +853,9 @@ private enum EventKind {
         case .observer: return Color(red: 0.40, green: 0.40, blue: 0.45)
         case .mcp: return Color(red: 0.20, green: 0.50, blue: 0.85)
         case .boot: return Color(red: 0.35, green: 0.70, blue: 0.85)
-        case .llm: return Color(red: 0.0, green: 0.33, blue: 1.0)
-        case .info: return Color(white: 0.55)
-        case .error: return Color(red: 0.95, green: 0.32, blue: 0.32)
+        case .llm: return GeoColors.blue
+        case .info: return Palette.tertiaryForeground
+        case .error: return Color(nsColor: Palette.agentDanger)
         }
     }
     static func from(_ e: ActivityEvent) -> EventKind {
@@ -861,15 +874,15 @@ private enum EventKind {
     }
 }
 
-// MARK: - Dashboard primitives ------------------------------------------
+// Shared bits ------------------------------------------------------------
 
 private enum DashDot { case green, yellow, red, gray
     var color: Color {
         switch self {
-        case .green: return Color(red: 0.18, green: 0.78, blue: 0.46)
-        case .yellow: return Color(red: 0.99, green: 0.78, blue: 0.22)
-        case .red: return Color(red: 0.95, green: 0.32, blue: 0.32)
-        case .gray: return Color(white: 0.55)
+        case .green: return Color(nsColor: Palette.agentSuccess)
+        case .yellow: return Color(nsColor: Palette.agentWarning)
+        case .red: return Color(nsColor: Palette.agentDanger)
+        case .gray: return Palette.tertiaryForeground
         }
     }
     var pulses: Bool { self == .green }
@@ -887,9 +900,7 @@ private struct PulsingDot: View {
                     .scaleEffect(animate ? 1.4 : 0.8)
                     .opacity(animate ? 0 : 0.6)
             }
-            Circle()
-                .fill(dot.color)
-                .frame(width: 6, height: 6)
+            Circle().fill(dot.color).frame(width: 7, height: 7)
         }
         .onAppear {
             withAnimation(.easeOut(duration: 1.4).repeatForever(autoreverses: false)) {
@@ -899,96 +910,37 @@ private struct PulsingDot: View {
     }
 }
 
-private struct ChipModel: Identifiable {
-    let id: String
-    let label: String
-    let detail: String
-    let dot: DashDot
-    let tap: (() -> Void)?
-}
-
-private struct FlowChips: View {
-    let items: [ChipModel]
-    var body: some View {
-        let chunked = items.chunked(into: 4)
-        VStack(alignment: .leading, spacing: 5) {
-            ForEach(Array(chunked.enumerated()), id: \.offset) { _, row in
-                HStack(spacing: 6) {
-                    ForEach(row) { item in
-                        chipView(for: item)
-                    }
-                    Spacer(minLength: 0)
-                }
-            }
+private enum ChannelStyle {
+    static func label(_ kind: String) -> String {
+        switch kind {
+        case "telegram": return "Telegram"
+        case "whatsapp": return "WhatsApp"
+        case "gmail": return "Gmail"
+        case "nano": return "Nano"
+        case "cron": return "Scheduled"
+        case "cli": return "CLI"
+        default: return kind.capitalized
         }
     }
 
-    @ViewBuilder
-    private func chipView(for item: ChipModel) -> some View {
-        let view = HStack(spacing: 6) {
-            PulsingDot(dot: item.dot)
-                .frame(width: 12, height: 12)
-            Text(item.label).font(.system(size: 11, weight: .medium))
-            Text(item.detail)
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .truncationMode(.middle)
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(Color.secondary.opacity(0.07))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .strokeBorder(item.dot.color.opacity(item.dot.pulses ? 0.30 : 0.06), lineWidth: 0.5)
-        )
-
-        if let tap = item.tap {
-            Button(action: tap) { view }.buttonStyle(.plain)
-        } else {
-            view
+    static func tint(_ kind: String) -> Color {
+        switch kind {
+        case "telegram": return Color(red: 0.15, green: 0.59, blue: 0.91)
+        case "whatsapp": return Color(red: 0.07, green: 0.71, blue: 0.42)
+        case "gmail": return Color(red: 0.96, green: 0.55, blue: 0.13)
+        case "nano": return Color(red: 0.55, green: 0.40, blue: 0.93)
+        default: return GeoColors.blue
         }
     }
-}
 
-private struct DashCard<Content: View>: View {
-    let title: String
-    let icon: String
-    let accent: Color?
-    @ViewBuilder let content: Content
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            HStack(spacing: 6) {
-                Image(systemName: icon)
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(accent ?? .secondary)
-                Text(title)
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.primary)
-                    .opacity(0.85)
-                    .textCase(.uppercase)
-                    .tracking(0.8)
-                Spacer()
-            }
-            content
+    static func icon(_ kind: String) -> String {
+        switch kind {
+        case "telegram": return "paperplane.fill"
+        case "whatsapp": return "bubble.left.fill"
+        case "gmail": return "envelope.fill"
+        case "nano": return "rectangle.grid.2x2.fill"
+        default: return "circle.fill"
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color.secondary.opacity(0.05))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(
-                    accent?.opacity(0.25) ?? Color.primary.opacity(0.07),
-                    lineWidth: accent != nil ? 0.7 : 0.5
-                )
-        )
     }
 }
 
@@ -997,7 +949,157 @@ private enum GeoColors {
     static let blueLight = Color(red: 0.4, green: 0.6, blue: 1.0)
 }
 
-// MARK: - Activity feed log tail ----------------------------------------
+private func relativeTime(_ date: Date) -> String {
+    let f = RelativeDateTimeFormatter()
+    f.unitsStyle = .short
+    return f.localizedString(for: date, relativeTo: Date())
+}
+
+// Setup + error banners --------------------------------------------------
+
+private struct HermesSetupBanner: View {
+    @ObservedObject var service: HermesStatusService
+
+    var body: some View {
+        let copy = bannerCopy
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: copy.icon)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(GeoColors.blue)
+                .frame(width: 22, alignment: .center)
+                .padding(.top, 2)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(copy.title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Palette.foreground)
+                Text(copy.body)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Palette.tertiaryForeground)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let hint = copy.hint {
+                    Text(hint)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(Palette.tertiaryForeground.opacity(0.85))
+                        .padding(.top, 1)
+                }
+                if let error = service.lastError, !error.isEmpty {
+                    Text(error)
+                        .font(.system(size: 11))
+                        .foregroundStyle(Color(nsColor: Palette.agentDanger))
+                        .padding(.top, 2)
+                }
+            }
+            Spacer(minLength: 8)
+            Button {
+                copy.action()
+            } label: {
+                HStack(spacing: 5) {
+                    if service.setupActionInFlight {
+                        ProgressView().controlSize(.small).scaleEffect(0.7)
+                    } else {
+                        Image(systemName: copy.buttonIcon).font(.system(size: 11, weight: .medium))
+                    }
+                    Text(copy.buttonLabel).font(.system(size: 13, weight: .medium))
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(Capsule().fill(GeoColors.blue))
+                .foregroundStyle(.white)
+            }
+            .buttonStyle(.plain)
+            .pointingHandCursor()
+            .disabled(service.setupActionInFlight)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(GeoColors.blue.opacity(0.06)))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(GeoColors.blue.opacity(0.30), lineWidth: 1))
+    }
+
+    private struct BannerCopy {
+        let icon: String
+        let title: String
+        let body: String
+        let hint: String?
+        let buttonLabel: String
+        let buttonIcon: String
+        let action: () -> Void
+    }
+
+    private var bannerCopy: BannerCopy {
+        switch service.setupState {
+        case .notInstalled:
+            return BannerCopy(
+                icon: "shippingbox.fill",
+                title: "Hermes is not installed",
+                body: "Hermes is the always-on agent that powers Geo's Telegram, WhatsApp, and Gmail integration. Install it to enable channels and the kanban dispatch.",
+                hint: "After install, run ./hermes/install.sh from this repo to seed config + ~/.hermes/.env.",
+                buttonLabel: "Install Hermes",
+                buttonIcon: "arrow.down.circle.fill",
+                action: { [service] in service.installHermes() }
+            )
+        case .installedNotRunning:
+            return BannerCopy(
+                icon: "power.circle.fill",
+                title: "Hermes is installed but not running",
+                body: "The hermes binary is on PATH but the LaunchAgent is stopped. Start the gateway to enable channels.",
+                hint: nil,
+                buttonLabel: "Start Hermes",
+                buttonIcon: "play.fill",
+                action: { [service] in service.startGateway() }
+            )
+        case .running:
+            return BannerCopy(
+                icon: "checkmark.circle.fill",
+                title: "Hermes is running",
+                body: "",
+                hint: nil,
+                buttonLabel: "OK",
+                buttonIcon: "checkmark",
+                action: {}
+            )
+        }
+    }
+}
+
+private struct ErrorBanner: View {
+    let event: ActivityEvent
+    let onView: () -> Void
+    let onDismiss: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            RoundedRectangle(cornerRadius: 2).fill(Color(nsColor: Palette.agentDanger)).frame(width: 3)
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Color(nsColor: Palette.agentDanger))
+            Text(event.msg)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Palette.foreground)
+                .lineLimit(1)
+                .truncationMode(.tail)
+            Spacer(minLength: 8)
+            Button(action: onView) {
+                Text("view").font(.system(size: 12, weight: .medium)).foregroundStyle(GeoColors.blue)
+            }
+            .buttonStyle(.plain)
+            Button(action: onDismiss) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Palette.tertiaryForeground)
+                    .padding(4)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color(nsColor: Palette.agentDanger).opacity(0.08)))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color(nsColor: Palette.agentDanger).opacity(0.25), lineWidth: 1))
+    }
+}
+
+// Data feed --------------------------------------------------------------
 
 private struct ActivityEvent: Identifiable, Equatable {
     let id = UUID()
@@ -1116,8 +1218,6 @@ private final class ActivityFeedService: ObservableObject {
     }
 }
 
-// MARK: - Today insights (SQLite/GRDB) ----------------------------------
-
 @MainActor
 private final class TodayInsightsService: ObservableObject {
     struct ChannelCount: Equatable { let kind: String; let count: Int }
@@ -1156,7 +1256,6 @@ private final class TodayInsightsService: ObservableObject {
             config.readonly = true
             db = try DatabaseQueue(path: dbPath, configuration: config)
         } catch {
-            // Daemon hasn't created the db yet; retry on next refresh() call.
             db = nil
         }
     }
@@ -1180,7 +1279,6 @@ private final class TodayInsightsService: ObservableObject {
                     self.todayLabels = self.deriveLabels(from: perChannel)
                 }
             } catch {
-                // Schema mismatch or io error — fall silent; UI shows empty state.
             }
         }
     }
@@ -1191,8 +1289,6 @@ private final class TodayInsightsService: ObservableObject {
     ) async throws -> ([ChannelCount], LastReply?) {
         try await Task.detached(priority: .userInitiated) {
             try db.read { d in
-                // Hermes schema: messages JOIN sessions, where sessions.source is the
-                // channel kind (telegram/whatsapp/gmail/...). timestamp is REAL seconds.
                 let rows = try Row.fetchAll(d, sql: """
                     SELECT s.source AS kind, COUNT(*) AS n
                     FROM messages m
@@ -1232,7 +1328,6 @@ private final class TodayInsightsService: ObservableObject {
     }
 
     private func deriveLabels(from perChannel: [ChannelCount]) -> [String] {
-        // Friendly summary chips beneath the bars. Cheap, derived in-memory.
         var out: [String] = []
         let total = perChannel.reduce(0) { $0 + $1.count }
         if total == 0 { return out }
@@ -1250,242 +1345,5 @@ private final class TodayInsightsService: ObservableObject {
               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let text = obj["text"] as? String else { return json }
         return text
-    }
-}
-
-// MARK: - Status bar (sticky) --------------------------------------------
-
-private enum HealthVerdict {
-    case healthy, degraded, down
-
-    var label: String {
-        switch self {
-        case .healthy: return "HEALTHY"
-        case .degraded: return "DEGRADED"
-        case .down: return "DOWN"
-        }
-    }
-
-    var dot: DashDot {
-        switch self {
-        case .healthy: return .green
-        case .degraded: return .yellow
-        case .down: return .red
-        }
-    }
-}
-
-private struct StatusBar: View {
-    @ObservedObject var service: HermesStatusService
-    let totalToday: Int
-    @State private var feedback: String?
-    @State private var feedbackIsError: Bool = false
-
-    var body: some View {
-        HStack(spacing: 10) {
-            PulsingDot(dot: verdict.dot)
-                .frame(width: 12, height: 12)
-            Text(verdict.label)
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                .tracking(0.6)
-                .foregroundStyle(.primary)
-            dotText("·")
-            Text("\(totalToday) handled")
-                .font(.system(size: 11, weight: .medium))
-                .contentTransition(.numericText())
-                .animation(.spring(response: 0.5), value: totalToday)
-            if let tick = service.lastTick {
-                dotText("·")
-                Text("tick \(relative(tick))")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-            }
-            if let feedback {
-                dotText("·")
-                Text(feedback)
-                    .font(.system(size: 10))
-                    .foregroundStyle(feedbackIsError ? Color(red: 0.95, green: 0.32, blue: 0.32) : .secondary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .transition(.opacity)
-            }
-            Spacer(minLength: 8)
-            OpsButton(icon: "arrow.clockwise", help: "Restart hermes", action: restartHermes)
-            OpsButton(icon: "doc.text", help: "Open SOUL.md", action: openSoul)
-            OpsButton(icon: "list.bullet.rectangle", help: "Tail gateway.log", action: tailLog)
-            OpsButton(icon: "folder", help: "Reveal ~/.hermes/", action: revealHermes)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 9)
-    }
-
-    private func dotText(_ s: String) -> some View {
-        Text(s).font(.system(size: 11)).foregroundStyle(.secondary.opacity(0.5))
-    }
-
-    private var verdict: HealthVerdict {
-        guard service.setupState == .running, service.mcpConnected else { return .down }
-        let bad = service.connectors.contains { c in
-            switch c.status {
-            case .error, .disconnected: return true
-            case .connected, .connecting: return false
-            }
-        }
-        return bad ? .degraded : .healthy
-    }
-
-    private func relative(_ date: Date) -> String {
-        let f = RelativeDateTimeFormatter()
-        f.unitsStyle = .short
-        return f.localizedString(for: date, relativeTo: Date())
-    }
-
-    private func openSoul() {
-        let path = NSString(string: "~/.hermes/SOUL.md").expandingTildeInPath
-        NSWorkspace.shared.open(URL(fileURLWithPath: path))
-    }
-
-    private func tailLog() {
-        let logURL = URL(fileURLWithPath: NSString(string: "~/.hermes/logs/gateway.log").expandingTildeInPath)
-        let consoleURL = URL(fileURLWithPath: "/System/Applications/Utilities/Console.app")
-        let config = NSWorkspace.OpenConfiguration()
-        NSWorkspace.shared.open([logURL], withApplicationAt: consoleURL, configuration: config) { _, error in
-            if let error {
-                show("console: \(error.localizedDescription)", isError: true)
-            }
-        }
-    }
-
-    private func restartHermes() {
-        show("restarting…", isError: false)
-        Task.detached {
-            let uid = getuid()
-            let target = "gui/\(uid)/ai.hermes.gateway"
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
-            process.arguments = ["kickstart", "-k", target]
-            let pipe = Pipe()
-            process.standardError = pipe
-            process.standardOutput = pipe
-            do {
-                try process.run()
-                process.waitUntilExit()
-                if process.terminationStatus == 0 {
-                    await MainActor.run { show("restarted hermes", isError: false) }
-                } else {
-                    let data = (try? pipe.fileHandleForReading.readToEnd()) ?? Data()
-                    let msg = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
-                    await MainActor.run {
-                        if let msg, !msg.isEmpty {
-                            show(msg, isError: true)
-                        } else {
-                            show("exit \(process.terminationStatus)", isError: true)
-                        }
-                    }
-                }
-            } catch {
-                await MainActor.run { show(error.localizedDescription, isError: true) }
-            }
-        }
-    }
-
-    private func revealHermes() {
-        let path = NSString(string: "~/.hermes").expandingTildeInPath
-        let url = URL(fileURLWithPath: path)
-        NSWorkspace.shared.activateFileViewerSelecting([url])
-    }
-
-    private func show(_ text: String, isError: Bool) {
-        feedback = text
-        feedbackIsError = isError
-        let snapshot = text
-        DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
-            if feedback == snapshot { feedback = nil }
-        }
-    }
-}
-
-private struct OpsButton: View {
-    let icon: String
-    let help: String
-    let action: () -> Void
-    @State private var hovering = false
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: 11, weight: .medium))
-                .frame(width: 26, height: 26)
-                .background(
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(Color.secondary.opacity(hovering ? 0.14 : 0.07))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
-                )
-                .foregroundStyle(.primary)
-        }
-        .buttonStyle(.plain)
-        .help(help)
-        .onHover { hovering = $0 }
-    }
-}
-
-// MARK: - Error banner ---------------------------------------------------
-
-private struct ErrorBanner: View {
-    let event: ActivityEvent
-    let onView: () -> Void
-    let onDismiss: () -> Void
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Rectangle()
-                .fill(Color(red: 0.95, green: 0.32, blue: 0.32))
-                .frame(width: 3)
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Color(red: 0.95, green: 0.32, blue: 0.32))
-            Text(event.msg)
-                .font(.system(size: 11.5, weight: .medium))
-                .foregroundStyle(.primary)
-                .lineLimit(1)
-                .truncationMode(.tail)
-            Spacer(minLength: 8)
-            Button(action: onView) {
-                Text("view")
-                    .font(.system(size: 10.5, weight: .medium))
-                    .foregroundStyle(GeoColors.blue)
-            }
-            .buttonStyle(.plain)
-            Button(action: onDismiss) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                    .padding(4)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.vertical, 6)
-        .padding(.trailing, 8)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color(red: 0.95, green: 0.32, blue: 0.32).opacity(0.08))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(Color(red: 0.95, green: 0.32, blue: 0.32).opacity(0.25), lineWidth: 0.5)
-        )
-    }
-}
-
-// MARK: - Small utils ----------------------------------------------------
-
-private extension Array {
-    func chunked(into size: Int) -> [[Element]] {
-        guard size > 0 else { return [self] }
-        return stride(from: 0, to: count, by: size).map { Array(self[$0..<Swift.min($0 + size, count)]) }
     }
 }
