@@ -338,7 +338,7 @@ struct CommandPaletteOverlay: View {
             (.home, "calendar"),
             (.tasks, "checklist.unchecked"),
             (.nodes, "point.3.connected.trianglepath.dotted"),
-            (.ai, "rectangle.stack.badge.play"),
+            (.nano, "rectangle.grid.2x2.fill"),
             (.settings, "gearshape"),
         ]
         return tabs.map { tab, icon in
