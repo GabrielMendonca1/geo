@@ -89,9 +89,7 @@ final class PendingTransactionStore: @unchecked Sendable {
         let t = DispatchSource.makeTimerSource(queue: queue)
         t.schedule(deadline: .now() + 60, repeating: 60)
         t.setEventHandler { [weak self] in
-            self?.queue.async {
-                self?.evictExpiredLocked()
-            }
+            self?.evictExpiredLocked()
         }
         t.resume()
         sweepTimer = t
