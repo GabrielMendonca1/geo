@@ -1307,7 +1307,11 @@ private struct QuickActionsRow: View {
                     let data = (try? pipe.fileHandleForReading.readToEnd()) ?? Data()
                     let msg = String(data: data ?? Data(), encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
                     await MainActor.run {
-                        show(msg?.isEmpty == false ? msg! : "exit \(process.terminationStatus)", isError: true)
+                        if let msg, !msg.isEmpty {
+                            show(msg, isError: true)
+                        } else {
+                            show("exit \(process.terminationStatus)", isError: true)
+                        }
                     }
                 }
             } catch {
