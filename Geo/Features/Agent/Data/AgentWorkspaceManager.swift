@@ -307,21 +307,6 @@ enum AISimpleYAMLParser {
     private enum BlockMode { case unknown, map, list }
 }
 
-private final class StreamLineBuffer: @unchecked Sendable {
-    private var pending = ""
-    func append(_ chunk: String) -> [String] {
-        pending += chunk
-        guard pending.contains("\n") else { return [] }
-        let parts = pending.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
-        pending = parts.last ?? ""
-        return parts.dropLast().filter { !$0.isEmpty }
-    }
-    func flush() -> [String] {
-        defer { pending = "" }
-        return pending.isEmpty ? [] : [pending]
-    }
-}
-
 private struct AILocalIssueDocument: Hashable {
     var block: BlockEntity
     var issue: AIIssue
