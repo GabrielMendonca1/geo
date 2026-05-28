@@ -120,7 +120,7 @@ actor SubscriptionManager {
     }
 
     private func ingestTasks(_ items: [TaskItem]) {
-        let snapshot = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0.modifiedAt) })
+        let snapshot = Dictionary(items.map { ($0.id, $0.modifiedAt) }, uniquingKeysWith: { _, new in new })
         if !tasksSeeded {
             lastTasks = snapshot
             tasksSeeded = true
