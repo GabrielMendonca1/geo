@@ -27,6 +27,8 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
             return "AI"
         case .nanoHermes:
             return "Hermes"
+        case .apiAccess:
+            return "API Access"
         case .advanced:
             return "Advanced"
         }
@@ -46,6 +48,8 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
             return "sparkles"
         case .nanoHermes:
             return "antenna.radiowaves.left.and.right"
+        case .apiAccess:
+            return "key.horizontal"
         case .advanced:
             return "wrench.and.screwdriver"
         }
