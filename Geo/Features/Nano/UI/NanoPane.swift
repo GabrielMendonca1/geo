@@ -450,7 +450,7 @@ private struct MemoryCard: View {
             }
         }
         .onAppear { rebuildMemoryIndex(blocksStore.blocks) }
-        .onChange(of: blocksStore.blocks) { newValue in
+        .onChange(of: blocksStore.blocks) { _, newValue in
             rebuildMemoryIndex(newValue)
         }
     }
