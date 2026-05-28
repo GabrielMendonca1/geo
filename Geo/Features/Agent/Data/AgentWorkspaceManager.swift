@@ -2491,17 +2491,18 @@ actor AIWorkspaceManager {
 
     private func scheduleRetry(issueID: String, workflow: AIWorkflowDefinition, abnormal: Bool) {
         let maxBackoffMS = workflow.config.agent.maxRetryBackoffMS
+        let bucket = attemptsByIssueID[issueID] ?? []
         let delayMS: Int
         if abnormal {
-            let attemptNumber = attempts.filter { $0.issueID == issueID }.map(\.attempt).max() ?? 1
+            let attemptNumber = bucket.lazy.map(\.attempt).max() ?? 1
             let base = 10_000 * Int(pow(2.0, Double(max(attemptNumber - 1, 0))))
             delayMS = maxBackoffMS > 0 ? min(base, maxBackoffMS) : base
         } else {
             delayMS = 1_000
         }
         let dueAt = Date().addingTimeInterval(Double(delayMS) / 1000.0)
-        let attemptNumber = attempts.filter { $0.issueID == issueID }.map(\.attempt).max() ?? 0
-        let lastError = attempts.filter { $0.issueID == issueID }
+        let attemptNumber = bucket.lazy.map(\.attempt).max() ?? 0
+        let lastError = bucket
             .sorted { ($0.finishedAt ?? .distantPast) > ($1.finishedAt ?? .distantPast) }.first?.error
         retryEntries[issueID] = AIRetryEntry(
             issueID: issueID,
