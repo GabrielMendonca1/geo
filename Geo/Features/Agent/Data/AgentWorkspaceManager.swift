@@ -2530,7 +2530,7 @@ actor AIWorkspaceManager {
             return
         }
         let maxTurns = max(workflow.config.agent.maxTurns, 1)
-        let attemptCount = attempts.filter { $0.issueID == issueID }.count
+        let attemptCount = attemptsByIssueID[issueID]?.count ?? 0
         guard attemptCount < maxTurns else {
             claimedIssueIDs.remove(issueID)
             appendLog(.warning, "Retry cancelled for \(issue.identifier): hit max_turns (\(maxTurns)).")
