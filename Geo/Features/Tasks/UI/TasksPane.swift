@@ -917,11 +917,12 @@ private struct TaskCard: View {
                                 .font(.system(size: titleFontSize * 0.82, weight: .medium))
                                 .foregroundStyle(Palette.accent)
                         }
+                        let titleColor: Color = task.status == .completed ? Palette.tertiaryForeground : Palette.foreground
                         Text(task.title)
                             .font(.system(size: titleFontSize, weight: .semibold))
                             .lineLimit(2)
                             .strikethrough(task.status == .completed)
-                            .foregroundStyle(task.status == .completed ? Palette.tertiaryForeground : Palette.foreground)
+                            .foregroundStyle(titleColor)
                     }
 
                     Spacer(minLength: 0)
