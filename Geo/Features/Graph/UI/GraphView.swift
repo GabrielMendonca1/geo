@@ -337,6 +337,14 @@ private final class GraphSimulation: ObservableObject {
         iterationCount = max(iterationCount - 200, 0)
     }
 
+    func prewarm(maxSteps: Int) {
+        var steps = 0
+        while !isSettled && steps < maxSteps {
+            step()
+            steps += 1
+        }
+    }
+
     private func publishLayout() {
         layout = GraphLayout(positions: nodes.mapValues(\.position), radii: nodes.mapValues(\.radius))
     }
