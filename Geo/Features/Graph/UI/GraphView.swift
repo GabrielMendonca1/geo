@@ -505,6 +505,7 @@ struct GraphView: View {
     @State private var draggingNodeID: UUID?
     @State private var selectedNodeID: UUID?
     @State private var canvasSize: CGSize = .zero
+    @State private var hasFramedInitialLayout = false
     @State private var mouseDownPoint: CGPoint?
     @State private var mouseDownNodeID: UUID?
 
