@@ -1096,7 +1096,7 @@ actor AIWorkspaceManager {
                 appendLog(.info, "hermes finished \(identifier(for: issueID)); tracker state is terminal.")
                 return
             }
-            let attemptCount = attempts.filter { $0.issueID == issueID }.count
+            let attemptCount = attemptsByIssueID[issueID]?.count ?? 0
             let maxTurns = max(workflow.config.agent.maxTurns, 1)
             if stillActive && attemptCount < maxTurns {
                 appendLog(.info, "hermes finished turn \(attemptCount) for \(identifier(for: issueID)); scheduling continuation.")
