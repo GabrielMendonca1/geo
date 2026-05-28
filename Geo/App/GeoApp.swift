@@ -208,7 +208,6 @@ final class AppContainer {
         self.workerSessionRegistry = workerSessionRegistry
         self.workerInbox = workerInbox
         self.nanoHermesService = nanoHermesService
-        self.nanoConversationStore = nanoConversationStore
         self.environment = appEnvironment
     }
 }
