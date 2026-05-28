@@ -633,7 +633,7 @@ class BlocksStore: ObservableObject {
 
         try await fileService.writeMarkdownToDisk(newMarkdown, url: current.url)
 
-        guard let idx = self.blocks.firstIndex(where: { $0.id == blockID }) else { return newVersion }
+        guard let idx = self.indexOfBlock(id: blockID) else { return newVersion }
         let live = self.blocks[idx]
         var meta = live.metadata
         meta.frontmatter_version = newVersion
