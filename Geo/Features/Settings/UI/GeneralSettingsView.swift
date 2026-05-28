@@ -445,6 +445,17 @@ struct GeneralSettingsView: View {
         }
     }
 
+    private var apiAccessPane: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            SettingsSectionHeader(
+                title: "API Access",
+                subtitle: "Local HTTP API for hermes and other agents. Tokens stored hashed in macOS Keychain."
+            )
+
+            APIAccessSettingsView()
+        }
+    }
+
     private var advancedPane: some View {
         VStack(alignment: .leading, spacing: 16) {
             SettingsSectionHeader(
