@@ -79,6 +79,11 @@ private struct GraphLayout {
     var radii: [UUID: CGFloat]
 }
 
+private struct EdgeKey: Hashable {
+    let source: UUID
+    let target: UUID
+}
+
 private final class GraphSimulation: ObservableObject {
     @Published private(set) var layout = GraphLayout(positions: [:], radii: [:])
     @Published private(set) var isSettled = false
