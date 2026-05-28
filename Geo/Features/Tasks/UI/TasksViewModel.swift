@@ -360,9 +360,6 @@ final class TasksViewModel: ObservableObject {
         if let filterPriority {
             result = result.filter { $0.priority == filterPriority }
         }
-        if let filterContext {
-            result = result.filter { $0.context == filterContext }
-        }
         return result
     }
 
