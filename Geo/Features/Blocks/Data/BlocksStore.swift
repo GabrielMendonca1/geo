@@ -357,7 +357,7 @@ class BlocksStore: ObservableObject {
     @MainActor
     @discardableResult
     func updateBlockAndFlush(id: String, newMarkdown: String) -> Bool {
-        guard let index = self.blocks.firstIndex(where: { $0.id == id }) else {
+        guard let index = self.indexOfBlock(id: id) else {
             return false
         }
 
