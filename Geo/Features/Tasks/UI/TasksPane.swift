@@ -940,7 +940,7 @@ private struct TaskCard: View {
                     }
                 }
 
-                Label(detailText, systemImage: task.isPeriodTask ? "calendar.badge.clock" : "calendar")
+                Label(detailText, systemImage: task.isEvent ? "calendar.badge.clock" : "calendar")
                     .font(.system(size: subtitleFontSize))
                     .lineLimit(1)
                     .foregroundStyle(Palette.tertiaryForeground)
@@ -963,10 +963,6 @@ private struct TaskCard: View {
                             metaChip("\(reminderCount)", icon: "bell")
                         }
 
-                        if task.smartReminder && task.status == .pending {
-                            metaChip("App", icon: "app.badge", foreground: Color(nsColor: Palette.agentWarning))
-                        }
-
                         if !showsLinkedBlockSection, let linkedTitle = linkedBlockChipText {
                             metaChip(linkedTitle, icon: "link")
                                 .frame(maxWidth: 160 * layoutScale, alignment: .leading)
@@ -976,12 +972,8 @@ private struct TaskCard: View {
                             metaChip(est, icon: "clock")
                         }
 
-                        if let ctx = task.context {
-                            metaChip(ctx, icon: "mappin")
-                        }
-
-                        if task.kind == .habit && task.currentStreak > 0 {
-                            metaChip("\(task.currentStreak) streak", icon: "flame.fill", foreground: .orange)
+                        if task.isHabit, task.habitCurrentStreak > 0 {
+                            metaChip("\(task.habitCurrentStreak) streak", icon: "flame.fill", foreground: .orange)
                         }
 
                         if let days = task.daysUntilMilestone {
