@@ -1231,40 +1231,18 @@ actor AIWorkspaceManager {
         input: AnyCodableValue,
         workspacePath: String
     ) async {
-        let spec = hermesServerSpec()
-        let stream = await MCPClient.shared.callTool(
-            spec: spec,
-            name: "mcp_hermes_dispatch_subagent",
-            input: input
-        )
-        do {
-            for try await event in stream {
-                switch event {
-                case .progress(let label):
-                    if var session = liveSessions[sessionID] {
-                        session.lastEvent = label
-                        session.lastTimestamp = Date()
-                        liveSessions[sessionID] = session
-                    }
-                case .partial(let value):
-                    await handleHermesPartial(sessionID: sessionID, issueID: issueID, value: value)
-                case .result(let value):
-                    await handleHermesResult(sessionID: sessionID, issueID: issueID, value: value, workspacePath: workspacePath)
-                    return
-                case .error(let message):
-                    markAttempt(issueID: issueID, status: .failed, error: message)
-                    appendLog(.error, "hermes tool error for \(identifier(for: issueID)): \(message)")
-                    liveSessions.removeValue(forKey: sessionID)
-                    claimedIssueIDs.remove(issueID)
-                    return
-                }
-            }
+        _ = input
+        _ = workspacePath
+        let message = "kanban dispatch via hermes MCP is disabled — `mcp_hermes_dispatch_subagent` is not exposed by `hermes mcp serve`. Install hermes-extensions/dispatch-subagent or wire to direct `claude` spawn before re-enabling."
+        markAttempt(issueID: issueID, status: .failed, error: message)
+        appendLog(.error, "hermes dispatch unavailable for \(identifier(for: issueID)): \(message)")
+        liveSessions.removeValue(forKey: sessionID)
+        claimedIssueIDs.remove(issueID)
+        if false {
+            // Keeps handleHermesPartial/handleHermesResult referenced so
+            // they don't become unused while the dispatch surface is offline.
+            await handleHermesPartial(sessionID: sessionID, issueID: issueID, value: .null)
             await handleHermesResult(sessionID: sessionID, issueID: issueID, value: .null, workspacePath: workspacePath)
-        } catch {
-            markAttempt(issueID: issueID, status: .failed, error: error.localizedDescription)
-            appendLog(.error, "hermes stream failed for \(identifier(for: issueID)): \(error.localizedDescription)")
-            liveSessions.removeValue(forKey: sessionID)
-            claimedIssueIDs.remove(issueID)
         }
     }
 

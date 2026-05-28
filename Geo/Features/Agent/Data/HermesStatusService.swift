@@ -252,69 +252,112 @@ final class HermesStatusService: ObservableObject {
     }
 
     func saveTelegramBotToken(_ token: String) async throws {
-        let stream = await MCPClient.shared.callTool(
-            spec: Self.hermesServerSpec(),
-            name: "mcp_hermes_auth_set_telegram",
-            input: .object(["token": .string(token)])
-        )
-        try await Self.drain(stream: stream)
+        let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw NSError(domain: "HermesStatusService", code: 1, userInfo: [NSLocalizedDescriptionKey: "empty token"])
+        }
+        let result = await Task.detached(priority: .userInitiated) { () -> String? in
+            Self.upsertEnvKey(file: Self.hermesEnvURL(), key: "TELEGRAM_BOT_TOKEN", value: trimmed)
+        }.value
+        if let err = result {
+            throw NSError(domain: "HermesStatusService", code: 2, userInfo: [NSLocalizedDescriptionKey: err])
+        }
+        await Self.kickstartGateway()
     }
 
     private func runPair(_ id: String) async {
-        let tool: String
-        let cliFallback: String
+        let cli: String
         switch id {
         case "whatsapp":
-            tool = "mcp_hermes_pair_whatsapp"
-            cliFallback = "hermes auth add whatsapp"
+            cli = "hermes whatsapp"
         case "telegram":
-            tool = "mcp_hermes_pair_telegram"
-            cliFallback = "hermes auth add telegram"
+            cli = "hermes auth add telegram --type oauth"
         case "gmail":
-            tool = "mcp_hermes_pair_gmail"
-            cliFallback = "hermes auth add gmail"
+            cli = "hermes auth add gmail --type oauth"
         default:
             return
         }
-        let stream = await MCPClient.shared.callTool(
-            spec: Self.hermesServerSpec(),
-            name: tool,
-            input: .object([:])
-        )
-        do {
-            try await Self.drain(stream: stream)
-        } catch {
-            logger.warning("requestPair(\(id, privacy: .public)) MCP failed: \(error.localizedDescription, privacy: .public); opening Terminal fallback.")
-            Self.openTerminal(command: cliFallback)
-            self.lastError = "MCP pair failed for \(id) — opened Terminal with `\(cliFallback)`."
-        }
+        Self.openTerminal(command: cli)
     }
 
     private func runDisconnect(_ id: String) async {
-        let stream = await MCPClient.shared.callTool(
-            spec: Self.hermesServerSpec(),
-            name: "mcp_hermes_disconnect",
-            input: .object(["channel": .string(id)])
-        )
-        do {
-            try await Self.drain(stream: stream)
+        let result = await Task.detached(priority: .userInitiated) { () -> (Int32, String) in
+            let proc = Process()
+            proc.launchPath = "/bin/zsh"
+            proc.arguments = ["-lc", "hermes auth logout \(id) || hermes auth remove \(id)"]
+            let errPipe = Pipe()
+            proc.standardError = errPipe
+            proc.standardOutput = FileHandle.nullDevice
+            do {
+                try proc.run()
+                proc.waitUntilExit()
+                let data = (try? errPipe.fileHandleForReading.readToEnd()) ?? Data()
+                let stderr = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                return (proc.terminationStatus, stderr)
+            } catch {
+                return (-1, error.localizedDescription)
+            }
+        }.value
+        if result.0 == 0 {
             for i in self.connectors.indices where self.connectors[i].id == id {
                 self.connectors[i].status = .disconnected
                 self.connectors[i].identity = nil
             }
-        } catch {
-            let cli = "hermes auth remove \(id)"
-            logger.warning("requestDisconnect(\(id, privacy: .public)) MCP failed: \(error.localizedDescription, privacy: .public); opening Terminal fallback.")
-            Self.openTerminal(command: cli)
-            self.lastError = "MCP disconnect failed for \(id) — opened Terminal with `\(cli)`."
+            self.lastError = nil
+        } else {
+            logger.warning("disconnect(\(id, privacy: .public)) failed: \(result.1, privacy: .public)")
+            self.lastError = "hermes auth logout \(id) failed: \(result.1.isEmpty ? "exit \(result.0)" : result.1)"
         }
     }
 
-    static func hermesServerSpec() -> MCPServerSpec {
-        let command = ProcessInfo.processInfo.environment["HERMES_MCP_COMMAND"] ?? "hermes"
-        let argsRaw = ProcessInfo.processInfo.environment["HERMES_MCP_ARGS"] ?? "mcp serve"
-        let arguments = argsRaw.split(separator: " ").map(String.init)
-        return MCPServerSpec(name: "hermes", command: command, arguments: arguments, environment: nil)
+    private nonisolated static func hermesEnvURL() -> URL {
+        FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".hermes/.env")
+    }
+
+    private nonisolated static func upsertEnvKey(file: URL, key: String, value: String) -> String? {
+        let line = "\(key)=\(value)"
+        let existing: String
+        if FileManager.default.fileExists(atPath: file.path) {
+            existing = (try? String(contentsOf: file, encoding: .utf8)) ?? ""
+        } else {
+            existing = ""
+        }
+        var output: [String] = []
+        var replaced = false
+        for raw in existing.components(separatedBy: "\n") {
+            let trimmed = raw.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("\(key)=") || trimmed.hasPrefix("# \(key)=") {
+                output.append(line)
+                replaced = true
+            } else {
+                output.append(raw)
+            }
+        }
+        if !replaced {
+            if !output.isEmpty, !(output.last?.isEmpty ?? true) {
+                output.append("")
+            }
+            output.append(line)
+        }
+        do {
+            try output.joined(separator: "\n").write(to: file, atomically: true, encoding: .utf8)
+            return nil
+        } catch {
+            return "write .env failed: \(error.localizedDescription)"
+        }
+    }
+
+    private nonisolated static func kickstartGateway() async {
+        await Task.detached(priority: .utility) {
+            let proc = Process()
+            proc.launchPath = "/bin/zsh"
+            let uid = getuid()
+            proc.arguments = ["-lc", "launchctl kickstart -k gui/\(uid)/ai.hermes.gateway"]
+            proc.standardOutput = FileHandle.nullDevice
+            proc.standardError = FileHandle.nullDevice
+            try? proc.run()
+            proc.waitUntilExit()
+        }.value
     }
 
     static func drain(stream: AsyncThrowingStream<MCPEvent, Error>) async throws {
