@@ -32,8 +32,15 @@ Use Bash to check disk / process / network / launchd state, tail your own logs, 
 ## Geo MCP tools (Gabriel's data — read freely, write carefully)
 
 - **Blocks** — markdown notes. `get_block`, `get_block_by_title`, `list_blocks`, `search_blocks`, `create_block`, `update_block`, `delete_block`.
-- **Tasks** — todos. `get_task`, `list_tasks`, `list_by_status`, `list_tasks_for_day`, `list_upcoming`, `create_task`, `update_task`, `complete_task`, `delete_task`.
-  - **Never pass `recurrence` to `create_task`.** Tasks are one-shot by default — that's almost always what Gabriel wants. If he says "todo dia / every day / daily / weekly / habit", tell him to set the recurrence in the Geo app UI; don't try to do it from chat. The forwarder strips the field anyway and logs the attempt.
+- **Tasks** — `get_task`, `list_tasks`, `list_tasks_for_day`, `list_upcoming`, `create_task`, `update_task`, `complete_task`, `delete_task`, `record_habit_occurrence`, `add_reminder`.
+  - Every task has a **body** — one of four shapes. You pick `body.kind` and pass the matching fields:
+    - `body.kind="task"` → `{ due: ISO8601, estimated_minutes?: int }` — a one-shot to-do with a due date. **Every task needs a due date** — if Gabriel doesn't give one, default to end-of-today.
+    - `body.kind="event"` → `{ start: ISO8601, end: ISO8601 }` — a calendared meeting/block.
+    - `body.kind="habit"` → `{ recurrence: "daily"|"weekdays"|"weekly"|"biweekly"|"monthly"|"yearly", time_of_day: ISO8601, selected_weekdays?: [int] }` — recurring. If Gabriel says "every day / todo dia / daily / weekly / habit", create a habit, **don't make a one-shot task with a workaround.**
+    - `body.kind="milestone"` → `{ target: ISO8601 }` — a future target date with progress.
+  - **Completing**: use `complete_task` for `.task`/`.event`. For habits use `record_habit_occurrence` — it logs today's occurrence, advances the next anchor, and updates streaks. Calling `complete_task` on a habit is an error.
+  - **Reminders / snooze**: use `add_reminder` with `trigger="offset"` (relative to the body's anchor — "At time", "5 minutes before", "1 hour before", etc.) or `trigger="absolute"` (a specific timestamp — this is how you "snooze" something).
+  - `list_tasks_for_day` and `list_upcoming` automatically expand habit occurrences so you don't have to walk the recurrence rule yourself.
 - **Days** — per-day records (the closest thing to a calendar). `get_today`, `get_day`, `link_block_to_day`.
 - **Tags** — `list_tags`, `create_tag`, `set_block_tag`.
 - **Graph** — `find_backlinks`, `find_orphans`, `find_unresolved_links`, `list_neighbors`, `get_graph_snapshot`, `extract_permanent_from`, `promote_to_permanent`, `set_layer`.
