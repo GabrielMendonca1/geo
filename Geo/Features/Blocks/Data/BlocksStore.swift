@@ -933,7 +933,7 @@ extension BlocksStore {
 
     @discardableResult
     func resetCheckedCheckboxes(in blockId: String) async throws -> [BlockCheckboxSnapshot] {
-        guard let block = blocks.first(where: { $0.id == blockId }) else {
+        guard let block = block(withId: blockId) else {
             throw BlockCheckboxError.blockNotFound
         }
         var lines = BlockCheckboxParsing.splitLines(block.markdown)
