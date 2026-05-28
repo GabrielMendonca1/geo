@@ -17,6 +17,8 @@ logger = logging.getLogger("plugin.whatsapp-confirm")
 
 _inbound_queue: "deque[tuple[float, str]]" = deque(maxlen=64)
 _inbound_lock = asyncio.Lock()
+_confirm_gate = asyncio.Lock()
+_consumed_ts = 0.0
 
 
 async def _record_inbound(text: str) -> None:
