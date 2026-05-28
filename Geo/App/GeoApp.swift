@@ -258,17 +258,9 @@ struct BlockEditorWindowWrapper: View {
         NavigationStack {
             if let blockId {
                 if let block = viewModel.block(withID: blockId) {
-                    if !forceRawEditor && TaskNodeDetector.isTaskNode(markdown: block.markdown) {
-                        TaskNodeView(
-                            block: block,
-                            viewModel: viewModel,
-                            onOpenRawEditor: { forceRawEditor = true }
-                        )
-                    } else {
-                        let actions = actionsHolder.actions(viewModel: viewModel, focusedId: blockId)
-                        BlockEditorView(block: block, actions: actions)
-                            .equatable()
-                    }
+                    let actions = actionsHolder.actions(viewModel: viewModel, focusedId: blockId)
+                    BlockEditorView(block: block, actions: actions)
+                        .equatable()
                 } else if viewModel.hasLoadedInitialSnapshot {
                     Text("Block not found")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
