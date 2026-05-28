@@ -1,5 +1,10 @@
 import Foundation
 
+enum NanoMessageRole: String, Sendable {
+    case user
+    case assistant
+}
+
 struct NanoTransportAttachment: Sendable {
     let type: String
     let mediaType: String
