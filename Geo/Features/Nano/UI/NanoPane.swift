@@ -1188,6 +1188,13 @@ private final class ActivityFeedService: ObservableObject {
         )
         source.setEventHandler { [weak self] in
             guard let self else { return }
+            if source.data.contains(.delete) || source.data.contains(.rename) {
+                Task { @MainActor in
+                    self.stop()
+                    self.start()
+                }
+                return
+            }
             let data = self.fileHandle.flatMap { try? $0.readToEnd() } ?? Data()
             let chunk = String(data: data, encoding: .utf8) ?? ""
             Task { @MainActor in
