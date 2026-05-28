@@ -1,5 +1,6 @@
 import Foundation
 import Network
+import os
 import os.log
 
 private let httpLogger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "geo", category: "GeoHTTPServer")
