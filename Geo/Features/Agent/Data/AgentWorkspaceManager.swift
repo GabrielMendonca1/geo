@@ -1080,7 +1080,7 @@ actor AIWorkspaceManager {
         }
 
         await ingestAgentReports()
-        liveSessions.removeValue(forKey: sessionID)
+        removeLiveSession(sessionID: sessionID)
         claimedIssueIDs.remove(issueID)
         markAttempt(issueID: issueID, status: status, error: errorMessage)
 
