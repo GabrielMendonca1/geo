@@ -498,7 +498,7 @@ class BlocksStore: ObservableObject {
         guard blocks.contains(where: { $0.id == blockId }) else { return false }
         do {
             _ = try await mutateFrontmatter(blockID: blockId, merge: ["type": .string(type.rawValue)])
-            if let live = blocks.first(where: { $0.id == blockId }) {
+            if let live = block(withId: blockId) {
                 metadataService.persistMetadata(live.metadata, for: blockId)
             }
             return true
