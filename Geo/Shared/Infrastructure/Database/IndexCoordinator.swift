@@ -189,32 +189,18 @@ final class IndexCoordinator {
         let metadataIds = Set(metadata.keys)
         let report = await verifyIntegrity(fileService: fileService, metadataIds: metadataIds)
         if !report.isClean {
-            var repairedMissing = 0
+            var upserts: [BlockIndexEntry] = []
             if !report.missingFromIndex.isEmpty {
                 let missingSet = Set(report.missingFromIndex)
                 let allBlocks = await fileService.loadBlocksFromFiles(metadata: metadata, converter: converter)
-                for block in allBlocks where missingSet.contains(block.id) {
-                    let entry = entry(for: block)
-                    do {
-                        try await database.upsertBlock(entry)
-                        repairedMissing += 1
-                    } catch {
-                        logger.error("repairIntegrity upsert failed for \(block.id): \(error.localizedDescription)")
-                    }
-                }
+                upserts = allBlocks.filter { missingSet.contains($0.id) }.map { entry(for: $0) }
             }
-
-            var repairedOrphans = 0
-            for id in report.orphanedInIndex {
-                do {
-                    try await database.removeBlock(id: id)
-                    repairedOrphans += 1
-                } catch {
-                    logger.error("repairIntegrity remove failed for \(id): \(error.localizedDescription)")
-                }
+            do {
+                try await database.repairIndex(upserts: upserts, removals: report.orphanedInIndex)
+                logger.info("repairIntegrity: reinserted=\(upserts.count) removed=\(report.orphanedInIndex.count) metadataDrift=\(report.metadataDrift.count)")
+            } catch {
+                logger.error("repairIntegrity batch failed: \(error.localizedDescription)")
             }
-
-            logger.info("repairIntegrity: reinserted=\(repairedMissing) removed=\(repairedOrphans) metadataDrift=\(report.metadataDrift.count)")
         } else {
             logger.info("repairIntegrity: index in sync with disk")
         }
