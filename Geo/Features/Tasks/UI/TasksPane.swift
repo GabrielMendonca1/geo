@@ -339,38 +339,36 @@ struct TasksPane: View {
             }
             return rawInput
         }()
-        let resolvedKind: TaskKind = useParsed ? parsed.kind : (viewModel.filterKind ?? .task)
-        let resolvedSchedule: Schedule = useParsed ? parsed.schedule : .anytime
 
-        let now = Date()
-        var startTime = now
-        var endTime: Date? = nil
-        var recurrence: RecurrenceRule = .never
-
-        switch resolvedSchedule {
-        case .anytime:
-            startTime = now
-        case .dueBy(let date):
-            startTime = date
-        case .at(let date, let duration):
-            startTime = date
-            endTime = duration.map { date.addingTimeInterval($0) }
-        case .recurring(let rule, let timeOfDay):
-            recurrence = rule
-            let cal = Calendar.current
-            let comps = cal.dateComponents([.hour, .minute], from: timeOfDay)
-            startTime = cal.date(bySettingHour: comps.hour ?? 9, minute: comps.minute ?? 0, second: 0, of: now) ?? now
-        case .targeting(let date):
-            startTime = date
+        let body: TaskBody
+        if useParsed {
+            if let filterKind = viewModel.filterKind, parsed.body.kind == .task {
+                body = coerceBodyKind(parsed.body, to: filterKind)
+            } else {
+                body = parsed.body
+            }
+        } else {
+            let endOfToday = Calendar.current.date(bySettingHour: 23, minute: 59, second: 59, of: Date()) ?? Date()
+            let fallbackKind = viewModel.filterKind ?? .task
+            body = coerceBodyKind(.task(due: endOfToday, estimatedMinutes: nil), to: fallbackKind)
         }
 
-        return TaskDraft(
-            title: resolvedTitle,
-            startTime: startTime,
-            endTime: endTime,
-            recurrence: recurrence,
-            kind: resolvedKind
-        )
+        return TaskDraft(title: resolvedTitle, body: body)
+    }
+
+    private func coerceBodyKind(_ body: TaskBody, to kind: TaskKind) -> TaskBody {
+        if body.kind == kind { return body }
+        let anchor = body.anchorDate
+        switch kind {
+        case .task:
+            return .task(due: anchor, estimatedMinutes: nil)
+        case .event:
+            return .event(start: anchor, end: anchor.addingTimeInterval(3600))
+        case .habit:
+            return .habit(rule: .daily, timeOfDay: anchor, occurrences: [])
+        case .milestone:
+            return .milestone(target: Calendar.current.startOfDay(for: anchor))
+        }
     }
 
     @ViewBuilder
