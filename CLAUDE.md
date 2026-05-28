@@ -132,11 +132,11 @@ Swift binary (`main.swift` + `build.sh`) — thin MCP bridge for the macOS app. 
 cd geo-mcp-bridge && ./build.sh
 ```
 
-## AI pane (`Geo/Features/Agent/`)
+## Frontmatter coordination
 
-Kanban-over-CLI. `AgentWorkspaceManager` (Swift actor) polls a tracker (`linear` or `local` Geo blocks with `symphony: true` frontmatter) and dispatches eligible issues into per-issue workspaces under `~/.symphony/workspaces/`. The `dispatchMode` flag chooses between the legacy `pi` CLI path and a hermes-tool path; the hermes-tool path is currently stubbed (`AgentWorkspaceManager.swift:985` errors out — the in-app surface predates `claude-code-lane` and needs rewiring to call `claude_code_run` via the hermes api_server). Provider is derived from `NanoProviderStore.current`.
+Frontmatter writes go through `BlocksStore.FrontmatterMutator` with a monotonic `frontmatter_version` counter to avoid lost updates between the app and hermes (since both reach `~/Library/Application Support/Geo/Blocks/*.md` through the MCP bridge).
 
-Frontmatter writes go through `BlocksStore.FrontmatterMutator` with a monotonic `frontmatter_version` counter to avoid lost updates between the app and hermes.
+> Historical: an in-app AI/Agent pane (`Geo/Features/Agent/`) used to drive its own kanban with `symphony: true` frontmatter and `~/.symphony/workspaces/`. Removed in favor of `claude-code-lane`, which owns the worker-spawning role entirely outside the app. Inert `symphony: true` keys in existing blocks and the `~/.symphony/workspaces/` tree on disk are leftover user data — code stops reading them but they survive until cleaned manually.
 
 ## The hard rules (app)
 
