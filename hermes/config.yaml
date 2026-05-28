@@ -37,15 +37,10 @@ memory:
 # ---------------------------------------------------------------------------
 # MCP servers
 # ---------------------------------------------------------------------------
-# Only `geo` is wired. claw's own MCP went away with claw — its memory_* tools
-# are now served by hermes's built-in memory store above.
-mcp_servers:
-  geo:
-    # The placeholder below is substituted by hermes/install.sh at install time,
-    # resolved from $REPO_ROOT/geo-mcp-bridge/geo-mcp-bridge (or $GEO_MCP_BRIDGE_BIN).
-    command: __GEO_MCP_BRIDGE_BIN__
-    args: []
-    env: {}
+# Geo is reached over its HTTP API (see hermes-extensions/geo-http-tools), not
+# MCP. claw's own MCP went away with claw — its memory_* tools are now served
+# by hermes's built-in memory store above.
+mcp_servers: {}
 
 # ---------------------------------------------------------------------------
 # Platforms
