@@ -167,13 +167,6 @@ class BlocksStore: ObservableObject {
         storageMigration.migrateIfNeeded(blocksDirectory: fileService.blocksDirectory, metadataURL: metadataURL)
         metadataService.loadMetadata()
 
-        Task { [weak metadataService, indexCoordinator] in
-            let snapshot = await indexCoordinator.fetchAllMetadata()
-            await MainActor.run {
-                metadataService?.hydrateFromIndex(snapshot)
-            }
-        }
-
         reconciler.onBlocksChanged = { [weak self] updatedBlocks in
             self?.blocks = updatedBlocks
         }
@@ -181,17 +174,26 @@ class BlocksStore: ObservableObject {
             self?.blocks ?? []
         }
 
-        if enableWatcher {
-            reconciler.startWatching()
-        }
-
+        let startWatcher = enableWatcher
         if loadAsync {
-            Task.detached(priority: .userInitiated) {
-                await self.loadBlocks()
+            Task.detached(priority: .userInitiated) { [weak self, weak metadataService, indexCoordinator] in
+                await self?.loadBlocks()
+                let snapshot = await indexCoordinator.fetchAllMetadata()
+                await MainActor.run {
+                    metadataService?.hydrateFromIndex(snapshot)
+                    if startWatcher {
+                        self?.changeReconciler.startWatching()
+                    }
+                }
             }
         } else {
-            Task {
-                await loadBlocks()
+            Task { [weak self, weak metadataService, indexCoordinator] in
+                await self?.loadBlocks()
+                let snapshot = await indexCoordinator.fetchAllMetadata()
+                metadataService?.hydrateFromIndex(snapshot)
+                if startWatcher {
+                    self?.changeReconciler.startWatching()
+                }
             }
         }
     }
