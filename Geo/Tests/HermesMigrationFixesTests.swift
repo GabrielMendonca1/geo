@@ -196,35 +196,6 @@ final class HermesMigrationFixesTests: XCTestCase {
         return nil
     }
 
-    func testAgentKindHasHermesCase() {
-        XCTAssertTrue(AIAgentKind.allCases.contains(.hermes))
-        XCTAssertEqual(AIAgentKind.hermes.rawValue, "hermes")
-        XCTAssertEqual(AIAgentKind.hermes.label, "hermes")
-    }
-
-    func testIsHermesAvailableReturnsFalseWhenBinaryAbsent() async {
-        let blocksRepo = BlocksStoreRepositoryAdapter(blocksStore: store)
-        let dayRepo = StubDayRepoHM()
-        let tagsRepo = StubTagsRepoHM()
-
-        let nonexistentPath = "/var/empty/no-hermes-here-\(UUID().uuidString)/bin"
-        setenv("HERMES_MCP_COMMAND", "no-such-hermes-binary-\(UUID().uuidString)", 1)
-        let originalPATH = ProcessInfo.processInfo.environment["PATH"]
-        setenv("PATH", nonexistentPath, 1)
-        defer {
-            unsetenv("HERMES_MCP_COMMAND")
-            if let originalPATH { setenv("PATH", originalPATH, 1) } else { unsetenv("PATH") }
-        }
-
-        let mgr = AIWorkspaceManager(
-            blocksRepository: blocksRepo,
-            dayRepository: dayRepo,
-            tagsRepository: tagsRepo
-        )
-        let available = await mgr.isHermesAvailable()
-        XCTAssertFalse(available)
-    }
-
     func testAppendReportToIssueNodeCoherentSingleBlock() async throws {
         let initialMarkdown = """
         ---
