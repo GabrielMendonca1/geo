@@ -799,38 +799,27 @@ actor AIWorkspaceManager {
         workflow: AIWorkflowDefinition,
         forcedProject: AIDiscoveredProject?
     ) async {
-        switch dispatchMode {
-        case .legacyPi:
-            await dispatchViaPi(issue: issue, workflow: workflow, forcedProject: forcedProject)
-        case .hermesTool:
-            refreshHermesDetection()
-            if detectedHermes.isAvailable {
-                await dispatchViaHermes(issue: issue, workflow: workflow, forcedProject: forcedProject)
-            } else {
-                appendLog(.warning, "hermes not installed; falling back to pi spawn for \(issue.identifier).")
-                refreshRuntimeDetection()
-                if !detectedPi.isAvailable {
-                    let attemptID = UUID()
-                    attempts.insert(AIRunAttempt(
-                        id: attemptID,
-                        issueID: issue.id,
-                        issueIdentifier: issue.identifier,
-                        projectID: forcedProject?.id,
-                        projectName: forcedProject?.name,
-                        projectRootPath: forcedProject?.rootPath,
-                        agent: .hermes,
-                        attempt: nextAttemptNumber(for: issue.id),
-                        workspacePath: workspaces[issue.id]?.path ?? "",
-                        status: .failed,
-                        error: "Neither hermes nor pi runtime is available. Install hermes or pi."
-                    ), at: 0)
-                    attempts[0].finishedAt = Date()
-                    appendLog(.error, "Dispatch failed for \(issue.identifier): neither hermes nor pi available.")
-                    return
-                }
-                await dispatchViaPi(issue: issue, workflow: workflow, forcedProject: forcedProject)
-            }
+        refreshHermesDetection()
+        guard detectedHermes.isAvailable else {
+            var attempt = AIRunAttempt(
+                id: UUID(),
+                issueID: issue.id,
+                issueIdentifier: issue.identifier,
+                projectID: forcedProject?.id,
+                projectName: forcedProject?.name,
+                projectRootPath: forcedProject?.rootPath,
+                agent: .hermes,
+                attempt: nextAttemptNumber(for: issue.id),
+                workspacePath: workspaces[issue.id]?.path ?? "",
+                status: .failed,
+                error: "hermes runtime is not available. Install hermes."
+            )
+            attempt.finishedAt = Date()
+            insertAttempt(attempt, at: 0)
+            appendLog(.error, "Dispatch failed for \(issue.identifier): hermes not available.")
+            return
         }
+        await dispatchViaHermes(issue: issue, workflow: workflow, forcedProject: forcedProject)
     }
 
     private func dispatchViaPi(
