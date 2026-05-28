@@ -889,9 +889,10 @@ private struct TaskCard: View {
             VStack(alignment: .leading, spacing: 8 * layoutScale) {
                 HStack(alignment: .top, spacing: 8 * layoutScale) {
                     Button(action: toggleCompletionFromCheckbox) {
+                        let strokeColor: Color = task.status == .completed ? Color(nsColor: Palette.agentSuccess) : Palette.accent
                         ZStack {
                             Circle()
-                                .stroke(task.status == .completed ? Color(nsColor: Palette.agentSuccess) : Palette.accent, lineWidth: 1.4 * layoutScale)
+                                .stroke(strokeColor, lineWidth: 1.4 * layoutScale)
                                 .frame(width: checkboxSize, height: checkboxSize)
                             Circle()
                                 .fill(Color(nsColor: Palette.agentSuccess))
