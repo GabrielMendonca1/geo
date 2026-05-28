@@ -1255,6 +1255,26 @@
 			path = Commands;
 			sourceTree = "<group>";
 		};
+		HTTP000000000000010G /* HTTP */ = {
+			isa = PBXGroup;
+			children = (
+				HTTP000000000000001R /* GeoHTTPServer.swift */,
+				HTTP000000000000002R /* GeoAPIRouter.swift */,
+				HTTP000000000000003R /* APITokenStore.swift */,
+				HTTP000000000000004R /* PendingTransactionStore.swift */,
+				HTTP000000000000005R /* APIAuditLogger.swift */,
+			);
+			path = HTTP;
+			sourceTree = "<group>";
+		};
+		HTTP000000000000011G /* HTTP */ = {
+			isa = PBXGroup;
+			children = (
+				HTTP000000000000007R /* GeoHTTPServerTests.swift */,
+			);
+			path = HTTP;
+			sourceTree = "<group>";
+		};
 		NEWF000000000000000200 /* MCP */ = {
 			isa = PBXGroup;
 			children = (
