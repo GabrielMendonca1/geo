@@ -648,7 +648,7 @@ private struct TaskCard: View {
 
     private static let maxInlineCheckboxes = 5
 
-    private var titleFontSize: CGFloat { fontSize * 0.96 }
+    private var titleFontSize: CGFloat { fontSize * 1.08 }
     private var subtitleFontSize: CGFloat { fontSize * 0.8 }
     private var chipFontSize: CGFloat { fontSize * 0.72 }
     private var iconFontSize: CGFloat { fontSize * 0.78 }
