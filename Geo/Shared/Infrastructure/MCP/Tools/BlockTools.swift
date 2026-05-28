@@ -9,10 +9,15 @@ enum BlockTools {
 
     private static func validateBlockId(_ id: String) -> Bool {
         guard !id.isEmpty, id.count <= 256 else { return false }
-        if id.contains("/") || id.contains("\\") || id.contains("..") || id.contains("\0") {
+        if id.contains("\\") || id.contains("\0") || id.hasPrefix("/") {
             return false
         }
-        return id.unicodeScalars.allSatisfy { validIdCharacters.contains($0) }
+        let segments = id.split(separator: "/", omittingEmptySubsequences: false)
+        for segment in segments {
+            if segment.isEmpty || segment == "." || segment == ".." { return false }
+            if !segment.unicodeScalars.allSatisfy({ validIdCharacters.contains($0) }) { return false }
+        }
+        return true
     }
 
     private static func genericError(_ tool: String, _ error: Error) -> MCPToolResult {
