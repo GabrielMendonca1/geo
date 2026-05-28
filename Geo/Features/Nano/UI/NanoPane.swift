@@ -430,6 +430,7 @@ private struct CronsCard: View {
 
 private struct MemoryCard: View {
     @EnvironmentObject private var blocksStore: BlocksStore
+    @State private var memoryIndex: [String: BlocksStore.Block] = [:]
 
     var body: some View {
         DashCard(title: "Memory", icon: "brain.head.profile", accent: nil) {
@@ -437,9 +438,9 @@ private struct MemoryCard: View {
                 if blocksStore.blocks.isEmpty {
                     MemoryLoadingRow()
                 } else {
-                    MemoryRow(spec: .soul, blocks: blocksStore.blocks)
-                    MemoryRow(spec: .memory, blocks: blocksStore.blocks)
-                    MemoryRow(spec: .profile, blocks: blocksStore.blocks)
+                    MemoryRow(spec: .soul, block: memoryIndex[MemorySpec.soul.tag])
+                    MemoryRow(spec: .memory, block: memoryIndex[MemorySpec.memory.tag])
+                    MemoryRow(spec: .profile, block: memoryIndex[MemorySpec.profile.tag])
                 }
                 Divider().padding(.vertical, 2)
                 Text("Edit any of these blocks in the Blocks pane to change what the agent knows. Restart the daemon to pick up Soul edits.")
@@ -448,6 +449,41 @@ private struct MemoryCard: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+        .onAppear { rebuildMemoryIndex(blocksStore.blocks) }
+        .onChange(of: blocksStore.blocks) { newValue in
+            rebuildMemoryIndex(newValue)
+        }
+    }
+
+    private func rebuildMemoryIndex(_ blocks: [BlocksStore.Block]) {
+        let specs = MemorySpec.all
+        var byTag: [String: BlocksStore.Block] = [:]
+        var byTitle: [String: BlocksStore.Block] = [:]
+        let tagNeedles: [(spec: MemorySpec, needle: String)] = specs.map { ($0, "tag: \($0.tag)") }
+        let titleNeedles: [String: String] = specs.reduce(into: [:]) { acc, spec in
+            for t in spec.titleMatches { acc[t.lowercased()] = spec.tag }
+        }
+        for block in blocks {
+            if byTag.count < specs.count {
+                for (spec, needle) in tagNeedles where byTag[spec.tag] == nil {
+                    if block.markdown.contains(needle) {
+                        byTag[spec.tag] = block
+                    }
+                }
+            }
+            let normalizedTitle = block.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if let specTag = titleNeedles[normalizedTitle], byTitle[specTag] == nil {
+                byTitle[specTag] = block
+            }
+            if byTag.count == specs.count { break }
+        }
+        var merged: [String: BlocksStore.Block] = byTag
+        for spec in specs where merged[spec.tag] == nil {
+            if let titled = byTitle[spec.tag] {
+                merged[spec.tag] = titled
+            }
+        }
+        memoryIndex = merged
     }
 }
 
