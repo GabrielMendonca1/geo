@@ -73,6 +73,8 @@ async function start() {
       const code = lastDisconnect?.error?.output?.statusCode;
       const shouldReconnect = code !== DisconnectReason.loggedOut;
       log.warn({ code, shouldReconnect }, 'disconnected');
+      try { sock.ev.removeAllListeners(); } catch {}
+      try { sock.end(undefined); } catch {}
       if (shouldReconnect) {
         setTimeout(start, 3000);
       }
