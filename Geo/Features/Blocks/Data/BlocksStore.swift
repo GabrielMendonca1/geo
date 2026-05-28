@@ -511,7 +511,7 @@ class BlocksStore: ObservableObject {
     @MainActor
     @discardableResult
     func setStatus(_ status: String?, for blockId: String) async -> Bool {
-        guard blocks.contains(where: { $0.id == blockId }) else { return false }
+        guard indexOfBlock(id: blockId) != nil else { return false }
         do {
             let merge: [String: AnyCodableValue]
             if let status, !status.isEmpty {
