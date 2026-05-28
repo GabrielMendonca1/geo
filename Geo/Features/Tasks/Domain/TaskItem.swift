@@ -551,6 +551,26 @@ extension TaskItem {
         return .never
     }
 
+    var scheduleDisplayLabel: String {
+        let short: DateFormatter = {
+            let f = DateFormatter()
+            f.dateStyle = .medium
+            f.timeStyle = .short
+            return f
+        }()
+        let timeOnly = DateFormatters.shortTime
+        switch body {
+        case .task(let due, _):
+            return "Due \(short.string(from: due))"
+        case .event(let start, let end):
+            return "\(short.string(from: start)) – \(timeOnly.string(from: end))"
+        case .habit(let rule, let tod, _):
+            return "\(rule.displayName) at \(timeOnly.string(from: tod))"
+        case .milestone(let target):
+            return "Target \(short.string(from: target))"
+        }
+    }
+
     var priorityColor: String {
         switch priority {
         case .urgent: return "red"
