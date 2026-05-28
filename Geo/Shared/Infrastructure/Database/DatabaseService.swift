@@ -219,6 +219,20 @@ final class DatabaseService: @unchecked Sendable {
         }
     }
 
+    func repairIndex(upserts: [BlockIndexEntry], removals: [String]) async throws {
+        guard !upserts.isEmpty || !removals.isEmpty else { return }
+        try await performWrite { db in
+            for id in removals {
+                try db.execute(sql: "DELETE FROM block_tags WHERE blockId = ?", arguments: [id])
+                try db.execute(sql: "DELETE FROM blocks_fts WHERE blockId = ?", arguments: [id])
+                try db.execute(sql: "DELETE FROM blocks WHERE id = ?", arguments: [id])
+            }
+            for entry in upserts {
+                try self.upsertBlock(entry, in: db)
+            }
+        }
+    }
+
     func rebuildIndex(entries: [BlockIndexEntry]) async throws {
         try await performWrite { db in
             try db.execute(sql: "DELETE FROM block_tags")
