@@ -375,12 +375,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         DayMigrationService.shared.migrateIfNeeded()
         Task { [container] in
             await FrontmatterStripMigrationService.shared.runIfNeeded()
-            await MainActor.run {
-                container.blocksStore.reload()
-            }
             let fileService = await MainActor.run { container.blocksStore.fileService }
             let metadata = await MainActor.run { container.blocksStore.metadataService.blocksMetadata }
             await IndexCoordinator.shared.repairIntegrity(fileService: fileService, metadata: metadata)
+            await MainActor.run {
+                container.blocksStore.reload()
+            }
             let hydrated = await IndexCoordinator.shared.fetchAllMetadata()
             await MainActor.run {
                 container.blocksStore.metadataService.hydrateFromIndex(hydrated)
