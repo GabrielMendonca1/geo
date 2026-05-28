@@ -62,7 +62,6 @@ final class AppContainer {
     let workerSessionRegistry: WorkerSessionRegistry
     let workerInbox: WorkerInbox
     let nanoHermesService: HermesStatusService
-    let nanoConversationStore: NanoConversationStore
     let environment: AppEnvironment
 
     init() {
