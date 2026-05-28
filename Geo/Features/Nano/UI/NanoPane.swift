@@ -14,31 +14,33 @@ struct NanoPane: View {
 
     var body: some View {
         Pane {
-            VStack(spacing: 12) {
-                if service.setupState != .running {
-                    HermesSetupBanner(service: service)
-                }
-                if let banner = recentError, service.setupState == .running {
-                    ErrorBanner(event: banner) {
-                        scrollTargetId = banner.id
-                    } onDismiss: {
-                        dismissedErrorId = banner.id
+            ScrollView {
+                VStack(spacing: 12) {
+                    if service.setupState != .running {
+                        HermesSetupBanner(service: service)
                     }
+                    if let banner = recentError, service.setupState == .running {
+                        ErrorBanner(event: banner) {
+                            scrollTargetId = banner.id
+                        } onDismiss: {
+                            dismissedErrorId = banner.id
+                        }
+                    }
+                    TodayInsightsCard(insights: insights)
+                    ActivatedStrip(service: service)
+                    HStack(alignment: .top, spacing: 12) {
+                        CronsCard()
+                            .frame(maxWidth: .infinity)
+                        MemoryCard()
+                            .frame(width: 260)
+                    }
+                    WorkersCard()
+                    ActivityFeed(events: activity.events, scrollTo: $scrollTargetId)
+                        .frame(height: 320)
+                    QuickActionsRow()
                 }
-                TodayInsightsCard(insights: insights)
-                ActivatedStrip(service: service)
-                HStack(alignment: .top, spacing: 12) {
-                    CronsCard()
-                        .frame(maxWidth: .infinity)
-                    MemoryCard()
-                        .frame(width: 260)
-                }
-                WorkersCard()
-                ActivityFeed(events: activity.events, scrollTo: $scrollTargetId)
-                    .frame(maxHeight: .infinity)
-                QuickActionsRow()
+                .padding(14)
             }
-            .padding(14)
         }
         .onAppear {
             insights.start()
