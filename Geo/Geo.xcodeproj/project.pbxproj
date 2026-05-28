@@ -1522,6 +1522,7 @@
 				SHAREDGROUP0003 /* Migrations */,
 				PERF0TRACK0002 /* PerformanceTracker.swift */,
 				NEWF000000000000000200 /* MCP */,
+				HTTP000000000000010G /* HTTP */,
 				AIGRP0000000000000001 /* AI */,
 			);
 			path = Infrastructure;
