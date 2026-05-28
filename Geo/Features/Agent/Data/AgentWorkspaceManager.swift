@@ -400,11 +400,8 @@ actor AIWorkspaceManager {
         for session in liveSessions.values {
             markAttempt(issueID: session.issueID, status: .canceled, error: "Service stopped by operator.")
         }
-        for process in runningProcesses.values where process.isRunning {
-            process.terminate()
-        }
-        runningProcesses.removeAll()
         liveSessions.removeAll()
+        liveSessionsByIssueID.removeAll()
         claimedIssueIDs.removeAll()
         for task in retryTasks.values { task.cancel() }
         retryTasks.removeAll()
