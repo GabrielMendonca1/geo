@@ -14,6 +14,9 @@ class GlobalHotkeyManager {
     private var runLoopSource: CFRunLoopSource?
     private var workspaceObserver: NSObjectProtocol?
     private var healthTimer: DispatchSourceTimer?
+    private var retryDelay: TimeInterval = 2
+    private static let minRetryDelay: TimeInterval = 2
+    private static let maxRetryDelay: TimeInterval = 60
     private let pasteLock = NSLock()
     private var _isSimulatingPaste = false
     private var isSimulatingPaste: Bool {
