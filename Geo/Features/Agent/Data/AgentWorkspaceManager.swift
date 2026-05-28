@@ -811,7 +811,7 @@ actor AIWorkspaceManager {
 
         let preflightAttemptID = UUID()
         let preflightAttemptNumber = nextAttemptNumber(for: issue.id)
-        attempts.insert(AIRunAttempt(
+        insertAttempt(AIRunAttempt(
             id: preflightAttemptID,
             issueID: issue.id,
             issueIdentifier: issue.identifier,
