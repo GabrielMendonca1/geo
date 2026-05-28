@@ -38,7 +38,6 @@ enum AppTab: String, CaseIterable {
         case .home: return "calendar"
         case .tasks: return "checklist.unchecked"
         case .nodes: return "point.3.connected.trianglepath.dotted"
-        case .ai: return "rectangle.stack.badge.play"
         case .nano: return "rectangle.grid.2x2.fill"
         case .settings: return "gearshape"
         }
