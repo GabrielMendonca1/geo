@@ -54,6 +54,7 @@ final class BlockFileService {
 
         var mdFiles: [URL] = []
         for case let url as URL in enumerator where url.pathExtension.lowercased() == "md" {
+            if relativeId(for: url).hasPrefix("Attachments/") { continue }
             mdFiles.append(url)
         }
 
