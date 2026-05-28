@@ -56,6 +56,7 @@ final class AppContainer {
     let notchWindowController: NotchWindowController
     let dayManager: DayManager
     let mcpServer: MCPServer
+    let httpServer: GeoHTTPServer
     let templateService: TemplateService
     let nanoHermesService: HermesStatusService
     let environment: AppEnvironment
