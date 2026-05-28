@@ -1325,7 +1325,12 @@ private struct StatusBar: View {
 
     private var verdict: HealthVerdict {
         guard service.setupState == .running, service.mcpConnected else { return .down }
-        let bad = service.connectors.contains { $0.status == .error || $0.status == .disconnected }
+        let bad = service.connectors.contains { c in
+            switch c.status {
+            case .error, .disconnected: return true
+            case .connected, .connecting: return false
+            }
+        }
         return bad ? .degraded : .healthy
     }
 
