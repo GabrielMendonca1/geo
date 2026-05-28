@@ -992,14 +992,15 @@ private struct TaskCard: View {
             .padding(.horizontal, 12 * layoutScale)
             .padding(.vertical, 11 * layoutScale)
         }
+        .opacity(task.status == .completed ? 0.55 : 1)
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .background(
             RoundedRectangle(cornerRadius: 10 * layoutScale)
-                .fill(isHovering ? Palette.background.opacity(0.98) : Palette.background.opacity(0.92))
+                .fill(isHovering ? Palette.background : Palette.background.opacity(0.88))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 10 * layoutScale)
-                .stroke(Palette.border.opacity(isHovering ? 0.26 : 0.16), lineWidth: 1)
+                .stroke(Palette.border.opacity(isHovering ? 0.4 : 0.16), lineWidth: 1)
         )
         .shadow(
             color: Color.black.opacity(isHovering ? 0.08 : 0.02),
