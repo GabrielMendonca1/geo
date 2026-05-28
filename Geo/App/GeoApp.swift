@@ -127,8 +127,12 @@ final class AppContainer {
                 + AITools.register()
         }
         let mcpAuthGuard = MCPAuthGuard()
-        let mcpServer = MCPServer(registry: MCPToolRegistry(tools: mcpTools), authGuard: mcpAuthGuard)
+        let registry = MCPToolRegistry(tools: mcpTools)
+        let mcpServer = MCPServer(registry: registry, authGuard: mcpAuthGuard)
         mcpServer.subscriptionManager = SubscriptionManager(blocks: blocksAdapter, tasks: tasksAdapter)
+
+        let apiRouter = GeoAPIRouter(registry: registry, blocks: blocksAdapter)
+        let httpServer = GeoHTTPServer(router: apiRouter)
 
         let nanoHermesService = MainActor.assumeIsolated { HermesStatusService() }
 
