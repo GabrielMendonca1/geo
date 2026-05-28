@@ -125,6 +125,7 @@ def _run_task(
 
     final_summary: Optional[str] = None
     final_error: Optional[str] = None
+    saw_result = False
 
     try:
         assert proc.stdout is not None
