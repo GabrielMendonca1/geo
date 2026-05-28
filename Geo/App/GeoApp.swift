@@ -126,38 +126,10 @@ final class AppContainer {
                 + AITools.register()
         }
         let mcpAuthGuard = MCPAuthGuard()
-        let endpointRegistry = MainActor.assumeIsolated { EndpointRegistry(authGuard: mcpAuthGuard) }
         let mcpServer = MCPServer(registry: MCPToolRegistry(tools: mcpTools), authGuard: mcpAuthGuard)
         mcpServer.subscriptionManager = SubscriptionManager(blocks: blocksAdapter, tasks: tasksAdapter)
 
-        let workerSessionRegistry = MainActor.assumeIsolated { WorkerSessionRegistry() }
-        let workerInbox = MainActor.assumeIsolated { WorkerInbox() }
-        let workerDispatcher = WorkerDispatcher(registry: workerSessionRegistry)
         let nanoHermesService = MainActor.assumeIsolated { HermesStatusService() }
-
-        mcpServer.onAuthenticatedConnection = { connection, endpoint in
-            Task { @MainActor in
-                workerSessionRegistry.register(connection: connection, endpoint: endpoint)
-                workerInbox.record(.init(
-                    workerName: endpoint.endpointName,
-                    kind: .generic,
-                    title: "\(endpoint.endpointName) connected"
-                ))
-            }
-        }
-        mcpServer.onDisconnectedConnection = { connectionId in
-            Task { @MainActor in
-                workerSessionRegistry.remove(connectionId: connectionId)
-            }
-        }
-        mcpServer.onWorkerNotification = { method, params, endpoint in
-            guard let endpoint else { return }
-            Task { @MainActor in
-                workerInbox.record(Self.makeInboxEntry(method: method, params: params, endpointName: endpoint.endpointName))
-            }
-        }
-
-        _ = workerDispatcher
 
         let appEnvironment = AppEnvironment(
             blocksRepository: blocksAdapter,
