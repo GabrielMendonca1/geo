@@ -1,13 +1,13 @@
 """
 geo-context hook — fetches User Profile, Memory and Today blocks from Gabriel's
-Geo app via the geo-mcp-bridge stdio MCP server, optionally summarizes Today
-with Claude Haiku, and writes the result to ~/.hermes/memories/MEMORY.md so
-hermes's own memory-injection picks it up when building system prompts.
+Geo app via its HTTP API at 127.0.0.1:<port>, token from Keychain, and writes
+the result to ~/.hermes/memories/MEMORY.md so hermes's own memory-injection
+picks it up when building system prompts.
 
 Fires on agent:start (every turn) and session:reset. TTL+hash gated:
-- Skip MCP entirely if last successful fetch was <TTL_SECONDS ago.
+- Skip HTTP entirely if last successful fetch was <TTL_SECONDS ago.
 - Skip MEMORY.md rewrite if body hash is unchanged (preserves prompt cache).
-Silently bails when Geo.app is closed (no socket).
+Silently bails when Geo.app is closed (api.json stale / pid dead / connect fail).
 """
 
 from __future__ import annotations
@@ -17,17 +17,20 @@ import hashlib
 import json
 import os
 import shutil
+import subprocess
 import time
+import urllib.parse
 from pathlib import Path
 from typing import Optional
 
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
+import httpx
 
 HERMES_HOME = Path(os.path.expanduser("~/.hermes"))
 MEMORY_PATH = HERMES_HOME / "memories" / "MEMORY.md"
 STATE_PATH = Path(__file__).parent / ".state.json"
-GEO_BRIDGE_PATH = "/Users/biel/ARC/Forge/Geo/geo-mcp-bridge/geo-mcp-bridge"
+GEO_API_JSON = Path(os.path.expanduser("~/Library/Application Support/Geo/api.json"))
+KEYCHAIN_SERVICE = "geo-api-bootstrap"
+KEYCHAIN_ACCOUNT = "hermes-hook"
 HAIKU_MODEL = "claude-haiku-4-5"
 TODAY_SUMMARIZE_THRESHOLD = 600
 MAX_MEMORY_BODY = 4000
@@ -36,17 +39,6 @@ TTL_SECONDS = 60.0
 
 def _log(msg: str) -> None:
     print(f"[geo-context] {msg}", flush=True)
-
-
-def _extract_text(call_result) -> Optional[str]:
-    if call_result is None:
-        return None
-    content = getattr(call_result, "content", None)
-    if not content:
-        return None
-    parts = [c.text for c in content if hasattr(c, "text") and c.text]
-    raw = "\n".join(parts).strip()
-    return raw or None
 
 
 def _unwrap_block(raw: Optional[str]) -> Optional[str]:
@@ -89,37 +81,91 @@ def _format_today(raw: Optional[str]) -> Optional[str]:
         return raw
 
 
-async def _safe_call(session: ClientSession, tool: str, args: dict) -> Optional[str]:
+def _read_keychain_token() -> Optional[str]:
     try:
-        result = await asyncio.wait_for(
-            session.call_tool(tool, arguments=args),
-            timeout=10.0,
+        result = subprocess.run(
+            ["security", "find-generic-password",
+             "-s", KEYCHAIN_SERVICE, "-a", KEYCHAIN_ACCOUNT, "-w"],
+            capture_output=True, text=True, timeout=2.0,
         )
-        return _extract_text(result)
     except Exception as e:
-        _log(f"{tool}({args}) failed: {e}")
+        _log(f"keychain read failed: {e}")
+        return None
+    if result.returncode != 0:
+        _log(f"keychain entry missing (service={KEYCHAIN_SERVICE} account={KEYCHAIN_ACCOUNT})")
+        return None
+    tok = (result.stdout or "").strip()
+    return tok or None
+
+
+def _read_api_json() -> Optional[dict]:
+    if not GEO_API_JSON.exists():
+        return None
+    try:
+        obj = json.loads(GEO_API_JSON.read_text(encoding="utf-8"))
+        port = int(obj.get("port") or 0)
+        pid = int(obj.get("pid") or 0)
+        if not port or not pid:
+            return None
+        try:
+            os.kill(pid, 0)
+        except OSError:
+            return None
+        return {"port": port, "pid": pid}
+    except Exception:
         return None
 
 
-async def _fetch_geo_blocks():
-    if not Path(GEO_BRIDGE_PATH).exists():
-        _log(f"bridge binary missing at {GEO_BRIDGE_PATH}")
-        return None, None, None
-    params = StdioServerParameters(command=GEO_BRIDGE_PATH, args=[], env=None)
+async def _safe_get(client: httpx.AsyncClient, path: str, token_ref: dict) -> Optional[str]:
     try:
-        async with stdio_client(params) as (read, write):
-            async with ClientSession(read, write) as session:
-                await asyncio.wait_for(session.initialize(), timeout=8.0)
-                profile = await _safe_call(
-                    session, "get_block_by_title", {"title": "User Profile"}
-                )
-                memory = await _safe_call(
-                    session, "get_block_by_title", {"title": "Memory"}
-                )
-                today = await _safe_call(session, "get_today", {})
-                return profile, memory, today
+        r = await client.get(path)
+    except httpx.RequestError as e:
+        _log(f"GET {path} failed: {e}")
+        return None
+    if r.status_code == 401:
+        new_tok = _read_keychain_token()
+        if new_tok and new_tok != token_ref.get("token"):
+            token_ref["token"] = new_tok
+            client.headers["Authorization"] = f"Bearer {new_tok}"
+            try:
+                r = await client.get(path)
+            except httpx.RequestError as e:
+                _log(f"GET {path} retry failed: {e}")
+                return None
+        if r.status_code == 401:
+            _log(f"GET {path} unauthorized after token refresh")
+            return None
+    if r.status_code == 200:
+        return r.text
+    if r.status_code == 404:
+        return None
+    _log(f"GET {path} -> {r.status_code}")
+    return None
+
+
+async def _fetch_geo_blocks():
+    info = _read_api_json()
+    if not info:
+        return None, None, None
+    token = _read_keychain_token()
+    if not token:
+        return None, None, None
+    token_ref = {"token": token}
+    base = f"http://127.0.0.1:{info['port']}"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "X-Caller-Id": "hermes-hook",
+    }
+    try:
+        async with httpx.AsyncClient(base_url=base, headers=headers, timeout=8.0) as client:
+            profile_path = "/v1/blocks/by-title?title=" + urllib.parse.quote("User Profile")
+            memory_path = "/v1/blocks/by-title?title=" + urllib.parse.quote("Memory")
+            profile = await asyncio.wait_for(_safe_get(client, profile_path, token_ref), timeout=10.0)
+            memory = await asyncio.wait_for(_safe_get(client, memory_path, token_ref), timeout=10.0)
+            today = await asyncio.wait_for(_safe_get(client, "/v1/days/today", token_ref), timeout=10.0)
+            return profile, memory, today
     except Exception as e:
-        _log(f"bridge unreachable (Geo.app closed?): {e}")
+        _log(f"http unreachable (Geo.app closed?): {e}")
         return None, None, None
 
 
