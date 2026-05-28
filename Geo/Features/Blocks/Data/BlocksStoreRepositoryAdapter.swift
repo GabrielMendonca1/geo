@@ -184,7 +184,12 @@ struct BlocksStoreRepositoryAdapter: BlocksRepository, @unchecked Sendable {
                     if Task.isCancelled {
                         break
                     }
-                    continuation.yield(blocks.map(BlockEntity.init(from:)))
+                    var seen = Set<String>()
+                    let entities = blocks.compactMap { block -> BlockEntity? in
+                        guard seen.insert(block.id).inserted else { return nil }
+                        return BlockEntity(from: block)
+                    }
+                    continuation.yield(entities)
                 }
                 continuation.finish()
             }
