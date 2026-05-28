@@ -285,6 +285,14 @@ struct BlockEditorWindowWrapper: View {
             minHeight: 320,
             idealHeight: 600
         )
+        .background {
+            Button("Close Window") {
+                NSApp.keyWindow?.performClose(nil)
+            }
+            .keyboardShortcut("w", modifiers: .command)
+            .opacity(0)
+            .accessibilityHidden(true)
+        }
     }
 }
 
