@@ -303,6 +303,13 @@
 		VEFCT00000000000002 /* VisualEffectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = VEFCT00000000000001 /* VisualEffectView.swift */; };
 		WCHROME0001BFIL /* TitleBarAccessories.swift in Sources */ = {isa = PBXBuildFile; fileRef = WCHROME0001FREF /* TitleBarAccessories.swift */; };
 		WCHROME0002BFIL /* GeoWindowChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = WCHROME0002FREF /* GeoWindowChrome.swift */; };
+		HTTP000000000000001B /* GeoHTTPServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = HTTP000000000000001R /* GeoHTTPServer.swift */; };
+		HTTP000000000000002B /* GeoAPIRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = HTTP000000000000002R /* GeoAPIRouter.swift */; };
+		HTTP000000000000003B /* APITokenStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = HTTP000000000000003R /* APITokenStore.swift */; };
+		HTTP000000000000004B /* PendingTransactionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = HTTP000000000000004R /* PendingTransactionStore.swift */; };
+		HTTP000000000000005B /* APIAuditLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = HTTP000000000000005R /* APIAuditLogger.swift */; };
+		HTTP000000000000006B /* APIAccessSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = HTTP000000000000006R /* APIAccessSettingsView.swift */; };
+		HTTP000000000000007B /* GeoHTTPServerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = HTTP000000000000007R /* GeoHTTPServerTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
