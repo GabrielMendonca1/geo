@@ -164,6 +164,12 @@ def _run_task(
                 pass
             proc.wait(timeout=5)
         hb_thread.join(timeout=5)
+        wd_thread.join(timeout=5)
+
+    if timed_out.is_set() and final_error is None:
+        final_error = "max_runtime exceeded"
+    if final_error is None and final_summary is None:
+        final_error = f"claude-code exited without a result (code {proc.returncode})"
 
     if final_error:
         _log(f"task={task_id} BLOCKED: {final_error}")
