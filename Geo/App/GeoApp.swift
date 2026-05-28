@@ -115,11 +115,6 @@ final class AppContainer {
         let blocksAdapter = BlocksStoreRepositoryAdapter(blocksStore: blocksStore)
         let tasksAdapter = TasksStoreRepositoryAdapter(tasksStore: tasksStore)
         let tagsAdapter = TagStoreRepositoryAdapter(tagStore: tagStore)
-        let aiRepository = AIWorkspaceRepositoryAdapter(manager: AIWorkspaceManager(
-            blocksRepository: blocksAdapter,
-            dayRepository: dayStoreAdapter,
-            tagsRepository: tagsAdapter
-        ))
 
         let templateService = MainActor.assumeIsolated { TemplateService.shared }
 
