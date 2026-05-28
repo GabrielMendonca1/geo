@@ -21,6 +21,8 @@ final class GraphStore: ObservableObject {
     private var lastFingerprint: [String: Int] = [:]
     private var observationTask: Task<Void, Never>?
     private var externalChangeObserver: NSObjectProtocol?
+    private var pendingExternalStringIds: [(ids: Set<String>, timestamp: Date)] = []
+    private let pendingExternalTTL: TimeInterval = 5.0
 
     deinit {
         if let token = externalChangeObserver {
