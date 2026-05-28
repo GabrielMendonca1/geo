@@ -51,8 +51,8 @@ Geo/                          macOS app source (Swift/SwiftUI) — see "Geo app"
 Geo.xcodeproj/                Xcode project
 geo-mcp-bridge/               Swift binary, thin MCP bridge for the macOS app
 hermes/                       hermes daemon config (config.yaml, SOUL.md, memories/, install.sh)
-hermes-extensions/            custom MCP tools shipped with hermes
-  dispatch-subagent/          Python package — replaces the old pi-spawning flow
+hermes-extensions/            custom MCP plugins + worker daemons that ship with hermes
+  claude-code-lane/           Plugin + LaunchAgent daemon — spawns `claude` CLI as kanban workers
 LICENSE
 ```
 
