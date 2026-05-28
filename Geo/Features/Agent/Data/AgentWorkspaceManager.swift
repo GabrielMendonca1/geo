@@ -358,7 +358,8 @@ actor AIWorkspaceManager {
     private var retryTasks: [String: Task<Void, Never>] = [:]
     private var agentTotals = AIAgentTotals()
     private var lastPollAt: Date?
-    private var dispatchMode: AIDispatchMode
+    private var attemptsByIssueID: [String: [AIRunAttempt]] = [:]
+    private var liveSessionsByIssueID: [String: Set<String>] = [:]
 
     init(
         blocksRepository: any BlocksRepository,
@@ -372,16 +373,7 @@ actor AIWorkspaceManager {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? FileManager.default.homeDirectoryForCurrentUser
         self.rootURL = appSupport.appendingPathComponent("Geo/Symphony", isDirectory: true)
-        self.dispatchMode = UserDefaults.standard.bool(forKey: "useHermesDispatch") ? .hermesTool : .legacyPi
     }
-
-    func setDispatchMode(_ mode: AIDispatchMode) async {
-        dispatchMode = mode
-        UserDefaults.standard.set(mode == .hermesTool, forKey: "useHermesDispatch")
-        appendLog(.info, "Dispatch mode set to \(mode.rawValue).")
-    }
-
-    func currentDispatchMode() -> AIDispatchMode { dispatchMode }
 
     deinit {
         loopTask?.cancel()
