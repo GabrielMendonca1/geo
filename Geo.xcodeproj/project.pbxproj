@@ -835,6 +835,7 @@
 				STR03A /* BlockEditOpsStressTests.swift */,
 				STR04A /* AttachmentStressTests.swift */,
 				STR05A /* AutoFormatAndOverlaysStressTests.swift */,
+				HTTP000000000000011G /* HTTP */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
