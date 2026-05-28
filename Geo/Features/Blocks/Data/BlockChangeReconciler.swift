@@ -135,9 +135,11 @@ final class BlockChangeReconciler {
                     let existing = updatedBlocks[index]
                     if existing.markdown != content || existing.tagId != blockMetadata.tagId {
                         updatedBlocks[index] = block
+                        externallyChangedIds.append(blockId)
                     }
                 } else {
                     updatedBlocks.append(block)
+                    externallyChangedIds.append(blockId)
                 }
                 blocksToIndex.append(block)
             } else {
@@ -166,6 +168,16 @@ final class BlockChangeReconciler {
             Task {
                 await indexCoordinator.remove(blockId: id)
             }
+        }
+        if !externallyChangedIds.isEmpty || !removedIds.isEmpty {
+            NotificationCenter.default.post(
+                name: .blocksExternallyChanged,
+                object: nil,
+                userInfo: [
+                    BlockExternalChangeKey.changedIds: externallyChangedIds,
+                    BlockExternalChangeKey.removedIds: removedIds
+                ]
+            )
         }
     }
 
