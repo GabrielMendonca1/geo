@@ -1253,19 +1253,55 @@ private final class TodayInsightsService: ObservableObject {
     }
 }
 
-// MARK: - Quick actions --------------------------------------------------
+// MARK: - Status bar (sticky) --------------------------------------------
 
-private struct QuickActionsRow: View {
+private enum HealthVerdict {
+    case healthy, degraded, down
+
+    var label: String {
+        switch self {
+        case .healthy: return "HEALTHY"
+        case .degraded: return "DEGRADED"
+        case .down: return "DOWN"
+        }
+    }
+
+    var dot: DashDot {
+        switch self {
+        case .healthy: return .green
+        case .degraded: return .yellow
+        case .down: return .red
+        }
+    }
+}
+
+private struct StatusBar: View {
+    @ObservedObject var service: HermesStatusService
+    let totalToday: Int
     @State private var feedback: String?
     @State private var feedbackIsError: Bool = false
 
     var body: some View {
-        HStack(spacing: 8) {
-            QuickActionChip(label: "Open SOUL.md", icon: "doc.text", action: openSoul)
-            QuickActionChip(label: "Tail gateway.log", icon: "list.bullet.rectangle", action: tailLog)
-            QuickActionChip(label: "Restart hermes", icon: "arrow.clockwise", action: restartHermes)
-            QuickActionChip(label: "Reveal ~/.hermes/", icon: "folder", action: revealHermes)
+        HStack(spacing: 10) {
+            PulsingDot(dot: verdict.dot)
+                .frame(width: 12, height: 12)
+            Text(verdict.label)
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .tracking(0.6)
+                .foregroundStyle(.primary)
+            dotText("·")
+            Text("\(totalToday) handled")
+                .font(.system(size: 11, weight: .medium))
+                .contentTransition(.numericText())
+                .animation(.spring(response: 0.5), value: totalToday)
+            if let tick = service.lastTick {
+                dotText("·")
+                Text("tick \(relative(tick))")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
             if let feedback {
+                dotText("·")
                 Text(feedback)
                     .font(.system(size: 10))
                     .foregroundStyle(feedbackIsError ? Color(red: 0.95, green: 0.32, blue: 0.32) : .secondary)
@@ -1273,8 +1309,30 @@ private struct QuickActionsRow: View {
                     .truncationMode(.tail)
                     .transition(.opacity)
             }
-            Spacer(minLength: 0)
+            Spacer(minLength: 8)
+            OpsButton(icon: "arrow.clockwise", help: "Restart hermes", action: restartHermes)
+            OpsButton(icon: "doc.text", help: "Open SOUL.md", action: openSoul)
+            OpsButton(icon: "list.bullet.rectangle", help: "Tail gateway.log", action: tailLog)
+            OpsButton(icon: "folder", help: "Reveal ~/.hermes/", action: revealHermes)
         }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 9)
+    }
+
+    private func dotText(_ s: String) -> some View {
+        Text(s).font(.system(size: 11)).foregroundStyle(.secondary.opacity(0.5))
+    }
+
+    private var verdict: HealthVerdict {
+        guard service.setupState == .running, service.mcpConnected else { return .down }
+        let bad = service.connectors.contains { $0.status == .error || $0.status == .disconnected }
+        return bad ? .degraded : .healthy
+    }
+
+    private func relative(_ date: Date) -> String {
+        let f = RelativeDateTimeFormatter()
+        f.unitsStyle = .short
+        return f.localizedString(for: date, relativeTo: Date())
     }
 
     private func openSoul() {
