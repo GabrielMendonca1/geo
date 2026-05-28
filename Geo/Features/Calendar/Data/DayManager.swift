@@ -25,9 +25,11 @@ class DayManager: ObservableObject {
     }
 
     func recordBlockCreation(id: String) {
+        let snapshotDayId = currentDayId
+        let snapshotDate = snapshotDayId.flatMap(Self.date(from:)) ?? Date()
         Task {
             do {
-                try await dayRepository.addBlockToDay(date: Date(), blockId: id)
+                try await dayRepository.addBlockToDay(date: snapshotDate, blockId: id)
             } catch {
                 logger.error("Failed to add block \(id) to day: \(error.localizedDescription)")
             }
