@@ -167,7 +167,7 @@ class GlobalHotkeyManager {
                     if let window = NSApp.windows.first(where: { $0.isVisible && !($0 is NSPanel) }) {
                         window.makeKeyAndOrderFront(nil)
                     }
-                    self.navigateToTab(.ai)
+                    self.navigateToTab(.nano)
                 }
                 return nil
 
