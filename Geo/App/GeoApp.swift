@@ -142,8 +142,7 @@ final class AppContainer {
             settingsRepository: settingsRepository,
             attachmentService: FileAttachmentService(),
             usageTracker: FABUsageTracker(),
-            holidayService: holidayService,
-            aiRepository: aiRepository
+            holidayService: holidayService
         )
 
         let notchWindowController = MainActor.assumeIsolated {
