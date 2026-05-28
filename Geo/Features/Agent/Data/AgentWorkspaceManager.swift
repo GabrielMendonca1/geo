@@ -988,7 +988,7 @@ actor AIWorkspaceManager {
         let message = "kanban dispatch via hermes MCP is disabled — `mcp_hermes_dispatch_subagent` is not exposed by `hermes mcp serve`. Install hermes-extensions/dispatch-subagent or wire to direct `claude` spawn before re-enabling."
         markAttempt(issueID: issueID, status: .failed, error: message)
         appendLog(.error, "hermes dispatch unavailable for \(identifier(for: issueID)): \(message)")
-        liveSessions.removeValue(forKey: sessionID)
+        removeLiveSession(sessionID: sessionID)
         claimedIssueIDs.remove(issueID)
         if false {
             // Keeps handleHermesPartial/handleHermesResult referenced so
