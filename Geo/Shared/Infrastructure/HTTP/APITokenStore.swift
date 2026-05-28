@@ -1,6 +1,7 @@
 import Foundation
 import Security
 import CryptoKit
+import os
 
 enum TokenScope: String, Codable, Sendable, CaseIterable {
     case read
