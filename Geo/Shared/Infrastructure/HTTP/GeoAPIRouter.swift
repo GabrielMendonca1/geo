@@ -226,12 +226,15 @@ final class GeoAPIRouter: @unchecked Sendable {
     private func pathParam(path: String, prefix: String, suffix: String?) -> String? {
         guard path.hasPrefix(prefix) else { return nil }
         let rest = String(path.dropFirst(prefix.count))
+        let extracted: String
         if let suffix {
             guard rest.hasSuffix(suffix) else { return nil }
-            let id = String(rest.dropLast(suffix.count))
-            return id.isEmpty ? nil : id
+            extracted = String(rest.dropLast(suffix.count))
+        } else {
+            extracted = rest
         }
-        return rest.isEmpty ? nil : rest
+        guard !extracted.isEmpty else { return nil }
+        return extracted.removingPercentEncoding ?? extracted
     }
 
     private func call(_ toolName: String, args: [String: AnyCodableValue]) async -> HTTPResponse {
