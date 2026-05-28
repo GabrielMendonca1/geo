@@ -7,6 +7,23 @@ private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "geo", ca
 private let pngSignature: [UInt8] = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]
 private let maxFilenameByteLength = 200
 
+private var defaultBlocksDirectory: URL {
+    let fm = FileManager.default
+    let base = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+        ?? fm.homeDirectoryForCurrentUser
+    return base.appendingPathComponent("Geo/Blocks", isDirectory: true)
+}
+
+func blockAttachmentNamespace(for blockURL: URL) -> (root: URL, folderName: String) {
+    let blocksRoot = defaultBlocksDirectory
+    let basePath = blocksRoot.standardizedFileURL.path
+    let stemPath = blockURL.deletingPathExtension().standardizedFileURL.path
+    if stemPath.hasPrefix(basePath + "/") {
+        return (blocksRoot, String(stemPath.dropFirst(basePath.count + 1)))
+    }
+    return (blockURL.deletingLastPathComponent(), blockURL.deletingPathExtension().lastPathComponent)
+}
+
 func sanitizeAttachmentFilename(_ raw: String) -> String {
     let scalars = raw.unicodeScalars.filter { scalar in
         if scalar.value < 0x20 { return false }
