@@ -43,25 +43,26 @@ final class BlockFileService {
         converter: MarkdownConverter
     ) async -> [BlocksStore.Block] {
         let resourceKeys: Set<URLResourceKey> = [.creationDateKey, .contentModificationDateKey]
-        let files: [URL]
-        do {
-            files = try fileManager.contentsOfDirectory(
-                at: blocksDirectory,
-                includingPropertiesForKeys: Array(resourceKeys),
-                options: [.skipsHiddenFiles]
-            )
-        } catch {
-            logger.error("Failed to list blocks directory: \(error.localizedDescription)")
+        guard let enumerator = fileManager.enumerator(
+            at: blocksDirectory,
+            includingPropertiesForKeys: Array(resourceKeys),
+            options: [.skipsHiddenFiles]
+        ) else {
+            logger.error("Failed to enumerate blocks directory")
             return []
         }
 
-        let mdFiles = files.filter { $0.pathExtension.lowercased() == "md" }
+        var mdFiles: [URL] = []
+        for case let url as URL in enumerator where url.pathExtension.lowercased() == "md" {
+            mdFiles.append(url)
+        }
 
         let loaded = await withTaskGroup(of: BlocksStore.Block?.self, returning: [BlocksStore.Block].self) { group in
             for url in mdFiles {
+                let blockId = relativeId(for: url)
                 group.addTask {
                     guard let content = try? String(contentsOf: url, encoding: .utf8) else { return nil }
-                    var blockMetadata = metadata[url.lastPathComponent] ?? BlocksStore.BlockMetadata()
+                    var blockMetadata = metadata[blockId] ?? BlocksStore.BlockMetadata()
                     let document = converter.parse(content)
                     let body = document.body
                     let title = Self.titleFromLines(body, allowTodoTitle: false)
