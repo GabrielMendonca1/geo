@@ -22,8 +22,8 @@ struct WorkersCard: View {
     private var header: some View {
         HStack {
             Text("Workers")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.secondary)
+                .font(GeoStyle.Typography.titleFont(size: 17))
+                .foregroundStyle(Palette.foreground)
             if active.count > 0 {
                 Text("\(active.count) running")
                     .font(.system(size: 10, weight: .medium))
