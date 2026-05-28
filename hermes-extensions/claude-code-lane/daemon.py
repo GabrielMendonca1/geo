@@ -98,19 +98,31 @@ def _run_task(
         )
 
     stop_hb = threading.Event()
+    timed_out = threading.Event()
 
     def heartbeat_loop() -> None:
         hb_conn = kb.connect()
         try:
             while not stop_hb.wait(HEARTBEAT_INTERVAL_S):
+                if proc.poll() is not None:
+                    break
                 kb.heartbeat_worker(hb_conn, task_id)
         finally:
             hb_conn.close()
 
+    def watchdog_loop() -> None:
+        if not stop_hb.wait(max_runtime or DEFAULT_MAX_RUNTIME_S):
+            timed_out.set()
+            try:
+                os.killpg(proc.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+
     hb_thread = threading.Thread(target=heartbeat_loop, daemon=True)
     hb_thread.start()
+    wd_thread = threading.Thread(target=watchdog_loop, daemon=True)
+    wd_thread.start()
 
-    deadline = time.time() + (max_runtime or DEFAULT_MAX_RUNTIME_S)
     final_summary: Optional[str] = None
     final_error: Optional[str] = None
 
@@ -120,13 +132,6 @@ def _run_task(
             line = raw.strip()
             if not line:
                 continue
-            if time.time() > deadline:
-                try:
-                    os.killpg(proc.pid, signal.SIGTERM)
-                except ProcessLookupError:
-                    pass
-                final_error = "max_runtime exceeded"
-                break
             try:
                 evt = json.loads(line)
             except json.JSONDecodeError:
