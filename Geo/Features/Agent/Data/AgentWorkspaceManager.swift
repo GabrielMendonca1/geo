@@ -334,7 +334,6 @@ actor AIWorkspaceManager {
     private var workspaces: [String: AIWorkspace] = [:]
     private var attempts: [AIRunAttempt] = []
     private var liveSessions: [String: AILiveSession] = [:]
-    private var runningProcesses: [String: Process] = [:]
     private var lastSentPrompt: [String: String] = [:]
     private var claimedIssueIDs: Set<String> = []
     private var completedIssueIDs: Set<String> = []
