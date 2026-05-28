@@ -56,9 +56,7 @@ final class HermesKanbanService: ObservableObject {
             return nil
         }
         do {
-            var config = Configuration()
-            config.readonly = true
-            let q = try DatabaseQueue(path: path, configuration: config)
+            let q = try DatabaseQueue(path: path)
             queue = q
             dbAvailable = true
             return q
