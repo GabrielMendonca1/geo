@@ -397,7 +397,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
         }
-        container.blocksStore.reload()
         container.templateService.loadTemplates()
         container.notchWindowController.show()
         container.notificationManager.configure(tasksRepository: container.environment.tasksRepository)
