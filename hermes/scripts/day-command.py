@@ -129,7 +129,7 @@ def _read_env_value(key: str) -> str | None:
     return None
 
 
-def load_oauth_token() -> str | None:
+def _token_from_auth_json() -> str | None:
     if not AUTH_PATH.exists():
         return None
     try:
@@ -145,8 +145,36 @@ def load_oauth_token() -> str | None:
     chosen = entries[0]
     exp_ms = chosen.get("expires_at_ms")
     if exp_ms and exp_ms / 1000.0 < datetime.now(timezone.utc).timestamp() + 60:
-        log(f"primary anthropic OAuth token expired (id={chosen.get('id')})")
+        log(f"auth.json anthropic OAuth token expired (id={chosen.get('id')})")
     return chosen.get("access_token")
+
+
+def _token_from_keychain() -> str | None:
+    try:
+        proc = subprocess.run(
+            ["security", "find-generic-password", "-s", "Claude Code-credentials", "-w"],
+            capture_output=True,
+            text=True,
+            timeout=5.0,
+        )
+    except Exception as e:
+        log(f"keychain lookup failed: {e}")
+        return None
+    if proc.returncode != 0 or not proc.stdout.strip():
+        return None
+    try:
+        oauth = json.loads(proc.stdout.strip()).get("claudeAiOauth") or {}
+    except Exception as e:
+        log(f"keychain creds unparseable: {e}")
+        return None
+    exp = oauth.get("expiresAt")
+    if exp and exp / 1000.0 < datetime.now(timezone.utc).timestamp() + 60:
+        log("keychain anthropic OAuth token expired")
+    return oauth.get("accessToken")
+
+
+def load_oauth_token() -> str | None:
+    return _token_from_auth_json() or _token_from_keychain()
 
 
 def load_geo_client():
