@@ -69,9 +69,12 @@ final class TaskItemSchemaTests: XCTestCase {
 
     func testMilestoneRoundTrip() throws {
         let target = Date(timeIntervalSince1970: 1_710_000_000)
+        let fixed = Date(timeIntervalSince1970: 1_700_000_000)
         let task = TaskItem(
             id: "m1",
             title: "Ship v2",
+            createdAt: fixed,
+            modifiedAt: fixed,
             body: .milestone(target: target)
         )
 
