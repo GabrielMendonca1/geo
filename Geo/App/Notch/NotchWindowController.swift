@@ -151,7 +151,7 @@ final class NotchWindowController {
     }
 
     private func currentHoverZone() -> NSRect {
-        let screen = installedScreen ?? NSScreen.preferred
+        guard let screen = installedScreen ?? NSScreen.preferred else { return .zero }
         switch stateStore.state {
         case .hidden:
             return notchHoverRect(on: screen)
