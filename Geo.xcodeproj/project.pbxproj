@@ -2082,6 +2082,7 @@
 				STR05B /* AutoFormatAndOverlaysStressTests.swift in Sources */,
 				HTTP000000000000007B /* GeoHTTPServerTests.swift in Sources */,
 				BLKIDXSCHEMA0000BLD /* BlockIndexSchemaTests.swift in Sources */,
+				BKP000000000000000002BLD /* BackupServiceTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
