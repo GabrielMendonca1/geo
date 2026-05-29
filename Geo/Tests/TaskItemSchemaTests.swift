@@ -15,30 +15,11 @@ final class TaskItemSchemaTests: XCTestCase {
         return decoder
     }
 
-    func testRoundTripPreservesExplicitNewFields() throws {
+    func testHabitRoundTripPreservesBodyAndFields() throws {
         let start = Date(timeIntervalSince1970: 1_700_000_000)
         let timeOfDay = Date(timeIntervalSince1970: 1_700_025_200)
-        let snapshotDate = Date(timeIntervalSince1970: 1_699_900_000)
-
-        let snapshots = [
-            CheckboxSnapshot(text: "Stretch", wasChecked: true),
-            CheckboxSnapshot(text: "Read", wasChecked: false)
-        ]
-        let occurrence = HabitOccurrence(date: snapshotDate, checkboxes: snapshots)
-        let habit = HabitState(
-            occurrences: [occurrence],
-            currentStreak: 3,
-            longestStreak: 7,
-            resetCheckboxesOnComplete: true
-        )
-        let alerts = ScheduleAlerts(
-            reminders: [.fiveMinutes],
-            recurringReminders: [],
-            firedReminders: [.atTime],
-            smartReminder: true,
-            snoozedUntil: snapshotDate
-        )
-        let schedule = Schedule.recurring(rule: .daily, timeOfDay: timeOfDay)
+        let occurrenceA = Date(timeIntervalSince1970: 1_699_900_000)
+        let occurrenceB = Date(timeIntervalSince1970: 1_699_990_000)
 
         let task = TaskItem(
             id: "abc",
@@ -46,50 +27,38 @@ final class TaskItemSchemaTests: XCTestCase {
             notes: "",
             linkedBlockId: "blk-1",
             status: .pending,
-            startTime: start,
-            endTime: nil,
-            reminders: [.fiveMinutes],
-            recurringReminders: [],
-            recurrence: .daily,
-            firedReminders: [.atTime],
-            orderIndex: 2,
-            smartReminder: true,
-            snoozedUntil: snapshotDate,
-            createdAt: start,
-            modifiedAt: start,
-            kind: .habit,
             priority: .high,
             tagIds: ["t1"],
-            parentId: nil,
+            orderIndex: 2,
             estimatedMinutes: 15,
-            context: nil,
-            completionHistory: [snapshotDate],
-            currentStreak: 3,
-            longestStreak: 7,
-            schedule: schedule,
-            scheduleAlerts: alerts,
-            habitState: habit
+            createdAt: start,
+            modifiedAt: start,
+            body: .habit(rule: .daily, timeOfDay: timeOfDay, occurrences: [occurrenceA, occurrenceB]),
+            reminders: [Reminder(trigger: .offset(.fiveMinutes))]
         )
 
         let data = try makeEncoder().encode(task)
         let decoded = try makeDecoder().decode(TaskItem.self, from: data)
 
-        XCTAssertEqual(decoded.schedule, schedule)
-        XCTAssertEqual(decoded.scheduleAlerts, alerts)
-        XCTAssertEqual(decoded.habitState, habit)
-        XCTAssertEqual(decoded.habitState?.occurrences.first?.checkboxes, snapshots)
+        XCTAssertEqual(decoded, task)
+        guard case .habit(let rule, let tod, let occs) = decoded.body else {
+            return XCTFail("Expected .habit body")
+        }
+        XCTAssertEqual(rule, .daily)
+        XCTAssertEqual(tod, timeOfDay)
+        XCTAssertEqual(occs, [occurrenceA, occurrenceB])
+        XCTAssertEqual(decoded.habitOccurrences, [occurrenceA, occurrenceB])
     }
 
-    func testEncodeThenDecodeProducesEqualStruct() throws {
+    func testTaskRoundTripProducesEqualStruct() throws {
         let start = Date(timeIntervalSince1970: 1_700_000_000)
         let task = TaskItem(
             id: "round-trip",
             title: "Plan week",
-            startTime: start,
+            priority: .medium,
             createdAt: start,
             modifiedAt: start,
-            kind: .task,
-            priority: .medium
+            body: .task(due: start, estimatedMinutes: nil)
         )
 
         let data = try makeEncoder().encode(task)
@@ -98,90 +67,82 @@ final class TaskItemSchemaTests: XCTestCase {
         XCTAssertEqual(decoded, task)
     }
 
-    func testDecodeLegacyJsonPopulatesNewFieldsForMilestone() throws {
-        let start = Date(timeIntervalSince1970: 1_710_000_000)
-        let json = legacyJSON(
+    func testMilestoneRoundTrip() throws {
+        let target = Date(timeIntervalSince1970: 1_710_000_000)
+        let task = TaskItem(
             id: "m1",
             title: "Ship v2",
-            kind: "milestone",
-            startTime: start,
-            endTime: nil,
-            recurrenceType: "never"
+            body: .milestone(target: target)
         )
 
-        let decoded = try makeDecoder().decode(TaskItem.self, from: json)
-
-        XCTAssertEqual(decoded.schedule, .targeting(start))
-        XCTAssertEqual(decoded.scheduleAlerts.reminders, [.atTime])
-        XCTAssertNil(decoded.habitState)
+        let decoded = try makeDecoder().decode(TaskItem.self, from: makeEncoder().encode(task))
+        XCTAssertEqual(decoded, task)
+        guard case .milestone(let decodedTarget) = decoded.body else {
+            return XCTFail("Expected .milestone body")
+        }
+        XCTAssertEqual(decodedTarget, target)
     }
 
-    func testDecodeLegacyJsonPopulatesNewFieldsForEventWithEndTime() throws {
+    func testEventRoundTripPreservesEndTime() throws {
         let start = Date(timeIntervalSince1970: 1_710_000_000)
         let end = start.addingTimeInterval(3600)
-        let json = legacyJSON(
+        let task = TaskItem(
             id: "e1",
             title: "Standup",
-            kind: "event",
-            startTime: start,
-            endTime: end,
-            recurrenceType: "never"
+            body: .event(start: start, end: end)
         )
 
-        let decoded = try makeDecoder().decode(TaskItem.self, from: json)
-
-        XCTAssertEqual(decoded.schedule, .at(start, duration: end.timeIntervalSince(start)))
-        XCTAssertNil(decoded.habitState)
+        let decoded = try makeDecoder().decode(TaskItem.self, from: makeEncoder().encode(task))
+        XCTAssertEqual(decoded, task)
+        XCTAssertEqual(decoded.endTime, end)
     }
 
-    func testDecodeLegacyJsonPopulatesNewFieldsForHabit() throws {
-        let start = Date(timeIntervalSince1970: 1_710_000_000)
-        let completionA = Date(timeIntervalSince1970: 1_709_900_000)
-        let completionB = Date(timeIntervalSince1970: 1_709_990_000)
-        let json = legacyJSON(
-            id: "h1",
-            title: "Stretch",
-            kind: "habit",
-            startTime: start,
-            endTime: nil,
-            recurrenceType: "daily",
-            completionHistory: [completionA, completionB],
-            currentStreak: 2,
-            longestStreak: 4
-        )
-
-        let decoded = try makeDecoder().decode(TaskItem.self, from: json)
-
-        guard case .recurring(let rule, let timeOfDay) = decoded.schedule else {
-            XCTFail("Expected .recurring schedule")
-            return
-        }
-        XCTAssertEqual(rule, .daily)
-        XCTAssertEqual(timeOfDay, start)
-        XCTAssertEqual(decoded.habitState?.currentStreak, 2)
-        XCTAssertEqual(decoded.habitState?.longestStreak, 4)
-        XCTAssertEqual(decoded.habitState?.completionHistory, [completionA, completionB])
-        XCTAssertEqual(decoded.habitState?.resetCheckboxesOnComplete, true)
-    }
-
-    func testDecodeLegacyJsonPopulatesNewFieldsForTaskDueBy() throws {
-        let start = Date(timeIntervalSince1970: 1_710_000_000)
-        let json = legacyJSON(
+    func testTaskDueByRoundTrip() throws {
+        let due = Date(timeIntervalSince1970: 1_710_000_000)
+        let task = TaskItem(
             id: "t1",
             title: "Buy milk",
-            kind: "task",
-            startTime: start,
-            endTime: nil,
-            recurrenceType: "never"
+            body: .task(due: due, estimatedMinutes: 25)
         )
 
-        let decoded = try makeDecoder().decode(TaskItem.self, from: json)
-
-        XCTAssertEqual(decoded.schedule, .dueBy(start))
-        XCTAssertNil(decoded.habitState)
+        let decoded = try makeDecoder().decode(TaskItem.self, from: makeEncoder().encode(task))
+        XCTAssertEqual(decoded, task)
+        guard case .task(let decodedDue, let est) = decoded.body else {
+            return XCTFail("Expected .task body")
+        }
+        XCTAssertEqual(decodedDue, due)
+        XCTAssertEqual(est, 25)
     }
 
-    func testHabitCompletionHistoryRoundTripsThroughHabitState() throws {
+    func testMilestoneInitProducesMilestoneBody() {
+        let target = Date(timeIntervalSince1970: 1_720_000_000)
+        let task = TaskItem(id: "m2", title: "Launch", body: .milestone(target: target))
+        XCTAssertEqual(task.kind, .milestone)
+        XCTAssertEqual(task.anchorDate, target)
+    }
+
+    func testEventWithEndTimeInitProducesEventBody() {
+        let start = Date(timeIntervalSince1970: 1_720_000_000)
+        let end = start.addingTimeInterval(1800)
+        let task = TaskItem(id: "e2", title: "Sync", body: .event(start: start, end: end))
+        XCTAssertEqual(task.kind, .event)
+        XCTAssertEqual(task.endTime, end)
+    }
+
+    func testEncoderWritesBodyKey() throws {
+        let start = Date(timeIntervalSince1970: 1_720_000_000)
+        let task = TaskItem(id: "dual", title: "body write", body: .task(due: start, estimatedMinutes: nil))
+
+        let data = try makeEncoder().encode(task)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        XCTAssertNotNil(json["body"], "body should be encoded")
+        XCTAssertNotNil(json["reminders"], "reminders should be encoded")
+        let body = try XCTUnwrap(json["body"] as? [String: Any])
+        XCTAssertEqual(body["kind"] as? String, "task")
+    }
+
+    func testHabitCompletionHistoryRoundTripsThroughOccurrences() throws {
         let dates = [
             Date(timeIntervalSince1970: 1_700_000_000),
             Date(timeIntervalSince1970: 1_700_086_400)
@@ -189,104 +150,14 @@ final class TaskItemSchemaTests: XCTestCase {
         let task = TaskItem(
             id: "h2",
             title: "Daily walk",
-            startTime: Date(timeIntervalSince1970: 1_700_172_800),
-            recurrence: .daily,
-            kind: .habit,
-            completionHistory: dates,
-            currentStreak: 2,
-            longestStreak: 5
+            body: .habit(rule: .daily, timeOfDay: Date(timeIntervalSince1970: 1_700_172_800), occurrences: dates)
         )
 
-        XCTAssertEqual(task.habitState?.completionHistory, dates)
+        XCTAssertEqual(task.habitOccurrences, dates)
 
-        let data = try makeEncoder().encode(task)
-        let decoded = try makeDecoder().decode(TaskItem.self, from: data)
-        XCTAssertEqual(decoded.habitState?.completionHistory, dates)
-        XCTAssertEqual(decoded.habitState?.currentStreak, 2)
-        XCTAssertEqual(decoded.habitState?.longestStreak, 5)
-    }
-
-    func testMilestoneInitProducesTargetingSchedule() {
-        let target = Date(timeIntervalSince1970: 1_720_000_000)
-        let task = TaskItem(
-            id: "m2",
-            title: "Launch",
-            startTime: target,
-            kind: .milestone
-        )
-
-        XCTAssertEqual(task.schedule, .targeting(target))
-    }
-
-    func testEventWithEndTimeInitProducesAtSchedule() {
-        let start = Date(timeIntervalSince1970: 1_720_000_000)
-        let end = start.addingTimeInterval(1800)
-        let task = TaskItem(
-            id: "e2",
-            title: "Sync",
-            startTime: start,
-            endTime: end,
-            kind: .event
-        )
-
-        XCTAssertEqual(task.schedule, .at(start, duration: end.timeIntervalSince(start)))
-    }
-
-    func testEncoderWritesBothLegacyAndNewKeys() throws {
-        let start = Date(timeIntervalSince1970: 1_720_000_000)
-        let task = TaskItem(
-            id: "dual",
-            title: "Dual write",
-            startTime: start,
-            kind: .task
-        )
-
-        let data = try makeEncoder().encode(task)
-        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
-
-        XCTAssertNotNil(json["startTime"], "legacy startTime should still be encoded")
-        XCTAssertNotNil(json["recurrence"], "legacy recurrence should still be encoded")
-        XCTAssertNotNil(json["schedule"], "new schedule should be encoded")
-        XCTAssertNotNil(json["scheduleAlerts"], "new scheduleAlerts should be encoded")
-    }
-
-    private func legacyJSON(
-        id: String,
-        title: String,
-        kind: String,
-        startTime: Date,
-        endTime: Date?,
-        recurrenceType: String,
-        completionHistory: [Date] = [],
-        currentStreak: Int = 0,
-        longestStreak: Int = 0
-    ) -> Data {
-        let isoFormatter = ISO8601DateFormatter()
-        var fields: [String] = []
-        fields.append("\"id\":\"\(id)\"")
-        fields.append("\"title\":\"\(title)\"")
-        fields.append("\"notes\":\"\"")
-        fields.append("\"status\":\"pending\"")
-        fields.append("\"startTime\":\"\(isoFormatter.string(from: startTime))\"")
-        if let endTime {
-            fields.append("\"endTime\":\"\(isoFormatter.string(from: endTime))\"")
-        }
-        fields.append("\"reminders\":[\"At time\"]")
-        fields.append("\"recurringReminders\":[]")
-        fields.append("\"recurrence\":{\"type\":\"\(recurrenceType)\"}")
-        fields.append("\"firedReminders\":[]")
-        fields.append("\"orderIndex\":0")
-        fields.append("\"smartReminder\":false")
-        fields.append("\"createdAt\":\"\(isoFormatter.string(from: startTime))\"")
-        fields.append("\"modifiedAt\":\"\(isoFormatter.string(from: startTime))\"")
-        fields.append("\"kind\":\"\(kind)\"")
-        fields.append("\"priority\":\"unset\"")
-        fields.append("\"tagIds\":[]")
-        let history = completionHistory.map { "\"\(isoFormatter.string(from: $0))\"" }.joined(separator: ",")
-        fields.append("\"completionHistory\":[\(history)]")
-        fields.append("\"currentStreak\":\(currentStreak)")
-        fields.append("\"longestStreak\":\(longestStreak)")
-        let body = "{" + fields.joined(separator: ",") + "}"
-        return body.data(using: .utf8)!
+        let decoded = try makeDecoder().decode(TaskItem.self, from: makeEncoder().encode(task))
+        XCTAssertEqual(decoded.habitOccurrences, dates)
+        XCTAssertEqual(decoded.habitCurrentStreak, task.habitCurrentStreak)
+        XCTAssertEqual(decoded.habitLongestStreak, task.habitLongestStreak)
     }
 }
