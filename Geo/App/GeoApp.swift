@@ -200,7 +200,6 @@ extension EnvironmentValues {
 struct GeoApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     private let container: AppContainer
-    private let updaterController: SPUStandardUpdaterController
     @StateObject private var blocksViewModel: BlocksViewModel
     @StateObject private var watcher: ScreenshotWatcher
     @State private var showOnboarding: Bool = !UserDefaults.standard.bool(forKey: "ai.geo.onboarding.completed")
@@ -209,7 +208,6 @@ struct GeoApp: App {
         PerformanceTracker.shared.markStartupBegin()
         let container = AppContainer.live
         self.container = container
-        updaterController = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
         _blocksViewModel = StateObject(wrappedValue: BlocksViewModel())
         _watcher = StateObject(wrappedValue: container.watcher)
     }
@@ -240,7 +238,6 @@ struct GeoApp: App {
         .windowStyle(.hiddenTitleBar)
         .commands {
             AboutCommand()
-            CheckForUpdatesCommand(updater: updaterController.updater)
             AlwaysOnTopCommand()
 
             GeoCommands()
