@@ -2438,6 +2438,11 @@
 			package = AABBCCDD0011223344556699 /* XCRemoteSwiftPackageReference "swift-markdown" */;
 			productName = Markdown;
 		};
+		SPK0000000000000000000002 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = SPK0000000000000000000001 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
 /* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 4180AEA22839753E0054FEA9 /* Project object */;
