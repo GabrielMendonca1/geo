@@ -1926,6 +1926,7 @@
 				TBOVRL00001BFIL /* TitleBarOverlay.swift in Sources */,
 				TAGSWFT0001BFIL /* TagColor+SwiftUI.swift in Sources */,
 				AOTCMD0001BFIL /* AlwaysOnTopCommand.swift in Sources */,
+				SPK000000000000000000000C /* CheckForUpdatesCommand.swift in Sources */,
 				5B09B1517DADB36DA69BEFD6 /* TaskFormView.swift in Sources */,
 				TBU000009BLD /* TaskFormHeader.swift in Sources */,
 				TBU000010BLD /* TaskFormFooter.swift in Sources */,
