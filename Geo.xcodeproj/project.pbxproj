@@ -2250,7 +2250,8 @@
 				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
 				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
 				ENABLE_RESOURCE_ACCESS_PHOTO_LIBRARY = NO;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Geo/App/Info.plist;
 				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Geo needs to send Apple Events to automate tasks and manage system functionality.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Geo needs camera access to capture screenshots and images.";
 				INFOPLIST_KEY_NSDesktopFolderUsageDescription = "Geo needs access to your Desktop folder to save and organize captured files.";
@@ -2299,7 +2300,8 @@
 				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
 				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
 				ENABLE_RESOURCE_ACCESS_PHOTO_LIBRARY = NO;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Geo/App/Info.plist;
 				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Geo needs to send Apple Events to automate tasks and manage system functionality.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Geo needs camera access to capture screenshots and images.";
 				INFOPLIST_KEY_NSDesktopFolderUsageDescription = "Geo needs access to your Desktop folder to save and organize captured files.";
