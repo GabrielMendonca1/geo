@@ -375,7 +375,7 @@ final class RepositoryAdapterTests: XCTestCase {
         let initial = await iterator.next()
         XCTAssertEqual(initial?.count, 0)
 
-        let created = try await repository.create(TaskDraft(title: "Observe me", startTime: start))
+        let created = try await repository.create(TaskDraft(title: "Observe me", body: .task(due: start, estimatedMinutes: nil)))
         let afterCreate = await iterator.next()
         XCTAssertEqual(afterCreate?.map(\.id), [created.id])
 
