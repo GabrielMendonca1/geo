@@ -1,13 +1,17 @@
 """
-geo-context hook — fetches User Profile, Memory and Today blocks from Gabriel's
-Geo app via its HTTP API at 127.0.0.1:<port>, token from Keychain, and writes
-the result to ~/.hermes/memories/MEMORY.md so hermes's own memory-injection
-picks it up when building system prompts.
+geo-context — fetches User Profile, Memory and Today blocks (and now arbitrary
+search results) from Gabriel's Geo app via its HTTP API at 127.0.0.1:<port>,
+token from Keychain.
 
-Fires on agent:start (every turn) and session:reset. TTL+hash gated:
-- Skip HTTP entirely if last successful fetch was <TTL_SECONDS ago.
-- Skip MEMORY.md rewrite if body hash is unchanged (preserves prompt cache).
-Silently bails when Geo.app is closed (api.json stale / pid dead / connect fail).
+Auto-injection is DISABLED (HOOK.yaml events: []): handle() is no longer wired
+to agent:start / session:reset, so MEMORY.md is not rewritten every turn. The
+search+summarize logic below is now reused on demand by the geo_search_context
+tool (hermes-extensions/geo-search-tool) via search_context().
+
+handle() is retained (for manual / future event wiring): TTL+hash gated, it
+skips HTTP if last fetch was <TTL_SECONDS ago and skips the MEMORY.md rewrite
+when the body hash is unchanged. Silently bails when Geo.app is closed
+(api.json stale / pid dead / connect fail).
 """
 
 from __future__ import annotations
