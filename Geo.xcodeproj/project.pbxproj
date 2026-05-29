@@ -605,6 +605,7 @@
 		TBU000013REF /* TaskFormHabit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Geo/Features/Tasks/UI/TaskKindForm/TaskFormHabit.swift; sourceTree = SOURCE_ROOT; };
 		TBU000014REF /* TaskFormMilestone.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Geo/Features/Tasks/UI/TaskKindForm/TaskFormMilestone.swift; sourceTree = SOURCE_ROOT; };
 		TBU000101REF /* TaskItemSchemaTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskItemSchemaTests.swift; sourceTree = "<group>"; };
+		BLKIDXSCHEMA0000REF /* BlockIndexSchemaTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockIndexSchemaTests.swift; sourceTree = "<group>"; };
 		TBU000102REF /* BlocksStoreCheckboxTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlocksStoreCheckboxTests.swift; sourceTree = "<group>"; };
 		TBU000103REF /* QuickAddParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickAddParserTests.swift; sourceTree = "<group>"; };
 		TBU000104REF /* AutoCompleteSuggestionServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoCompleteSuggestionServiceTests.swift; sourceTree = "<group>"; };
