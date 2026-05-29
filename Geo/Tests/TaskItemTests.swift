@@ -353,7 +353,7 @@ final class RepositoryAdapterTests: XCTestCase {
         XCTAssertTrue(tasksAfterDelete.isEmpty)
 
         await assertRepositoryError(.invalidInput) {
-            let emptyDraft = TaskDraft(title: "   ", startTime: start)
+            let emptyDraft = TaskDraft(title: "   ", body: .task(due: start, estimatedMinutes: nil))
             _ = try await repository.create(emptyDraft)
         }
 
