@@ -29,98 +29,23 @@ final class TaskItemTests: XCTestCase {
         XCTAssertTrue(RecurrenceRule.weekly.isRepeating)
     }
 
-    func testRecurringReminderInitClampsInterval() {
-        let reminder = RecurringReminder(interval: 0, frequency: .daily, timeOfDay: Date(timeIntervalSince1970: 0))
-
-        XCTAssertEqual(reminder.interval, 1)
-    }
-
-    func testRecurringReminderNextFireDateUsesPassedDate() {
-        let lastFired = Date(timeIntervalSince1970: 1_700_000_000)
-        var components = DateComponents()
-        components.hour = 10
-        components.minute = 30
-        let timeOfDay = Calendar.current.date(from: components) ?? Date(timeIntervalSince1970: 0)
-
-        let reminder = RecurringReminder(interval: 1, frequency: .daily, timeOfDay: timeOfDay, lastFired: lastFired)
-
-        let next = reminder.nextFireDate(after: lastFired)
-
-        XCTAssertNotNil(next)
-        let calendar = Calendar.current
-        let expectedBase = calendar.date(byAdding: .day, value: 1, to: lastFired)!
-        let expected = calendar.date(bySettingHour: 10, minute: 30, second: 0, of: expectedBase)!
-        XCTAssertEqual(next!, expected)
-    }
-
-    func testRecurringReminderNextFireDateWithoutLastFiredUsesPassedDate() {
-        var components = DateComponents()
-        components.hour = 14
-        components.minute = 0
-        let timeOfDay = Calendar.current.date(from: components)!
-
-        let reminder = RecurringReminder(interval: 1, frequency: .daily, timeOfDay: timeOfDay)
-        let reference = Date(timeIntervalSince1970: 1_700_000_000)
-        let next = reminder.nextFireDate(after: reference)
-
-        XCTAssertNotNil(next)
-        let nextComponents = Calendar.current.dateComponents([.hour, .minute], from: next!)
-        XCTAssertEqual(nextComponents.hour, 14)
-        XCTAssertEqual(nextComponents.minute, 0)
-    }
-
-    func testRecurringReminderWeeklyNextFireDateAdvancesOneWeek() {
-        var components = DateComponents()
-        components.hour = 9
-        components.minute = 0
-        let timeOfDay = Calendar.current.date(from: components)!
-
-        let calendar = Calendar.current
-        var lastFiredComponents = DateComponents()
-        lastFiredComponents.year = 2026
-        lastFiredComponents.month = 3
-        lastFiredComponents.day = 4
-        lastFiredComponents.hour = 9
-        lastFiredComponents.minute = 0
-        let lastFired = calendar.date(from: lastFiredComponents)!
-
-        let reminder = RecurringReminder(interval: 1, frequency: .weekly, timeOfDay: timeOfDay, lastFired: lastFired)
-        let next = reminder.nextFireDate(after: lastFired)
-
-        XCTAssertNotNil(next)
-        let nextComponents = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: next!)
-        XCTAssertEqual(nextComponents.day, 11)
-        XCTAssertEqual(nextComponents.hour, 9)
-        XCTAssertEqual(nextComponents.minute, 0)
-    }
-
-    func testNextReminderTimeReturnsNearestFutureUnfiredReminder() {
-        let start = Date(timeIntervalSince1970: 1_700_000_000)
-        let item = makeTask(
-            startTime: start,
-            reminders: [.oneHour, .atTime],
-            firedReminders: [.oneHour]
-        )
-
-        let next = item.nextReminderTime(at: start.addingTimeInterval(-10))
-
-        XCTAssertEqual(next, start)
+    func testRecurringReminderApisQuarantined() throws {
+        throw XCTSkip("Quarantined: RecurringReminder and TaskItem.nextReminderTime were part of the abandoned reminder model and no longer exist. Tasks now carry a flat [Reminder] with a per-reminder fired flag.")
     }
 
     func testIsDueTrueWhenReminderIsPastAndUnfired() {
         let start = Date(timeIntervalSince1970: 1_700_000_000)
-        let item = makeTask(startTime: start, reminders: [.atTime], firedReminders: [])
+        let item = makeTask(startTime: start, reminders: [.atTime])
 
         XCTAssertTrue(item.isDue(at: start.addingTimeInterval(1)))
     }
 
-    func testIsDueRespectsSnoozeUntil() {
+    func testIsDueFalseWhenReminderFired() {
         let start = Date(timeIntervalSince1970: 1_700_000_000)
-        let snoozed = start.addingTimeInterval(300)
-        let item = makeTask(startTime: start, reminders: [.atTime], snoozedUntil: snoozed)
+        var item = makeTask(startTime: start, reminders: [.atTime])
+        item.reminders = item.reminders.map { var r = $0; r.fired = true; return r }
 
-        XCTAssertFalse(item.isDue(at: start.addingTimeInterval(10)))
-        XCTAssertTrue(item.isDue(at: snoozed))
+        XCTAssertFalse(item.isDue(at: start.addingTimeInterval(1)))
     }
 
     func testCurrentDueReminderNilWhenCompleted() {
