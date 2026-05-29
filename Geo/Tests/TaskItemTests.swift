@@ -859,17 +859,14 @@ private final class InMemoryTasksStoreAccess: TasksStoreAccess, @unchecked Senda
             notes: draft.notes,
             linkedBlockId: draft.linkedBlockId,
             status: .pending,
-            startTime: draft.startTime,
-            endTime: draft.endTime,
-            reminders: draft.reminders,
-            recurringReminders: draft.recurringReminders,
-            recurrence: draft.recurrence,
-            firedReminders: [],
+            priority: draft.priority,
+            tagIds: draft.tagIds,
             orderIndex: tasks.count,
-            smartReminder: draft.smartReminder,
-            snoozedUntil: nil,
+            estimatedMinutes: draft.estimatedMinutes,
             createdAt: Date(),
-            modifiedAt: Date()
+            modifiedAt: Date(),
+            body: draft.body,
+            reminders: draft.reminders
         )
         tasks.append(task)
         publishSnapshot()
