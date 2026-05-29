@@ -179,6 +179,93 @@ final class SettingsViewModel: ObservableObject {
         repository?.triggerTestNotification()
     }
 
+    private var dataDirectory: URL {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.homeDirectoryForCurrentUser
+        return base.appendingPathComponent("Geo")
+    }
+
+    func revealDataFolder() {
+        NSWorkspace.shared.activateFileViewerSelecting([dataDirectory])
+    }
+
+    func exportBackup() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Export Here"
+        panel.message = "Choose a folder for the Geo backup archive."
+        guard panel.runModal() == .OK, let destination = panel.url else { return }
+
+        backupMessage = "Exporting backup…"
+        Task { @MainActor in
+            let flush = {
+                let store = AppContainer.live.blocksStore
+                let pending = store.snapshotPendingSaves()
+                store.flushPendingMetadata()
+                if !pending.isEmpty {
+                    let semaphore = DispatchSemaphore(value: 0)
+                    Task.detached(priority: .userInitiated) {
+                        for t in pending { _ = await t.value }
+                        semaphore.signal()
+                    }
+                    _ = semaphore.wait(timeout: .now() + 5.0)
+                }
+            }
+            do {
+                let url = try await Task.detached(priority: .userInitiated) {
+                    try BackupService.shared.exportArchive(to: destination, flush: flush)
+                }.value
+                NSWorkspace.shared.activateFileViewerSelecting([url])
+                backupMessage = "Backup saved to \(url.lastPathComponent)."
+            } catch {
+                backupMessage = "Export failed: \(error.localizedDescription)"
+            }
+        }
+    }
+
+    func restoreBackup() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.zip]
+        panel.prompt = "Restore"
+        panel.message = "Choose a Geo backup archive."
+        guard panel.runModal() == .OK, let archiveURL = panel.url else { return }
+
+        let info: ArchiveInfo
+        do {
+            info = try BackupService.shared.validateArchive(at: archiveURL)
+        } catch {
+            backupMessage = "Invalid archive: \(error.localizedDescription)"
+            return
+        }
+
+        let confirm = NSAlert()
+        confirm.alertStyle = .warning
+        confirm.messageText = "Restore from \(archiveURL.lastPathComponent)?"
+        confirm.informativeText = "This archive contains \(info.blockCount) block(s). Restoring replaces all current Geo data (a snapshot of your current data is kept). Geo must relaunch to finish."
+        confirm.addButton(withTitle: "Restore & Quit")
+        confirm.addButton(withTitle: "Cancel")
+        guard confirm.runModal() == .alertFirstButtonReturn else { return }
+
+        do {
+            try BackupService.shared.stageRestore(from: archiveURL)
+        } catch {
+            backupMessage = "Restore failed: \(error.localizedDescription)"
+            return
+        }
+
+        let staged = NSAlert()
+        staged.messageText = "Restore staged"
+        staged.informativeText = "Geo will now quit. Relaunch it to finish restoring your data."
+        staged.addButton(withTitle: "Quit Now")
+        staged.runModal()
+        NSApp.terminate(nil)
+    }
+
     private func updateScreenshotFolder(to url: URL) {
         repository?.updateScreenshotFolder(to: url)
         apply(repository?.loadSnapshot())
