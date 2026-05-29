@@ -1535,6 +1535,7 @@
 			isa = PBXGroup;
 			children = (
 				INFRADB0000GRP00001 /* Database */,
+				BKP00000000000000GRP0001 /* Backup */,
 				INFRAFW0000GRP00001 /* FileWatcher */,
 				SHAREDGROUP0003 /* Migrations */,
 				PERF0TRACK0002 /* PerformanceTracker.swift */,
