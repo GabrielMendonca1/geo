@@ -37,7 +37,7 @@ def _register_all(ctx) -> None:
             handler=tool["handler"],
             is_async=True,
             description=tool["description"],
-            emoji="🌐",
+            emoji="",
         )
     logger.info("geo-http-tools: registered %d tools", len(all_tools))
 
