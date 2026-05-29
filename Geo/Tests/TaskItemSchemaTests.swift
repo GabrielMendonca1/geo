@@ -105,9 +105,12 @@ final class TaskItemSchemaTests: XCTestCase {
 
     func testTaskDueByRoundTrip() throws {
         let due = Date(timeIntervalSince1970: 1_710_000_000)
+        let fixed = Date(timeIntervalSince1970: 1_700_000_000)
         let task = TaskItem(
             id: "t1",
             title: "Buy milk",
+            createdAt: fixed,
+            modifiedAt: fixed,
             body: .task(due: due, estimatedMinutes: 25)
         )
 
