@@ -240,6 +240,7 @@ struct GeoApp: App {
         .windowStyle(.hiddenTitleBar)
         .commands {
             AboutCommand()
+            CheckForUpdatesCommand(updater: updaterController.updater)
             AlwaysOnTopCommand()
 
             GeoCommands()
