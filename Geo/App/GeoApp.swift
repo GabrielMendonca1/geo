@@ -240,6 +240,7 @@ struct GeoApp: App {
         .commands {
             AboutCommand()
             AlwaysOnTopCommand()
+            CheckForUpdatesCommand(updater: updaterController.updater)
 
             GeoCommands()
         }
