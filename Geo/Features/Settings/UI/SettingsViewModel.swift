@@ -200,22 +200,13 @@ final class SettingsViewModel: ObservableObject {
 
         backupMessage = "Exporting backup…"
         Task { @MainActor in
-            let flush = {
-                let store = AppContainer.live.blocksStore
-                let pending = store.snapshotPendingSaves()
-                store.flushPendingMetadata()
-                if !pending.isEmpty {
-                    let semaphore = DispatchSemaphore(value: 0)
-                    Task.detached(priority: .userInitiated) {
-                        for t in pending { _ = await t.value }
-                        semaphore.signal()
-                    }
-                    _ = semaphore.wait(timeout: .now() + 5.0)
-                }
-            }
+            let store = AppContainer.live.blocksStore
+            let pending = store.snapshotPendingSaves()
+            store.flushPendingMetadata()
+            for t in pending { _ = await t.value }
             do {
                 let url = try await Task.detached(priority: .userInitiated) {
-                    try BackupService.shared.exportArchive(to: destination, flush: flush)
+                    try BackupService.shared.exportArchive(to: destination)
                 }.value
                 NSWorkspace.shared.activateFileViewerSelecting([url])
                 backupMessage = "Backup saved to \(url.lastPathComponent)."
