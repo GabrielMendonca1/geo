@@ -92,7 +92,7 @@ if grep -q "^GEO_MCP_BRIDGE_BIN=$" "$DEST_DIR/.env" 2>/dev/null; then
     echo "  populated GEO_MCP_BRIDGE_BIN in $DEST_DIR/.env"
 fi
 
-chmod 644 "$DEST_DIR/config.yaml" "$DEST_DIR/SOUL.md" "$DEST_DIR/memories/MEMORY.md" "$DEST_DIR/memories/USER.md"
+chmod 644 "$DEST_DIR/config.yaml" "$DEST_DIR/memories/MEMORY.md" "$DEST_DIR/memories/USER.md"
 chmod 600 "$DEST_DIR/.env"
 
 echo "==> Syncing vendored daemon code"
