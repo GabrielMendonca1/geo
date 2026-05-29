@@ -74,7 +74,7 @@ def pre_gateway_dispatch_hook(event=None, **_kw: Any) -> Optional[dict]:
         text = getattr(event, "text", None) or ""
         if not text:
             return None
-        await _record_inbound(text)
+        _record_inbound(text)
     except Exception:
         return None
     return None
