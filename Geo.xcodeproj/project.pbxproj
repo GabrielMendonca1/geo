@@ -1742,6 +1742,7 @@
 			packageReferences = (
 				AABBCCDD0011223344556677 /* XCRemoteSwiftPackageReference "GRDB.swift" */,
 				AABBCCDD0011223344556699 /* XCRemoteSwiftPackageReference "swift-markdown" */,
+				AABBCCDD0011223344556701 /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			productRefGroup = 4180AEAB2839753E0054FEA9 /* Products */;
 			projectDirPath = "";
