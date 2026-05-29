@@ -134,10 +134,12 @@ final class APITokenStore: @unchecked Sendable {
     }
 
     func ensureBootstrapTokens() {
-        if readBootstrapRaw(callerId: Self.bootstrapRuntime) == nil {
+        let runtimeRaw = readBootstrapRaw(callerId: Self.bootstrapRuntime)
+        if runtimeRaw == nil || validate(rawToken: runtimeRaw!) == nil {
             _ = addBootstrap(callerId: Self.bootstrapRuntime, scope: .readWriteDestructive)
         }
-        if readBootstrapRaw(callerId: Self.bootstrapHook) == nil {
+        let hookRaw = readBootstrapRaw(callerId: Self.bootstrapHook)
+        if hookRaw == nil || validate(rawToken: hookRaw!) == nil {
             _ = addBootstrap(callerId: Self.bootstrapHook, scope: .read)
         }
     }
