@@ -1,68 +1,113 @@
 # Auto-update (Sparkle)
 
-Geo ships in-app updates via [Sparkle 2.x](https://sparkle-project.org), added as an SPM
-dependency and wired through `SPUStandardUpdaterController` in `GeoApp`. The
-"Check for Updates…" item lives under the app menu (right below "About Geo"); Sparkle
-also auto-checks on its default schedule.
+Geo ships as a Developer ID-signed, notarized DMG outside the App Store, so updates run
+through [Sparkle 2](https://sparkle-project.org). The app code below is ready to paste; the
+three steps that need you (add the SPM dependency, generate the signing key, host the feed)
+are called out explicitly.
 
-Because the app is non-sandboxed (`com.apple.security.app-sandbox = false`), Sparkle runs
-in-process — the Info.plist sets `SUEnableInstallerLauncherService` and
-`SUEnableDownloaderService` to `false`, so no XPC services are required.
+Workflow `geo-1.0.0-finish-blockers` could not add the SPM dependency by hand-editing
+`project.pbxproj` without breaking the build (Apple exposes no reliable CLI for this), so it
+reverted that change. Everything below is the safe path: a ~1-minute GUI action plus the
+human-gated key/hosting steps.
 
-## Configuration (Info.plist)
+## 1. Add Sparkle (Xcode GUI — one time)
 
-`Geo/App/Info.plist` carries the Sparkle keys:
+`File ▸ Add Package Dependencies…` → `https://github.com/sparkle-project/Sparkle` →
+Dependency Rule: **Up to Next Major `2.0.0`** → Add Package → add the **Sparkle** library
+product to the **Geo** app target.
 
-- `SUFeedURL` — `https://github.com/GabrielMendonca1/geo/releases/latest/download/appcast.xml`
-- `SUPublicEDKey` — `__SPARKLE_PUBLIC_ED_KEY_PLACEHOLDER__` (replace, see below)
+`build_dist.sh` already deep-signs every embedded `.framework`/`.xpc` with the Developer ID
+identity and `--options runtime --timestamp`, so Sparkle's `Autoupdate`/`Updater.app` XPC
+helpers are covered at distribution time with no script change.
 
-The project now builds with `GENERATE_INFOPLIST_FILE = NO` and `INFOPLIST_FILE` pointing
-at this file, so it is the live Info.plist. Both `Geo.xcodeproj` (repo root, used by
-`xcodebuild`/dev) and `Geo/Geo.xcodeproj` (used by `scripts/build_dist.sh`) are wired the
-same way.
+## 2. Wire the updater (paste-ready)
 
-## One-time setup (human-gated)
+Create `Geo/App/Commands/CheckForUpdatesCommand.swift` and add it to the Geo target:
 
-1. **Generate the EdDSA keypair.** From the Sparkle distribution run `./bin/generate_keys`
-   once. It stores the private key in the login Keychain (never commit it; losing it means
-   no future build can be verified) and prints the public key.
-2. **Publish the public key.** Paste the printed public key into `Geo/App/Info.plist`
-   under `SUPublicEDKey`, replacing `__SPARKLE_PUBLIC_ED_KEY_PLACEHOLDER__`.
-3. **Pick the feed hosting.** The default `SUFeedURL` resolves only if `appcast.xml` is
-   attached as an asset to the GitHub Release marked `latest`. A more robust alternative is
-   a stable gh-pages raw URL; if you switch, update `SUFeedURL` in Info.plist and `<link>`
-   in `scripts/appcast.xml` to match.
+```swift
+import SwiftUI
+import Sparkle
 
-The Sparkle CLI tools (`generate_keys`, `generate_appcast`, `sign_update`) live in the
-Sparkle SPM artifact under
-`~/Library/Developer/Xcode/DerivedData/.../SourcePackages/artifacts/sparkle/Sparkle/bin/`,
-or download the Sparkle release tarball and use its `bin/`.
+final class UpdaterViewModel: ObservableObject {
+    let controller: SPUStandardUpdaterController
+    @Published var canCheckForUpdates = false
 
-## Per-release publishing (human-gated)
+    init() {
+        controller = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
+        controller.updater.publisher(for: \.canCheckForUpdates).assign(to: &$canCheckForUpdates)
+    }
+}
 
-1. Bump the version in `Geo/App/Info.plist`:
-   - `CFBundleVersion` — a monotonically increasing **integer**. Sparkle compares this to
-     decide if a build is newer; if you forget to bump it, users are never offered the
-     update.
-   - `CFBundleShortVersionString` — the human-facing version (e.g. `1.0.1`).
-2. Build the DMG: `bash Geo/scripts/build_dist.sh` (produces `build/Geo.dmg`).
-3. Put `Geo.dmg` in an updates folder and run `./bin/generate_appcast /path/to/updates/`.
-   It needs Keychain access to the private key, signs the DMG, and emits `appcast.xml`
-   (the `sparkle:edSignature` and `length` are filled in automatically). The
-   `sparkle:version` enclosure attribute must equal `CFBundleVersion`. `generate_appcast`
-   can also emit `*.delta` files for incremental updates and folds in a same-named
-   `.html`/`.md` file as release notes.
-4. Create the GitHub Release and upload both assets so `SUFeedURL` resolves:
-   `gh release create vX.Y.Z build/Geo.dmg /path/to/updates/appcast.xml`.
+struct CheckForUpdatesCommand: Commands {
+    @ObservedObject var model: UpdaterViewModel
 
-`scripts/appcast.xml` is a checked-in template showing the expected shape;
-`generate_appcast` regenerates it for real.
+    var body: some Commands {
+        CommandGroup(after: .appInfo) {
+            Button("Check for Updates…") { model.controller.updater.checkForUpdates() }
+                .disabled(!model.canCheckForUpdates)
+        }
+    }
+}
+```
 
-## Production signing / notarization (human-gated)
+In `Geo/App/GeoApp.swift`, own the model and install the command in the `Settings`/main scene:
 
-Sparkle's EdDSA-signed updates install even under ad-hoc code signing, but distributing to
-other machines requires a Developer ID Application certificate plus notarization. That path
-is owned by `build_dist.sh` (Developer ID, hardened runtime, inside-out signing of the
-embedded `Sparkle.framework` and its nested XPC services/Autoupdate/Updater.app — no
-`--deep`) followed by `xcrun notarytool submit` and `xcrun stapler staple`. See
-`scripts/notarize.sh`.
+```swift
+@StateObject private var updaterModel = UpdaterViewModel()
+// …
+.commands { CheckForUpdatesCommand(model: updaterModel) }
+```
+
+## 3. Info.plist keys
+
+The project uses `GENERATE_INFOPLIST_FILE = YES` (the `Geo/App/Info.plist` on disk is **dead
+code**, not referenced by the build), so add these via the **Geo target ▸ Info** tab, which
+writes them into the synthesized plist:
+
+| Key | Value |
+| --- | --- |
+| `SUFeedURL` | `https://github.com/GabrielMendonca1/geo/releases/latest/download/appcast.xml` |
+| `SUPublicEDKey` | *(the public key from step 4)* |
+| `SUEnableInstallerLauncherService` | `YES` *(non-sandboxed installer helper)* |
+
+## 4. Generate the signing key — HUMAN-GATED
+
+Sparkle signs updates with an EdDSA key kept **out of the repo**:
+
+```bash
+# from the Sparkle package's artifacts (DerivedData/.../Sparkle/bin) or the release tarball
+./generate_keys                 # creates the private key in your login Keychain
+./generate_keys -p              # prints the PUBLIC key → paste into SUPublicEDKey (step 3)
+```
+
+The private key never leaves your machine / CI secret store. Losing it means you can no
+longer ship updates that existing installs will accept — back it up (`./generate_keys -x
+sparkle_private_key.pem`, store securely, then delete the file).
+
+## 5. Build the appcast & publish — HUMAN-GATED
+
+`appcast.xml` is **generated**, not hand-written. After `build_dist.sh` + `notarize.sh`
+produce the stapled DMG:
+
+```bash
+./generate_appcast /path/to/dir-containing/Geo-1.0.0.dmg   # signs + writes appcast.xml
+```
+
+Then publish both to the GitHub release so `SUFeedURL` resolves:
+
+```bash
+gh release create v1.0.0 build/Geo.dmg build/appcast.xml --title "Geo 1.0.0" --notes "…"
+# subsequent releases: regenerate appcast.xml over ALL dmgs, then
+gh release upload v1.0.x build/Geo.dmg build/appcast.xml --clobber
+```
+
+Add a `generate_appcast` + `gh release upload appcast.xml` step to
+`.github/workflows/release.yml` so each tagged release refreshes the feed automatically.
+
+## Checklist
+
+- [ ] Step 1 — Sparkle SPM dependency added to the Geo target (GUI)
+- [ ] Step 2 — `CheckForUpdatesCommand.swift` added; menu builds
+- [ ] Step 3 — `SUFeedURL` + `SUPublicEDKey` set on the target
+- [ ] Step 4 — EdDSA keypair generated, private key backed up, public key in `SUPublicEDKey`
+- [ ] Step 5 — first `gh release` carries `Geo.dmg` + `appcast.xml`; `release.yml` updated
