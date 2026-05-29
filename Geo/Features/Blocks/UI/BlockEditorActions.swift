@@ -73,11 +73,8 @@ final class BlockEditorActions {
         self.blocksSnapshot = { [weak viewModel] in
             viewModel?.blocks ?? []
         }
-        self.lifecycleActions = { [weak viewModel] in
-            guard let viewModel else {
-                fatalError("BlockEditorActions used after viewModel was released")
-            }
-            return BlockLifecycleActions(viewModel: viewModel)
+        self.lifecycleActions = { [viewModel] in
+            BlockLifecycleActions(viewModel: viewModel)
         }
         self.focusedBlockPublisher = viewModel.focusedBlockPublisher(id: focusedId)
         self.blocksCountPublisher = viewModel.blocksCountPublisher
