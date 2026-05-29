@@ -231,6 +231,61 @@ def _strip_frontmatter(md: str) -> str:
     return parts[2].strip() if len(parts) >= 3 else md.strip()
 
 
+SEARCH_LIMIT = 8
+SEARCH_SUMMARIZE_THRESHOLD = 800
+
+
+async def search_context(query: str, with_summary: bool = False) -> dict:
+    """On-demand Geo block search reusing this module's auth/HTTP machinery and
+    nano-model summarizer. Returns a dict the agent can read directly:
+
+        {"ok": bool, "query": str, "results": str|None,
+         "summary": str|None, "error": str|None}
+
+    Reused by the geo_search_context tool so the search+summarize logic lives in
+    one place. Silently degrades (ok=False, error set) when Geo.app is closed."""
+    query = (query or "").strip()
+    if not query:
+        return {"ok": False, "query": query, "results": None,
+                "summary": None, "error": "empty query"}
+
+    info = _read_api_json()
+    if not info:
+        return {"ok": False, "query": query, "results": None,
+                "summary": None, "error": "Geo.app unreachable (api.json stale or pid dead)"}
+    token = _read_keychain_token()
+    if not token:
+        return {"ok": False, "query": query, "results": None,
+                "summary": None, "error": "no Geo API token in keychain"}
+
+    token_ref = {"token": token}
+    base = f"http://127.0.0.1:{info['port']}"
+    headers = {"Authorization": f"Bearer {token}", "X-Caller-Id": "hermes-hook"}
+    path = (
+        "/v1/blocks/search?q=" + urllib.parse.quote(query)
+        + f"&limit={SEARCH_LIMIT}"
+    )
+    try:
+        async with httpx.AsyncClient(base_url=base, headers=headers, timeout=8.0) as client:
+            raw = await asyncio.wait_for(_safe_get(client, path, token_ref), timeout=10.0)
+    except Exception as e:
+        return {"ok": False, "query": query, "results": None,
+                "summary": None, "error": f"http unreachable: {e}"}
+
+    if not raw:
+        return {"ok": True, "query": query, "results": None,
+                "summary": None, "error": None}
+
+    summary = None
+    if with_summary and len(raw) > SEARCH_SUMMARIZE_THRESHOLD:
+        summary = await _summarize_with_haiku(raw, f"Geo search results for '{query}'")
+    elif with_summary:
+        summary = raw
+
+    return {"ok": True, "query": query, "results": raw,
+            "summary": summary, "error": None}
+
+
 async def _build_body() -> Optional[str]:
     raw_profile, raw_memory, raw_today = await _fetch_geo_blocks()
 
