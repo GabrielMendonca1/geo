@@ -218,8 +218,8 @@ final class TaskItemTests: XCTestCase {
     }
 
     func testIsOverdueFalseForTodayPointInTimeTask() {
-        let oneHourAgo = Date().addingTimeInterval(-3600)
-        let item = makeTask(startTime: oneHourAgo, reminders: [.atTime])
+        let earlierToday = Calendar.current.date(bySettingHour: 0, minute: 0, second: 1, of: Date())!
+        let item = makeTask(startTime: earlierToday, reminders: [.atTime])
 
         XCTAssertFalse(item.isOverdue)
     }
