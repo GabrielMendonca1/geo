@@ -181,24 +181,36 @@ final class APITokenStore: @unchecked Sendable {
             kSecAttrService as String: Self.service,
             kSecMatchLimit as String: kSecMatchLimitAll,
             kSecReturnAttributes as String: true,
-            kSecReturnData as String: true,
         ]
         var result: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
         guard status == errSecSuccess, let items = result as? [[String: Any]] else { return nil }
         let target = Data(digest.utf8)
         for item in items {
-            guard let data = item[kSecValueData as String] as? Data else { continue }
-            if Self.constantTimeEquals(data, target) {
-                guard let callerId = item[kSecAttrAccount as String] as? String,
-                      let attrData = item[kSecAttrGeneric as String] as? Data,
-                      let attrs = try? JSONDecoder().decode(TokenAttributes.self, from: attrData) else {
-                    continue
-                }
-                return (attrs, callerId)
+            guard let callerId = item[kSecAttrAccount as String] as? String,
+                  let data = readDigestData(callerId: callerId),
+                  Self.constantTimeEquals(data, target) else { continue }
+            guard let attrData = item[kSecAttrGeneric as String] as? Data,
+                  let attrs = try? JSONDecoder().decode(TokenAttributes.self, from: attrData) else {
+                continue
             }
+            return (attrs, callerId)
         }
         return nil
+    }
+
+    private func readDigestData(callerId: String) -> Data? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: Self.service,
+            kSecAttrAccount as String: callerId,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+        ]
+        var item: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        guard status == errSecSuccess, let data = item as? Data else { return nil }
+        return data
     }
 
     private func listAllAttributes() -> [TokenAttributes] {
