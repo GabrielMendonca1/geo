@@ -29,9 +29,31 @@ HERMES_HOME = Path(os.path.expanduser("~/.hermes"))
 MEMORY_PATH = HERMES_HOME / "memories" / "MEMORY.md"
 STATE_PATH = Path(__file__).parent / ".state.json"
 GEO_API_JSON = Path(os.path.expanduser("~/Library/Application Support/Geo/api.json"))
+CONFIG_PATH = Path(__file__).parent.parent.parent / "config.yaml"
 KEYCHAIN_SERVICE = "geo-api-bootstrap"
 KEYCHAIN_ACCOUNT = "hermes-hook"
-HAIKU_MODEL = "claude-haiku-4-5"
+
+
+def _nano_model() -> str:
+    """Resolve the nano model id: HERMES_NANO_MODEL env > config.yaml model.nano
+    > fallback literal. config.yaml (model.full / model.nano) is the canonical
+    source so a model retirement is a one-line config edit, not a code change."""
+    env = os.environ.get("HERMES_NANO_MODEL")
+    if env:
+        return env
+    try:
+        import yaml
+
+        data = yaml.safe_load(CONFIG_PATH.read_text()) or {}
+        nano = (data.get("model") or {}).get("nano")
+        if nano:
+            return str(nano)
+    except Exception:
+        pass
+    return "claude-haiku-4-5"
+
+
+HAIKU_MODEL = _nano_model()
 TODAY_SUMMARIZE_THRESHOLD = 600
 MAX_MEMORY_BODY = 4000
 TTL_SECONDS = 60.0
