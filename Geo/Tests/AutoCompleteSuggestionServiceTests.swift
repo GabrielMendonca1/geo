@@ -242,13 +242,20 @@ final class AutoCompleteSuggestionServiceTests: XCTestCase {
         status: TaskStatus,
         kind: TaskKind
     ) -> TaskItem {
-        TaskItem(
+        let anchor = Date(timeIntervalSince1970: 0)
+        let body: TaskBody
+        switch kind {
+        case .task: body = .task(due: anchor, estimatedMinutes: nil)
+        case .event: body = .event(start: anchor, end: anchor)
+        case .habit: body = .habit(rule: .daily, timeOfDay: anchor, occurrences: [])
+        case .milestone: body = .milestone(target: anchor)
+        }
+        return TaskItem(
             id: id,
             title: "Task \(id)",
             linkedBlockId: linkedBlockId,
             status: status,
-            startTime: Date(timeIntervalSince1970: 0),
-            kind: kind
+            body: body
         )
     }
 }
