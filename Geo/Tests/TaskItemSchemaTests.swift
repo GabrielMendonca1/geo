@@ -89,9 +89,12 @@ final class TaskItemSchemaTests: XCTestCase {
     func testEventRoundTripPreservesEndTime() throws {
         let start = Date(timeIntervalSince1970: 1_710_000_000)
         let end = start.addingTimeInterval(3600)
+        let fixed = Date(timeIntervalSince1970: 1_700_000_000)
         let task = TaskItem(
             id: "e1",
             title: "Standup",
+            createdAt: fixed,
+            modifiedAt: fixed,
             body: .event(start: start, end: end)
         )
 
