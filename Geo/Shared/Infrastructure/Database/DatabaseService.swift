@@ -559,13 +559,11 @@ final class DatabaseService: @unchecked Sendable {
 
 extension DatabaseQueue {
     static func makeMemoryFallback() -> DatabaseQueue {
-        var config = Configuration()
-        config.readonly = true
-        for _ in 0..<3 {
+        for attempt in 0..<3 {
             if let q = try? DatabaseQueue() { return q }
-            if let q = try? DatabaseQueue(configuration: config) { return q }
+            logger.fault("[DatabaseService] In-memory database creation failed (attempt \(attempt + 1))")
         }
-        logger.fault("[DatabaseService] Cannot create in-memory database; serving a read-only empty store")
-        return DatabaseQueue()
+        logger.fault("[DatabaseService] Giving up on in-memory database; serving an isolated empty store")
+        return (try? DatabaseQueue(path: ":memory:")) ?? (try! DatabaseQueue())
     }
 }
