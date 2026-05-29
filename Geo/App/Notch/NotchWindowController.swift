@@ -115,7 +115,8 @@ final class NotchWindowController {
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
-                self?.install(on: NSScreen.preferred)
+                guard let screen = NSScreen.preferred else { return }
+                self?.install(on: screen)
                 self?.refreshHoverZone()
             }
         }
