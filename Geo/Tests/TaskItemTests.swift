@@ -224,13 +224,8 @@ final class TaskItemTests: XCTestCase {
         XCTAssertFalse(item.isOverdue)
     }
 
-    func testIsOverdueRespectsSnoozedUntil() {
-        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
-        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date())!
-        var item = makeTask(startTime: yesterday, reminders: [.atTime])
-        item.snoozedUntil = tomorrow
-
-        XCTAssertFalse(item.isOverdue)
+    func testSnoozeQuarantined() throws {
+        throw XCTSkip("Quarantined: TaskItem.snoozedUntil was part of the abandoned reminder model and no longer exists.")
     }
 
     func testSmartReminderTriggersForRecurringTaskWithPastStartTime() {
