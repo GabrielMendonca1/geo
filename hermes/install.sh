@@ -80,7 +80,8 @@ install_plist() {
 
 echo "==> Installing hermes config into $DEST_DIR"
 template_config "$SRC_DIR/config.yaml"           "$DEST_DIR/config.yaml"
-copy_with_backup "$SRC_DIR/SOUL.md"              "$DEST_DIR/SOUL.md"
+ln -sfn "$SRC_DIR/SOUL.md"                       "$DEST_DIR/SOUL.md"
+echo "  symlinked SOUL.md -> $SRC_DIR/SOUL.md"
 copy_with_backup "$SRC_DIR/memories/MEMORY.md"   "$DEST_DIR/memories/MEMORY.md"
 copy_with_backup "$SRC_DIR/memories/USER.md"     "$DEST_DIR/memories/USER.md"
 copy_if_absent   "$SRC_DIR/.env.template"        "$DEST_DIR/.env"
