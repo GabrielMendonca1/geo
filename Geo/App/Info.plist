@@ -60,5 +60,15 @@
 	<string>Geo needs camera access to capture screenshots and images.</string>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>Geo needs to send Apple Events to automate tasks and manage system functionality.</string>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>Geo needs access to your Desktop folder to save and organize captured files.</string>
+	<key>SUFeedURL</key>
+	<string>https://github.com/GabrielMendonca1/geo/releases/latest/download/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>__SPARKLE_PUBLIC_ED_KEY_PLACEHOLDER__</string>
+	<key>SUEnableInstallerLauncherService</key>
+	<false/>
+	<key>SUEnableDownloaderService</key>
+	<false/>
 </dict>
 </plist>
