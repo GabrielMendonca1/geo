@@ -336,8 +336,7 @@ final class RepositoryAdapterTests: XCTestCase {
         let draft = TaskDraft(
             title: "Review PR",
             notes: "adapter test",
-            startTime: start,
-            reminders: [.atTime]
+            body: .task(due: start, estimatedMinutes: nil)
         )
 
         let created = try await repository.create(draft)
