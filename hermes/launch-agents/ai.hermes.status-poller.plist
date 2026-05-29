@@ -6,6 +6,8 @@
   <string>ai.hermes.status-poller</string>
   <key>ProgramArguments</key>
   <array>
+    <string>/usr/bin/caffeinate</string>
+    <string>-s</string>
     <string>/usr/bin/python3</string>
     <string>/Users/biel/.hermes/status-poller/poller.py</string>
   </array>
