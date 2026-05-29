@@ -9,6 +9,7 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
     case ai
     case nanoHermes
     case apiAccess
+    case data
     case advanced
 
     var id: String { rawValue }
@@ -29,6 +30,8 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
             return "Hermes"
         case .apiAccess:
             return "API Access"
+        case .data:
+            return "Backup & Data"
         case .advanced:
             return "Advanced"
         }
@@ -50,6 +53,8 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
             return "antenna.radiowaves.left.and.right"
         case .apiAccess:
             return "key.horizontal"
+        case .data:
+            return "externaldrive"
         case .advanced:
             return "wrench.and.screwdriver"
         }
