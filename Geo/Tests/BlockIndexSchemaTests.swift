@@ -70,7 +70,7 @@ final class BlockIndexSchemaTests: XCTestCase {
 
         let now = Date()
         let dbQueue = try DatabaseQueue(path: tempURL.path)
-        try dbQueue.write { db in
+        try await dbQueue.write { db in
             try db.execute(sql: """
                 CREATE TABLE blocks (
                     id TEXT PRIMARY KEY,
