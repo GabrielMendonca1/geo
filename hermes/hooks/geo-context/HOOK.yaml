@@ -1,11 +1,11 @@
 name: geo-context
 description: >
-  Refreshes ~/.hermes/memories/MEMORY.md from Gabriel's Geo data
-  (User Profile + Memory + Today's block) before every agent turn,
-  so the agent always sees fresh state. Hash-gated and TTL-gated so it
-  only rewrites MEMORY.md when content actually changed and at most
-  once per TTL window — keeps Anthropic prompt-cache hits intact.
-  Silently no-ops if Geo.app isn't running (geo-mcp-bridge socket missing).
-events:
-  - agent:start
-  - session:reset
+  Geo context fetch (User Profile + Memory + Today's block) from Gabriel's
+  Geo data. Auto-injection is DISABLED: this no longer fires on agent:start
+  / session:reset, so MEMORY.md is no longer rewritten before every turn.
+  The fetch+summarize logic now lives behind the on-demand geo_search_context
+  tool (hermes-extensions/geo-search-tool), which the agent calls with a query
+  when it actually needs Geo state, using the cheap nano model.
+  handler.py is retained as the importable source of that logic. The hash/TTL
+  gating and silent no-op when Geo.app is closed still apply to any caller.
+events: []
