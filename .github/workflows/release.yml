@@ -1,0 +1,83 @@
+name: Release
+
+# Required repo secrets:
+#   APPLE_CERT_P12_BASE64  - base64 of the Developer ID Application .p12 (base64 -i cert.p12 | pbcopy)
+#   APPLE_CERT_PASSWORD    - password for the .p12 export
+#   KEYCHAIN_PWD           - any value; password for the temp build keychain
+#   APPLE_ID               - Apple ID email used for notarization
+#   TEAM_ID                - Apple Developer Team ID owning the Developer ID cert
+#   APPLE_APP_PASSWORD     - app-specific password for notarytool
+#   SIGNING_IDENTITY       - full identity, e.g. "Developer ID Application: Gabriel Mendonca (TEAMID)"
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: macos-15
+    permissions:
+      contents: write
+    env:
+      NOTARY_PROFILE: geo-notary
+      TEAM_ID: ${{ secrets.TEAM_ID }}
+      DEVELOPER_ID_APP: ${{ secrets.SIGNING_IDENTITY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.app
+
+      - name: Install create-dmg
+        run: brew install create-dmg
+
+      - name: Import Developer ID certificate
+        env:
+          APPLE_CERT_P12_BASE64: ${{ secrets.APPLE_CERT_P12_BASE64 }}
+          APPLE_CERT_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
+          KEYCHAIN_PWD: ${{ secrets.KEYCHAIN_PWD }}
+        run: |
+          echo "$APPLE_CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$KEYCHAIN_PWD" build.keychain
+          security set-keychain-settings -lut 21600 build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PWD" build.keychain
+          security import "$RUNNER_TEMP/cert.p12" -k build.keychain -P "$APPLE_CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PWD" build.keychain
+          security list-keychains -d user -s build.keychain $(security list-keychains -d user | tr -d '"')
+
+      - name: Create notarytool keychain profile
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: |
+          xcrun notarytool store-credentials "$NOTARY_PROFILE" \
+            --apple-id "$APPLE_ID" \
+            --team-id "$TEAM_ID" \
+            --password "$APPLE_APP_PASSWORD" \
+            --keychain build.keychain
+
+      - name: Build signed DMG
+        run: bash Geo/scripts/build_dist.sh
+
+      - name: Notarize + staple
+        run: bash Geo/scripts/notarize.sh build/Geo.dmg
+
+      - name: Rename artifacts
+        run: |
+          mv build/Geo.dmg "build/Geo-${GITHUB_REF_NAME}.dmg"
+          mv build/Geo.dmg.sha256 "build/Geo-${GITHUB_REF_NAME}.dmg.sha256"
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "build/Geo-${GITHUB_REF_NAME}.dmg" \
+            "build/Geo-${GITHUB_REF_NAME}.dmg.sha256" \
+            --generate-notes
+
+      - name: Cleanup keychain
+        if: always()
+        run: security delete-keychain build.keychain || true
