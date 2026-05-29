@@ -242,27 +242,24 @@ final class TaskItemTests: XCTestCase {
         endTime: Date? = nil,
         status: TaskStatus = .pending,
         reminders: [ReminderOffset],
-        firedReminders: [ReminderOffset] = [],
-        snoozedUntil: Date? = nil,
         recurrence: RecurrenceRule = .never
     ) -> TaskItem {
-        TaskItem(
+        let body: TaskBody
+        if recurrence.isRepeating {
+            body = .habit(rule: recurrence, timeOfDay: startTime, occurrences: [])
+        } else if let endTime {
+            body = .event(start: startTime, end: endTime)
+        } else {
+            body = .task(due: startTime, estimatedMinutes: nil)
+        }
+        return TaskItem(
             id: UUID().uuidString,
             title: "Task",
-            notes: "",
-            linkedBlockId: nil,
             status: status,
-            startTime: startTime,
-            endTime: endTime,
-            reminders: reminders,
-            recurringReminders: [],
-            recurrence: recurrence,
-            firedReminders: firedReminders,
-            orderIndex: 0,
-            smartReminder: false,
-            snoozedUntil: snoozedUntil,
             createdAt: Date(timeIntervalSince1970: 0),
-            modifiedAt: Date(timeIntervalSince1970: 0)
+            modifiedAt: Date(timeIntervalSince1970: 0),
+            body: body,
+            reminders: reminders.map { Reminder(trigger: .offset($0)) }
         )
     }
 }
