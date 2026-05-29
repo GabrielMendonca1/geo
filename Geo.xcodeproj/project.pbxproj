@@ -1808,6 +1808,7 @@
 				B10C00000000000300000020 /* WikiLinkSuggestionsView.swift in Sources */,
 				B10C00000000000300000021 /* NoteTemplates.swift in Sources */,
 				B1C2D3E4F5061728394B0001 /* DatabaseService.swift in Sources */,
+				BKP000000000000000001BLD /* BackupService.swift in Sources */,
 				B1C2D3E4F5061728394B0002 /* IndexCoordinator.swift in Sources */,
 				B1C2D3E4F5061728394B0003 /* FileWatcherService.swift in Sources */,
 				B1C2D3E4F5061728394B0004 /* StorageMigrationService.swift in Sources */,
