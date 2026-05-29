@@ -233,13 +233,13 @@ async def fetch_geo(geo) -> dict:
     day = None
     day_context = ""
     try:
-        day = await client.get("/v1/days/today")
+        day = await client.get("/days/today")
     except Exception as e:
         log(f"days/today failed: {e}")
 
     if isinstance(day, dict) and day.get("block_ids"):
         try:
-            blocks = await client.get("/v1/blocks")
+            blocks = await client.get("/blocks")
             by_id = {b["id"]: b.get("title") for b in blocks if isinstance(b, dict)}
         except Exception as e:
             log(f"blocks list failed: {e}")
@@ -250,7 +250,7 @@ async def fetch_geo(geo) -> dict:
             if not title:
                 continue
             try:
-                body = await client.get("/v1/blocks/by-title", title=title)
+                body = await client.get("/blocks/by-title", title=title)
                 parts.append(_strip_frontmatter(body.get("markdown", "")))
             except Exception as e:
                 log(f"block fetch failed ({title}): {e}")
@@ -259,7 +259,7 @@ async def fetch_geo(geo) -> dict:
     today_tasks: list[dict] = []
     week_tasks: list[dict] = []
     try:
-        week_tasks = await client.get("/v1/tasks/upcoming", within_days=7) or []
+        week_tasks = await client.get("/tasks/upcoming", within_days=7) or []
         if not isinstance(week_tasks, list):
             week_tasks = []
     except Exception as e:
