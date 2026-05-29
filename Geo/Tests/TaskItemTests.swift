@@ -523,12 +523,11 @@ final class TasksViewModelCompleteTests: XCTestCase {
         viewModel.bind(tasksRepository: tasksRepository, blocksRepository: blocksRepository)
     }
 
-    func testCompleteRecurringTaskAdvancesToFuture() async throws {
+    func testCompleteHabitAdvancesToFuture() async throws {
         let yesterday = Date().addingTimeInterval(-86400)
         let created = try await tasksRepository.create(TaskDraft(
             title: "Weekly standup",
-            startTime: yesterday,
-            recurrence: .weekly
+            body: .habit(rule: .weekly, timeOfDay: yesterday, occurrences: [])
         ))
         try await waitForTasks(count: 1)
 
@@ -538,54 +537,13 @@ final class TasksViewModelCompleteTests: XCTestCase {
         let task = tasks.first { $0.id == created.id }!
         XCTAssertTrue(task.startTime > Date())
         XCTAssertEqual(task.status, .pending)
-        XCTAssertTrue(task.firedReminders.isEmpty)
-        XCTAssertNil(task.snoozedUntil)
-    }
-
-    func testCompleteRecurringTaskSkipsPastOccurrences() async throws {
-        let threeWeeksAgo = Date().addingTimeInterval(-3 * 7 * 86400)
-        let created = try await tasksRepository.create(TaskDraft(
-            title: "Weekly review",
-            startTime: threeWeeksAgo,
-            recurrence: .weekly
-        ))
-        try await waitForTasks(count: 1)
-
-        await viewModel.completeTask(id: created.id)
-
-        let tasks = try await tasksRepository.list()
-        let task = tasks.first { $0.id == created.id }!
-        XCTAssertTrue(task.startTime > Date())
-    }
-
-    func testCompleteRecurringTaskPreservesDuration() async throws {
-        let yesterday10am = Calendar.current.date(
-            bySettingHour: 10, minute: 0, second: 0,
-            of: Date().addingTimeInterval(-86400)
-        )!
-        let yesterday11am = yesterday10am.addingTimeInterval(3600)
-        let created = try await tasksRepository.create(TaskDraft(
-            title: "Meeting",
-            startTime: yesterday10am,
-            endTime: yesterday11am,
-            recurrence: .weekly
-        ))
-        try await waitForTasks(count: 1)
-
-        await viewModel.completeTask(id: created.id)
-
-        let tasks = try await tasksRepository.list()
-        let task = tasks.first { $0.id == created.id }!
-        XCTAssertNotNil(task.endTime)
-        let duration = task.endTime!.timeIntervalSince(task.startTime)
-        XCTAssertEqual(duration, 3600, accuracy: 1)
+        XCTAssertTrue(task.reminders.allSatisfy { !$0.fired })
     }
 
     func testCompleteNonRecurringTaskMarksCompleted() async throws {
         let created = try await tasksRepository.create(TaskDraft(
             title: "One-off task",
-            startTime: Date().addingTimeInterval(-3600),
-            recurrence: .never
+            body: .task(due: Date().addingTimeInterval(-3600), estimatedMinutes: nil)
         ))
         try await waitForTasks(count: 1)
 
@@ -596,12 +554,11 @@ final class TasksViewModelCompleteTests: XCTestCase {
         XCTAssertEqual(task.status, .completed)
     }
 
-    func testCompleteRecurringTaskKeepsRecurrenceRule() async throws {
+    func testCompleteHabitKeepsRecurrenceRule() async throws {
         let yesterday = Date().addingTimeInterval(-86400)
         let created = try await tasksRepository.create(TaskDraft(
             title: "Biweekly sync",
-            startTime: yesterday,
-            recurrence: .biweekly
+            body: .habit(rule: .biweekly, timeOfDay: yesterday, occurrences: [])
         ))
         try await waitForTasks(count: 1)
 
@@ -612,19 +569,11 @@ final class TasksViewModelCompleteTests: XCTestCase {
         XCTAssertEqual(task.recurrence, .biweekly)
     }
 
-    func testCompleteRecurringTaskResetsRecurringRemindersLastFired() async throws {
+    func testCompleteHabitRecordsOccurrence() async throws {
         let yesterday = Date().addingTimeInterval(-86400)
-        let reminder = RecurringReminder(
-            interval: 1,
-            frequency: .daily,
-            timeOfDay: Date(),
-            lastFired: yesterday
-        )
         let created = try await tasksRepository.create(TaskDraft(
-            title: "Daily with recurring reminder",
-            startTime: yesterday,
-            recurringReminders: [reminder],
-            recurrence: .daily
+            title: "Daily journal",
+            body: .habit(rule: .daily, timeOfDay: yesterday, occurrences: [])
         ))
         try await waitForTasks(count: 1)
 
@@ -633,19 +582,17 @@ final class TasksViewModelCompleteTests: XCTestCase {
         let tasks = try await tasksRepository.list()
         let task = tasks.first { $0.id == created.id }!
         XCTAssertEqual(task.status, .pending)
-        XCTAssertEqual(task.recurringReminders.count, 1)
-        XCTAssertNil(task.recurringReminders[0].lastFired)
+        XCTAssertEqual(task.habitOccurrences.count, 1)
     }
 
-    func testCompleteRecurringTaskPastEndDateMarksCompleted() async throws {
-        let fourWeeksAgo = Date().addingTimeInterval(-4 * 7 * 86400)
-        let twoWeeksAgo = Date().addingTimeInterval(-2 * 7 * 86400)
-        var rule = RecurrenceRule.weekly
-        rule.endDate = twoWeeksAgo
+    func testCompleteHabitPastEndDateMarksCompleted() async throws {
+        let now = Date()
+        let yesterday = now.addingTimeInterval(-86400)
+        var rule = RecurrenceRule.daily
+        rule.endDate = now.addingTimeInterval(-3600)
         let created = try await tasksRepository.create(TaskDraft(
-            title: "Expired weekly",
-            startTime: fourWeeksAgo,
-            recurrence: rule
+            title: "Expired daily",
+            body: .habit(rule: rule, timeOfDay: yesterday, occurrences: [])
         ))
         try await waitForTasks(count: 1)
 
@@ -656,23 +603,8 @@ final class TasksViewModelCompleteTests: XCTestCase {
         XCTAssertEqual(task.status, .completed)
     }
 
-    func testCompleteRecurringTaskExhaustedByEndDateMarksCompleted() async throws {
-        let threeWeeksAgo = Date().addingTimeInterval(-3 * 7 * 86400)
-        let sixDaysAgo = Date().addingTimeInterval(-6 * 86400)
-        var rule = RecurrenceRule.weekly
-        rule.endDate = sixDaysAgo
-        let created = try await tasksRepository.create(TaskDraft(
-            title: "Exhausted weekly",
-            startTime: threeWeeksAgo,
-            recurrence: rule
-        ))
-        try await waitForTasks(count: 1)
-
-        await viewModel.completeTask(id: created.id)
-
-        let tasks = try await tasksRepository.list()
-        let task = tasks.first { $0.id == created.id }!
-        XCTAssertEqual(task.status, .completed)
+    func testRecurringNonHabitSemanticsQuarantined() throws {
+        throw XCTSkip("Quarantined: recurrence on non-habit tasks (recurring .task/.event with duration preservation, multi-step skipping of past occurrences, recurring reminders) was part of the abandoned model. Recurrence now lives only on .habit bodies and completeTask advances exactly one step.")
     }
 
     private func waitForTasks(count: Int) async throws {
