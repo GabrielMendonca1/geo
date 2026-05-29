@@ -159,8 +159,31 @@ class GeoAPIClient:
         *,
         params: Optional[dict] = None,
         json_body: Any = None,
+        _allow_reconnect: bool = True,
     ) -> Any:
-        resp = await self._client.request(method, path, params=params, json=json_body)
+        """Issue an HTTP request, self-healing a stale ephemeral port.
+
+        Geo rebinds a new port on each launch. A connect failure means the
+        cached port is dead: drop the singleton, rebuild it from a fresh
+        api.json read (new port + token), and retry through the new instance
+        exactly once. A second connect failure is a hard ``GeoUnreachable``.
+        """
+        try:
+            resp = await self._client.request(method, path, params=params, json=json_body)
+        except (httpx.ConnectError, httpx.ConnectTimeout) as e:
+            if not _allow_reconnect:
+                raise GeoUnreachable(
+                    f"Geo unreachable at 127.0.0.1:{self._port} after reconnect: {e}"
+                ) from e
+            await type(self).reset_instance()
+            fresh = await type(self).get_instance()
+            return await fresh._request(
+                method,
+                path,
+                params=params,
+                json_body=json_body,
+                _allow_reconnect=False,
+            )
         if resp.status_code == 401 and ROTATED_REALM in resp.headers.get("www-authenticate", ""):
             await self._refresh_token()
             resp = await self._client.request(method, path, params=params, json=json_body)
