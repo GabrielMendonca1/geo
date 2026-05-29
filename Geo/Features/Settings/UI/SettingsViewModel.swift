@@ -21,6 +21,7 @@ final class SettingsViewModel: ObservableObject {
     @Published private(set) var captureSnapshot = SettingsCaptureSnapshot()
     @Published var setupMessage: String?
     @Published var ocrTestMessage: String?
+    @Published var backupMessage: String?
 
     private var repository: (any SettingsRepository)?
     private var isBound = false
