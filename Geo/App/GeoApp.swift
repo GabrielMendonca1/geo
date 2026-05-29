@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 import Combine
 import os.log
+import Sparkle
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "geo", category: "GeoApp")
 
