@@ -71,26 +71,24 @@ final class BlockMetadataService {
         } else {
             blocksMetadata.removeValue(forKey: blockId)
         }
-        writeMetadataSnapshotSync(blocksMetadata)
+        markMetadataDirty()
     }
 
     func removeMetadata(for blockId: String) {
         blocksMetadata.removeValue(forKey: blockId)
-        writeMetadataSnapshotSync(blocksMetadata)
+        markMetadataDirty()
     }
 
     func flushPendingMetadata() {
-        writeMetadataSnapshotSync(blocksMetadata)
+        markMetadataDirty()
     }
 
     func saveMetadata(completion: ((Bool) -> Void)? = nil) {
-        let ok = writeMetadataSnapshotSync(blocksMetadata)
-        completion?(ok)
+        markMetadataDirty()
+        completion?(true)
     }
 
-    @discardableResult
-    private func writeMetadataSnapshotSync(_ metadata: [String: BlocksStore.BlockMetadata]) -> Bool {
+    private func markMetadataDirty() {
         setLastWriteTime(Date())
-        return true
     }
 }
