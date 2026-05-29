@@ -112,6 +112,8 @@
 		B10C00000000000300000021 /* NoteTemplates.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10C00000000000200000021 /* NoteTemplates.swift */; };
 		B10C00000000000300000030 /* BlockStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10C00000000000200000030 /* BlockStatus.swift */; };
 		B1C2D3E4F5061728394B0001 /* DatabaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A0001 /* DatabaseService.swift */; };
+		BKP000000000000000001BLD /* BackupService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BKP000000000000000001REF /* BackupService.swift */; };
+		BKP000000000000000002BLD /* BackupServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BKP000000000000000002REF /* BackupServiceTests.swift */; };
 		B1C2D3E4F5061728394B0002 /* IndexCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A0002 /* IndexCoordinator.swift */; };
 		B1C2D3E4F5061728394B0003 /* FileWatcherService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A0003 /* FileWatcherService.swift */; };
 		B1C2D3E4F5061728394B0004 /* StorageMigrationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A0004 /* StorageMigrationService.swift */; };
