@@ -117,6 +117,8 @@
 		B1C2D3E4F5061728394B0004 /* StorageMigrationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A0004 /* StorageMigrationService.swift */; };
 		B1C2D3E4F5061728394B0005 /* MarkdownIndexingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A0005 /* MarkdownIndexingService.swift */; };
 		B1C2D3E4F5061728394B0006 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = AABBCCDD0011223344556688 /* GRDB */; };
+		SPK0000000000000000000003 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = SPK0000000000000000000002 /* Sparkle */; };
+		SPK000000000000000000000C /* CheckForUpdatesCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = SPK000000000000000000000R /* CheckForUpdatesCommand.swift */; };
 		B1C2D3E4F5061728394B0007 /* MarkdownConverter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A0006 /* MarkdownConverter.swift */; };
 		B1C2D3E4F5061728394B0009 /* MarkdownStyler.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A0008 /* MarkdownStyler.swift */; };
 		B1C2D3E4F5061728394B000A /* Markdown in Frameworks */ = {isa = PBXBuildFile; productRef = AABBCCDD00112233445566AA /* Markdown */; };
