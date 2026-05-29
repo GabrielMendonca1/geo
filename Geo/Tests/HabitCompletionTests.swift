@@ -38,8 +38,8 @@ final class HabitCompletionTests: XCTestCase {
         )
 
         let updated = persister.task(for: task.id)!
-        XCTAssertEqual(updated.habitState?.occurrences.count, 1)
-        XCTAssertEqual(updated.habitState?.occurrences.first?.date, when)
+        XCTAssertEqual(updated.habitOccurrences.count, 1)
+        XCTAssertEqual(updated.habitOccurrences.first, when)
     }
 
     func testCurrentStreakIncrementsOnConsecutiveDayResetsOnGap() async throws {
@@ -55,17 +55,17 @@ final class HabitCompletionTests: XCTestCase {
         try await TasksStore.completeHabitOccurrence(
             taskId: task.id, blocksStore: blocks, at: day0, persister: persister
         )
-        XCTAssertEqual(persister.task(for: task.id)?.habitState?.currentStreak, 1)
+        XCTAssertEqual(persister.task(for: task.id)?.habitCurrentStreak, 1)
 
         try await TasksStore.completeHabitOccurrence(
             taskId: task.id, blocksStore: blocks, at: day1, persister: persister
         )
-        XCTAssertEqual(persister.task(for: task.id)?.habitState?.currentStreak, 2)
+        XCTAssertEqual(persister.task(for: task.id)?.habitCurrentStreak, 2)
 
         try await TasksStore.completeHabitOccurrence(
             taskId: task.id, blocksStore: blocks, at: day3, persister: persister
         )
-        XCTAssertEqual(persister.task(for: task.id)?.habitState?.currentStreak, 1)
+        XCTAssertEqual(persister.task(for: task.id)?.habitCurrentStreak, 1)
     }
 
     func testLongestStreakNeverDecreases() async throws {
@@ -82,23 +82,22 @@ final class HabitCompletionTests: XCTestCase {
         try await TasksStore.completeHabitOccurrence(taskId: task.id, blocksStore: blocks, at: day0, persister: persister)
         try await TasksStore.completeHabitOccurrence(taskId: task.id, blocksStore: blocks, at: day1, persister: persister)
         try await TasksStore.completeHabitOccurrence(taskId: task.id, blocksStore: blocks, at: day2, persister: persister)
-        let longestAfter3 = persister.task(for: task.id)?.habitState?.longestStreak
+        let longestAfter3 = persister.task(for: task.id)?.habitLongestStreak
         XCTAssertEqual(longestAfter3, 3)
 
         try await TasksStore.completeHabitOccurrence(taskId: task.id, blocksStore: blocks, at: day10, persister: persister)
         let updated = persister.task(for: task.id)!
-        XCTAssertEqual(updated.habitState?.currentStreak, 1)
-        XCTAssertEqual(updated.habitState?.longestStreak, 3)
+        XCTAssertEqual(updated.habitCurrentStreak, 1)
+        XCTAssertEqual(updated.habitLongestStreak, 3)
     }
 
-    func testResetCheckboxesCalledWhenEnabledAndBlockLinked() async throws {
+    func testResetCheckboxesCalledWhenBlockLinked() async throws {
         let blocks = StubBlocks()
         blocks.set(blockId: "block-a", checkboxes: [
             BlockCheckbox(text: "stretch", checked: true, lineNumber: 1),
             BlockCheckbox(text: "read", checked: false, lineNumber: 2)
         ])
-        var task = makeHabit(blockId: "block-a")
-        task.habitState?.resetCheckboxesOnComplete = true
+        let task = makeHabit(blockId: "block-a")
         let persister = StubPersister(initial: [task])
 
         try await TasksStore.completeHabitOccurrence(
@@ -108,13 +107,9 @@ final class HabitCompletionTests: XCTestCase {
         XCTAssertEqual(blocks.resetCalls, ["block-a"])
     }
 
-    func testResetCheckboxesNotCalledWhenDisabled() async throws {
+    func testResetCheckboxesNotCalledWhenNoBlockLinked() async throws {
         let blocks = StubBlocks()
-        blocks.set(blockId: "block-a", checkboxes: [
-            BlockCheckbox(text: "stretch", checked: true, lineNumber: 1)
-        ])
-        var task = makeHabit(blockId: "block-a")
-        task.habitState?.resetCheckboxesOnComplete = false
+        let task = makeHabit(blockId: nil)
         let persister = StubPersister(initial: [task])
 
         try await TasksStore.completeHabitOccurrence(
@@ -127,10 +122,7 @@ final class HabitCompletionTests: XCTestCase {
     func testDailyRecurringScheduleAdvancesByOneDayAndStaysPending() async throws {
         let calendar = Calendar.current
         let start = calendar.date(bySettingHour: 7, minute: 0, second: 0, of: Date(timeIntervalSince1970: 1_700_000_000))!
-        var task = makeHabit()
-        task.startTime = start
-        task.recurrence = .daily
-        task.schedule = .recurring(rule: .daily, timeOfDay: start)
+        let task = makeHabit(rule: .daily, timeOfDay: start)
         let persister = StubPersister(initial: [task])
         let blocks = StubBlocks()
 
@@ -150,10 +142,7 @@ final class HabitCompletionTests: XCTestCase {
         let endDate = calendar.date(byAdding: .hour, value: 1, to: start)!
         var rule = RecurrenceRule.daily
         rule.endDate = endDate
-        var task = makeHabit()
-        task.startTime = start
-        task.recurrence = rule
-        task.schedule = .recurring(rule: rule, timeOfDay: start)
+        let task = makeHabit(rule: rule, timeOfDay: start)
         let persister = StubPersister(initial: [task])
         let blocks = StubBlocks()
 
@@ -165,60 +154,37 @@ final class HabitCompletionTests: XCTestCase {
         XCTAssertEqual(updated.status, .completed)
     }
 
-    func testSnapshotCapturesBlockCheckboxesIntoOccurrence() async throws {
-        let blocks = StubBlocks()
-        blocks.set(blockId: "block-b", checkboxes: [
-            BlockCheckbox(text: "alpha", checked: true, lineNumber: 1),
-            BlockCheckbox(text: "beta", checked: false, lineNumber: 2),
-            BlockCheckbox(text: "gamma", checked: true, lineNumber: 3)
-        ])
-        let task = makeHabit(blockId: "block-b")
-        let persister = StubPersister(initial: [task])
-
-        try await TasksStore.completeHabitOccurrence(
-            taskId: task.id, blocksStore: blocks, at: Date(), persister: persister
-        )
-
-        let updated = persister.task(for: task.id)!
-        let snapshot = updated.habitState?.occurrences.last?.checkboxes ?? []
-        XCTAssertEqual(snapshot.count, 3)
-        XCTAssertEqual(snapshot[0], CheckboxSnapshot(text: "alpha", wasChecked: true))
-        XCTAssertEqual(snapshot[1], CheckboxSnapshot(text: "beta", wasChecked: false))
-        XCTAssertEqual(snapshot[2], CheckboxSnapshot(text: "gamma", wasChecked: true))
+    func testSnapshotCapturesBlockCheckboxesIntoOccurrence() throws {
+        throw XCTSkip("Quarantined: the abandoned HabitState/HabitOccurrence model stored per-occurrence checkbox snapshots; the current API records occurrences as [Date] only and resets linked-block checkboxes without snapshotting them into the occurrence.")
     }
 
-    private func makeHabit(blockId: String? = nil) -> TaskItem {
-        let timeOfDay = Calendar.current.date(bySettingHour: 7, minute: 0, second: 0, of: Date(timeIntervalSince1970: 1_700_000_000))!
+    private func makeHabit(
+        blockId: String? = nil,
+        rule: RecurrenceRule = .daily,
+        timeOfDay: Date? = nil
+    ) -> TaskItem {
+        let anchor = timeOfDay ?? Calendar.current.date(bySettingHour: 7, minute: 0, second: 0, of: Date(timeIntervalSince1970: 1_700_000_000))!
         return TaskItem(
             id: UUID().uuidString,
             title: "Habit",
-            notes: "",
             linkedBlockId: blockId,
             status: .pending,
-            startTime: timeOfDay,
-            endTime: nil,
-            reminders: [],
-            recurringReminders: [],
-            recurrence: .daily,
-            firedReminders: [],
-            orderIndex: 0,
-            smartReminder: false,
-            snoozedUntil: nil,
             createdAt: Date(timeIntervalSince1970: 0),
             modifiedAt: Date(timeIntervalSince1970: 0),
-            kind: .habit,
-            schedule: .recurring(rule: .daily, timeOfDay: timeOfDay),
-            habitState: HabitState(resetCheckboxesOnComplete: true)
+            body: .habit(rule: rule, timeOfDay: anchor, occurrences: [])
         )
     }
 
     private func makeTask(kind: TaskKind) -> TaskItem {
-        TaskItem(
-            id: UUID().uuidString,
-            title: "Task",
-            startTime: Date(timeIntervalSince1970: 1_700_000_000),
-            kind: kind
-        )
+        let anchor = Date(timeIntervalSince1970: 1_700_000_000)
+        let body: TaskBody
+        switch kind {
+        case .task: body = .task(due: anchor, estimatedMinutes: nil)
+        case .event: body = .event(start: anchor, end: anchor)
+        case .habit: body = .habit(rule: .daily, timeOfDay: anchor, occurrences: [])
+        case .milestone: body = .milestone(target: anchor)
+        }
+        return TaskItem(id: UUID().uuidString, title: "Task", body: body)
     }
 }
 
