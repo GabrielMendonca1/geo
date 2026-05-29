@@ -83,3 +83,21 @@ model:
 # Timezone (mirrors GEO_CLAW_TZ default in geo-claw)
 # ---------------------------------------------------------------------------
 timezone: America/Sao_Paulo
+
+# ---------------------------------------------------------------------------
+# Slash commands / scheduled scripts
+# ---------------------------------------------------------------------------
+# Cron jobs live in the gateway DB (created via `hermes cron create`), not
+# inline here — this file only carries the global cron knobs upstream injects.
+# The /day briefing is registered the lowest-risk way: SOUL.md routes an
+# inbound "/day" to run scripts/day-command.py, which fetches the day record +
+# open tasks from Geo, runs model.nano, and DMs Gabriel itself.
+#
+# To ALSO get it on a schedule (e.g. 08:00 every day), register the same script
+# as a silent cron job — it delivers to Telegram on its own, so no --deliver:
+#
+#   hermes cron create "0 8 * * *" \
+#     "$HOME/.hermes/hermes-agent/venv/bin/python $HOME/.hermes/scripts/day-command.py" \
+#     --name day-briefing --no-agent
+#
+# `hermes cron list` to see it, `hermes cron remove day-briefing` to drop it.
