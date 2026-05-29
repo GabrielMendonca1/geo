@@ -7,7 +7,7 @@
   <key>ProgramArguments</key>
   <array>
     <string>/usr/bin/caffeinate</string>
-    <string>-i</string>
+    <string>-s</string>
     <string>/opt/homebrew/bin/node</string>
     <string>/Users/biel/.hermes/whatsapp-ingest/ingest.js</string>
   </array>
