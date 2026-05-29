@@ -27,9 +27,30 @@ from anthropic import AsyncAnthropic
 HERMES_HOME = Path(os.path.expanduser("~/.hermes"))
 JSONL_PATH = HERMES_HOME / "wa_ingest.jsonl"
 AUTH_PATH = HERMES_HOME / "auth.json"
+CONFIG_PATH = Path(__file__).parent.parent / "config.yaml"
+
+
+def _nano_model() -> str:
+    """Resolve the nano model id: HERMES_NANO_MODEL env > config.yaml model.nano
+    > fallback literal. config.yaml (model.full / model.nano) is the canonical
+    source so a model retirement is a one-line config edit, not a code change."""
+    env = os.environ.get("HERMES_NANO_MODEL")
+    if env:
+        return env
+    try:
+        import yaml
+
+        data = yaml.safe_load(CONFIG_PATH.read_text()) or {}
+        nano = (data.get("model") or {}).get("nano")
+        if nano:
+            return str(nano)
+    except Exception:
+        pass
+    return "claude-haiku-4-5"
+
 
 WINDOW_HOURS = 6
-HAIKU_MODEL = "claude-haiku-4-5"
+HAIKU_MODEL = _nano_model()
 MAX_CONCURRENT = 6
 PER_CALL_TIMEOUT_S = 45.0
 RETRY_ATTEMPTS = 2
