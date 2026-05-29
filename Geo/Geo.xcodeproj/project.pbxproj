@@ -921,6 +921,7 @@
 				4180AEE628399E160054FEA9 /* MyCommands.swift */,
 				AOTCMD0001FREF /* AlwaysOnTopCommand.swift */,
 				MACT000000000000000R /* MenuActions.swift */,
+				SPK000000000000000000000R /* CheckForUpdatesCommand.swift */,
 			);
 			path = Commands;
 			sourceTree = "<group>";
