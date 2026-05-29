@@ -1687,6 +1687,7 @@
 			packageProductDependencies = (
 				AABBCCDD0011223344556688 /* GRDB */,
 				AABBCCDD00112233445566AA /* Markdown */,
+				AABBCCDD0011223344556702 /* Sparkle */,
 			);
 			productName = SidebarApp;
 			productReference = 4180AEAA2839753E0054FEA9 /* Geo.app */;
