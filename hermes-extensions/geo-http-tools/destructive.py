@@ -46,16 +46,17 @@ def _result(ok: bool, **fields: Any) -> str:
     return json.dumps({"ok": ok, **fields}, default=str)
 
 
-async def _record_inbound(text: str) -> None:
-    async with _inbound_lock:
-        _inbound_queue.append((time.time(), text))
+def _record_inbound(text: str) -> None:
+    _inbound_queue.append((time.time(), text))
 
 
-async def pre_gateway_dispatch_hook(event=None, **_kw: Any) -> Optional[dict]:
+def pre_gateway_dispatch_hook(event=None, **_kw: Any) -> Optional[dict]:
     """Plugin hook: capture Gabriel's Telegram replies for the destructive flow.
 
-    Must NOT swallow the message — return None (allow) so hermes dispatches
-    normally. We only observe.
+    MUST be synchronous — hermes' invoke_hook calls callbacks with `cb(**kwargs)`
+    and never awaits, so an async hook would return an un-awaited coroutine and
+    never record the reply. Must NOT swallow the message — return None (allow)
+    so hermes dispatches normally. We only observe.
     """
     if event is None:
         return None
