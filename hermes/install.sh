@@ -120,5 +120,7 @@ for plist in "$SRC_DIR"/launch-agents/*.plist; do
     echo "       launchctl bootout gui/\$(id -u) $LAUNCH_AGENTS_DIR/$(basename "$plist") 2>/dev/null || true"
     echo "       launchctl bootstrap gui/\$(id -u) $LAUNCH_AGENTS_DIR/$(basename "$plist")"
 done
-echo "  6. (If switching from geo-claw) stop the old daemon first:"
+echo "  6. ONE-TIME (lid-closed survival on AC power): sudo pmset -a disablesleep 1"
+echo "     Required for clamshell/lid-closed running; caffeinate -s alone is not enough."
+echo "  7. (If switching from geo-claw) stop the old daemon first:"
 echo "     launchctl bootout gui/\$(id -u) ~/Library/LaunchAgents/ai.geo.claw.plist"
