@@ -643,6 +643,7 @@
 			files = (
 				B1C2D3E4F5061728394B0006 /* GRDB in Frameworks */,
 				B1C2D3E4F5061728394B000A /* Markdown in Frameworks */,
+				AABBCCDD0011223344556703 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
