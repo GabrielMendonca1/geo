@@ -1,8 +1,8 @@
 import AppKit
 
 extension NSScreen {
-    static var preferred: NSScreen {
-        screenWithMouse ?? NSScreen.main ?? NSScreen.screens[0]
+    static var preferred: NSScreen? {
+        screenWithMouse ?? NSScreen.main ?? NSScreen.screens.first
     }
 
     static var screenWithMouse: NSScreen? {
