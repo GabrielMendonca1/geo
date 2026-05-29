@@ -62,6 +62,9 @@ final class AppContainer {
     let environment: AppEnvironment
 
     init() {
+        if !ProcessInfo.processInfo.isRunningTests {
+            BackupService.shared.applyPendingRestoreIfNeeded()
+        }
         let ocrService = OCRService.shared
         let markdownConverter = MarkdownConverter.shared
         let indexCoordinator = IndexCoordinator.shared
