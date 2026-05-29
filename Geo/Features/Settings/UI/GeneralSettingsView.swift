@@ -463,6 +463,46 @@ struct GeneralSettingsView: View {
         }
     }
 
+    private var dataPane: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            SettingsSectionHeader(
+                title: "Backup & Data",
+                subtitle: "Export a full snapshot of your Geo data, or restore from a previous backup."
+            )
+
+            SettingsCard(
+                title: "Backup",
+                description: "Backups include all blocks, tasks, tags, captures, and the search index."
+            ) {
+                HStack(spacing: 10) {
+                    Button("Export Now") {
+                        viewModel.exportBackup()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color.accentColor)
+
+                    Button("Restore from Archive…") {
+                        viewModel.restoreBackup()
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button("Reveal Data Folder") {
+                        viewModel.revealDataFolder()
+                    }
+                    .buttonStyle(.bordered)
+                }
+
+                if let backupMessage = viewModel.backupMessage, !backupMessage.isEmpty {
+                    Text(backupMessage)
+                        .font(.caption)
+                        .foregroundStyle(Palette.tertiaryForeground)
+                        .lineLimit(3)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+
     private var advancedPane: some View {
         VStack(alignment: .leading, spacing: 16) {
             SettingsSectionHeader(
