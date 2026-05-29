@@ -433,6 +433,7 @@
 		AITL00000000000000001A /* AITools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AITools.swift; sourceTree = "<group>"; };
 		AITP00000000000000001A /* AITaskParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AITaskParser.swift; sourceTree = "<group>"; };
 		AOTCMD0001FREF /* AlwaysOnTopCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlwaysOnTopCommand.swift; sourceTree = "<group>"; };
+		SPK000000000000000000000R /* CheckForUpdatesCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckForUpdatesCommand.swift; sourceTree = "<group>"; };
 		ATTACH0001FREF0002 /* AttachmentHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentHandler.swift; sourceTree = "<group>"; };
 		B10C00000000000200000001 /* BlockEntity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockEntity.swift; sourceTree = "<group>"; };
 		B10C00000000000200000002 /* BlocksRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlocksRepository.swift; sourceTree = "<group>"; };
