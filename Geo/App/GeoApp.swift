@@ -202,6 +202,9 @@ struct GeoApp: App {
 
     init() {
         PerformanceTracker.shared.markStartupBegin()
+        if !ProcessInfo.processInfo.isRunningTests {
+            BackupService.shared.applyPendingRestoreIfNeeded()
+        }
         let container = AppContainer.live
         self.container = container
         _blocksViewModel = StateObject(wrappedValue: BlocksViewModel())
