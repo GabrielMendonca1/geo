@@ -559,10 +559,10 @@ final class DatabaseService: @unchecked Sendable {
 
 extension DatabaseQueue {
     static func makeMemoryFallback() -> DatabaseQueue {
-        do {
-            return try DatabaseQueue()
-        } catch {
-            fatalError("[DatabaseService] Cannot create in-memory database: \(error)")
+        for _ in 0..<3 {
+            if let q = try? DatabaseQueue() { return q }
         }
+        logger.fault("[DatabaseService] Cannot create in-memory database; serving an isolated empty store")
+        return try! DatabaseQueue(path: "file:geo-fallback-\(UUID().uuidString)?mode=memory&cache=private")
     }
 }
