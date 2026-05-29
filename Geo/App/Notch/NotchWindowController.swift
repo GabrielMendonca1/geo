@@ -29,7 +29,7 @@ final class NotchWindowController {
     }
 
     func show() {
-        let screen = NSScreen.preferred
+        guard let screen = NSScreen.preferred else { return }
         install(on: screen)
         dropZonePanel.show(on: screen, stateStore: stateStore)
         observeScreenChanges()
