@@ -1073,6 +1073,94 @@ private struct BlockGroupHeader: View {
     }
 }
 
+private struct FolderTreeRows: View {
+    let node: FolderNode
+    let depth: Int
+    let collapsed: Set<String>
+    let onToggle: (String) -> Void
+    let blockRow: (BlockEntity) -> AnyView
+    let onNewBlock: (String) -> Void
+    let onNewSubfolder: (String) -> Void
+
+    var body: some View {
+        ForEach(node.subfolders) { sub in
+            FolderHeaderRow(
+                name: sub.name,
+                count: sub.totalBlockCount,
+                depth: depth,
+                isCollapsed: collapsed.contains(sub.id),
+                onToggle: { onToggle(sub.id) },
+                onNewBlock: { onNewBlock(sub.id) },
+                onNewSubfolder: { onNewSubfolder(sub.id) }
+            )
+            if !collapsed.contains(sub.id) {
+                FolderTreeRows(
+                    node: sub,
+                    depth: depth + 1,
+                    collapsed: collapsed,
+                    onToggle: onToggle,
+                    blockRow: blockRow,
+                    onNewBlock: onNewBlock,
+                    onNewSubfolder: onNewSubfolder
+                )
+            }
+        }
+        ForEach(node.blocks) { block in
+            blockRow(block)
+                .padding(.leading, CGFloat(depth) * 14)
+        }
+    }
+}
+
+private struct FolderHeaderRow: View {
+    let name: String
+    let count: Int
+    let depth: Int
+    let isCollapsed: Bool
+    let onToggle: () -> Void
+    let onNewBlock: () -> Void
+    let onNewSubfolder: () -> Void
+    @State private var isHovered = false
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: isCollapsed ? "chevron.right" : "chevron.down")
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundColor(.secondary)
+                .frame(width: 10)
+            Image(systemName: isCollapsed ? "folder" : "folder.fill")
+                .font(.system(size: 11))
+                .foregroundColor(.secondary)
+            Text(name)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.primary)
+                .lineLimit(1)
+            Text("\(count)")
+                .font(.system(size: 10))
+                .foregroundColor(.secondary)
+            Spacer()
+        }
+        .padding(.leading, CGFloat(depth) * 14 + 4)
+        .padding(.vertical, 4)
+        .padding(.trailing, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                .fill(isHovered ? Color.primary.opacity(0.05) : Color.clear)
+        )
+        .contentShape(Rectangle())
+        .onHover { isHovered = $0 }
+        .onTapGesture(perform: onToggle)
+        .contextMenu {
+            Button(action: onNewBlock) {
+                Label("New Block Here", systemImage: "doc.badge.plus")
+            }
+            Button(action: onNewSubfolder) {
+                Label("New Subfolder…", systemImage: "folder.badge.plus")
+            }
+        }
+    }
+}
+
 struct TagCreationSheet: View {
     @Binding var name: String
     @Binding var color: Color
