@@ -140,6 +140,9 @@ final class NotchWindowController {
         hoverMonitor.onExit = { [weak self] in
             self?.stateStore.hoverEnded()
         }
+        hoverMonitor.onTick = { [weak self] in
+            self?.updateMousePassthrough()
+        }
         hoverMonitor.start()
     }
 
