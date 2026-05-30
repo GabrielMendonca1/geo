@@ -189,6 +189,46 @@ final class BlocksViewModel: ObservableObject {
         }
     }
 
+    func createBlock(title: String, markdown: String, folder: String?) async -> BlockEntity? {
+        guard let repository else { return nil }
+
+        do {
+            return try await repository.create(title: title, markdown: markdown, folder: folder)
+        } catch {
+            logger.error("Failed to create block in \(folder ?? "root"): \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    func moveBlock(id: String, toFolder folder: String?) async -> Bool {
+        guard let repository else { return false }
+
+        do {
+            _ = try await repository.move(id: id, toFolder: folder)
+            return true
+        } catch {
+            logger.error("Failed to move block \(id) to \(folder ?? "root"): \(error.localizedDescription)")
+            return false
+        }
+    }
+
+    func createFolder(_ folder: String) async -> Bool {
+        guard let repository else { return false }
+
+        do {
+            try await repository.createFolder(folder)
+            return true
+        } catch {
+            logger.error("Failed to create folder \(folder): \(error.localizedDescription)")
+            return false
+        }
+    }
+
+    func listFolders() async -> [String] {
+        guard let repository else { return [] }
+        return await repository.listFolders()
+    }
+
     func updateBlock(id: String, markdown: String) async -> Bool {
         guard let repository else { return false }
 
