@@ -133,7 +133,142 @@ async def _record_habit_occurrence(c: GeoAPIClient, a: dict) -> Any:
     })
 
 
+# --- Semantic task tools (find-before-create dedup) ------------------------
+#
+# GET /v1/tasks returns {"tasks": [ {id, title, status, kind, due?, notes?,
+# linked_block_id?}, ... ]}. There is NO `day`/`anchor` field on a task object
+# — only `due` (ISO 8601). Default filtering excludes `archived`; pass
+# status="pending" for only-pending. Scoring lives in matching.py.
+
+_TASK_VIEW_KEYS = ("id", "title", "status", "kind", "due")
+
+
+async def _fetch_tasks(c: GeoAPIClient, include_completed: bool) -> list:
+    """Pending tasks (and completed too if asked) as a plain list of dicts."""
+    resp = await c.get("/tasks", status=None if include_completed else "pending")
+    if isinstance(resp, dict):
+        tasks = resp.get("tasks") or []
+    elif isinstance(resp, list):
+        tasks = resp
+    else:
+        tasks = []
+    if include_completed:
+        tasks = [t for t in tasks if t.get("status") != "archived"]
+    return tasks
+
+
+def _task_view(task: dict) -> dict:
+    view = {k: task[k] for k in _TASK_VIEW_KEYS if k in task}
+    if "score" in task:
+        view["score"] = task["score"]
+    return view
+
+
+async def _find_tasks(c: GeoAPIClient, a: dict) -> Any:
+    tasks = await _fetch_tasks(c, bool(a.get("include_completed", False)))
+    ranked = rank(a["query"], tasks, limit=int(a.get("limit", 5)))
+    return {"matches": [_task_view(t) for t in ranked]}
+
+
+async def _resolve_task(c: GeoAPIClient, a: dict) -> Any:
+    tasks = await _fetch_tasks(c, bool(a.get("include_completed", False)))
+    ranked = rank(a["query"], tasks)
+    if not ranked:
+        return {"matched": False, "candidates": []}
+    best = ranked[0]
+    second = ranked[1]["score"] if len(ranked) > 1 else 0.0
+    clear = len(ranked) == 1 or best["score"] >= second + 0.15
+    if best["score"] >= 0.6 and clear:
+        return {"matched": True, "task": _task_view(best), "score": best["score"]}
+    return {"matched": False, "candidates": [_task_view(t) for t in ranked[:3]]}
+
+
+async def _upsert_task(c: GeoAPIClient, a: dict) -> Any:
+    threshold = float(a.get("match_threshold", 0.82))
+    if not bool(a.get("force_new", False)):
+        ranked = rank(a["title"], await _fetch_tasks(c, include_completed=False))
+        if ranked:
+            best = ranked[0]
+            kind_ok = a.get("kind") in (None, best.get("kind"))
+            if best["score"] >= threshold and kind_ok:
+                updated = await _update_task(c, {**a, "id": best["id"]})
+                return {"action": "updated", "task": updated, "matched_score": best["score"]}
+    created = await _create_task(c, a)
+    return {"action": "created", "task": created}
+
+
 WRITE_TOOLS: list[dict] = [
+    {
+        "name": "geo_find_tasks",
+        "description": (
+            "Search existing Geo tasks by a natural-language query, ranked by fuzzy "
+            "similarity (accent/punctuation-insensitive title match + token overlap). "
+            "ALWAYS call this BEFORE creating a task to avoid duplicates — or just use "
+            "geo_upsert_task, which does find-or-create for you. Returns the top `limit` "
+            "matches as {id, title, status, kind, due, score} sorted by score desc. By "
+            "default only pending tasks; set include_completed=true to also search done ones."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "include_completed": {"type": "boolean", "description": "Default false."},
+                "limit": {"type": "integer", "description": "Default 5."},
+            },
+            "required": ["query"],
+        },
+        "handler": _wrap(_find_tasks),
+    },
+    {
+        "name": "geo_resolve_task",
+        "description": (
+            "Resolve a natural-language task reference (e.g. 'finish the exam', 'reuniao "
+            "arca') to ONE specific task id so you can complete/update/delete it by name "
+            "instead of guessing an id. Returns {matched: true, task, score} when there is "
+            "a single confident match (score >= 0.6 and clearly ahead of the rest); "
+            "otherwise {matched: false, candidates: [top 3 {id,title,score}]} so you can "
+            "ask which one. Use before geo_complete_task / geo_update_task / geo_delete_task "
+            "when you only know the task by description."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "include_completed": {"type": "boolean", "description": "Default false."},
+            },
+            "required": ["query"],
+        },
+        "handler": _wrap(_resolve_task),
+    },
+    {
+        "name": "geo_upsert_task",
+        "description": (
+            "RECOMMENDED way to create a task: find-or-create (dedup). Same fields as "
+            "geo_create_task (`title` required; optional `body`, `due`, `day`, `tags`, "
+            "`block_id`, `kind`). It first fuzzy-searches pending tasks; if an existing "
+            "task matches the title closely (score >= match_threshold, default 0.82, and "
+            "any provided `kind` agrees) it UPDATES that task with your provided fields and "
+            "returns {action: 'updated', task, matched_score}. Otherwise it creates a new "
+            "task and returns {action: 'created', task}. Set force_new=true to skip dedup "
+            "and always create. Prefer this over geo_create_task to stop duplicate tasks."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "title": {"type": "string"},
+                "body": {"type": "string"},
+                "due": {"type": "string", "description": "ISO 8601 datetime."},
+                "day": {"type": "string", "description": "YYYY-MM-DD."},
+                "tags": {"type": "array", "items": {"type": "string"}},
+                "block_id": {"type": "string", "description": "Optional source block."},
+                "kind": {"type": "string", "description": "todo|event|habit|reminder|deadline."},
+                "match_threshold": {"type": "number", "description": "Dedup cutoff, default 0.82."},
+                "force_new": {"type": "boolean", "description": "Skip dedup, always create. Default false."},
+            },
+            "required": ["title"],
+        },
+        "handler": _wrap(_upsert_task),
+    },
     {
         "name": "geo_create_block",
         "description": "Create a new block. Returns the new block id + frontmatter_version.",
