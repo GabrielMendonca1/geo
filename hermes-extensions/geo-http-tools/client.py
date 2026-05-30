@@ -112,7 +112,7 @@ class GeoAPIClient:
         self._pid = pid
         self._token = _read_keychain_token()
         self._client = httpx.AsyncClient(
-            base_url=f"http://127.0.0.1:{port}",
+            base_url=f"http://127.0.0.1:{port}/v1",
             headers=self._build_headers(),
             http2=False,
             timeout=httpx.Timeout(connect=2.0, read=10.0, write=10.0, pool=2.0),
