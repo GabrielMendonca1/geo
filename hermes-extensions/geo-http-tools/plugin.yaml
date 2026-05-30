@@ -15,6 +15,7 @@ provides_tools:
   - geo_find_orphans
   - geo_find_unresolved_links
   - geo_get_graph_snapshot
+  - geo_list_folders
   - geo_create_block
   - geo_update_block
   - geo_set_block_tag
