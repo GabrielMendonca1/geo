@@ -60,15 +60,27 @@ struct NotchMetrics {
         )
     }
 
+    static let hoverTopOverscan: CGFloat = 80
+
     var hiddenHoverRect: CGRect {
-        let w: CGFloat = hasNotch ? notchSize.width + 40 : 280
-        let h: CGFloat = (hasNotch ? notchSize.height : topInset) + 20
-        return CGRect(x: screenFrame.midX - w / 2, y: screenFrame.maxY - h, width: w, height: h)
+        let w: CGFloat = hasNotch ? notchSize.width + 60 : 300
+        let base: CGFloat = (hasNotch ? notchSize.height : topInset) + 18
+        return CGRect(
+            x: screenFrame.midX - w / 2,
+            y: screenFrame.maxY - base,
+            width: w,
+            height: base + Self.hoverTopOverscan
+        )
     }
 
     var expandedHoverRect: CGRect {
         let w = dockWidth + 80
         let h = dockHeight + 48
-        return CGRect(x: screenFrame.midX - w / 2, y: screenFrame.maxY - h, width: w, height: h)
+        return CGRect(
+            x: screenFrame.midX - w / 2,
+            y: screenFrame.maxY - h,
+            width: w,
+            height: h + Self.hoverTopOverscan
+        )
     }
 }
