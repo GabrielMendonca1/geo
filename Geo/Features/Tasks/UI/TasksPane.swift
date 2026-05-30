@@ -420,123 +420,121 @@ struct TasksPane: View {
         .frame(maxWidth: .infinity)
     }
 
-    private func lane(title: String, tasks: [TaskItem], isCollapsed: Bool, scale: CGFloat, fontSize: CGFloat, columnWidth: CGFloat) -> TaskLane {
-        TaskLane(
-            title: title,
-            count: tasks.count,
-            tasks: tasks,
-            isCollapsed: isCollapsed,
-            scale: scale,
-            fontSize: fontSize,
-            taskListFontSize: taskListFontSize,
-            columnWidth: columnWidth,
-            rowSpacing: boardLayout.rowSpacing,
-            blocksVersion: viewModel.blocksVersion,
-            checkboxStateVersion: viewModel.checkboxStateVersion,
+    private var taskList: some View {
+        let scale = responsiveLayout.scale
+        return ScrollView {
+            LazyVStack(alignment: .leading, spacing: 18 * scale) {
+                if !viewModel.overdueTasks.isEmpty {
+                    taskSection("Overdue", viewModel.overdueTasks, tint: .red)
+                }
+                taskSection("Today", viewModel.todayTasks, tint: nil, emptyHint: "Nothing for today")
+                if !viewModel.upcomingTasks.isEmpty {
+                    taskSection("Later", viewModel.upcomingTasks, tint: nil)
+                }
+                if !viewModel.milestones.isEmpty {
+                    collapsibleSection("Goals", icon: "flag.fill", viewModel.milestones, isExpanded: goalsExpanded) {
+                        goalsExpanded.toggle()
+                    }
+                }
+                if !viewModel.completedTasks.isEmpty {
+                    collapsibleSection("Completed", icon: "checkmark.circle", viewModel.completedTasks, isExpanded: viewModel.showCompleted) {
+                        viewModel.showCompleted.toggle()
+                    }
+                }
+            }
+            .frame(maxWidth: 760 * scale)
+            .frame(maxWidth: .infinity, alignment: .top)
+            .padding(.horizontal, responsiveLayout.editorPaddingHorizontal)
+            .padding(.top, responsiveLayout.editorPaddingVertical * 0.5)
+            .padding(.bottom, responsiveLayout.editorPaddingHorizontal + 56 * scale)
+        }
+    }
+
+    @ViewBuilder
+    private func sectionHeader(_ title: String, count: Int, tint: Color?, leading: AnyView? = nil) -> some View {
+        let scale = responsiveLayout.scale
+        HStack(spacing: 6 * scale) {
+            if let leading { leading }
+            Text(title.uppercased())
+                .font(.system(size: responsiveLayout.editorFontSize * 0.76, weight: .semibold))
+                .tracking(0.5)
+                .foregroundStyle(tint ?? Palette.tertiaryForeground)
+            Text("\(count)")
+                .font(.system(size: responsiveLayout.editorFontSize * 0.72, weight: .medium))
+                .foregroundStyle(Palette.tertiaryForeground)
+            Spacer(minLength: 0)
+        }
+    }
+
+    @ViewBuilder
+    private func taskSection(_ title: String, _ tasks: [TaskItem], tint: Color?, emptyHint: String? = nil) -> some View {
+        let scale = responsiveLayout.scale
+        VStack(alignment: .leading, spacing: 8 * scale) {
+            sectionHeader(title, count: tasks.count, tint: tint)
+            if tasks.isEmpty {
+                if let emptyHint {
+                    Text(emptyHint)
+                        .font(.system(size: responsiveLayout.editorFontSize * 0.82))
+                        .foregroundStyle(Palette.tertiaryForeground.opacity(0.7))
+                }
+            } else {
+                ForEach(tasks) { task in
+                    taskCard(task)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func collapsibleSection(_ title: String, icon: String, _ tasks: [TaskItem], isExpanded: Bool, toggle: @escaping () -> Void) -> some View {
+        let scale = responsiveLayout.scale
+        VStack(alignment: .leading, spacing: 8 * scale) {
+            Button(action: toggle) {
+                sectionHeader(
+                    title,
+                    count: tasks.count,
+                    tint: nil,
+                    leading: AnyView(
+                        HStack(spacing: 6 * scale) {
+                            Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                                .font(.system(size: responsiveLayout.editorFontSize * 0.7, weight: .semibold))
+                                .foregroundStyle(Palette.tertiaryForeground)
+                            Image(systemName: icon)
+                                .font(.system(size: responsiveLayout.editorFontSize * 0.72))
+                                .foregroundStyle(Palette.tertiaryForeground)
+                        }
+                    )
+                )
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .pointingHandCursor()
+            if isExpanded {
+                ForEach(tasks) { task in
+                    taskCard(task)
+                }
+            }
+        }
+    }
+
+    private func taskCard(_ task: TaskItem) -> some View {
+        TaskCard(
+            task: task,
+            fontSize: taskListFontSize,
+            layoutScale: responsiveLayout.scale,
+            linkedBlockTitle: viewModel.linkedBlockTitle(for: task),
+            linkedBlockCount: task.linkedBlockId.map { viewModel.linkedBlockCount(for: $0) } ?? 0,
+            hasLinkedBlock: viewModel.hasLinkedBlock(task),
+            checkboxes: viewModel.checkboxes(for: task),
             onEdit: { editingTask = $0 },
             onComplete: { id in Task { await viewModel.completeTask(id: id) } },
             onMarkPending: { id in Task { await viewModel.markTaskPending(id: id) } },
             onDelete: { id in Task { await viewModel.deleteTask(id: id) } },
-            linkedBlockTitle: { viewModel.linkedBlockTitle(for: $0) },
-            linkedBlockCount: { viewModel.linkedBlockCount(for: $0) },
-            checkboxes: { viewModel.checkboxes(for: $0) },
-            hasLinkedBlock: { viewModel.hasLinkedBlock($0) },
             onToggleCheckbox: { taskId, blockId, line in
                 Task { await viewModel.toggleCheckbox(in: blockId, lineNumber: line, taskId: taskId) }
             },
             onOpenBlock: { blockId in openWindow(id: "editor", value: blockId) }
         )
-    }
-
-    private var milestoneStrip: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8 * responsiveLayout.scale) {
-                ForEach(viewModel.milestones) { milestone in
-                    milestoneChip(milestone)
-                }
-            }
-            .padding(.horizontal, responsiveLayout.editorPaddingHorizontal)
-            .padding(.vertical, 2 * responsiveLayout.scale)
-        }
-    }
-
-    @ViewBuilder
-    private func milestoneChip(_ milestone: TaskItem) -> some View {
-        let scale = responsiveLayout.scale
-        let fontSize = responsiveLayout.editorFontSize
-        let checkboxes = viewModel.checkboxes(for: milestone)
-        let total = checkboxes.count
-        let done = checkboxes.filter(\.checked).count
-        Button {
-            editingTask = milestone
-        } label: {
-            HStack(spacing: 6 * scale) {
-                Image(systemName: "flag.fill")
-                    .font(.system(size: fontSize * 0.72, weight: .medium))
-                    .foregroundStyle(Palette.accent)
-                Text(milestone.title)
-                    .font(.system(size: fontSize * 0.8, weight: .semibold))
-                    .lineLimit(1)
-                    .foregroundStyle(Palette.foreground.opacity(0.9))
-                if total > 0 {
-                    Text("\(done)/\(total)")
-                        .font(.system(size: fontSize * 0.72, weight: .regular))
-                        .foregroundStyle(Palette.tertiaryForeground)
-                }
-                if let days = milestone.daysUntilMilestone {
-                    Text("\(days)d left")
-                        .font(.system(size: fontSize * 0.72, weight: .regular))
-                        .foregroundStyle(Palette.tertiaryForeground)
-                }
-            }
-            .padding(.horizontal, 10 * scale)
-            .padding(.vertical, 6 * scale)
-            .background(Capsule().fill(Palette.secondaryBackground.opacity(0.5)))
-            .overlay(Capsule().strokeBorder(Palette.border.opacity(0.16), lineWidth: 1))
-            .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .pointingHandCursor()
-    }
-
-    private var taskBoard: some View {
-        let scale = responsiveLayout.scale
-        let fontSize = responsiveLayout.editorFontSize
-        let columnWidth = boardLayout.columnWidth(for: boardColumnCount)
-        let columnsWidth =
-            (columnWidth * CGFloat(boardColumnCount))
-            + (boardLayout.columnSpacing * CGFloat(max(0, boardColumnCount - 1)))
-        let hasCompleted = !viewModel.completedTasks.isEmpty
-
-        let horizontalInset = max(
-            responsiveLayout.editorPaddingHorizontal,
-            (windowSize.width - columnsWidth) / 2
-        )
-
-        return ScrollView(.horizontal) {
-            HStack(alignment: .top, spacing: boardLayout.columnSpacing) {
-                lane(title: "To Do", tasks: viewModel.toDoTasks, isCollapsed: false, scale: scale, fontSize: fontSize, columnWidth: columnWidth)
-                    .equatable()
-
-                lane(title: "Upcoming", tasks: viewModel.upcomingTasks, isCollapsed: false, scale: scale, fontSize: fontSize, columnWidth: columnWidth)
-                    .equatable()
-
-                lane(title: "Completed", tasks: viewModel.completedTasks, isCollapsed: !viewModel.showCompleted, scale: scale, fontSize: fontSize, columnWidth: columnWidth)
-                    .equatable()
-                    .opacity(hasCompleted ? 1 : 0)
-                    .allowsHitTesting(hasCompleted)
-                    .animation(.easeInOut(duration: 0.25), value: hasCompleted)
-            }
-            .padding(.horizontal, horizontalInset)
-            .padding(.top, responsiveLayout.editorPaddingVertical * 0.5)
-            .padding(.bottom, responsiveLayout.editorPaddingHorizontal + (56 * responsiveLayout.scale))
-            .frame(
-                minHeight: max(
-                    260 * responsiveLayout.scale,
-                    windowSize.height - (responsiveLayout.editorPaddingHorizontal * 1.7)
-                )
-            )
-        }
     }
 }
 
