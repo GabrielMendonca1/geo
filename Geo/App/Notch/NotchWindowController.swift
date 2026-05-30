@@ -145,6 +145,11 @@ final class NotchWindowController {
                 self?.updateMousePassthrough()
                 self?.hoverMonitor.check()
             }
+        dragCancellable = stateStore.$isDragActive
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.updateMousePassthrough()
+            }
     }
 
     private func currentHoverZone() -> NSRect {
