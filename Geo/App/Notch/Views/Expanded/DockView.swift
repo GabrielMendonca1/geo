@@ -26,6 +26,30 @@ struct DockView: View {
             .padding(.horizontal, 14)
             .padding(.top, 8)
             .padding(.bottom, 14)
+            .overlay { dropState }
+            .animation(.easeInOut(duration: 0.18), value: stateStore.isDragActive)
+        }
+    }
+
+    @ViewBuilder
+    private var dropState: some View {
+        if stateStore.isDragActive {
+            ZStack {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color.accentColor.opacity(0.12))
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [7, 6]))
+                    .foregroundStyle(Color.accentColor.opacity(0.85))
+                VStack(spacing: 8) {
+                    Image(systemName: "tray.and.arrow.down.fill")
+                        .font(.system(size: 24, weight: .semibold))
+                    Text("Drop to shelf")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .foregroundStyle(.white)
+            }
+            .transition(.opacity.combined(with: .scale(scale: 0.98)))
+            .allowsHitTesting(false)
         }
     }
 }
