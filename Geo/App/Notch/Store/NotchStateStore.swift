@@ -45,10 +45,27 @@ final class NotchStateStore: ObservableObject {
         }
     }
 
+    func dragEntered() {
+        collapseTask?.cancel()
+        collapseTask = nil
+        expandTask?.cancel()
+        expandTask = nil
+        if !isDragActive { isDragActive = true }
+        if state != .expanded {
+            withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+                state = .expanded
+            }
+        }
+    }
+
+    func dragExited() {
+        if isDragActive { isDragActive = false }
+    }
+
     func hoverEnded() {
         expandTask?.cancel()
         expandTask = nil
-        guard state == .expanded, !isPinned else { return }
+        guard state == .expanded, !isPinned, !isDragActive else { return }
         collapseTask?.cancel()
         collapseTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 800_000_000)
