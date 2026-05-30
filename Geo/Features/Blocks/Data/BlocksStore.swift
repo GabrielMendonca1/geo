@@ -434,6 +434,57 @@ class BlocksStore: ObservableObject {
         return true
     }
 
+    @MainActor
+    @discardableResult
+    func moveBlock(_ blockId: String, toFolder folder: String?) async -> Block? {
+        guard let index = indexOfBlock(id: blockId) else { return nil }
+        let block = blocks[index]
+        let filename = block.url.lastPathComponent
+        let destURL = fileService.folderURL(for: folder ?? "").appendingPathComponent(filename)
+        let newId = fileService.relativeId(for: destURL)
+        guard newId != blockId else { return block }
+
+        do {
+            try fileService.moveFile(from: block.url, to: destURL)
+        } catch {
+            logger.error("Failed to move block \(blockId) to \(folder ?? "root"): \(error.localizedDescription)")
+            return nil
+        }
+
+        if let meta = metadataService.currentMetadata(for: blockId) {
+            metadataService.persistMetadata(meta, for: newId)
+            metadataService.removeMetadata(for: blockId)
+        }
+
+        let moved = Block(
+            id: newId,
+            title: block.title,
+            date: block.date,
+            lastEdited: block.lastEdited,
+            markdown: block.markdown,
+            url: destURL,
+            tagId: block.tagId,
+            metadata: block.metadata
+        )
+        blocks[index] = moved
+        if focusedBlockId == blockId { focusedBlockId = newId }
+        changeReconciler.recordWrite(for: blockId)
+        changeReconciler.recordWrite(for: newId)
+        Task {
+            await indexCoordinator.remove(blockId: blockId)
+            await indexCoordinator.index(block: moved)
+        }
+        return moved
+    }
+
+    func createFolder(_ folder: String) {
+        try? fileService.createFolder(folder)
+    }
+
+    func folderPaths() -> [String] {
+        fileService.listFolderPaths()
+    }
+
     func dayId(for blockId: String) -> String? {
         metadataService.dayId(for: blockId)
     }
