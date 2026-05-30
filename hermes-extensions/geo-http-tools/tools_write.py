@@ -160,7 +160,7 @@ async def _add_reminder(c: GeoAPIClient, a: dict) -> Any:
 
 
 async def _ai_parse_task(c: GeoAPIClient, a: dict) -> Any:
-    return await c.post("/tasks/parse", json={"text": a["text"]})
+    return await c.post("/tasks/parse", json={"input": a["text"]})
 
 
 async def _create_tag(c: GeoAPIClient, a: dict) -> Any:
