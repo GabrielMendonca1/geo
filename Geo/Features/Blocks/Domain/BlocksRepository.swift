@@ -26,4 +26,16 @@ extension BlocksRepository {
     func setStatus(blockId: String, status: BlockStatus) async throws {
         try await setStatus(blockId: blockId, status: status.rawValue)
     }
+
+    func create(title: String, markdown: String, folder: String?) async throws -> BlockEntity {
+        try await create(title: title, markdown: markdown)
+    }
+
+    func move(id: String, toFolder folder: String?) async throws -> BlockEntity {
+        throw RepositoryError.notFound
+    }
+
+    func createFolder(_ folder: String) async throws {}
+
+    func listFolders() async -> [String] { [] }
 }
