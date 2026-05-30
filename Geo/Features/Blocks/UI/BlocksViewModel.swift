@@ -112,6 +112,55 @@ struct BlockGroup: Identifiable {
     let blocks: [BlockEntity]
 }
 
+final class FolderNode: Identifiable {
+    let id: String
+    let name: String
+    let subfolders: [FolderNode]
+    let blocks: [BlockEntity]
+
+    var path: String { id }
+    var isEmpty: Bool { subfolders.isEmpty && blocks.isEmpty }
+
+    init(id: String, name: String, subfolders: [FolderNode], blocks: [BlockEntity]) {
+        self.id = id
+        self.name = name
+        self.subfolders = subfolders
+        self.blocks = blocks
+    }
+
+    final class Builder {
+        let name: String
+        private var children: [String: Builder] = [:]
+        var blocks: [BlockEntity] = []
+
+        init(name: String) { self.name = name }
+
+        func folder(at components: [String]) -> Builder {
+            var node = self
+            for component in components {
+                if let existing = node.children[component] {
+                    node = existing
+                } else {
+                    let child = Builder(name: component)
+                    node.children[component] = child
+                    node = child
+                }
+            }
+            return node
+        }
+
+        func build(path: String) -> FolderNode {
+            let subfolders = children.values
+                .map { child -> FolderNode in
+                    let childPath = path.isEmpty ? child.name : path + "/" + child.name
+                    return child.build(path: childPath)
+                }
+                .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+            return FolderNode(id: path, name: name, subfolders: subfolders, blocks: blocks)
+        }
+    }
+}
+
 @MainActor
 final class BlocksViewModel: ObservableObject {
     @Published private(set) var blocks: [BlockEntity] = []
