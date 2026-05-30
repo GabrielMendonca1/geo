@@ -727,154 +727,227 @@ private struct TaskCard: View {
         .padding(.top, 2 * layoutScale)
     }
 
-    var body: some View {
-        HStack(spacing: 0) {
-            if task.priority != .unset {
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(task.priority.tintColor ?? Palette.tertiaryForeground)
-                    .frame(width: 3 * layoutScale)
-                    .padding(.vertical, 6 * layoutScale)
+    @ViewBuilder
+    private var completionButton: some View {
+        Button(action: toggleCompletionFromCheckbox) {
+            let strokeColor: Color = task.status == .completed ? Color(nsColor: Palette.agentSuccess) : Palette.accent
+            ZStack {
+                Circle()
+                    .stroke(strokeColor, lineWidth: 1.4 * layoutScale)
+                    .frame(width: checkboxSize, height: checkboxSize)
+                Circle()
+                    .fill(Color(nsColor: Palette.agentSuccess))
+                    .frame(width: checkboxSize, height: checkboxSize)
+                    .scaleEffect(completionIndicatorScale)
+                    .opacity(Double(completionIndicatorScale))
+                Image(systemName: "checkmark")
+                    .font(.system(size: fontSize * 0.56, weight: .bold))
+                    .foregroundStyle(.white)
+                    .scaleEffect(completionIndicatorScale)
+                    .opacity(Double(completionIndicatorScale))
             }
+            .frame(width: checkboxTapTargetSize, height: checkboxTapTargetSize)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .pointingHandCursor()
+    }
 
-            VStack(alignment: .leading, spacing: 8 * layoutScale) {
-                HStack(alignment: .top, spacing: 8 * layoutScale) {
-                    Button(action: toggleCompletionFromCheckbox) {
-                        let strokeColor: Color = task.status == .completed ? Color(nsColor: Palette.agentSuccess) : Palette.accent
-                        ZStack {
-                            Circle()
-                                .stroke(strokeColor, lineWidth: 1.4 * layoutScale)
-                                .frame(width: checkboxSize, height: checkboxSize)
-                            Circle()
-                                .fill(Color(nsColor: Palette.agentSuccess))
-                                .frame(width: checkboxSize, height: checkboxSize)
-                                .scaleEffect(completionIndicatorScale)
-                                .opacity(Double(completionIndicatorScale))
-                            Image(systemName: "checkmark")
-                                .font(.system(size: fontSize * 0.56, weight: .bold))
-                                .foregroundStyle(.white)
-                                .scaleEffect(completionIndicatorScale)
-                                .opacity(Double(completionIndicatorScale))
-                        }
-                        .frame(width: checkboxTapTargetSize, height: checkboxTapTargetSize)
-                        .contentShape(Rectangle())
+    @ViewBuilder
+    private var titleRow: some View {
+        let titleColor: Color = task.status == .completed ? Palette.tertiaryForeground : Palette.foreground
+        Text(task.title)
+            .font(.system(size: titleFontSize, weight: .semibold))
+            .lineLimit(2)
+            .strikethrough(task.status == .completed)
+            .foregroundStyle(titleColor)
+    }
+
+    @ViewBuilder
+    private var detailLine: some View {
+        switch task.body {
+        case .task(let due, _):
+            HStack(spacing: 5 * layoutScale) {
+                Text(whenText(due))
+                if let dur = task.estimatedDuration {
+                    Text("·"); Text(dur)
+                }
+                if !task.reminders.isEmpty {
+                    Image(systemName: "bell.fill").font(.system(size: chipFontSize * 0.9))
+                }
+            }
+            .font(.system(size: subtitleFontSize, weight: .medium))
+            .foregroundStyle(task.isOverdue ? Color(nsColor: Palette.agentDanger) : Palette.secondaryForeground)
+
+        case .event(let start, let end):
+            HStack(spacing: 5 * layoutScale) {
+                Text("\(DateFormatters.shortTime.string(from: start)) – \(DateFormatters.shortTime.string(from: end))")
+                if let loc = eventLocation {
+                    Text("·"); Text(loc).lineLimit(1)
+                }
+            }
+            .font(.system(size: subtitleFontSize, weight: .medium))
+            .foregroundStyle(task.isOverdue ? Color(nsColor: Palette.agentDanger) : Palette.secondaryForeground)
+
+        case .habit:
+            HStack(spacing: 6 * layoutScale) {
+                Text(task.recurrence.shortDescription)
+                if task.habitCurrentStreak > 0 {
+                    Text("·")
+                    HStack(spacing: 3 * layoutScale) {
+                        Image(systemName: "flame.fill")
+                        Text("\(task.habitCurrentStreak)")
                     }
-                    .buttonStyle(.plain)
-                    .pointingHandCursor()
+                    .foregroundStyle(Color(nsColor: Palette.agentWarning))
+                }
+            }
+            .font(.system(size: subtitleFontSize, weight: .medium))
+            .foregroundStyle(Palette.secondaryForeground)
 
-                    HStack(spacing: 5 * layoutScale) {
-                        if task.kind != .task {
-                            Image(systemName: task.kind.icon)
-                                .font(.system(size: titleFontSize * 0.82, weight: .medium))
-                                .foregroundStyle(Palette.accent)
+        case .milestone(let target):
+            VStack(alignment: .leading, spacing: 5 * layoutScale) {
+                if checkboxesTotalCount > 0 {
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(Palette.secondaryBackground)
+                            Capsule().fill(typeColor)
+                                .frame(width: max(0, geo.size.width * checkboxProgress))
                         }
-                        let titleColor: Color = task.status == .completed ? Palette.tertiaryForeground : Palette.foreground
-                        Text(task.title)
-                            .font(.system(size: titleFontSize, weight: .bold))
-                            .lineLimit(2)
-                            .strikethrough(task.status == .completed)
-                            .foregroundStyle(titleColor)
                     }
-
-                    Spacer(minLength: 0)
-
-                    if isHovering && task.status == .pending {
-                        HStack(spacing: 6 * layoutScale) {
-                            rowActionButton(icon: "pencil", label: "Edit task", foreground: Palette.tertiaryForeground) {
-                                onEdit(task)
-                            }
-                            rowActionButton(icon: "trash", label: "Delete task", foreground: Color(nsColor: Palette.agentDanger).opacity(0.8)) {
-                                onDelete(task.id)
-                            }
-                        }
-                        .transition(.opacity)
+                    .frame(height: 4 * layoutScale)
+                }
+                HStack(spacing: 5 * layoutScale) {
+                    if checkboxesTotalCount > 0 {
+                        Text("\(checkboxesCompletedCount)/\(checkboxesTotalCount)")
+                        Text("·")
+                    }
+                    if let days = task.daysUntilMilestone {
+                        Text("\(days)d left")
+                    } else {
+                        Text(DateFormatters.shortDate.string(from: target))
                     }
                 }
+                .font(.system(size: subtitleFontSize, weight: .medium))
+                .foregroundStyle(Palette.secondaryForeground)
+            }
+        }
+    }
 
-                Label(detailText, systemImage: task.isEvent ? "calendar.badge.clock" : "calendar")
-                    .font(.system(size: subtitleFontSize))
-                    .lineLimit(1)
-                    .foregroundStyle(Palette.tertiaryForeground)
+    @ViewBuilder
+    private var notePreviewText: some View {
+        Text(notesPreview)
+            .font(.system(size: subtitleFontSize))
+            .lineLimit(1)
+            .foregroundStyle(Palette.tertiaryForeground)
+    }
 
+    @ViewBuilder
+    private var checkboxList: some View {
+        VStack(alignment: .leading, spacing: 4 * layoutScale) {
+            ForEach(visibleCheckboxes, id: \.lineNumber) { cb in
+                checkboxRow(cb)
+            }
+            if hiddenCheckboxCount > 0 {
+                Button {
+                    if let blockId = task.linkedBlockId {
+                        onOpenBlock?(blockId)
+                    }
+                } label: {
+                    Text("+\(hiddenCheckboxCount) more")
+                        .font(.system(size: chipFontSize, weight: .medium))
+                        .foregroundStyle(Palette.accent)
+                }
+                .buttonStyle(.plain)
+                .pointingHandCursor()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var hoverActions: some View {
+        if isHovering && task.status == .pending {
+            HStack(spacing: 6 * layoutScale) {
+                rowActionButton(icon: "pencil", label: "Edit task", foreground: Palette.tertiaryForeground) {
+                    onEdit(task)
+                }
+                rowActionButton(icon: "trash", label: "Delete task", foreground: Color(nsColor: Palette.agentDanger).opacity(0.8)) {
+                    onDelete(task.id)
+                }
+            }
+            .padding(8 * layoutScale)
+            .transition(.opacity)
+        }
+    }
+
+    @ViewBuilder
+    private var mainRow: some View {
+        HStack(alignment: .top, spacing: 10 * layoutScale) {
+            completionButton
+            VStack(alignment: .leading, spacing: 4 * layoutScale) {
+                titleRow
+                detailLine
+                if !notesPreview.isEmpty && !isEvent {
+                    notePreviewText
+                }
+                if checkboxesTotalCount > 0 && !task.isMilestone {
+                    checkboxList
+                }
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private var cardBackground: some View {
+        RoundedRectangle(cornerRadius: 12 * layoutScale)
+            .fill(Palette.secondaryBackground.opacity(0.35))
+    }
+
+    private var cardBorder: some View {
+        RoundedRectangle(cornerRadius: 12 * layoutScale)
+            .strokeBorder(Palette.border.opacity(0.4), lineWidth: 1)
+    }
+
+    private var cardContent: some View {
+        HStack(spacing: 0) {
+            Rectangle()
+                .fill(typeColor)
+                .frame(width: 3 * layoutScale)
+            VStack(alignment: .leading, spacing: 8 * layoutScale) {
+                mainRow
                 if showsLinkedBlockSection {
                     linkedBlockSection
                 }
-
-                if hasMetaRow {
-                    HStack(spacing: 6 * layoutScale) {
-                        if task.recurrence.isRepeating {
-                            metaChip(task.recurrence.displayName, icon: "repeat")
-                        }
-
-                        if reminderCount > 0 {
-                            metaChip("\(reminderCount)", icon: "bell")
-                        }
-
-                        if !showsLinkedBlockSection, let linkedTitle = linkedBlockChipText {
-                            metaChip(linkedTitle, icon: "link")
-                                .frame(maxWidth: 160 * layoutScale, alignment: .leading)
-                        }
-
-                        if let est = task.estimatedDuration {
-                            metaChip(est, icon: "clock")
-                        }
-
-                        if task.isHabit, task.habitCurrentStreak > 0 {
-                            metaChip("\(task.habitCurrentStreak) streak", icon: "flame.fill", foreground: .orange)
-                        }
-
-                        if let days = task.daysUntilMilestone {
-                            metaChip("\(days)d left", icon: "flag", foreground: Palette.accent)
-                        }
-
-                        if task.isOverdue {
-                            metaChip("Overdue", icon: "exclamationmark.circle.fill", foreground: Color(nsColor: Palette.agentDanger))
-                        }
-                    }
-                    .lineLimit(1)
-                }
-
-                if !notesPreview.isEmpty {
-                    Text(notesPreview)
-                        .font(.system(size: subtitleFontSize))
-                        .lineLimit(1)
-                        .foregroundStyle(Palette.tertiaryForeground)
-                }
             }
-            .padding(.horizontal, 12 * layoutScale)
-            .padding(.vertical, 11 * layoutScale)
+            .padding(.vertical, 12 * layoutScale)
+            .padding(.leading, 12 * layoutScale)
+            .padding(.trailing, 14 * layoutScale)
         }
-        .opacity(task.status == .completed ? 0.55 : 1)
-        .frame(maxWidth: .infinity, alignment: .topLeading)
-        .background(
-            RoundedRectangle(cornerRadius: 10 * layoutScale)
-                .fill(isHovering ? Palette.background : Palette.background.opacity(0.88))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 10 * layoutScale)
-                .stroke(Palette.border.opacity(isHovering ? 0.4 : 0.16), lineWidth: 1)
-        )
-        .shadow(
-            color: Color.black.opacity(isHovering ? 0.08 : 0.02),
-            radius: isHovering ? 9 * layoutScale : 3 * layoutScale,
-            x: 0,
-            y: isHovering ? 4 * layoutScale : 1 * layoutScale
-        )
-        .contentShape(RoundedRectangle(cornerRadius: 10 * layoutScale))
-        .pointingHandCursor()
-        .onTapGesture { onEdit(task) }
-        .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.15)) { isHovering = hovering }
-        }
-        .contextMenu {
-            if task.status == .pending {
-                Button("Edit") { onEdit(task) }
-                Button("Complete") { onComplete(task.id) }
-                Divider()
-            } else {
-                Button("Mark as Pending") { onMarkPending(task.id) }
+        .background(cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 12 * layoutScale))
+        .overlay(cardBorder)
+        .overlay(alignment: .topTrailing) { hoverActions }
+        .contentShape(RoundedRectangle(cornerRadius: 12 * layoutScale))
+    }
+
+    var body: some View {
+        cardContent
+            .opacity(task.status == .completed ? 0.55 : 1)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .pointingHandCursor()
+            .onTapGesture { onEdit(task) }
+            .onHover { hovering in
+                withAnimation(.easeInOut(duration: 0.15)) { isHovering = hovering }
             }
-            Button("Delete", role: .destructive) { onDelete(task.id) }
-        }
+            .contextMenu {
+                if task.status == .pending {
+                    Button("Edit") { onEdit(task) }
+                    Button("Complete") { onComplete(task.id) }
+                    Divider()
+                } else {
+                    Button("Mark as Pending") { onMarkPending(task.id) }
+                }
+                Button("Delete", role: .destructive) { onDelete(task.id) }
+            }
     }
 }
 
