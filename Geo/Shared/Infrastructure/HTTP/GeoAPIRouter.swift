@@ -144,7 +144,26 @@ final class GeoAPIRouter: @unchecked Sendable {
             let body = parseJSONBody(request.body)
             switch path {
             case "/v1/blocks":
-                return await call("create_block", args: body)
+                let response = await call("create_block", args: body)
+                guard response.status < 300,
+                      let folder = body["folder"]?.stringValue,
+                      !folder.trimmingCharacters(in: CharacterSet(charactersIn: "/ ")).isEmpty,
+                      let createdId = jsonField(response, "id") else {
+                    return response
+                }
+                do {
+                    let moved = try await blocks.move(id: createdId, toFolder: folder)
+                    return .json(200, .object(["id": .string(moved.id), "title": .string(moved.displayTitle)]))
+                } catch {
+                    return response
+                }
+            case "/v1/folders":
+                guard let folder = (body["folder"] ?? body["path"])?.stringValue,
+                      !folder.trimmingCharacters(in: CharacterSet(charactersIn: "/ ")).isEmpty else {
+                    return .error(400, "folder required")
+                }
+                try? await blocks.createFolder(folder)
+                return .json(200, .object(["folder": .string(folder)]))
             case "/v1/tasks":
                 return await call("create_task", args: body)
             case "/v1/tasks/parse":
