@@ -452,6 +452,57 @@ struct TasksPane: View {
         )
     }
 
+    private var milestoneStrip: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8 * responsiveLayout.scale) {
+                ForEach(viewModel.milestones) { milestone in
+                    milestoneChip(milestone)
+                }
+            }
+            .padding(.horizontal, responsiveLayout.editorPaddingHorizontal)
+            .padding(.vertical, 2 * responsiveLayout.scale)
+        }
+    }
+
+    @ViewBuilder
+    private func milestoneChip(_ milestone: TaskItem) -> some View {
+        let scale = responsiveLayout.scale
+        let fontSize = responsiveLayout.editorFontSize
+        let checkboxes = viewModel.checkboxes(for: milestone)
+        let total = checkboxes.count
+        let done = checkboxes.filter(\.checked).count
+        Button {
+            editingTask = milestone
+        } label: {
+            HStack(spacing: 6 * scale) {
+                Image(systemName: "flag.fill")
+                    .font(.system(size: fontSize * 0.72, weight: .medium))
+                    .foregroundStyle(Palette.accent)
+                Text(milestone.title)
+                    .font(.system(size: fontSize * 0.8, weight: .semibold))
+                    .lineLimit(1)
+                    .foregroundStyle(Palette.foreground.opacity(0.9))
+                if total > 0 {
+                    Text("\(done)/\(total)")
+                        .font(.system(size: fontSize * 0.72, weight: .regular))
+                        .foregroundStyle(Palette.tertiaryForeground)
+                }
+                if let days = milestone.daysUntilMilestone {
+                    Text("\(days)d left")
+                        .font(.system(size: fontSize * 0.72, weight: .regular))
+                        .foregroundStyle(Palette.tertiaryForeground)
+                }
+            }
+            .padding(.horizontal, 10 * scale)
+            .padding(.vertical, 6 * scale)
+            .background(Capsule().fill(Palette.secondaryBackground.opacity(0.5)))
+            .overlay(Capsule().strokeBorder(Palette.border.opacity(0.16), lineWidth: 1))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .pointingHandCursor()
+    }
+
     private var taskBoard: some View {
         let scale = responsiveLayout.scale
         let fontSize = responsiveLayout.editorFontSize
