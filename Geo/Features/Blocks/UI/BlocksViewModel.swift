@@ -7,6 +7,7 @@ private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "geo", ca
 
 enum GroupingMode: String, CaseIterable, Identifiable {
     case none
+    case folder
     case date
     case tag
 
@@ -16,6 +17,8 @@ enum GroupingMode: String, CaseIterable, Identifiable {
         switch self {
         case .none:
             return "No Grouping"
+        case .folder:
+            return "Folder"
         case .date:
             return "Date"
         case .tag:
