@@ -41,7 +41,12 @@ async def _create_block(c: GeoAPIClient, a: dict) -> Any:
         "layer": a.get("layer"),
         "type": a.get("type"),
         "tags": a.get("tags"),
+        "folder": a.get("folder"),
     })
+
+
+async def _move_block(c: GeoAPIClient, a: dict) -> Any:
+    return await c.post(f"/blocks/{a['id']}/move", json={"folder": a.get("folder")})
 
 async def _update_block(c: GeoAPIClient, a: dict) -> Any:
     payload: dict = {}
