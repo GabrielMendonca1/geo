@@ -4,8 +4,8 @@ import AppKit
 struct NotchCard: View {
     let entry: NotchHistoryEntry
 
-    private let cardWidth: CGFloat = 184
-    private let cardHeight: CGFloat = 150
+    private let cardWidth: CGFloat = 162
+    private let cardHeight: CGFloat = 130
 
     var body: some View {
         ZStack(alignment: .bottom) {
