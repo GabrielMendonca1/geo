@@ -623,30 +623,8 @@ private struct TaskCard: View {
     private var linkedBlockSection: some View {
         VStack(alignment: .leading, spacing: 6 * layoutScale) {
             linkedBlockChip
-
-            if checkboxesTotalCount > 0 {
-                VStack(alignment: .leading, spacing: 4 * layoutScale) {
-                    ForEach(visibleCheckboxes, id: \.lineNumber) { cb in
-                        checkboxRow(cb)
-                    }
-
-                    if hiddenCheckboxCount > 0 {
-                        Button {
-                            if let blockId = task.linkedBlockId {
-                                onOpenBlock?(blockId)
-                            }
-                        } label: {
-                            Text("+\(hiddenCheckboxCount) more")
-                                .font(.system(size: chipFontSize, weight: .medium))
-                                .foregroundStyle(Palette.accent)
-                        }
-                        .buttonStyle(.plain)
-                        .pointingHandCursor()
-                    }
-
-                    progressRow
-                }
-                .padding(.top, 2 * layoutScale)
+            if checkboxesTotalCount > 0 && !task.isMilestone {
+                progressRow
             }
         }
         .padding(.top, 2 * layoutScale)
