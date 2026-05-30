@@ -14,11 +14,12 @@ Geo already speaks MCP via `geo-mcp-bridge` (stdio). But every MCP tool counts a
 
 | File | Role |
 |---|---|
-| `plugin.yaml` | Manifest: 34 tools. |
+| `plugin.yaml` | Manifest: 37 tools. |
 | `__init__.py` | Plugin entrypoint. Registers tools + the `pre_gateway_dispatch` hook. |
 | `client.py` | Singleton `GeoAPIClient` (async httpx). Keychain bearer, lazy 401 refresh, pid liveness check. |
+| `matching.py` | Shared title `normalize()` + fuzzy `score()`/`rank()` (stdlib) for the semantic task tools. |
 | `tools_read.py` | 18 read tools. |
-| `tools_write.py` | 14 non-destructive write tools. |
+| `tools_write.py` | 17 non-destructive write tools (incl. `geo_find_tasks` / `geo_resolve_task` / `geo_upsert_task`). |
 | `destructive.py` | 2 destructive tools (`geo_delete_block`, `geo_delete_task`) — two-phase prepare → Telegram confirm → commit. |
 | `install.sh` | rsync into `~/.hermes/plugins/geo-http-tools/`. |
 
