@@ -259,7 +259,7 @@ WRITE_TOOLS: list[dict] = [
                 "day": {"type": "string", "description": "YYYY-MM-DD."},
                 "tags": {"type": "array", "items": {"type": "string"}},
                 "block_id": {"type": "string", "description": "Optional source block."},
-                "kind": {"type": "string", "description": "todo|event|habit|reminder|deadline."},
+                "kind": {"type": "string", "description": "task|event|habit|milestone (matches existing task's kind for dedup)."},
                 "match_threshold": {"type": "number", "description": "Dedup cutoff, default 0.82."},
                 "force_new": {"type": "boolean", "description": "Skip dedup, always create. Default false."},
             },
