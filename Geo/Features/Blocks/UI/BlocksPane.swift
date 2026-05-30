@@ -40,6 +40,7 @@ struct BlocksPane: View {
     @State private var isTemplatePickerPresented = false
     @State private var isZettelkastenPickerPresented = false
     @AppStorage("blocksPane.collapsedFolders") private var collapsedFoldersRaw = ""
+    @AppStorage("blocksPane.didDefaultToFolders") private var didDefaultToFolders = false
     @State private var knownFolders: [String] = []
     @State private var isFolderPromptPresented = false
     @State private var folderPromptTitle = "New Folder"
