@@ -47,7 +47,7 @@ When the new token lands in the Keychain, the plugin keeps using the old one unt
    > ⚠️ Agent wants to delete block 'foo' (id abc). Diff preview: … Reply Y within 30 s to confirm.
 3. **Wait 30 s** wall-clock, polling the inbound queue every 1 s. At 25 s, send a "still waiting — 5 s left" nudge.
 4. **Commit or abort.**
-   - `Y` / `yes` → `POST /destructive/commit` with the `block_version` from prepare. On `409 Conflict`, return `{ok: false, reason: "stale_version"}` (someone wrote to the file between phases — re-fetch and retry).
+   - `Y` / `yes` → `POST /destructive/commit/{transaction_id}` with the `block_version` from prepare in the body (the transaction id is a path segment). On `409 Conflict`, return `{ok: false, reason: "stale_version"}` (someone wrote to the file between phases — re-fetch and retry).
    - `N` / `no` / timeout → never call commit. Geo's 300-s timer expires the prepare on its own. Return `{ok: false, reason: "user_denied" | "timeout"}`.
 
 Inbound replies are captured by a `pre_gateway_dispatch` hook that drops messages from Gabriel's Telegram chat into an in-memory queue. The hook returns `None` so normal hermes dispatch still sees the message (the confirmation goes to the agent loop too — we only observe it).
