@@ -272,16 +272,17 @@ READ_TOOLS: list[dict] = [
     },
     {
         "name": "geo_list_tasks",
-        "description": "Paginated list of tasks; filter by status if given.",
+        "description": "List tasks; filter by status, kind, priority, or linked block.",
         "parameters": {
             "type": "object",
             "properties": {
-                "limit": {"type": "integer"},
-                "offset": {"type": "integer"},
                 "status": {
                     "type": "string",
-                    "description": "'open', 'completed', 'snoozed', 'cancelled'.",
+                    "description": "'pending' | 'completed'.",
                 },
+                "kind": {"type": "string", "description": "task|event|habit|milestone."},
+                "priority": {"type": "string"},
+                "linked_block_id": {"type": "string", "description": "Only tasks linked to this block."},
             },
         },
         "handler": _wrap(_list_tasks),
