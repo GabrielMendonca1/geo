@@ -95,3 +95,9 @@ Three semantic tools sit in front of task creation/editing:
 Normalization + scoring live in `matching.py` (`normalize`, `score`, `rank`),
 stdlib only: accent-stripped, lowercased, punctuation-dropped titles compared via
 `difflib.SequenceMatcher` ratio, token Jaccard, and substring — taking the max.
+
+## Server-side dependency
+
+`geo_ai_parse_task` (`POST /tasks/parse`) currently 500s: the server tool
+`ai_quick_add_parse` is not registered yet. The client path is correct; the tool
+will work once the Lane S server fix lands.
