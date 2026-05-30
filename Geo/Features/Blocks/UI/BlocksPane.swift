@@ -267,6 +267,71 @@ struct BlocksPane: View {
         .padding()
     }
 
+    private var collapsedFolders: Set<String> {
+        Set(collapsedFoldersRaw.split(separator: "\n").map(String.init))
+    }
+
+    private func toggleFolder(_ path: String) {
+        var set = collapsedFolders
+        if set.contains(path) { set.remove(path) } else { set.insert(path) }
+        collapsedFoldersRaw = set.sorted().joined(separator: "\n")
+    }
+
+    private func folderOf(_ block: BlockEntity) -> String {
+        block.id.split(separator: "/").map(String.init).dropLast().joined(separator: "/")
+    }
+
+    private var allFolders: [String] {
+        var set = Set(knownFolders)
+        for block in filteredBlocks {
+            let components = block.id.split(separator: "/").map(String.init).dropLast()
+            var accumulated = ""
+            for component in components {
+                accumulated = accumulated.isEmpty ? component : accumulated + "/" + component
+                set.insert(accumulated)
+            }
+        }
+        return set.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+    }
+
+    private func refreshFolders() async {
+        knownFolders = await viewModel.listFolders()
+    }
+
+    private func promptFolderName(title: String, _ completion: @escaping (String) -> Void) {
+        folderPromptTitle = title
+        folderPromptName = ""
+        folderPromptAction = completion
+        isFolderPromptPresented = true
+    }
+
+    private func moveBlock(_ block: BlockEntity, toFolder folder: String?) {
+        Task { @MainActor in
+            if await viewModel.moveBlock(id: block.id, toFolder: folder) {
+                await refreshFolders()
+            }
+        }
+    }
+
+    private func newBlock(inFolder folder: String) {
+        Task { @MainActor in
+            let target = folder.isEmpty ? nil : folder
+            if let block = await viewModel.createBlock(title: "", markdown: "", folder: target) {
+                await refreshFolders()
+                openWindow(value: block.id)
+            }
+        }
+    }
+
+    private func createSubfolder(parent: String, name: String) {
+        let path = parent.isEmpty ? name : parent + "/" + name
+        Task { @MainActor in
+            if await viewModel.createFolder(path) {
+                await refreshFolders()
+            }
+        }
+    }
+
     private var blocksGridContent: some View {
         Group {
             if groupingMode == .none {
@@ -274,6 +339,20 @@ struct BlocksPane: View {
                     ForEach(filteredBlocks) { block in
                         blockRow(for: block)
                     }
+                }
+            } else if groupingMode == .folder {
+                LazyVStack(spacing: 1) {
+                    FolderTreeRows(
+                        node: viewModel.folderTree(for: filteredBlocks, extraFolders: knownFolders),
+                        depth: 0,
+                        collapsed: collapsedFolders,
+                        onToggle: toggleFolder,
+                        blockRow: { AnyView(blockRow(for: $0)) },
+                        onNewBlock: { newBlock(inFolder: $0) },
+                        onNewSubfolder: { parent in
+                            promptFolderName(title: "New Subfolder") { createSubfolder(parent: parent, name: $0) }
+                        }
+                    )
                 }
             } else {
                 LazyVStack(spacing: 1, pinnedViews: [.sectionHeaders]) {
