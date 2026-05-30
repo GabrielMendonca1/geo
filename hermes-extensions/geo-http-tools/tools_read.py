@@ -46,40 +46,24 @@ async def _list_blocks(c: GeoAPIClient, a: dict) -> Any:
     return await c.get(
         "/blocks",
         limit=a.get("limit"),
-        offset=a.get("offset"),
-        layer=a.get("layer"),
+        tag_name=a.get("tag_name"),
     )
 
 
 async def _list_by_status(c: GeoAPIClient, a: dict) -> Any:
-    return await c.get(
-        "/blocks/by-status",
-        status=a["status"],
-        limit=a.get("limit"),
-    )
+    return await c.get("/blocks/by-status", status=a["status"])
 
 
 async def _list_by_type(c: GeoAPIClient, a: dict) -> Any:
-    return await c.get(
-        "/blocks/by-type",
-        type=a["type"],
-        limit=a.get("limit"),
-    )
+    return await c.get("/blocks/by-type", type=a["type"])
 
 
 async def _list_neighbors(c: GeoAPIClient, a: dict) -> Any:
-    return await c.get(
-        f"/blocks/{a['id']}/neighbors",
-        depth=a.get("depth"),
-    )
+    return await c.get(f"/blocks/{a['id']}/neighbors")
 
 
 async def _search_blocks(c: GeoAPIClient, a: dict) -> Any:
-    return await c.get(
-        "/blocks/search",
-        q=a["query"],
-        limit=a.get("limit"),
-    )
+    return await c.get("/blocks/search", q=a["query"])
 
 
 async def _find_backlinks(c: GeoAPIClient, a: dict) -> Any:
@@ -87,19 +71,15 @@ async def _find_backlinks(c: GeoAPIClient, a: dict) -> Any:
 
 
 async def _find_orphans(c: GeoAPIClient, a: dict) -> Any:
-    return await c.get("/blocks/orphans", limit=a.get("limit"))
+    return await c.get("/blocks/orphans")
 
 
 async def _find_unresolved_links(c: GeoAPIClient, a: dict) -> Any:
-    return await c.get("/blocks/unresolved-links", limit=a.get("limit"))
+    return await c.get("/blocks/unresolved-links")
 
 
 async def _get_graph_snapshot(c: GeoAPIClient, a: dict) -> Any:
-    return await c.get(
-        "/graph/snapshot",
-        root_id=a.get("root_id"),
-        depth=a.get("depth"),
-    )
+    return await c.get("/graph/snapshot", limit=a.get("limit"))
 
 
 async def _list_folders(c: GeoAPIClient, a: dict) -> Any:
