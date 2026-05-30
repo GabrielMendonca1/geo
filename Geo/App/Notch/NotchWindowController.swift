@@ -58,6 +58,12 @@ final class NotchWindowController {
 
         let dropView = NotchDropView(frame: CGRect(origin: .zero, size: metrics.panelSize))
         dropView.isActive = stateStore.state != .hidden
+        dropView.onDragEnter = { [weak self] in
+            Task { @MainActor in self?.stateStore.dragEntered() }
+        }
+        dropView.onDragExit = { [weak self] in
+            Task { @MainActor in self?.stateStore.dragExited() }
+        }
         dropView.onDrop = { items in
             Task { @MainActor in items.forEach { ShelfStore.shared.addItem($0) } }
         }
