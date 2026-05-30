@@ -99,6 +99,9 @@ final class GeoAPIRouter: @unchecked Sendable {
             case "/v1/blocks/search":
                 guard let q = request.query["q"] else { return .error(400, "q query required") }
                 return await call("search_blocks", args: ["query": .string(q)])
+            case "/v1/folders":
+                let folders = await blocks.listFolders()
+                return .json(200, .array(folders.map { .string($0) }))
             case "/v1/tasks":
                 var args: [String: AnyCodableValue] = [:]
                 if let s = request.query["status"] { args["status"] = .string(s) }
