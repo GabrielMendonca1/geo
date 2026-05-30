@@ -468,13 +468,30 @@ final class BlocksViewModel: ObservableObject {
         sortOrder: BlockSortOrder
     ) -> [BlockGroup] {
         switch groupingMode {
-        case .none:
+        case .none, .folder:
             return []
         case .date:
             return groupBlocksByDate(blocks, sortField: sortField, sortOrder: sortOrder)
         case .tag:
             return groupBlocksByTag(blocks, tags: tags)
         }
+    }
+
+    func folderTree(for blocks: [BlockEntity], extraFolders: [String] = []) -> FolderNode {
+        let root = FolderNode.Builder(name: "")
+        for folder in extraFolders {
+            root.folder(at: Self.folderComponents(folder))
+        }
+        for block in blocks {
+            let components = block.id.split(separator: "/").map(String.init)
+            let folderComponents = Array(components.dropLast())
+            root.folder(at: folderComponents).blocks.append(block)
+        }
+        return root.build(path: "")
+    }
+
+    private static func folderComponents(_ folder: String) -> [String] {
+        folder.split(separator: "/").map(String.init)
     }
 
     private func sortDate(for block: BlockEntity, sortField: BlockSortField) -> Date {
