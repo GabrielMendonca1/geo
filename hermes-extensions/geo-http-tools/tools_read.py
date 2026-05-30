@@ -146,13 +146,29 @@ async def _get_day(c: GeoAPIClient, a: dict) -> Any:
 READ_TOOLS: list[dict] = [
     {
         "name": "geo_get_block",
-        "description": "Fetch a single block by id. Returns full markdown body + frontmatter + metadata.",
+        "description": (
+            "Fetch a single block by id. Returns full markdown body + frontmatter + metadata. "
+            "A block's id IS its path under the vault, so a folder-filed note has a "
+            "folder-prefixed id like 'Projects/ARC/My-Block.md' — pass it verbatim."
+        ),
         "parameters": {
             "type": "object",
-            "properties": {"id": {"type": "string", "description": "Block id (uuid or slug)."}},
+            "properties": {"id": {"type": "string", "description": "Block id / path, e.g. 'My-Block.md' or 'Projects/ARC/My-Block.md'."}},
             "required": ["id"],
         },
         "handler": _wrap(_get_block),
+    },
+    {
+        "name": "geo_list_folders",
+        "description": (
+            "List every folder in the vault (Obsidian-style folder tree), as an array of "
+            "paths like ['Areas', 'Projects', 'Projects/ARC']. Folders are real directories "
+            "under the vault; a block's folder is the directory part of its id. Call this to "
+            "see the structure before filing notes with geo_create_block(folder=...) or "
+            "reorganizing with geo_move_block."
+        ),
+        "parameters": {"type": "object", "properties": {}},
+        "handler": _wrap(_list_folders),
     },
     {
         "name": "geo_get_block_by_title",
