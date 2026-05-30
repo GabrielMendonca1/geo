@@ -260,6 +260,12 @@ final class GeoAPIRouter: @unchecked Sendable {
         return [:]
     }
 
+    private func jsonField(_ response: HTTPResponse, _ key: String) -> String? {
+        guard let parsed = try? JSONDecoder().decode(AnyCodableValue.self, from: response.body),
+              case .object(let obj) = parsed else { return nil }
+        return obj[key]?.stringValue
+    }
+
     private func pathParam(path: String, prefix: String, suffix: String?) -> String? {
         guard path.hasPrefix(prefix) else { return nil }
         let rest = String(path.dropFirst(prefix.count))
