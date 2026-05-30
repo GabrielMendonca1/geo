@@ -163,7 +163,7 @@ final class IndexCoordinator {
         fileService: BlockFileService,
         metadataIds: Set<String>? = nil
     ) async -> IntegrityReport {
-        let diskIds = enumerateDiskIds(in: fileService.blocksDirectory)
+        let diskIds = enumerateDiskIds(in: fileService)
         let indexIds = Set((await fetchAllBlocks()).map { $0.id })
 
         let missingFromIndex = Array(diskIds.subtracting(indexIds)).sorted()
