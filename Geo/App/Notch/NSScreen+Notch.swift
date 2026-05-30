@@ -35,10 +35,10 @@ struct NotchMetrics {
     let notchSize: CGSize
     let topInset: CGFloat
 
-    static let cornerRadius: CGFloat = 28
+    static let cornerRadius: CGFloat = 26
     static let margin: CGFloat = 44
-    static let contentHeight: CGFloat = 290
-    static let maxDockWidth: CGFloat = 940
+    static let contentHeight: CGFloat = 248
+    static let maxDockWidth: CGFloat = 840
 
     init(screen: NSScreen) {
         screenFrame = screen.frame
