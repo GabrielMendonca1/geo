@@ -555,7 +555,15 @@ WRITE_TOOLS: list[dict] = [
             "type": "object",
             "properties": {
                 "name": {"type": "string"},
-                "color": {"type": "string", "description": "Optional hex color."},
+                "color": {
+                    "type": "object",
+                    "description": "Optional RGB color, floats 0..1: {red, green, blue}.",
+                    "properties": {
+                        "red": {"type": "number"},
+                        "green": {"type": "number"},
+                        "blue": {"type": "number"},
+                    },
+                },
             },
             "required": ["name"],
         },
