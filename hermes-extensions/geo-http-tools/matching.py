@@ -26,9 +26,8 @@ def normalize(s: Any) -> str:
     return _WS.sub(" ", text).strip()
 
 
-def score(query: str, title: str) -> float:
-    """Similarity in [0, 1]: max of substring, sequence ratio, and token Jaccard."""
-    q = normalize(query)
+def _score_norm(q: str, title: str) -> float:
+    """Similarity in [0, 1] against an already-normalized query `q`."""
     t = normalize(title)
     if not q or not t:
         return 0.0
@@ -53,12 +52,18 @@ def score(query: str, title: str) -> float:
     return max(substring, ratio, jaccard)
 
 
+def score(query: str, title: str) -> float:
+    """Similarity in [0, 1]: max of substring, sequence ratio, and token Jaccard."""
+    return _score_norm(normalize(query), title)
+
+
 def rank(query: str, tasks: list, limit: int | None = None) -> list:
     """Score each task's title against query; return copies with a ``score`` key, desc."""
+    q = normalize(query)
     scored = []
     for task in tasks:
         item = dict(task)
-        item["score"] = round(score(query, task.get("title", "")), 4)
+        item["score"] = round(_score_norm(q, task.get("title", "")), 4)
         scored.append(item)
     scored.sort(key=lambda x: x["score"], reverse=True)
     if limit is not None:
