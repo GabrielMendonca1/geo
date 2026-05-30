@@ -107,6 +107,10 @@ final class NotchWindowController {
 
     private func updateMousePassthrough() {
         guard let panel, let dropView else { return }
+        if stateStore.isDragActive {
+            panel.ignoresMouseEvents = false
+            return
+        }
         let windowPoint = panel.convertPoint(fromScreen: NSEvent.mouseLocation)
         panel.ignoresMouseEvents = dropView.hitTest(windowPoint) == nil
     }
