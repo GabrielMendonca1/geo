@@ -755,7 +755,7 @@ private struct TaskCard: View {
                 }
             }
             .font(.system(size: subtitleFontSize, weight: .medium))
-            .foregroundStyle(task.isOverdue ? Color(nsColor: Palette.agentDanger) : Palette.secondaryForeground)
+            .foregroundStyle(task.isOverdue ? Color(nsColor: Palette.agentDanger) : Palette.tertiaryForeground)
 
         case .event(let start, let end):
             HStack(spacing: 5 * layoutScale) {
@@ -765,7 +765,7 @@ private struct TaskCard: View {
                 }
             }
             .font(.system(size: subtitleFontSize, weight: .medium))
-            .foregroundStyle(task.isOverdue ? Color(nsColor: Palette.agentDanger) : Palette.secondaryForeground)
+            .foregroundStyle(task.isOverdue ? Color(nsColor: Palette.agentDanger) : Palette.tertiaryForeground)
 
         case .habit:
             HStack(spacing: 6 * layoutScale) {
