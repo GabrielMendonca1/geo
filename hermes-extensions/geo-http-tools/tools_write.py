@@ -452,16 +452,29 @@ WRITE_TOOLS: list[dict] = [
     },
     {
         "name": "geo_create_task",
-        "description": "Create a task UNCONDITIONALLY (no dedup). Prefer geo_upsert_task, which avoids duplicates. `due` and `day` are optional ISO dates.",
+        "description": (
+            "Create a task UNCONDITIONALLY (no dedup). Prefer geo_upsert_task. The shape "
+            "depends on `kind`: task needs `due`; event needs `start`+`end`; habit needs "
+            "`recurrence`+`time_of_day`; milestone needs `target`. All are ISO 8601."
+        ),
         "parameters": {
             "type": "object",
             "properties": {
                 "title": {"type": "string"},
-                "body": {"type": "string"},
-                "due": {"type": "string", "description": "ISO 8601 datetime."},
-                "day": {"type": "string", "description": "YYYY-MM-DD."},
-                "tags": {"type": "array", "items": {"type": "string"}},
-                "block_id": {"type": "string", "description": "Optional source block."},
+                "kind": {"type": "string", "description": "task|event|habit|milestone (default 'task')."},
+                "due": {"type": "string", "description": "kind=task: ISO 8601 UTC due time."},
+                "estimated_minutes": {"type": "integer", "description": "kind=task: estimate."},
+                "start": {"type": "string", "description": "kind=event: ISO 8601 start."},
+                "end": {"type": "string", "description": "kind=event: ISO 8601 end."},
+                "recurrence": {"type": "string", "description": "kind=habit: daily|weekdays|weekly|biweekly|monthly|yearly."},
+                "time_of_day": {"type": "string", "description": "kind=habit: ISO 8601 time-of-day."},
+                "selected_weekdays": {"type": "array", "items": {"type": "integer"}, "description": "kind=habit: optional weekday selection."},
+                "target": {"type": "string", "description": "kind=milestone: ISO 8601 target."},
+                "notes": {"type": "string", "description": "Free-form task notes."},
+                "linked_block_id": {"type": "string", "description": "Optional source block."},
+                "priority": {"type": "string"},
+                "tag_ids": {"type": "array", "items": {"type": "string"}},
+                "reminders": {"type": "array", "items": {"type": "object"}, "description": "[{trigger:'offset'|'absolute', offset|at}]."},
             },
             "required": ["title"],
         },
