@@ -195,30 +195,6 @@ extension EnvironmentValues {
     }
 }
 
-private final class UpdaterObserver: ObservableObject {
-    @Published var canCheckForUpdates = false
-    init(updater: SPUUpdater) {
-        updater.publisher(for: \.canCheckForUpdates).assign(to: &$canCheckForUpdates)
-    }
-}
-
-struct CheckForUpdatesCommand: Commands {
-    private let updater: SPUUpdater
-    @ObservedObject private var observer: UpdaterObserver
-
-    init(updater: SPUUpdater) {
-        self.updater = updater
-        _observer = ObservedObject(wrappedValue: UpdaterObserver(updater: updater))
-    }
-
-    var body: some Commands {
-        CommandGroup(after: .appInfo) {
-            Button("Check for Updates…") { updater.checkForUpdates() }
-                .disabled(!observer.canCheckForUpdates)
-        }
-    }
-}
-
 @main
 struct GeoApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
