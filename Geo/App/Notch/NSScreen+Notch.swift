@@ -67,8 +67,8 @@ struct NotchMetrics {
     }
 
     var expandedHoverRect: CGRect {
-        let w = dockWidth + 24
-        let h = dockHeight + 16
+        let w = dockWidth + 80
+        let h = dockHeight + 48
         return CGRect(x: screenFrame.midX - w / 2, y: screenFrame.maxY - h, width: w, height: h)
     }
 }
