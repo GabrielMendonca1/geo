@@ -120,6 +120,9 @@ final class FolderNode: Identifiable {
 
     var path: String { id }
     var isEmpty: Bool { subfolders.isEmpty && blocks.isEmpty }
+    var totalBlockCount: Int {
+        blocks.count + subfolders.reduce(0) { $0 + $1.totalBlockCount }
+    }
 
     init(id: String, name: String, subfolders: [FolderNode], blocks: [BlockEntity]) {
         self.id = id
