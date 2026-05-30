@@ -18,14 +18,14 @@ struct DockView: View {
                 .frame(height: metrics.topInset)
                 .allowsHitTesting(false)
 
-            VStack(spacing: 12) {
+            VStack(spacing: 10) {
                 DockTopBar(searchText: $searchText, count: entries.count)
                 NotchTabBar(selected: $selectedTab, historyCount: entries.count)
                 NotchCardRow(entries: entries)
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 14)
             .padding(.top, 8)
-            .padding(.bottom, 16)
+            .padding(.bottom, 14)
         }
     }
 }
