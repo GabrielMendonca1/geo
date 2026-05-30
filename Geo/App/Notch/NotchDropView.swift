@@ -25,11 +25,20 @@ final class NotchDropView: NSView {
     }
 
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
-        .copy
+        onDragEnter()
+        return .copy
     }
 
     override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
         .copy
+    }
+
+    override func draggingExited(_ sender: NSDraggingInfo?) {
+        onDragExit()
+    }
+
+    override func draggingEnded(_ sender: NSDraggingInfo) {
+        onDragExit()
     }
 
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
