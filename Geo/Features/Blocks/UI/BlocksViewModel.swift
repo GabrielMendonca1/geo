@@ -532,7 +532,7 @@ final class BlocksViewModel: ObservableObject {
     func folderTree(for blocks: [BlockEntity], extraFolders: [String] = []) -> FolderNode {
         let root = FolderNode.Builder(name: "")
         for folder in extraFolders {
-            root.folder(at: Self.folderComponents(folder))
+            _ = root.folder(at: Self.folderComponents(folder))
         }
         for block in blocks {
             let components = block.id.split(separator: "/").map(String.init)
