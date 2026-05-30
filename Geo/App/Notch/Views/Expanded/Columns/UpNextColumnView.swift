@@ -1,18 +1,18 @@
 import SwiftUI
 
 struct NotchCardRow: View {
-    let entries: [NotchHistoryEntry]
+    let blocks: [BlockEntity]
+    let tagsById: [String: Tag]
 
     var body: some View {
         Group {
-            if entries.isEmpty {
+            if blocks.isEmpty {
                 emptyState
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
-                        ForEach(entries) { entry in
-                            NotchCard(entry: entry)
-                                .onDrag { entry.makeDragProvider() }
+                        ForEach(blocks) { block in
+                            NotchCard(block: block, tag: block.tagId.flatMap { tagsById[$0] })
                                 .transition(.asymmetric(
                                     insertion: .scale(scale: 0.7, anchor: .leading).combined(with: .opacity),
                                     removal: .scale(scale: 0.85).combined(with: .opacity)
@@ -20,7 +20,7 @@ struct NotchCardRow: View {
                         }
                     }
                     .padding(.vertical, 2)
-                    .animation(.spring(response: 0.4, dampingFraction: 0.82), value: entries.map(\.id))
+                    .animation(.spring(response: 0.4, dampingFraction: 0.82), value: blocks.map(\.id))
                 }
             }
         }
@@ -29,10 +29,10 @@ struct NotchCardRow: View {
 
     private var emptyState: some View {
         VStack(spacing: 8) {
-            Image(systemName: "tray")
-                .font(.system(size: 26, weight: .light))
+            Image(systemName: "doc.text")
+                .font(.system(size: 24, weight: .light))
                 .foregroundStyle(.white.opacity(0.25))
-            Text("No history yet")
+            Text("No notes")
                 .font(.system(size: 12))
                 .foregroundStyle(.white.opacity(0.4))
         }
