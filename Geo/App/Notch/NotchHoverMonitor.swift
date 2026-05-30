@@ -5,6 +5,7 @@ final class NotchHoverMonitor {
     var zoneProvider: () -> NSRect = { .zero }
     var onEnter: () -> Void = {}
     var onExit: () -> Void = {}
+    var onTick: () -> Void = {}
 
     private var localMonitor: Any?
     private var globalMonitor: Any?
