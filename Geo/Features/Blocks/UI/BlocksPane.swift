@@ -1151,7 +1151,7 @@ private struct FolderHeaderRow: View {
                 .foregroundColor(.primary)
                 .lineLimit(1)
             Text("\(count)")
-                .font(.system(size: 10))
+                .font(.system(size: 11))
                 .foregroundColor(.secondary)
             Spacer()
         }
