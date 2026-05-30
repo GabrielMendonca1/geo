@@ -359,13 +359,7 @@ struct BlocksPane: View {
 
     private var blocksGridContent: some View {
         Group {
-            if groupingMode == .none {
-                LazyVStack(spacing: 1) {
-                    ForEach(filteredBlocks) { block in
-                        blockRow(for: block)
-                    }
-                }
-            } else if groupingMode == .folder {
+            if groupingMode == .folder && !isFiltering {
                 LazyVStack(spacing: 1) {
                     FolderTreeRows(
                         node: viewModel.folderTree(for: filteredBlocks, extraFolders: knownFolders),
@@ -378,6 +372,12 @@ struct BlocksPane: View {
                             promptFolderName(title: "New Subfolder") { createSubfolder(parent: parent, name: $0) }
                         }
                     )
+                }
+            } else if groupingMode == .none || groupingMode == .folder {
+                LazyVStack(spacing: 1) {
+                    ForEach(filteredBlocks) { block in
+                        blockRow(for: block)
+                    }
                 }
             } else {
                 LazyVStack(spacing: 1, pinnedViews: [.sectionHeaders]) {
