@@ -236,7 +236,7 @@ READ_TOOLS: list[dict] = [
         "description": "Blocks with no incoming or outgoing links.",
         "parameters": {
             "type": "object",
-            "properties": {"limit": {"type": "integer"}},
+            "properties": {},
         },
         "handler": _wrap(_find_orphans),
     },
