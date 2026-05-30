@@ -208,18 +208,20 @@ final class IndexCoordinator {
         await migrateSidecarMetadataToSQLite(sidecar: metadata, fileService: fileService)
     }
 
-    private func enumerateDiskIds(in directory: URL) -> Set<String> {
-        let fm = FileManager.default
-        let urls: [URL]
-        do {
-            urls = try fm.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])
-        } catch {
-            logger.error("enumerateDiskIds failed: \(error.localizedDescription)")
+    private func enumerateDiskIds(in fileService: BlockFileService) -> Set<String> {
+        guard let enumerator = FileManager.default.enumerator(
+            at: fileService.blocksDirectory,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ) else {
+            logger.error("enumerateDiskIds failed to create enumerator")
             return []
         }
         var ids = Set<String>()
-        for url in urls where url.pathExtension.lowercased() == "md" {
-            ids.insert(url.lastPathComponent)
+        for case let url as URL in enumerator where url.pathExtension.lowercased() == "md" {
+            let rel = fileService.relativeId(for: url)
+            if rel.hasPrefix("Attachments/") { continue }
+            ids.insert(rel)
         }
         return ids
     }
