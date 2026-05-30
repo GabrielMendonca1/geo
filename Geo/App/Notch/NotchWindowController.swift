@@ -14,6 +14,7 @@ final class NotchWindowController {
     private let dropZonePanel = NotchDropZonePanel()
     private var screenChangeObserver: NSObjectProtocol?
     private var stateCancellable: AnyCancellable?
+    private var dragCancellable: AnyCancellable?
 
     init(stateStore: NotchStateStore, environment: AppEnvironment) {
         self.stateStore = stateStore
