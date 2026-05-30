@@ -78,12 +78,7 @@ struct TasksPane: View {
                     } else if viewModel.filteredTasks.isEmpty {
                         noResultsState
                     } else {
-                        VStack(alignment: .leading, spacing: 8 * responsiveLayout.scale) {
-                            if !viewModel.milestones.isEmpty {
-                                milestoneStrip
-                            }
-                            taskBoard
-                        }
+                        taskList
                     }
                 }
 
