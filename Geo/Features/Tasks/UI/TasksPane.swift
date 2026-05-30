@@ -620,17 +620,6 @@ private struct TaskCard: View {
     }
 
     @ViewBuilder
-    private func metaChip(_ text: String, icon: String, foreground: Color? = nil, background: Color? = nil) -> some View {
-        Label(text, systemImage: icon)
-            .font(.system(size: chipFontSize, weight: .medium))
-            .lineLimit(1)
-            .foregroundStyle(foreground ?? Palette.tertiaryForeground)
-            .padding(.horizontal, 7 * layoutScale)
-            .padding(.vertical, 3 * layoutScale)
-            .background(Capsule().fill(background ?? Palette.secondaryBackground.opacity(0.72)))
-    }
-
-    @ViewBuilder
     private var linkedBlockSection: some View {
         VStack(alignment: .leading, spacing: 6 * layoutScale) {
             linkedBlockChip
