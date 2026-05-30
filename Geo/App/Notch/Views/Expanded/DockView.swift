@@ -3,13 +3,35 @@ import SwiftUI
 struct DockView: View {
     @ObservedObject var stateStore: NotchStateStore
     let metrics: NotchMetrics
-    @ObservedObject private var captures = LogStore.shared
-    @ObservedObject private var shelf = ShelfStore.shared
-    @State private var searchText = ""
-    @State private var selectedTab = "History"
+    @Environment(\.appEnvironment) private var env
 
-    private var entries: [NotchHistoryEntry] {
-        NotchHistoryEntry.feed(captures: captures.captures, shelf: shelf.items, search: searchText)
+    @State private var blocks: [BlockEntity] = []
+    @State private var tags: [Tag] = []
+    @State private var searchText = ""
+    @State private var selectedTagId: String?
+
+    private var tagsById: [String: Tag] {
+        Dictionary(tags.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+    }
+
+    private var blockTags: [Tag] {
+        let used = Set(blocks.compactMap { $0.tagId })
+        return tags.filter { used.contains($0.id) }
+    }
+
+    private var filtered: [BlockEntity] {
+        var result = blocks
+        if let selectedTagId {
+            result = result.filter { $0.tagId == selectedTagId }
+        }
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !query.isEmpty {
+            result = result.filter {
+                $0.displayTitle.localizedCaseInsensitiveContains(query) ||
+                $0.markdown.localizedCaseInsensitiveContains(query)
+            }
+        }
+        return Array(result.prefix(40))
     }
 
     var body: some View {
@@ -19,15 +41,21 @@ struct DockView: View {
                 .allowsHitTesting(false)
 
             VStack(spacing: 10) {
-                DockTopBar(searchText: $searchText, count: entries.count)
-                NotchTabBar(selected: $selectedTab, historyCount: entries.count)
-                NotchCardRow(entries: entries)
+                DockTopBar(searchText: $searchText, count: filtered.count)
+                NotchTagBar(tags: blockTags, selectedTagId: $selectedTagId)
+                NotchCardRow(blocks: filtered, tagsById: tagsById)
             }
             .padding(.horizontal, 14)
             .padding(.top, 8)
             .padding(.bottom, 14)
             .overlay { dropState }
             .animation(.easeInOut(duration: 0.18), value: stateStore.isDragActive)
+        }
+        .task {
+            for await observed in env.blocksRepository.observe() { blocks = observed }
+        }
+        .task {
+            for await observed in env.tagsRepository.observe() { tags = observed }
         }
     }
 
