@@ -102,6 +102,10 @@ async def _get_graph_snapshot(c: GeoAPIClient, a: dict) -> Any:
     )
 
 
+async def _list_folders(c: GeoAPIClient, a: dict) -> Any:
+    return await c.get("/folders")
+
+
 async def _get_task(c: GeoAPIClient, a: dict) -> Any:
     return await c.get(f"/tasks/{a['id']}")
 
