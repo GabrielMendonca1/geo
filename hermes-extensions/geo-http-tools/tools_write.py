@@ -522,14 +522,19 @@ WRITE_TOOLS: list[dict] = [
     },
     {
         "name": "geo_add_reminder",
-        "description": "Schedule a reminder for a task at ISO 8601 time `at`.",
+        "description": (
+            "Schedule a reminder for a task. trigger='absolute' fires at the ISO 8601 `at`; "
+            "trigger='offset' fires at an `offset` relative to the task's anchor."
+        ),
         "parameters": {
             "type": "object",
             "properties": {
                 "id": {"type": "string"},
-                "at": {"type": "string", "description": "ISO 8601 datetime."},
+                "trigger": {"type": "string", "description": "'absolute' (default) or 'offset'."},
+                "at": {"type": "string", "description": "ISO 8601 datetime (trigger=absolute)."},
+                "offset": {"type": "string", "description": "Offset enum value (trigger=offset)."},
             },
-            "required": ["id", "at"],
+            "required": ["id"],
         },
         "handler": _wrap(_add_reminder),
     },
