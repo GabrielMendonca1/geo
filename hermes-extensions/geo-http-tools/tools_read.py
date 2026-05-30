@@ -199,12 +199,11 @@ READ_TOOLS: list[dict] = [
     },
     {
         "name": "geo_list_neighbors",
-        "description": "Graph neighbors of a block (in + out links) up to `depth` hops.",
+        "description": "Graph neighbors of a block (immediate in + out links).",
         "parameters": {
             "type": "object",
             "properties": {
                 "id": {"type": "string"},
-                "depth": {"type": "integer", "description": "Default 1."},
             },
             "required": ["id"],
         },
