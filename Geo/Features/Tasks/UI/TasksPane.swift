@@ -584,7 +584,7 @@ private struct TaskCard: View {
         if Calendar.current.isDateInToday(date) {
             return DateFormatters.shortTime.string(from: date)
         }
-        return DateFormatters.shortDate.string(from: date)
+        return DateFormatters.mediumDate.string(from: date)
     }
 
     private func toggleCompletionFromCheckbox() {
