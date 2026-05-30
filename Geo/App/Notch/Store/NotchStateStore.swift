@@ -51,7 +51,7 @@ final class NotchStateStore: ObservableObject {
         guard state == .expanded, !isPinned else { return }
         collapseTask?.cancel()
         collapseTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 250_000_000)
+            try? await Task.sleep(nanoseconds: 800_000_000)
             guard !Task.isCancelled, let self else { return }
             withAnimation(.spring(response: 0.32, dampingFraction: 0.9)) {
                 self.state = .hidden
