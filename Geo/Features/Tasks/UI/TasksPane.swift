@@ -574,35 +574,17 @@ private struct TaskCard: View {
         task.notes.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private static var timeFormatter: DateFormatter { DateFormatters.shortTime }
+    private var eventLocation: String? {
+        let n = notesPreview
+        guard !n.isEmpty else { return nil }
+        return n.split(separator: "\n").first.map(String.init)
+    }
 
-    private static var mediumDateFormatter: DateFormatter { DateFormatters.mediumDate }
-
-    private var timeText: String {
-        if let endTime = task.endTime {
-            return "\(Self.timeFormatter.string(from: task.startTime)) - \(Self.timeFormatter.string(from: endTime))"
+    private func whenText(_ date: Date) -> String {
+        if Calendar.current.isDateInToday(date) {
+            return DateFormatters.shortTime.string(from: date)
         }
-        return Self.timeFormatter.string(from: task.startTime)
-    }
-
-    private static func friendlyDate(_ date: Date) -> String {
-        let cal = Calendar.current
-        if cal.isDateInToday(date) { return "Today" }
-        if cal.isDateInTomorrow(date) { return "Tomorrow" }
-        return mediumDateFormatter.string(from: date)
-    }
-
-    private var dateText: String {
-        let start = Self.friendlyDate(task.startTime)
-        guard let endTime = task.endTime,
-              !Calendar.current.isDate(task.startTime, inSameDayAs: endTime) else { return start }
-        return "\(start) - \(Self.friendlyDate(endTime))"
-    }
-
-    private var linkedBlockChipText: String? {
-        guard let linkedBlockTitle else { return nil }
-        guard linkedBlockCount > 1 else { return linkedBlockTitle }
-        return "\(linkedBlockTitle) (\(linkedBlockCount))"
+        return DateFormatters.shortDate.string(from: date)
     }
 
     private func toggleCompletionFromCheckbox() {
