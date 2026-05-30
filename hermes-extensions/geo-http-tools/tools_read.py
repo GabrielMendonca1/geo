@@ -314,7 +314,7 @@ READ_TOOLS: list[dict] = [
         "description": "All tags known to Geo with usage counts.",
         "parameters": {
             "type": "object",
-            "properties": {"limit": {"type": "integer"}},
+            "properties": {},
         },
         "handler": _wrap(_list_tags),
     },
