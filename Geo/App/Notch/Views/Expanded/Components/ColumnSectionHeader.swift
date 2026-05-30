@@ -1,54 +1,34 @@
 import SwiftUI
 
-struct ColumnSectionHeader<Trailing: View>: View {
-    let title: String
-    let icon: String?
-    @ViewBuilder var trailing: () -> Trailing
-
-    init(
-        _ title: String,
-        icon: String? = nil,
-        @ViewBuilder trailing: @escaping () -> Trailing = { EmptyView() }
-    ) {
-        self.title = title
-        self.icon = icon
-        self.trailing = trailing
-    }
-
-    var body: some View {
-        HStack(spacing: 5) {
-            if let icon {
-                Image(systemName: icon)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Color(nsColor: Palette.agentAccent))
-            }
-
-            Text(title.uppercased())
-                .font(.system(size: 11, weight: .bold))
-                .tracking(0.5)
-                .foregroundStyle(Palette.tertiaryForeground)
-
-            Spacer(minLength: 0)
-
-            trailing()
-        }
-        .padding(.horizontal, 10)
-        .frame(height: 26)
-    }
-}
-
-struct ColumnPlusButton: View {
-    let action: () -> Void
+struct NotchChip: View {
+    var title: String? = nil
+    var systemImage: String? = nil
+    var count: Int? = nil
+    var isActive: Bool = false
+    var action: () -> Void = {}
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: "plus")
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(Palette.tertiaryForeground)
-                .frame(width: 18, height: 18)
-                .background(
-                    Circle().fill(Palette.tertiaryForeground.opacity(0.12))
-                )
+            HStack(spacing: 6) {
+                if let systemImage {
+                    Image(systemName: systemImage)
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                if let title {
+                    Text(title)
+                        .font(.system(size: 13, weight: .medium))
+                }
+                if let count {
+                    Text("\(count)")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(isActive ? Color.black.opacity(0.4) : Color.white.opacity(0.35))
+                }
+            }
+            .foregroundStyle(isActive ? Color.black : Color.white.opacity(0.6))
+            .padding(.horizontal, title == nil ? 9 : 13)
+            .padding(.vertical, 7)
+            .background(Capsule().fill(isActive ? Color.white : Color.white.opacity(0.08)))
+            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
     }
