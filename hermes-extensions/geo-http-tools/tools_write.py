@@ -10,6 +10,7 @@ import json
 from typing import Any, Callable
 
 from .client import GeoAPIClient, GeoError
+from .matching import rank
 
 
 def _err(msg: str) -> str:
@@ -36,22 +37,22 @@ def _wrap(handler: Callable[[GeoAPIClient, dict], Any]) -> Callable:
 async def _create_block(c: GeoAPIClient, a: dict) -> Any:
     return await c.post("/blocks", json={
         "title": a["title"],
-        "body": a.get("body", ""),
+        "content": a.get("body", ""),
         "layer": a.get("layer"),
         "type": a.get("type"),
         "tags": a.get("tags"),
     })
 
-
 async def _update_block(c: GeoAPIClient, a: dict) -> Any:
     payload: dict = {}
-    for k in ("title", "body", "layer", "type", "status"):
+    if "body" in a:
+        payload["content"] = a["body"]
+    for k in ("title", "layer", "type", "status"):
         if k in a:
             payload[k] = a[k]
     if "block_version" in a:
         payload["block_version"] = a["block_version"]
     return await c.patch(f"/blocks/{a['id']}", json=payload)
-
 
 async def _set_block_tag(c: GeoAPIClient, a: dict) -> Any:
     return await c.post(f"/blocks/{a['id']}/tags", json={
@@ -79,10 +80,21 @@ async def _link_block_to_day(c: GeoAPIClient, a: dict) -> Any:
     return await c.post(f"/days/{a['day']}/link", json={"block_id": a["block_id"]})
 
 
+def _coerce_task_body(body: Any) -> Any:
+    if isinstance(body, str):
+        stripped = body.strip()
+        if stripped.startswith("{"):
+            try:
+                return json.loads(stripped)
+            except json.JSONDecodeError:
+                return body
+    return body
+
+
 async def _create_task(c: GeoAPIClient, a: dict) -> Any:
     return await c.post("/tasks", json={
         "title": a["title"],
-        "body": a.get("body"),
+        "body": _coerce_task_body(a.get("body")),
         "due": a.get("due"),
         "day": a.get("day"),
         "tags": a.get("tags"),
