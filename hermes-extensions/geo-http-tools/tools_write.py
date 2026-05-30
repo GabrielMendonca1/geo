@@ -274,7 +274,12 @@ WRITE_TOOLS: list[dict] = [
     },
     {
         "name": "geo_create_block",
-        "description": "Create a new block. Returns the new block id + frontmatter_version.",
+        "description": (
+            "Create a new block. Returns the new block id + frontmatter_version. "
+            "Pass `folder` (e.g. 'Projects/ARC') to file it inside that folder — the "
+            "folder is created if missing and the returned id is folder-prefixed "
+            "(e.g. 'Projects/ARC/My-Block.md'). Omit `folder` for the vault root."
+        ),
         "parameters": {
             "type": "object",
             "properties": {
@@ -283,10 +288,30 @@ WRITE_TOOLS: list[dict] = [
                 "layer": {"type": "string", "description": "'fleeting' | 'literature' | 'permanent'."},
                 "type": {"type": "string"},
                 "tags": {"type": "array", "items": {"type": "string"}},
+                "folder": {"type": "string", "description": "Folder path to file the block under, e.g. 'Projects/ARC'. Created if missing."},
             },
             "required": ["title"],
         },
         "handler": _wrap(_create_block),
+    },
+    {
+        "name": "geo_move_block",
+        "description": (
+            "Move a block into a folder (or to the vault root). A block's id IS its path "
+            "under the vault, so moving changes the id — the returned id is the new "
+            "folder-prefixed path. Pass `folder` like 'Areas/Health'; the folder is "
+            "created if missing. Pass folder='' or omit it to move the block to the root. "
+            "Wikilinks ([[Title]]) keep resolving after a move since they match by title."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "id": {"type": "string", "description": "Current block id (path), e.g. 'My-Block.md' or 'Old/My-Block.md'."},
+                "folder": {"type": "string", "description": "Destination folder path, or '' for the vault root."},
+            },
+            "required": ["id"],
+        },
+        "handler": _wrap(_move_block),
     },
     {
         "name": "geo_update_block",
