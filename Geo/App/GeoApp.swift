@@ -199,7 +199,6 @@ extension EnvironmentValues {
 struct GeoApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     private let container: AppContainer
-    private let updaterController = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
     @StateObject private var blocksViewModel: BlocksViewModel
     @StateObject private var watcher: ScreenshotWatcher
     @State private var showOnboarding: Bool = !UserDefaults.standard.bool(forKey: "ai.geo.onboarding.completed")
