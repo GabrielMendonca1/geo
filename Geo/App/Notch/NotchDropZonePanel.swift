@@ -50,6 +50,8 @@ final class NotchDropZonePanel {
 
 final class DropZoneView: NSView {
     var onDrop: (([ShelfItem]) -> Void)?
+    var onDragEnter: () -> Void = {}
+    var onDragExit: () -> Void = {}
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -61,8 +63,13 @@ final class DropZoneView: NSView {
 
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
-    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation { .copy }
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        onDragEnter()
+        return .copy
+    }
     override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation { .copy }
+    override func draggingExited(_ sender: NSDraggingInfo?) { onDragExit() }
+    override func draggingEnded(_ sender: NSDraggingInfo) { onDragExit() }
 
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
         let pb = sender.draggingPasteboard
