@@ -369,12 +369,16 @@ final class TasksViewModel: ObservableObject {
             .sorted(by: Self.pendingSort)
     }
 
-    var pastDueTasks: [TaskItem] {
-        pendingTasks.filter(\.isOverdue)
+    var milestones: [TaskItem] {
+        pendingTasks.filter { $0.kind == .milestone }
     }
 
-    var regularPendingTasks: [TaskItem] {
-        pendingTasks.filter { !$0.isOverdue }
+    var toDoTasks: [TaskItem] {
+        pendingTasks.filter { $0.kind != .milestone && !$0.isFuture }
+    }
+
+    var upcomingTasks: [TaskItem] {
+        pendingTasks.filter { $0.kind != .milestone && $0.isFuture }
     }
 
     var habits: [TaskItem] {
