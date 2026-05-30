@@ -39,6 +39,12 @@ struct BlocksPane: View {
     @State private var tasks: [TaskItem] = []
     @State private var isTemplatePickerPresented = false
     @State private var isZettelkastenPickerPresented = false
+    @AppStorage("blocksPane.collapsedFolders") private var collapsedFoldersRaw = ""
+    @State private var knownFolders: [String] = []
+    @State private var isFolderPromptPresented = false
+    @State private var folderPromptTitle = "New Folder"
+    @State private var folderPromptName = ""
+    @State private var folderPromptAction: ((String) -> Void)? = nil
 
     var body: some View {
         Pane {
