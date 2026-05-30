@@ -180,7 +180,6 @@ READ_TOOLS: list[dict] = [
             "type": "object",
             "properties": {
                 "status": {"type": "string"},
-                "limit": {"type": "integer"},
             },
             "required": ["status"],
         },
