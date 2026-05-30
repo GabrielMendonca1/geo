@@ -23,6 +23,7 @@ provides_tools:
   - geo_extract_permanent_from
   - geo_promote_to_permanent
   - geo_link_block_to_day
+  - geo_move_block
   - geo_delete_block
   - geo_get_task
   - geo_list_tasks
