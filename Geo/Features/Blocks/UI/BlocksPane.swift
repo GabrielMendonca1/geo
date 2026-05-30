@@ -1240,7 +1240,7 @@ private struct BlockListRow: View {
             Spacer(minLength: 12)
 
             Text("\(block.metadata.type.displayName.lowercased()) · \(block.metadata.layer.displayName.lowercased())")
-                .font(.system(size: 11))
+                .font(.system(size: 12))
                 .foregroundColor(.secondary)
                 .lineLimit(1)
                 .fixedSize()
