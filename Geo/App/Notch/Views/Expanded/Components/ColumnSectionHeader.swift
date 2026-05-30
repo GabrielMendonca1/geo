@@ -33,3 +33,27 @@ struct NotchChip: View {
         .buttonStyle(.plain)
     }
 }
+
+struct NotchTagChip: View {
+    let tag: Tag
+    let isActive: Bool
+    var action: () -> Void = {}
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(tag.color.swiftUIColor)
+                    .frame(width: 7, height: 7)
+                Text(tag.name)
+                    .font(.system(size: 13, weight: .medium))
+            }
+            .foregroundStyle(isActive ? Color.black : Color.white.opacity(0.7))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(Capsule().fill(isActive ? Color.white : Color.white.opacity(0.08)))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+}
