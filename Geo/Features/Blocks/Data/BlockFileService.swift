@@ -29,6 +29,50 @@ final class BlockFileService {
         blocksDirectory.appendingPathComponent(filename)
     }
 
+    func folderURL(for relativeFolder: String) -> URL {
+        let clean = relativeFolder.trimmingCharacters(in: CharacterSet(charactersIn: "/ "))
+        guard !clean.isEmpty else { return blocksDirectory }
+        return blocksDirectory.appendingPathComponent(clean, isDirectory: true)
+    }
+
+    func createFolder(_ relativeFolder: String) throws {
+        try fileManager.createDirectory(at: folderURL(for: relativeFolder), withIntermediateDirectories: true)
+    }
+
+    func listFolderPaths() -> [String] {
+        guard let enumerator = fileManager.enumerator(
+            at: blocksDirectory,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ) else { return [] }
+        var folders: [String] = []
+        for case let url as URL in enumerator {
+            guard (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true else { continue }
+            let rel = relativeId(for: url)
+            if rel == "Attachments" || rel.hasPrefix("Attachments/") { continue }
+            folders.append(rel)
+        }
+        return folders.sorted()
+    }
+
+    func uniqueURL(forTitle title: String, inFolder folder: String?) -> URL {
+        let dir = folderURL(for: folder ?? "")
+        let sanitized = sanitizeFilename(title)
+        let name = sanitized.isEmpty ? "Block" : sanitized
+        var candidate = name
+        var attempt = 0
+        while fileManager.fileExists(atPath: dir.appendingPathComponent(candidate).appendingPathExtension("md").path) {
+            attempt += 1
+            candidate = "\(name)-\(attempt)"
+        }
+        return dir.appendingPathComponent(candidate).appendingPathExtension("md")
+    }
+
+    func moveFile(from: URL, to: URL) throws {
+        try fileManager.createDirectory(at: to.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try fileManager.moveItem(at: from, to: to)
+    }
+
     func relativeId(for url: URL) -> String {
         let basePath = blocksDirectory.standardizedFileURL.path
         let fullPath = url.standardizedFileURL.path
