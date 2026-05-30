@@ -1,24 +1,22 @@
 import SwiftUI
 
-struct NotchTabBar: View {
-    @Binding var selected: String
-    let historyCount: Int
-
-    private let tabs = ["History", "Prompts", "Colors", "Assets", "Inspirations"]
-    private let placeholderCount = 24
+struct NotchTagBar: View {
+    let tags: [Tag]
+    @Binding var selectedTagId: String?
 
     var body: some View {
-        HStack(spacing: 8) {
-            ForEach(tabs, id: \.self) { tab in
-                NotchChip(
-                    title: tab,
-                    count: tab == "History" ? historyCount : placeholderCount,
-                    isActive: tab == selected,
-                    action: { if tab == "History" { selected = tab } }
-                )
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                NotchChip(title: "All", isActive: selectedTagId == nil) {
+                    selectedTagId = nil
+                }
+                ForEach(tags) { tag in
+                    NotchTagChip(tag: tag, isActive: selectedTagId == tag.id) {
+                        selectedTagId = (selectedTagId == tag.id) ? nil : tag.id
+                    }
+                }
             }
-            NotchChip(systemImage: "plus")
-            Spacer(minLength: 0)
+            .padding(.vertical, 1)
         }
     }
 }
