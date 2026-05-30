@@ -291,24 +291,32 @@ WRITE_TOOLS: list[dict] = [
         "name": "geo_upsert_task",
         "description": (
             "RECOMMENDED way to create a task: find-or-create (dedup). Same fields as "
-            "geo_create_task (`title` required; optional `body`, `due`, `day`, `tags`, "
-            "`block_id`, `kind`). It first fuzzy-searches pending tasks; if an existing "
-            "task matches the title closely (score >= match_threshold, default 0.82, and "
-            "any provided `kind` agrees) it UPDATES that task with your provided fields and "
-            "returns {action: 'updated', task, matched_score}. Otherwise it creates a new "
-            "task and returns {action: 'created', task}. Set force_new=true to skip dedup "
-            "and always create. Prefer this over geo_create_task to stop duplicate tasks."
+            "geo_create_task (`title` + `kind` required-by-kind fields; optional `notes`, "
+            "`linked_block_id`, `priority`, `tag_ids`, `reminders`). It first fuzzy-searches "
+            "pending tasks; if an existing task matches the title closely (score >= "
+            "match_threshold, default 0.82, and any provided `kind` agrees) it UPDATES that "
+            "task and returns {action: 'updated', task, matched_score}. Otherwise it creates "
+            "a new task and returns {action: 'created', task}. Set force_new=true to skip "
+            "dedup. Prefer this over geo_create_task to stop duplicate tasks."
         ),
         "parameters": {
             "type": "object",
             "properties": {
                 "title": {"type": "string"},
-                "body": {"type": "string"},
-                "due": {"type": "string", "description": "ISO 8601 datetime."},
-                "day": {"type": "string", "description": "YYYY-MM-DD."},
-                "tags": {"type": "array", "items": {"type": "string"}},
-                "block_id": {"type": "string", "description": "Optional source block."},
-                "kind": {"type": "string", "description": "task|event|habit|milestone (matches existing task's kind for dedup)."},
+                "kind": {"type": "string", "description": "task|event|habit|milestone (default 'task')."},
+                "due": {"type": "string", "description": "kind=task: ISO 8601 UTC due time."},
+                "estimated_minutes": {"type": "integer", "description": "kind=task: estimate."},
+                "start": {"type": "string", "description": "kind=event: ISO 8601 start."},
+                "end": {"type": "string", "description": "kind=event: ISO 8601 end."},
+                "recurrence": {"type": "string", "description": "kind=habit: daily|weekdays|weekly|biweekly|monthly|yearly."},
+                "time_of_day": {"type": "string", "description": "kind=habit: ISO 8601 time-of-day."},
+                "selected_weekdays": {"type": "array", "items": {"type": "integer"}, "description": "kind=habit: optional weekday selection."},
+                "target": {"type": "string", "description": "kind=milestone: ISO 8601 target."},
+                "notes": {"type": "string", "description": "Free-form task notes."},
+                "linked_block_id": {"type": "string", "description": "Optional source block."},
+                "priority": {"type": "string"},
+                "tag_ids": {"type": "array", "items": {"type": "string"}},
+                "reminders": {"type": "array", "items": {"type": "object"}, "description": "[{trigger:'offset'|'absolute', offset|at}]."},
                 "match_threshold": {"type": "number", "description": "Dedup cutoff, default 0.82."},
                 "force_new": {"type": "boolean", "description": "Skip dedup, always create. Default false."},
             },
