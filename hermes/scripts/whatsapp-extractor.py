@@ -95,7 +95,35 @@ def log(msg: str) -> None:
     print(f"[whatsapp-extractor] {msg}", file=sys.stderr, flush=True)
 
 
-def load_oauth_token() -> str | None:
+def _keychain_oauth_token() -> str | None:
+    """Claude Max OAuth token from the macOS login Keychain — the canonical
+    store the `claude` CLI owns and keeps refreshed. Independent of hermes's
+    active provider, so it survives hermes pointing its main loop at a
+    non-Anthropic provider (which leaves auth.json's anthropic pool empty)."""
+    try:
+        out = subprocess.run(
+            ["security", "find-generic-password", "-s", "Claude Code-credentials", "-w"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except Exception as e:
+        log(f"keychain lookup failed: {e}")
+        return None
+    if out.returncode != 0:
+        return None
+    try:
+        oauth = json.loads(out.stdout.strip()).get("claudeAiOauth") or {}
+    except Exception as e:
+        log(f"keychain payload unparseable: {e}")
+        return None
+    exp_ms = oauth.get("expiresAt")
+    if exp_ms and exp_ms / 1000.0 < datetime.now(timezone.utc).timestamp() + 60:
+        log("keychain Claude Max OAuth token at/near expiry — run `claude` to refresh")
+    return oauth.get("accessToken") or None
+
+
+def _authjson_oauth_token() -> str | None:
     if not AUTH_PATH.exists():
         return None
     try:
@@ -113,6 +141,10 @@ def load_oauth_token() -> str | None:
     if exp_ms and exp_ms / 1000.0 < datetime.now(timezone.utc).timestamp() + 60:
         log(f"primary anthropic OAuth token expired (id={chosen.get('id')})")
     return chosen.get("access_token")
+
+
+def load_oauth_token() -> str | None:
+    return _keychain_oauth_token() or _authjson_oauth_token()
 
 
 def _is_empty_record(rec: dict) -> bool:
