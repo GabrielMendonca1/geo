@@ -216,7 +216,6 @@ READ_TOOLS: list[dict] = [
             "type": "object",
             "properties": {
                 "query": {"type": "string"},
-                "limit": {"type": "integer"},
             },
             "required": ["query"],
         },
