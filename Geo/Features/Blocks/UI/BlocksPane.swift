@@ -97,6 +97,16 @@ struct BlocksPane: View {
         } message: { _ in
             Text("Permanent notes deveriam crescer com o tempo. Considere arquivar (`status: archived`) em vez de deletar.")
         }
+        .alert(folderPromptTitle, isPresented: $isFolderPromptPresented) {
+            TextField("Folder name", text: $folderPromptName)
+            Button("Cancel", role: .cancel) { folderPromptName = "" }
+            Button("Create") {
+                let trimmed = folderPromptName.trimmingCharacters(in: CharacterSet(charactersIn: "/ "))
+                folderPromptName = ""
+                guard !trimmed.isEmpty else { return }
+                folderPromptAction?(trimmed)
+            }
+        }
         .onChange(of: newTagName) {
             if tagCreationError != nil {
                 tagCreationError = nil
@@ -107,6 +117,7 @@ struct BlocksPane: View {
                 blocksRepository: appEnvironment.blocksRepository,
                 tagsRepository: appEnvironment.tagsRepository
             )
+            await refreshFolders()
         }
         .task {
             for await observedTasks in appEnvironment.tasksRepository.observe() {
