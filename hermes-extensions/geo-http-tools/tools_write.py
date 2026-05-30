@@ -150,22 +150,36 @@ async def _complete_task(c: GeoAPIClient, a: dict) -> Any:
 
 
 async def _add_reminder(c: GeoAPIClient, a: dict) -> Any:
-    return await c.post(f"/tasks/{a['id']}/reminders", json={"at": a["at"]})
+    trigger = a.get("trigger", "absolute")
+    body: dict[str, Any] = {"trigger": trigger}
+    if trigger == "offset":
+        body["offset"] = a["offset"]
+    else:
+        body["at"] = a["at"]
+    return await c.post(f"/tasks/{a['id']}/reminder", json=body)
 
 
 async def _ai_parse_task(c: GeoAPIClient, a: dict) -> Any:
-    return await c.post("/tasks/ai-parse", json={"text": a["text"]})
+    return await c.post("/tasks/parse", json={"text": a["text"]})
 
 
 async def _create_tag(c: GeoAPIClient, a: dict) -> Any:
-    return await c.post("/tags", json={"name": a["name"], "color": a.get("color")})
+    body: dict[str, Any] = {"name": a["name"]}
+    if a.get("color") is not None:
+        body["color"] = a["color"]
+    return await c.post("/tags", json=body)
+
+
+def _habit_date(at: Any) -> str:
+    from datetime import datetime, timezone
+    if isinstance(at, str) and at:
+        return at[:10]
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
 
 async def _record_habit_occurrence(c: GeoAPIClient, a: dict) -> Any:
-    return await c.post("/habits/occurrences", json={
-        "habit_id": a["habit_id"],
-        "at": a.get("at"),
-    })
+    date = _habit_date(a.get("at"))
+    return await c.post(f"/days/{date}/habit", json={"id": a["habit_id"]})
 
 
 # --- Semantic task tools (find-before-create dedup) ------------------------
