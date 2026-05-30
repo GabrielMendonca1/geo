@@ -398,6 +398,7 @@ struct BlocksPane: View {
         .padding(.bottom, 24)
         .frame(maxWidth: .infinity)
         .animation(.easeInOut(duration: 0.2), value: groupingMode)
+        .animation(.easeInOut(duration: 0.2), value: isFiltering)
     }
 
     private func blockRow(for block: BlockEntity) -> some View {
