@@ -769,7 +769,7 @@ private struct TaskCard: View {
 
         case .habit:
             HStack(spacing: 6 * layoutScale) {
-                Text(task.recurrence.shortDescription)
+                Text(task.recurrence.displayName)
                 if task.habitCurrentStreak > 0 {
                     Text("·")
                     HStack(spacing: 3 * layoutScale) {
