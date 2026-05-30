@@ -135,26 +135,24 @@ async def _record_habit_occurrence(c: GeoAPIClient, a: dict) -> Any:
 
 # --- Semantic task tools (find-before-create dedup) ------------------------
 #
-# GET /v1/tasks returns {"tasks": [ {id, title, status, kind, due?, notes?,
-# linked_block_id?}, ... ]}. There is NO `day`/`anchor` field on a task object
-# — only `due` (ISO 8601). Default filtering excludes `archived`; pass
-# status="pending" for only-pending. Scoring lives in matching.py.
+# GET /v1/tasks returns a BARE JSON ARRAY of task summaries:
+#   [ {id, title, status, kind, priority, anchor, linked_block_id?}, ... ]
+# `status` is "pending" | "completed"; `kind` is task|event|habit|milestone;
+# `anchor` is the ISO 8601 anchor date (there is no top-level `due` — `due`
+# only appears nested in a task's `body` on the detail endpoint). Passing
+# status="pending" returns only pending tasks. Scoring lives in matching.py.
 
-_TASK_VIEW_KEYS = ("id", "title", "status", "kind", "due")
+_TASK_VIEW_KEYS = ("id", "title", "status", "kind", "anchor")
 
 
 async def _fetch_tasks(c: GeoAPIClient, include_completed: bool) -> list:
     """Pending tasks (and completed too if asked) as a plain list of dicts."""
     resp = await c.get("/tasks", status=None if include_completed else "pending")
+    if isinstance(resp, list):
+        return resp
     if isinstance(resp, dict):
-        tasks = resp.get("tasks") or []
-    elif isinstance(resp, list):
-        tasks = resp
-    else:
-        tasks = []
-    if include_completed:
-        tasks = [t for t in tasks if t.get("status") != "archived"]
-    return tasks
+        return resp.get("tasks") or []
+    return []
 
 
 def _task_view(task: dict) -> dict:
