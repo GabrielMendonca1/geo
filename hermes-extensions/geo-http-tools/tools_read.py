@@ -299,11 +299,11 @@ READ_TOOLS: list[dict] = [
     },
     {
         "name": "geo_list_upcoming",
-        "description": "Upcoming tasks within the next N days (default 7).",
+        "description": "Upcoming tasks within a time window.",
         "parameters": {
             "type": "object",
             "properties": {
-                "within_days": {"type": "integer"},
+                "window": {"type": "string", "description": "'24h' | '7d' | '30d' | 'Nh' | 'Nd'."},
                 "limit": {"type": "integer"},
             },
         },
