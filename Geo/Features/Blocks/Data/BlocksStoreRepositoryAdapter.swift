@@ -256,6 +256,34 @@ struct BlocksStoreRepositoryAdapter: BlocksRepository, @unchecked Sendable {
         return BlockEntity(from: block)
     }
 
+    func create(title: String, markdown: String, folder: String?) async throws -> BlockEntity {
+        guard let block = await storeAccess.createBlock(title: title, markdown: markdown, folder: folder) else {
+            throw RepositoryError.invalidInput
+        }
+        return BlockEntity(from: block)
+    }
+
+    func move(id: String, toFolder folder: String?) async throws -> BlockEntity {
+        guard !id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw RepositoryError.invalidInput
+        }
+        guard let block = await storeAccess.moveBlock(id: id, toFolder: folder) else {
+            throw RepositoryError.notFound
+        }
+        return BlockEntity(from: block)
+    }
+
+    func createFolder(_ folder: String) async throws {
+        guard !folder.trimmingCharacters(in: CharacterSet(charactersIn: "/ ")).isEmpty else {
+            throw RepositoryError.invalidInput
+        }
+        await storeAccess.createFolder(folder)
+    }
+
+    func listFolders() async -> [String] {
+        await storeAccess.folderPaths()
+    }
+
     func update(id: String, markdown: String) async throws {
         guard !id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw RepositoryError.invalidInput
