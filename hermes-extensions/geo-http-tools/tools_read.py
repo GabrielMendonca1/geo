@@ -192,7 +192,6 @@ READ_TOOLS: list[dict] = [
             "type": "object",
             "properties": {
                 "type": {"type": "string"},
-                "limit": {"type": "integer"},
             },
             "required": ["type"],
         },
