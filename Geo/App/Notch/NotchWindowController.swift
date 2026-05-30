@@ -94,10 +94,17 @@ final class NotchWindowController {
         panel.contentView = dropView
         panel.setFrame(frame, display: false)
         panel.orderFrontRegardless()
-        panel.ignoresMouseEvents = (stateStore.state == .hidden)
+        panel.ignoresMouseEvents = true
 
         self.panel = panel
         self.dropView = dropView
+        updateMousePassthrough()
+    }
+
+    private func updateMousePassthrough() {
+        guard let panel, let dropView else { return }
+        let windowPoint = panel.convertPoint(fromScreen: NSEvent.mouseLocation)
+        panel.ignoresMouseEvents = dropView.hitTest(windowPoint) == nil
     }
 
     private func panelSize(for screen: NSScreen) -> NSSize {
