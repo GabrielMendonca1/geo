@@ -316,6 +316,7 @@ final class BlockEditorActionsHolder: ObservableObject {
 class AppDelegate: NSObject, NSApplicationDelegate {
     private let container = AppContainer.live
     private var permissionStateCancellable: AnyCancellable?
+    private var hitTestMonitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         PerformanceTracker.shared.markStartupEnd()
