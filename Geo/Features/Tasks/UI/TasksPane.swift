@@ -463,10 +463,10 @@ struct TasksPane: View {
 
         return ScrollView(.horizontal) {
             HStack(alignment: .top, spacing: boardLayout.columnSpacing) {
-                lane(title: "Pending", tasks: viewModel.regularPendingTasks, isCollapsed: false, scale: scale, fontSize: fontSize, columnWidth: columnWidth)
+                lane(title: "To Do", tasks: viewModel.toDoTasks, isCollapsed: false, scale: scale, fontSize: fontSize, columnWidth: columnWidth)
                     .equatable()
 
-                lane(title: "Past Due", tasks: viewModel.pastDueTasks, isCollapsed: false, scale: scale, fontSize: fontSize, columnWidth: columnWidth)
+                lane(title: "Upcoming", tasks: viewModel.upcomingTasks, isCollapsed: false, scale: scale, fontSize: fontSize, columnWidth: columnWidth)
                     .equatable()
 
                 lane(title: "Completed", tasks: viewModel.completedTasks, isCollapsed: !viewModel.showCompleted, scale: scale, fontSize: fontSize, columnWidth: columnWidth)
