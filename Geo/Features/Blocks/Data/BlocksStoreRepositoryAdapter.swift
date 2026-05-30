@@ -95,6 +95,30 @@ final class LiveBlocksStoreAccess: BlocksStoreAccess, @unchecked Sendable {
         }).value
     }
 
+    func createBlock(title: String, markdown: String, folder: String?) async -> BlocksStore.Block? {
+        await Task(operation: { @MainActor in
+            await blocksStore.createBlock(title: title, markdown: markdown, folder: folder)
+        }).value
+    }
+
+    func moveBlock(id: String, toFolder folder: String?) async -> BlocksStore.Block? {
+        await Task(operation: { @MainActor in
+            await blocksStore.moveBlock(id, toFolder: folder)
+        }).value
+    }
+
+    func createFolder(_ folder: String) async {
+        await MainActor.run {
+            blocksStore.createFolder(folder)
+        }
+    }
+
+    func folderPaths() async -> [String] {
+        await MainActor.run {
+            blocksStore.folderPaths()
+        }
+    }
+
     func updateBlock(id: String, markdown: String) async -> Bool {
         await Task(operation: { @MainActor in
             guard let block = blocksStore.blocks.first(where: { $0.id == id }) else {
