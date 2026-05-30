@@ -1246,7 +1246,7 @@ private struct BlockListRow: View {
                 .fixedSize()
 
             Text(Self.dateFormatter.string(from: block.lastEdited))
-                .font(.system(size: 11, design: .monospaced))
+                .font(.system(size: 12, design: .monospaced))
                 .foregroundColor(.secondary)
                 .lineLimit(1)
                 .frame(width: 54, alignment: .trailing)
