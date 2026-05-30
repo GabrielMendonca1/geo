@@ -98,14 +98,19 @@ def log(msg: str) -> None:
     print(f"[whatsapp-extractor] {msg}", file=sys.stderr, flush=True)
 
 
-def _keychain_oauth_token() -> str | None:
-    """Claude Max OAuth token from the macOS login Keychain — the canonical
-    store the `claude` CLI owns and keeps refreshed. Independent of hermes's
-    active provider, so it survives hermes pointing its main loop at a
-    non-Anthropic provider (which leaves auth.json's anthropic pool empty)."""
+KEYCHAIN_SERVICE = "Claude Code-credentials"
+OAUTH_CLIENT_ID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
+OAUTH_TOKEN_ENDPOINTS = (
+    "https://platform.claude.com/v1/oauth/token",
+    "https://console.anthropic.com/v1/oauth/token",
+)
+TOKEN_EXPIRY_BUFFER_MS = 60_000
+
+
+def _keychain_read() -> dict | None:
     try:
         out = subprocess.run(
-            ["security", "find-generic-password", "-s", "Claude Code-credentials", "-w"],
+            ["security", "find-generic-password", "-s", KEYCHAIN_SERVICE, "-w"],
             capture_output=True,
             text=True,
             timeout=10,
@@ -116,14 +121,79 @@ def _keychain_oauth_token() -> str | None:
     if out.returncode != 0:
         return None
     try:
-        oauth = json.loads(out.stdout.strip()).get("claudeAiOauth") or {}
+        full = json.loads(out.stdout.strip())
     except Exception as e:
         log(f"keychain payload unparseable: {e}")
         return None
+    return full if isinstance(full.get("claudeAiOauth"), dict) else None
+
+
+def _keychain_write(full: dict) -> bool:
+    try:
+        blob = json.dumps(full)
+        json.loads(blob)
+        w = subprocess.run(
+            ["security", "add-generic-password", "-U", "-s", KEYCHAIN_SERVICE,
+             "-a", getpass.getuser(), "-w", blob],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if w.returncode != 0:
+            log(f"keychain write failed rc={w.returncode}: {w.stderr.strip()[:120]}")
+            return False
+        return True
+    except Exception as e:
+        log(f"keychain write error: {e}")
+        return False
+
+
+def _refresh_oauth(refresh_token: str) -> dict | None:
+    body = urllib.parse.urlencode(
+        {"grant_type": "refresh_token", "refresh_token": refresh_token, "client_id": OAUTH_CLIENT_ID}
+    ).encode()
+    headers = {"Content-Type": "application/x-www-form-urlencoded", "User-Agent": CLAUDE_CODE_USER_AGENT}
+    for url in OAUTH_TOKEN_ENDPOINTS:
+        try:
+            req = urllib.request.Request(url, data=body, headers=headers, method="POST")
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode())
+            if data.get("access_token"):
+                return data
+            log(f"refresh at {url}: response had no access_token")
+        except Exception as e:
+            log(f"refresh at {url} failed: {type(e).__name__}: {str(e)[:120]}")
+    return None
+
+
+def _keychain_oauth_token() -> str | None:
+    """Claude Max OAuth token from the macOS login Keychain — the store the
+    `claude` CLI owns. Refreshes in place via the OAuth refresh token when
+    expired (writing rotated creds back to the Keychain) so a 6-hourly cron
+    never rides a dead token. Independent of hermes's active provider, which
+    empties auth.json's anthropic pool whenever it isn't anthropic."""
+    full = _keychain_read()
+    if full is None:
+        return None
+    oauth = full["claudeAiOauth"]
+    access = oauth.get("accessToken")
     exp_ms = oauth.get("expiresAt")
-    if exp_ms and exp_ms / 1000.0 < datetime.now(timezone.utc).timestamp() + 60:
-        log("keychain Claude Max OAuth token at/near expiry — run `claude` to refresh")
-    return oauth.get("accessToken") or None
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    if access and (not exp_ms or now_ms < exp_ms - TOKEN_EXPIRY_BUFFER_MS):
+        return access
+    refresh = oauth.get("refreshToken")
+    if not refresh:
+        return access
+    log("keychain Claude Max OAuth token expired — refreshing via refresh_token")
+    refreshed = _refresh_oauth(refresh)
+    if not refreshed:
+        return access
+    oauth["accessToken"] = refreshed["access_token"]
+    oauth["refreshToken"] = refreshed.get("refresh_token", refresh)
+    oauth["expiresAt"] = now_ms + int(refreshed.get("expires_in", 3600)) * 1000
+    if _keychain_write(full):
+        log("keychain token refreshed and persisted")
+    return oauth["accessToken"]
 
 
 def _authjson_oauth_token() -> str | None:
