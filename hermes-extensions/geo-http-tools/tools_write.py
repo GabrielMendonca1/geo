@@ -40,7 +40,9 @@ async def _create_block(c: GeoAPIClient, a: dict) -> Any:
         "content": a.get("body", ""),
         "layer": a.get("layer"),
         "type": a.get("type"),
-        "tags": a.get("tags"),
+        "status": a.get("status"),
+        "day_id": a.get("day_id"),
+        "tag_name": a.get("tag_name"),
         "folder": a.get("folder"),
     })
 
@@ -49,21 +51,10 @@ async def _move_block(c: GeoAPIClient, a: dict) -> Any:
     return await c.post(f"/blocks/{a['id']}/move", json={"folder": a.get("folder")})
 
 async def _update_block(c: GeoAPIClient, a: dict) -> Any:
-    payload: dict = {}
-    if "body" in a:
-        payload["content"] = a["body"]
-    for k in ("title", "layer", "type", "status"):
-        if k in a:
-            payload[k] = a[k]
-    if "block_version" in a:
-        payload["block_version"] = a["block_version"]
-    return await c.patch(f"/blocks/{a['id']}", json=payload)
+    return await c.patch(f"/blocks/{a['id']}", json={"content": a["body"]})
 
 async def _set_block_tag(c: GeoAPIClient, a: dict) -> Any:
-    return await c.post(f"/blocks/{a['id']}/tags", json={
-        "tag": a["tag"],
-        "action": a.get("action", "add"),
-    })
+    return await c.post(f"/blocks/{a['id']}/tag", json={"tag_name": a.get("tag_name", "")})
 
 
 async def _set_layer(c: GeoAPIClient, a: dict) -> Any:
@@ -71,18 +62,15 @@ async def _set_layer(c: GeoAPIClient, a: dict) -> Any:
 
 
 async def _extract_permanent_from(c: GeoAPIClient, a: dict) -> Any:
-    return await c.post(f"/blocks/{a['id']}/extract-permanent", json={
-        "title": a["title"],
-        "body": a["body"],
-    })
+    return await c.post(f"/blocks/{a['id']}/extract-permanent", json={})
 
 
 async def _promote_to_permanent(c: GeoAPIClient, a: dict) -> Any:
-    return await c.post(f"/blocks/{a['id']}/promote-to-permanent", json={})
+    return await c.post(f"/blocks/{a['id']}/promote-permanent", json={})
 
 
 async def _link_block_to_day(c: GeoAPIClient, a: dict) -> Any:
-    return await c.post(f"/days/{a['day']}/link", json={"block_id": a["block_id"]})
+    return await c.post(f"/blocks/{a['block_id']}/link-day", json={"date": a["day"]})
 
 
 def _coerce_task_body(body: Any) -> Any:
