@@ -251,12 +251,11 @@ READ_TOOLS: list[dict] = [
     },
     {
         "name": "geo_get_graph_snapshot",
-        "description": "Subgraph rooted at `root_id` (or whole graph if omitted). Nodes + edges.",
+        "description": "Graph snapshot of the top-N blocks by weight. Nodes + edges.",
         "parameters": {
             "type": "object",
             "properties": {
-                "root_id": {"type": "string"},
-                "depth": {"type": "integer"},
+                "limit": {"type": "integer", "description": "Top-N blocks by weight to include."},
             },
         },
         "handler": _wrap(_get_graph_snapshot),
