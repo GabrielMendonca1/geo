@@ -22,6 +22,7 @@ struct TasksPane: View {
     @State private var pendingPreFillBlockId: String?
     @State private var windowSize: CGSize = .zero
     @State private var quickTitle = ""
+    @State private var goalsExpanded = false
     @FocusState private var quickAddFocused: Bool
     @State private var isSearchExpanded = false
     @FocusState private var isSearchFieldFocused: Bool
