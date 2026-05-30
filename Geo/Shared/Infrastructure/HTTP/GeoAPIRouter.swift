@@ -201,6 +201,21 @@ final class GeoAPIRouter: @unchecked Sendable {
                 args["block_id"] = .string(id)
                 return await call("link_block_to_day", args: args)
             }
+            if let id = pathParam(path: path, prefix: "/v1/blocks/", suffix: "/move") {
+                let folderRaw = body["folder"]?.stringValue
+                let trimmed = folderRaw?.trimmingCharacters(in: CharacterSet(charactersIn: "/ "))
+                let folder = (trimmed?.isEmpty ?? true) ? nil : trimmed
+                do {
+                    let moved = try await blocks.move(id: id, toFolder: folder)
+                    return .json(200, .object([
+                        "id": .string(moved.id),
+                        "title": .string(moved.displayTitle),
+                        "folder": .string(folder ?? ""),
+                    ]))
+                } catch {
+                    return .error(404, "block not found or move failed: \(id)")
+                }
+            }
             if let id = pathParam(path: path, prefix: "/v1/blocks/", suffix: nil), method == "PATCH" {
                 var args = body
                 args["id"] = .string(id)
