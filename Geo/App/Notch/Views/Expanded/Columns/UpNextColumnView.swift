@@ -13,9 +13,14 @@ struct NotchCardRow: View {
                         ForEach(entries) { entry in
                             NotchCard(entry: entry)
                                 .onDrag { entry.makeDragProvider() }
+                                .transition(.asymmetric(
+                                    insertion: .scale(scale: 0.7, anchor: .leading).combined(with: .opacity),
+                                    removal: .scale(scale: 0.85).combined(with: .opacity)
+                                ))
                         }
                     }
                     .padding(.vertical, 2)
+                    .animation(.spring(response: 0.4, dampingFraction: 0.82), value: entries.map(\.id))
                 }
             }
         }
