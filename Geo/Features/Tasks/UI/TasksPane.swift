@@ -537,22 +537,24 @@ private struct TaskCard: View {
         task.status == .completed ? 1 : (showCompleteAnimation ? 1 : 0)
     }
 
-    private var detailText: String { "\(dateText) · \(timeText)" }
-
     private var reminderCount: Int { task.reminders.count }
 
     private var showsLinkedBlockSection: Bool {
         hasLinkedBlock && linkedBlockTitle != nil
     }
 
-    private var hasMetaRow: Bool {
-        task.recurrence.isRepeating
-            || reminderCount > 0
-            || (linkedBlockTitle != nil && !showsLinkedBlockSection)
-            || task.isOverdue
-            || task.estimatedDuration != nil
-            || (task.isHabit && task.habitCurrentStreak > 0)
-            || task.daysUntilMilestone != nil
+    private var isEvent: Bool {
+        if case .event = task.body { return true }
+        return false
+    }
+
+    private var typeColor: Color {
+        switch task.body {
+        case .task: return Palette.accent
+        case .event: return Color(nsColor: Palette.agentWarning)
+        case .habit: return Color(nsColor: Palette.agentSuccess)
+        case .milestone: return Color(nsColor: .systemPurple)
+        }
     }
 
     private var checkboxesCompletedCount: Int { checkboxes.filter(\.checked).count }
