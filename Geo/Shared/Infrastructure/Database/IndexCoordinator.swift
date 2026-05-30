@@ -326,7 +326,7 @@ final class IndexCoordinator {
         fileService: BlockFileService
     ) async {
         let sqliteMetadata = await fetchAllMetadata()
-        let diskIds = enumerateDiskIds(in: fileService.blocksDirectory)
+        let diskIds = enumerateDiskIds(in: fileService)
         var synced = 0
         var orphaned = 0
         for (blockId, sidecarMeta) in sidecar {
