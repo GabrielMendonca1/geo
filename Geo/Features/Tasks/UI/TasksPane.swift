@@ -802,7 +802,7 @@ private struct TaskCard: View {
                     if let days = task.daysUntilMilestone {
                         Text("\(days)d left")
                     } else {
-                        Text(DateFormatters.shortDate.string(from: target))
+                        Text(DateFormatters.mediumDate.string(from: target))
                     }
                 }
                 .font(.system(size: subtitleFontSize, weight: .medium))
