@@ -78,3 +78,20 @@ hermes plugins list | grep geo-http-tools
 | Telegram send fails | `{ok: false, reason: "telegram_send_failed"}` (destructive only) |
 
 The agent sees JSON in every case — no exceptions escape the handler.
+
+## Task dedup (stop duplicate tasks)
+
+Three semantic tools sit in front of task creation/editing:
+
+- **`geo_upsert_task`** — the recommended way to create a task. Fuzzy-matches
+  the title against pending tasks; if one scores `>= match_threshold` (default
+  0.82, and any provided `kind` agrees) it updates that task instead of making a
+  duplicate. Otherwise it creates. `force_new=true` skips the check.
+- **`geo_find_tasks`** — search pending (or all) tasks by query, ranked. Call
+  before creating if you want to inspect candidates yourself.
+- **`geo_resolve_task`** — map a natural-language reference to ONE task id (for
+  complete/update/delete by name), or return the top-3 candidates to disambiguate.
+
+Normalization + scoring live in `matching.py` (`normalize`, `score`, `rank`),
+stdlib only: accent-stripped, lowercased, punctuation-dropped titles compared via
+`difflib.SequenceMatcher` ratio, token Jaccard, and substring — taking the max.
