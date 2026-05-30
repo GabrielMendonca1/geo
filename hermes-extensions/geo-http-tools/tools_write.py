@@ -369,19 +369,19 @@ WRITE_TOOLS: list[dict] = [
     },
     {
         "name": "geo_update_block",
-        "description": "Patch a block's title/body/layer/type/status. Pass `block_version` for optimistic concurrency.",
+        "description": (
+            "Replace a block's full markdown body. `body` becomes the entire block content "
+            "(not a partial patch). The server only reads id + content; title/type/status "
+            "are NOT editable here. To change the layer use geo_set_layer; to change the tag "
+            "use geo_set_block_tag."
+        ),
         "parameters": {
             "type": "object",
             "properties": {
                 "id": {"type": "string"},
-                "title": {"type": "string"},
-                "body": {"type": "string"},
-                "layer": {"type": "string"},
-                "type": {"type": "string"},
-                "status": {"type": "string"},
-                "block_version": {"type": "integer"},
+                "body": {"type": "string", "description": "Full replacement markdown body."},
             },
-            "required": ["id"],
+            "required": ["id", "body"],
         },
         "handler": _wrap(_update_block),
     },
