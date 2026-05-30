@@ -73,33 +73,75 @@ async def _link_block_to_day(c: GeoAPIClient, a: dict) -> Any:
     return await c.post(f"/blocks/{a['block_id']}/link-day", json={"date": a["day"]})
 
 
-def _coerce_task_body(body: Any) -> Any:
-    if isinstance(body, str):
-        stripped = body.strip()
-        if stripped.startswith("{"):
-            try:
-                return json.loads(stripped)
-            except json.JSONDecodeError:
-                return body
+def _build_task_body(a: dict) -> dict:
+    kind = a.get("kind") or "task"
+    body: dict[str, Any] = {"kind": kind}
+    if kind == "task":
+        if "due" in a:
+            body["due"] = a["due"]
+        if "estimated_minutes" in a:
+            body["estimated_minutes"] = a["estimated_minutes"]
+    elif kind == "event":
+        if "start" in a:
+            body["start"] = a["start"]
+        if "end" in a:
+            body["end"] = a["end"]
+    elif kind == "habit":
+        if "recurrence" in a:
+            body["recurrence"] = a["recurrence"]
+        if "time_of_day" in a:
+            body["time_of_day"] = a["time_of_day"]
+        if "selected_weekdays" in a:
+            body["selected_weekdays"] = a["selected_weekdays"]
+    elif kind == "milestone":
+        if "target" in a:
+            body["target"] = a["target"]
     return body
 
 
+def _notes_from(a: dict) -> Any:
+    notes = a.get("notes")
+    if notes is None and isinstance(a.get("body"), str):
+        notes = a["body"]
+    return notes
+
+
 async def _create_task(c: GeoAPIClient, a: dict) -> Any:
-    return await c.post("/tasks", json={
+    payload: dict[str, Any] = {
         "title": a["title"],
-        "body": _coerce_task_body(a.get("body")),
-        "due": a.get("due"),
-        "day": a.get("day"),
-        "tags": a.get("tags"),
-        "block_id": a.get("block_id"),
-    })
+        "body": _build_task_body(a),
+    }
+    notes = _notes_from(a)
+    if notes is not None:
+        payload["notes"] = notes
+    linked = a.get("linked_block_id") or a.get("block_id")
+    if linked is not None:
+        payload["linked_block_id"] = linked
+    if a.get("priority") is not None:
+        payload["priority"] = a["priority"]
+    tag_ids = a.get("tag_ids") or a.get("tags")
+    if tag_ids is not None:
+        payload["tag_ids"] = tag_ids
+    if a.get("reminders") is not None:
+        payload["reminders"] = a["reminders"]
+    return await c.post("/tasks", json=payload)
 
 
 async def _update_task(c: GeoAPIClient, a: dict) -> Any:
-    payload: dict = {}
-    for k in ("title", "body", "due", "day", "status", "tags"):
+    payload: dict[str, Any] = {}
+    for k in ("title", "notes", "status", "priority"):
         if k in a:
             payload[k] = a[k]
+    linked = a.get("linked_block_id") or a.get("block_id")
+    if linked is not None:
+        payload["linked_block_id"] = linked
+    tag_ids = a.get("tag_ids") or a.get("tags")
+    if tag_ids is not None:
+        payload["tag_ids"] = tag_ids
+    if "body" in a and isinstance(a["body"], dict):
+        payload["body"] = a["body"]
+    elif a.get("kind") is not None:
+        payload["body"] = _build_task_body(a)
     return await c.patch(f"/tasks/{a['id']}", json=payload)
 
 
