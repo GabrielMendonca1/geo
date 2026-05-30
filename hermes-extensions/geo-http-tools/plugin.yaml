@@ -27,6 +27,9 @@ provides_tools:
   - geo_list_tasks
   - geo_list_tasks_for_day
   - geo_list_upcoming
+  - geo_find_tasks
+  - geo_resolve_task
+  - geo_upsert_task
   - geo_create_task
   - geo_update_task
   - geo_complete_task
