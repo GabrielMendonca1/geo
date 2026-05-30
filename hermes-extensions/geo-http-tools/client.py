@@ -231,10 +231,10 @@ class GeoAPIClient:
         transaction_id: str,
         block_version: Optional[int] = None,
     ) -> dict:
-        body: dict[str, Any] = {"transaction_id": transaction_id}
+        body: dict[str, Any] = {}
         if block_version is not None:
             body["block_version"] = block_version
-        return await self.post("/destructive/commit", json=body)
+        return await self.post(f"/destructive/commit/{transaction_id}", json=body)
 
 
 def _safe_json(resp: httpx.Response) -> Any:
