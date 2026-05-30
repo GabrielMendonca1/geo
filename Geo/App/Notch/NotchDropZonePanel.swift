@@ -27,8 +27,15 @@ final class NotchDropZonePanel {
         p.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
 
         let view = DropZoneView(frame: NSRect(origin: .zero, size: CGSize(width: zoneWidth, height: zoneHeight)))
+        view.onDragEnter = { [weak stateStore] in
+            Task { @MainActor in stateStore?.dragEntered() }
+        }
+        view.onDragExit = { [weak stateStore] in
+            Task { @MainActor in stateStore?.dragExited() }
+        }
         view.onDrop = { [weak stateStore] items in
             Task { @MainActor in
+                stateStore?.dragExited()
                 for item in items { ShelfStore.shared.addItem(item) }
                 stateStore?.forceExpand()
             }
