@@ -155,7 +155,7 @@ final class NotchWindowController {
             .receive(on: RunLoop.main)
             .sink { [weak self] newState in
                 self?.dropView?.isActive = newState != .hidden
-                self?.panel?.ignoresMouseEvents = (newState == .hidden)
+                self?.updateMousePassthrough()
                 self?.hoverMonitor.check()
             }
     }
