@@ -6,6 +6,10 @@ protocol BlocksStoreAccess: Sendable {
     func searchBlocks(matching query: String) async -> [BlocksStore.Block]
     func allBlocks() async -> [BlocksStore.Block]
     func createBlock(title: String, markdown: String) async -> BlocksStore.Block?
+    func createBlock(title: String, markdown: String, folder: String?) async -> BlocksStore.Block?
+    func moveBlock(id: String, toFolder folder: String?) async -> BlocksStore.Block?
+    func createFolder(_ folder: String) async
+    func folderPaths() async -> [String]
     func updateBlock(id: String, markdown: String) async -> Bool
     func deleteBlock(id: String) async -> Bool
     func setTag(_ tagId: String?, for blockId: String) async -> Bool
