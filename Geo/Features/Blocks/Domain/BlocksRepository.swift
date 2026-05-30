@@ -5,6 +5,10 @@ protocol BlocksRepository: Sendable {
     func search(matching query: String) async throws -> [BlockEntity]
     func list() async throws -> [BlockEntity]
     func create(title: String, markdown: String) async throws -> BlockEntity
+    func create(title: String, markdown: String, folder: String?) async throws -> BlockEntity
+    func move(id: String, toFolder folder: String?) async throws -> BlockEntity
+    func createFolder(_ folder: String) async throws
+    func listFolders() async -> [String]
     func update(id: String, markdown: String) async throws
     func delete(id: String) async throws
     func setTag(blockId: String, tagId: String?) async throws
