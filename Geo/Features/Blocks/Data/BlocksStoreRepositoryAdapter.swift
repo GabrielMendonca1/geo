@@ -23,6 +23,15 @@ protocol BlocksStoreAccess: Sendable {
     @MainActor func updateBlockAndFlush(id: String, markdown: String) -> Bool
 }
 
+extension BlocksStoreAccess {
+    func createBlock(title: String, markdown: String, folder: String?) async -> BlocksStore.Block? {
+        await createBlock(title: title, markdown: markdown)
+    }
+    func moveBlock(id: String, toFolder folder: String?) async -> BlocksStore.Block? { nil }
+    func createFolder(_ folder: String) async {}
+    func folderPaths() async -> [String] { [] }
+}
+
 private final class BlocksObservationBox: @unchecked Sendable {
     var cancellable: AnyCancellable?
 }
