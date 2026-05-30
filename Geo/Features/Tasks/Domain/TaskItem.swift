@@ -620,6 +620,20 @@ extension TaskItem {
         }
     }
 
+    var isFuture: Bool {
+        guard status == .pending else { return false }
+        let calendar = Calendar.current
+        let startOfTomorrow = calendar.startOfDay(for: calendar.date(byAdding: .day, value: 1, to: Date())!)
+        switch body {
+        case .task(let due, _):
+            return due >= startOfTomorrow
+        case .event(let start, _):
+            return start >= startOfTomorrow
+        case .habit, .milestone:
+            return false
+        }
+    }
+
     func isDue(at date: Date) -> Bool {
         guard status == .pending else { return false }
         let anchor = body.anchorDate
