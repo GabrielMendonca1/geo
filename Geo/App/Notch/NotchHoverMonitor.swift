@@ -55,5 +55,6 @@ final class NotchHoverMonitor {
             isInside = inside
             if inside { onEnter() } else { onExit() }
         }
+        onTick()
     }
 }
