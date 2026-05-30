@@ -611,9 +611,9 @@ private struct TaskLane: View, Equatable {
 
     private var emptyText: String {
         switch title {
-        case "Past Due": return "No past due tasks."
+        case "Upcoming": return "Nothing upcoming."
         case "Completed": return "No completed tasks."
-        default: return "No pending tasks."
+        default: return "Nothing to do."
         }
     }
 }
