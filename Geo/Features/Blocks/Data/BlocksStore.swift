@@ -206,22 +206,22 @@ class BlocksStore: ObservableObject {
 
     @MainActor
     @discardableResult
-    func createBlock(title: String, markdown: String) async -> Block? {
+    func createBlock(title: String, markdown: String, folder: String? = nil) async -> Block? {
         let spStart = CFAbsoluteTimeGetCurrent()
         let spID = PerformanceTracker.shared.beginStoreOperation("BlocksStore", operation: "create")
         defer { PerformanceTracker.shared.endStoreOperation("BlocksStore", operation: "create", signpostID: spID, startTime: spStart) }
         let sanitized = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let filename = sanitized.isEmpty ? "Block" : sanitized
 
-        let uniqueName = fileService.uniqueFilename(for: filename)
-        let url = fileService.blocksDirectory.appendingPathComponent(uniqueName).appendingPathExtension("md")
+        if let folder, !folder.isEmpty { try? fileService.createFolder(folder) }
+        let url = fileService.uniqueURL(forTitle: filename, inFolder: folder)
 
         let body = markdown.isEmpty ? (sanitized.isEmpty ? "" : "# \(sanitized)\n") : markdown
 
         let now = Date()
         let metadata = BlockMetadata()
         let newBlock = Block(
-            id: url.lastPathComponent,
+            id: fileService.relativeId(for: url),
             title: sanitized,
             date: now,
             lastEdited: now,
