@@ -93,26 +93,27 @@ async def _get_task(c: GeoAPIClient, a: dict) -> Any:
 async def _list_tasks(c: GeoAPIClient, a: dict) -> Any:
     return await c.get(
         "/tasks",
-        limit=a.get("limit"),
-        offset=a.get("offset"),
         status=a.get("status"),
+        kind=a.get("kind"),
+        priority=a.get("priority"),
+        linked_block_id=a.get("linked_block_id"),
     )
 
 
 async def _list_tasks_for_day(c: GeoAPIClient, a: dict) -> Any:
-    return await c.get("/tasks/for-day", day=a["day"])
+    return await c.get(f"/tasks/for-day/{a['day']}")
 
 
 async def _list_upcoming(c: GeoAPIClient, a: dict) -> Any:
     return await c.get(
         "/tasks/upcoming",
-        within_days=a.get("within_days"),
+        window=a.get("window"),
         limit=a.get("limit"),
     )
 
 
 async def _list_tags(c: GeoAPIClient, a: dict) -> Any:
-    return await c.get("/tags", limit=a.get("limit"))
+    return await c.get("/tags")
 
 
 async def _get_today(c: GeoAPIClient, a: dict) -> Any:
