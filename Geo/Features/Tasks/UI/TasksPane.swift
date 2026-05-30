@@ -780,7 +780,7 @@ private struct TaskCard: View {
                 }
             }
             .font(.system(size: subtitleFontSize, weight: .medium))
-            .foregroundStyle(Palette.secondaryForeground)
+            .foregroundStyle(Palette.tertiaryForeground)
 
         case .milestone(let target):
             VStack(alignment: .leading, spacing: 5 * layoutScale) {
@@ -806,7 +806,7 @@ private struct TaskCard: View {
                     }
                 }
                 .font(.system(size: subtitleFontSize, weight: .medium))
-                .foregroundStyle(Palette.secondaryForeground)
+                .foregroundStyle(Palette.tertiaryForeground)
             }
         }
     }
