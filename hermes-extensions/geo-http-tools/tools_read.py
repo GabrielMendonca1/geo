@@ -163,16 +163,12 @@ READ_TOOLS: list[dict] = [
     },
     {
         "name": "geo_list_blocks",
-        "description": "Paginated list of blocks.",
+        "description": "List blocks, optionally filtered by tag.",
         "parameters": {
             "type": "object",
             "properties": {
-                "limit": {"type": "integer", "description": "Page size (default 50)."},
-                "offset": {"type": "integer", "description": "Page offset."},
-                "layer": {
-                    "type": "string",
-                    "description": "Filter by layer: 'fleeting', 'literature', 'permanent'.",
-                },
+                "limit": {"type": "integer", "description": "Max blocks to return (default 50)."},
+                "tag_name": {"type": "string", "description": "Filter to blocks carrying this tag."},
             },
         },
         "handler": _wrap(_list_blocks),
