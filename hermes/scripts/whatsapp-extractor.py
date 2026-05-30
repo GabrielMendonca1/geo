@@ -16,10 +16,13 @@ Runs under `hermes cron create "0 */6 * * *" --script whatsapp-extractor.py`
 from __future__ import annotations
 
 import asyncio
+import getpass
 import json
 import os
 import subprocess
 import sys
+import urllib.parse
+import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
