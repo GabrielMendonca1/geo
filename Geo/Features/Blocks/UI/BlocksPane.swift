@@ -396,6 +396,30 @@ struct BlocksPane: View {
         .accessibilityHint("Double-tap to open editor")
         .plainNoFocusButton()
         .contextMenu {
+            Menu {
+                if !folderOf(block).isEmpty {
+                    Button {
+                        moveBlock(block, toFolder: nil)
+                    } label: {
+                        Label("Root", systemImage: "house")
+                    }
+                }
+                ForEach(allFolders.filter { $0 != folderOf(block) }, id: \.self) { folder in
+                    Button {
+                        moveBlock(block, toFolder: folder)
+                    } label: {
+                        Label(folder, systemImage: "folder")
+                    }
+                }
+                Divider()
+                Button {
+                    promptFolderName(title: "Move to New Folder") { moveBlock(block, toFolder: $0) }
+                } label: {
+                    Label("New Folder…", systemImage: "folder.badge.plus")
+                }
+            } label: {
+                Label("Move to Folder", systemImage: "folder")
+            }
             Button(role: .destructive) {
                 requestDelete(block)
             } label: {
