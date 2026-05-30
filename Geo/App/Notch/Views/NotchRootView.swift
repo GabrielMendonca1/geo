@@ -3,49 +3,31 @@ import AppKit
 
 struct NotchRootView: View {
     @ObservedObject var stateStore: NotchStateStore
-    let hasNotch: Bool
-    let notchSize: CGSize
-    let menubarHeight: CGFloat
+    let metrics: NotchMetrics
 
-    private var isExpanded: Bool {
-        stateStore.state == .expanded
-    }
-
-    private var topInset: CGFloat {
-        hasNotch ? notchSize.height : menubarHeight
-    }
-
-    private var dockContentHeight: CGFloat { 260 }
-    private var dockWidth: CGFloat { 520 }
-    private var dockCornerRadius: CGFloat { 28 }
-    private var dockTotalHeight: CGFloat { dockContentHeight + topInset }
+    private var isExpanded: Bool { stateStore.state == .expanded }
 
     var body: some View {
         ZStack(alignment: .top) {
             if isExpanded {
-                expandedDock
+                dock
                     .transition(.asymmetric(
-                        insertion: .scale(scale: 0.92, anchor: .top).combined(with: .opacity),
-                        removal: .scale(scale: 0.96, anchor: .top).combined(with: .opacity)
+                        insertion: .scale(scale: 0.94, anchor: .top).combined(with: .opacity),
+                        removal: .scale(scale: 0.97, anchor: .top).combined(with: .opacity)
                     ))
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
-    private var expandedDock: some View {
-        DockView(
-            stateStore: stateStore,
-            notchSize: notchSize,
-            hasNotch: hasNotch,
-            topInset: topInset
-        )
-        .frame(width: dockWidth, height: dockTotalHeight)
-        .background(
-            DynamicIslandShape(cornerRadius: dockCornerRadius)
-                .fill(Color.black)
-        )
-        .shadow(color: Color.black.opacity(0.55), radius: 22, x: 0, y: 12)
-        .contentShape(DynamicIslandShape(cornerRadius: dockCornerRadius))
+    private var dock: some View {
+        DockView(stateStore: stateStore, metrics: metrics)
+            .frame(width: metrics.dockWidth, height: metrics.dockHeight)
+            .background(
+                DynamicIslandShape(cornerRadius: NotchMetrics.cornerRadius)
+                    .fill(Color.black)
+            )
+            .shadow(color: Color.black.opacity(0.55), radius: 22, x: 0, y: 12)
+            .contentShape(DynamicIslandShape(cornerRadius: NotchMetrics.cornerRadius))
     }
 }
