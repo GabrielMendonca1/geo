@@ -2,6 +2,8 @@ import AppKit
 
 final class NotchDropView: NSView {
     var onDrop: (([ShelfItem]) -> Void)?
+    var onDragEnter: () -> Void = {}
+    var onDragExit: () -> Void = {}
     var isActive: Bool = false
 
     override init(frame: NSRect) {
