@@ -27,44 +27,13 @@ struct TasksPane: View {
     @State private var isSearchExpanded = false
     @FocusState private var isSearchFieldFocused: Bool
 
-    private struct TasksBoardLayout {
-        let availableWidth: CGFloat
-        let layoutScale: CGFloat
-        let horizontalPadding: CGFloat
-
-        var columnSpacing: CGFloat { 14 * layoutScale }
-        var rowSpacing: CGFloat { 10 * layoutScale }
-
-        private var minimumColumnWidth: CGFloat { 330 * layoutScale }
-        private var maximumColumnWidth: CGFloat { 540 * layoutScale }
-
-        func columnWidth(for columnCount: Int) -> CGFloat {
-            guard availableWidth > 0 else { return minimumColumnWidth }
-            let safeCount = max(1, columnCount)
-            let spacingTotal = columnSpacing * CGFloat(safeCount - 1)
-            let usableWidth = max(0, availableWidth - (horizontalPadding * 2) - spacingTotal)
-            let naturalWidth = usableWidth / CGFloat(safeCount)
-            return min(maximumColumnWidth, max(minimumColumnWidth, naturalWidth))
-        }
-    }
-
     private var responsiveLayout: ResponsiveLayout {
         ResponsiveLayout(windowSize: windowSize)
-    }
-
-    private var boardLayout: TasksBoardLayout {
-        TasksBoardLayout(
-            availableWidth: windowSize.width,
-            layoutScale: responsiveLayout.scale,
-            horizontalPadding: responsiveLayout.editorPaddingHorizontal
-        )
     }
 
     private var taskListFontSize: CGFloat {
         responsiveLayout.editorFontSize * 1.12
     }
-
-    private let boardColumnCount = 3
 
     var body: some View {
         let _ = PerformanceTracker.shared.recordRender("TasksPane")
