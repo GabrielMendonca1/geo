@@ -1226,7 +1226,7 @@ private struct BlockListRow: View {
                 .frame(width: 8, height: 8)
 
             Text(block.displayTitle.isEmpty ? "Untitled" : block.displayTitle)
-                .font(.system(size: 13))
+                .font(.system(size: 14))
                 .foregroundColor(.primary)
                 .lineLimit(1)
                 .truncationMode(.tail)
