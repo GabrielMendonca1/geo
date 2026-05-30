@@ -1,27 +1,24 @@
 import SwiftUI
 
-struct HomeTabView: View {
+struct NotchTabBar: View {
+    @Binding var selected: String
+    let historyCount: Int
+
+    private let tabs = ["History", "Prompts", "Colors", "Assets", "Inspirations"]
+    private let placeholderCount = 24
 
     var body: some View {
-        GeometryReader { geo in
-            let dividerWidth: CGFloat = 1
-            let upNextWidth = (geo.size.width - dividerWidth) * 0.6
-            let shelfWidth = (geo.size.width - dividerWidth) * 0.4
-
-            HStack(spacing: 0) {
-                UpNextColumnView()
-                    .frame(width: upNextWidth)
-
-                Rectangle()
-                    .fill(Palette.border.opacity(0.15))
-                    .frame(width: dividerWidth)
-                    .padding(.vertical, 12)
-
-                ShelfColumnView()
-                    .frame(width: shelfWidth)
+        HStack(spacing: 8) {
+            ForEach(tabs, id: \.self) { tab in
+                NotchChip(
+                    title: tab,
+                    count: tab == "History" ? historyCount : placeholderCount,
+                    isActive: tab == selected,
+                    action: { if tab == "History" { selected = tab } }
+                )
             }
+            NotchChip(systemImage: "plus")
+            Spacer(minLength: 0)
         }
-        .padding(.horizontal, 4)
-        .padding(.vertical, 8)
     }
 }
