@@ -245,7 +245,7 @@ READ_TOOLS: list[dict] = [
         "description": "Wikilinks pointing to titles that don't exist yet.",
         "parameters": {
             "type": "object",
-            "properties": {"limit": {"type": "integer"}},
+            "properties": {},
         },
         "handler": _wrap(_find_unresolved_links),
     },
