@@ -348,6 +348,15 @@ struct BlocksPane: View {
         }
     }
 
+    private var isFiltering: Bool {
+        !debouncedSearchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || selectedTagFilter != nil
+            || hasTasksOnly
+            || statusFilter != .active
+            || selectedTypeFilter != nil
+            || selectedLayerFilter != nil
+    }
+
     private var blocksGridContent: some View {
         Group {
             if groupingMode == .none {
