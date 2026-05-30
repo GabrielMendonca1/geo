@@ -413,15 +413,17 @@ WRITE_TOOLS: list[dict] = [
     },
     {
         "name": "geo_extract_permanent_from",
-        "description": "Extract a passage from a source block into a new permanent block; backlink is created.",
+        "description": (
+            "Extract a permanent block from a source block. The server archives the source "
+            "and creates a stub titled 'Extraído de [[<source title>]]'. Takes only the "
+            "source `id` — you do not supply a title or body."
+        ),
         "parameters": {
             "type": "object",
             "properties": {
                 "id": {"type": "string", "description": "Source block id."},
-                "title": {"type": "string", "description": "Title of the new permanent block."},
-                "body": {"type": "string", "description": "Body of the new permanent block."},
             },
-            "required": ["id", "title", "body"],
+            "required": ["id"],
         },
         "handler": _wrap(_extract_permanent_from),
     },
