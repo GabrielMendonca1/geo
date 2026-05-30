@@ -369,7 +369,7 @@ WRITE_TOOLS: list[dict] = [
     },
     {
         "name": "geo_create_task",
-        "description": "Create a task. `due` and `day` are optional ISO dates.",
+        "description": "Create a task UNCONDITIONALLY (no dedup). Prefer geo_upsert_task, which avoids duplicates. `due` and `day` are optional ISO dates.",
         "parameters": {
             "type": "object",
             "properties": {
