@@ -387,15 +387,14 @@ WRITE_TOOLS: list[dict] = [
     },
     {
         "name": "geo_set_block_tag",
-        "description": "Add or remove a tag on a block.",
+        "description": "Set a block's tag. A block carries a single tag; pass an empty tag_name to clear it.",
         "parameters": {
             "type": "object",
             "properties": {
                 "id": {"type": "string"},
-                "tag": {"type": "string"},
-                "action": {"type": "string", "description": "'add' (default) or 'remove'."},
+                "tag_name": {"type": "string", "description": "Tag to set; empty string clears the tag."},
             },
-            "required": ["id", "tag"],
+            "required": ["id", "tag_name"],
         },
         "handler": _wrap(_set_block_tag),
     },
