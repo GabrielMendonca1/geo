@@ -482,17 +482,29 @@ WRITE_TOOLS: list[dict] = [
     },
     {
         "name": "geo_update_task",
-        "description": "Patch task fields.",
+        "description": (
+            "Patch task fields. To reschedule, pass a full structured `body` "
+            "{kind, due|start|end|recurrence|time_of_day|target}; alternatively pass `kind` "
+            "plus the kind's fields and the body is built for you."
+        ),
         "parameters": {
             "type": "object",
             "properties": {
                 "id": {"type": "string"},
                 "title": {"type": "string"},
-                "body": {"type": "string"},
+                "notes": {"type": "string"},
+                "status": {"type": "string", "description": "pending|completed."},
+                "priority": {"type": "string"},
+                "linked_block_id": {"type": "string"},
+                "tag_ids": {"type": "array", "items": {"type": "string"}},
+                "kind": {"type": "string", "description": "task|event|habit|milestone (drives body rebuild)."},
                 "due": {"type": "string"},
-                "day": {"type": "string"},
-                "status": {"type": "string"},
-                "tags": {"type": "array", "items": {"type": "string"}},
+                "start": {"type": "string"},
+                "end": {"type": "string"},
+                "recurrence": {"type": "string"},
+                "time_of_day": {"type": "string"},
+                "target": {"type": "string"},
+                "body": {"type": "object", "description": "Full structured body {kind, ...} for reschedule."},
             },
             "required": ["id"],
         },
