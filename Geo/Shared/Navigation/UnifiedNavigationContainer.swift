@@ -30,6 +30,7 @@ struct UnifiedNavigationContainer: View {
             ForEach(AppTab.allCases) { tab in
                 if live.contains(tab) {
                     tab.destinationView
+                        .environment(\.tabIsActive, selected == tab)
                         .opacity(selected == tab ? 1 : 0)
                         .allowsHitTesting(selected == tab)
                         .zIndex(selected == tab ? 1 : 0)
