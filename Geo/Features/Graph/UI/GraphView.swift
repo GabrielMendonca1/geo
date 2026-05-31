@@ -1074,9 +1074,9 @@ struct GraphView: View {
 
     private func renderCanvas(canvasContext: GraphicsContext, size: CGSize) {
         var ctx = canvasContext
-        let visibleSet = visibleNodeIDs
-        let focused = focusedNodeID
-        let neighbors = focused.map(neighborSet) ?? []
+        let visibleSet = cachedVisibleSet
+        let focused = cachedFocusedID
+        let neighbors = cachedNeighbors
         let dimEverythingElse = focused != nil
 
         let neutralGrey = Color(white: 0.55)
