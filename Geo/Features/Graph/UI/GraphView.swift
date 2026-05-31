@@ -428,6 +428,7 @@ private struct ScrollWheelMonitor: NSViewRepresentable {
 }
 
 private struct MouseEventMonitor: NSViewRepresentable {
+    let isActive: Bool
     let onDown: (CGPoint) -> Void
     let onDrag: (CGPoint) -> Void
     let onUp: (CGPoint) -> Void
@@ -437,13 +438,13 @@ private struct MouseEventMonitor: NSViewRepresentable {
     func makeNSView(context: Context) -> MouseNSView {
         let v = MouseNSView()
         v.callbacks = .init(down: onDown, drag: onDrag, up: onUp, move: onMove, exit: onExit)
-        v.isActive = context.environment.tabIsActive
+        v.isActive = isActive
         return v
     }
 
     func updateNSView(_ nsView: MouseNSView, context: Context) {
         nsView.callbacks = .init(down: onDown, drag: onDrag, up: onUp, move: onMove, exit: onExit)
-        nsView.isActive = context.environment.tabIsActive
+        nsView.isActive = isActive
     }
 
     @MainActor
