@@ -541,6 +541,11 @@ struct GraphView: View {
     @State private var settingsOpen: Bool = false
     @State private var zoomPersistTask: Task<Void, Never>?
 
+    @State private var cachedVisibleSet: Set<UUID> = []
+    @State private var cachedVisibleNodes: [GraphNode] = []
+    @State private var cachedFocusedID: UUID?
+    @State private var cachedNeighbors: Set<UUID> = []
+
     private func scheduleZoomPersist(_ value: CGFloat) {
         zoomPersistTask?.cancel()
         zoomPersistTask = Task { @MainActor in
