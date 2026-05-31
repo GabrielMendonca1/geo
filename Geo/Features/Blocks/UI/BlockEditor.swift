@@ -590,38 +590,7 @@ private extension BlockEditorView {
 
     func handleTypeSelection(_ type: BlockType) {
         guard type != currentBlockType else { return }
-        guard let template = noteTemplate(for: type) else {
-            Task { _ = await actions.setType(liveBlock.id, type) }
-            return
-        }
-        let sourceTitle = liveBlock.displayTitle
-        let body: String
-        if sourceTitle.isEmpty {
-            body = template.content
-        } else if let range = template.content.range(of: "- [[]]") {
-            body = template.content.replacingCharacters(in: range, with: "- [[\(sourceTitle)]]")
-        } else {
-            body = template.content
-        }
-        Task { @MainActor in
-            guard let newBlock = await actions.createBlock("", body) else { return }
-            let metadata = template.initialMetadata
-            _ = await actions.setType(newBlock.id, metadata.type)
-            if let status = metadata.status {
-                _ = await actions.setStatusString(newBlock.id, status)
-            }
-            openWindow(value: newBlock.id)
-        }
-    }
-
-    func noteTemplate(for type: BlockType) -> NoteTemplate? {
-        switch type {
-        case .permanent: return .permanent
-        case .literature: return .literature
-        case .moc: return .moc
-        case .project: return .project
-        case .fleeting: return nil
-        }
+        Task { _ = await actions.setType(liveBlock.id, type) }
     }
 
     var layerPickerChip: some View {
