@@ -590,5 +590,6 @@ struct SearchFieldView: NSViewRepresentable {
 extension Notification.Name {
     static let openTaskForm = Notification.Name("openTaskForm")
     static let openTaskCreateForm = Notification.Name("openTaskCreateForm")
+    static let openBlockEditor = Notification.Name("openBlockEditor")
     static let blockWriteFailed = Notification.Name("blockWriteFailed")
 }
