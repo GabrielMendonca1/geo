@@ -74,12 +74,14 @@ private struct ResizeDividerHandle: NSViewRepresentable {
         let view = DividerNSView()
         view.onDragChanged = onDragChanged
         view.onDragEnded = onDragEnded
+        view.isActive = context.environment.tabIsActive
         return view
     }
 
     func updateNSView(_ nsView: DividerNSView, context: Context) {
         nsView.onDragChanged = onDragChanged
         nsView.onDragEnded = onDragEnded
+        nsView.isActive = context.environment.tabIsActive
     }
 
     @MainActor
