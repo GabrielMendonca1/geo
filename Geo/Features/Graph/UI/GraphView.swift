@@ -931,12 +931,11 @@ struct GraphView: View {
     }
 
     private var labelOverlay: some View {
-        let visibleSet = visibleNodeIDs
-        let focused = focusedNodeID
-        let neighbors = focused.map(neighborSet) ?? []
+        let focused = cachedFocusedID
+        let neighbors = cachedNeighbors
         return ZStack(alignment: .topLeading) {
             if settings.showLabels {
-                ForEach(graph.nodes.filter { visibleSet.contains($0.id) }, id: \.id) { node in
+                ForEach(cachedVisibleNodes, id: \.id) { node in
                     let position = projected(simulation.position(for: node.id) ?? .zero)
                     let isFocused = focused == node.id
                     let isNeighbor = neighbors.contains(node.id)
