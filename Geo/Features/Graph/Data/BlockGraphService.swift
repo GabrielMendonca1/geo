@@ -300,8 +300,11 @@ final class BlockGraphService: @unchecked Sendable {
 
         var nodes: [GraphNode] = []
         nodes.reserveCapacity(entries.count)
+        var emittedNodeIds: Set<UUID> = []
+        emittedNodeIds.reserveCapacity(entries.count)
         for entry in entries {
             guard let nodeId = idMap[entry.id] else { continue }
+            guard emittedNodeIds.insert(nodeId).inserted else { continue }
             let color: Color?
             if let tagId = entry.tagId {
                 color = tagColors[tagId]
