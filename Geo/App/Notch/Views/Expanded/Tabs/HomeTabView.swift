@@ -1,18 +1,18 @@
 import SwiftUI
 
-struct NotchTagBar: View {
+struct NotchFilterBar: View {
     let tags: [Tag]
-    @Binding var selectedTagId: String?
+    @Binding var filter: NotchFilter
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                NotchChip(title: "All", isActive: selectedTagId == nil) {
-                    selectedTagId = nil
-                }
+                NotchChip(title: "History", isActive: filter == .all) { filter = .all }
+                NotchChip(title: "Images", isActive: filter == .images) { filter = .images }
+                NotchChip(title: "Blocks", isActive: filter == .blocks) { filter = .blocks }
                 ForEach(tags) { tag in
-                    NotchTagChip(tag: tag, isActive: selectedTagId == tag.id) {
-                        selectedTagId = (selectedTagId == tag.id) ? nil : tag.id
+                    NotchTagChip(tag: tag, isActive: filter == .tag(tag.id)) {
+                        filter = (filter == .tag(tag.id)) ? .all : .tag(tag.id)
                     }
                 }
             }
