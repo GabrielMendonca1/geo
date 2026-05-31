@@ -1043,7 +1043,7 @@ struct GraphView: View {
 
     private func nodeHit(at viewPoint: CGPoint) -> UUID? {
         let world = unprojected(viewPoint)
-        let visibleSet = visibleNodeIDs
+        let visibleSet = cachedVisibleSet
         var best: (UUID, CGFloat)?
         for node in graph.nodes where visibleSet.contains(node.id) {
             guard let pos = simulation.position(for: node.id), let radius = simulation.radius(for: node.id) else { continue }
