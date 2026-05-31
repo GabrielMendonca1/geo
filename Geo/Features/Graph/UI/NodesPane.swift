@@ -31,6 +31,7 @@ struct NodesPane: View {
 
                 ResizeDividerHandle(
                     width: handleWidth,
+                    isActive: tabIsActive,
                     onDragChanged: { deltaPx in
                         let denom = Double(max(total, 1))
                         let next = splitFraction + Double(deltaPx) / denom
