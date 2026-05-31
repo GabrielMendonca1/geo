@@ -296,7 +296,16 @@ private final class GraphSimulation: ObservableObject {
         }
 
         let avgKE = totalKE / CGFloat(max(nodeOrder.count, 1))
-        if avgKE < kineticThreshold || iterationCount > maxIterations {
+        if avgKE < kineticThreshold {
+            quietStreak += 1
+        } else {
+            quietStreak = 0
+        }
+        if quietStreak >= quietStreakThreshold || iterationCount > maxIterations {
+            for id in nodeOrder where !(nodes[id]?.pinned ?? true) {
+                nodes[id]?.velocity = .zero
+            }
+            quietStreak = 0
             isSettled = true
         }
         publishLayout()
