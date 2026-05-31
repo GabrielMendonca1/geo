@@ -102,12 +102,7 @@ private struct ResizeDividerHandle: NSViewRepresentable {
         override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
         override func hitTest(_ point: NSPoint) -> NSView? {
-            var ancestor: NSView? = self
-            while let v = ancestor {
-                if v.isHidden || v.alphaValue <= 0.01 { return nil }
-                if let opacity = v.layer?.opacity, opacity <= 0.01 { return nil }
-                ancestor = v.superview
-            }
+            guard isActive else { return nil }
             let local = convert(point, from: superview)
             return bounds.contains(local) ? self : nil
         }
