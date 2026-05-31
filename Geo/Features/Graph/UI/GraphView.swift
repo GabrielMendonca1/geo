@@ -650,6 +650,7 @@ struct GraphView: View {
 
     private var gestureLayer: some View {
         MouseEventMonitor(
+            isActive: tabIsActive,
             onDown: handleMouseDown,
             onDrag: handleMouseDrag,
             onUp: handleMouseUp,
