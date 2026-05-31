@@ -1,18 +1,18 @@
 import SwiftUI
 
 struct NotchCardRow: View {
-    let blocks: [BlockEntity]
+    let items: [NotchFeedItem]
     let tagsById: [String: Tag]
 
     var body: some View {
         Group {
-            if blocks.isEmpty {
+            if items.isEmpty {
                 emptyState
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
-                        ForEach(blocks) { block in
-                            NotchCard(block: block, tag: block.tagId.flatMap { tagsById[$0] })
+                        ForEach(items) { item in
+                            NotchCard(item: item, tag: tagFor(item))
                                 .transition(.asymmetric(
                                     insertion: .scale(scale: 0.7, anchor: .leading).combined(with: .opacity),
                                     removal: .scale(scale: 0.85).combined(with: .opacity)
@@ -20,19 +20,26 @@ struct NotchCardRow: View {
                         }
                     }
                     .padding(.vertical, 2)
-                    .animation(.spring(response: 0.4, dampingFraction: 0.82), value: blocks.map(\.id))
+                    .animation(.spring(response: 0.4, dampingFraction: 0.82), value: items.map(\.id))
                 }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
+    private func tagFor(_ item: NotchFeedItem) -> Tag? {
+        if case .block(let block) = item, let id = block.tagId {
+            return tagsById[id]
+        }
+        return nil
+    }
+
     private var emptyState: some View {
         VStack(spacing: 8) {
-            Image(systemName: "doc.text")
+            Image(systemName: "tray")
                 .font(.system(size: 24, weight: .light))
                 .foregroundStyle(.white.opacity(0.25))
-            Text("No notes")
+            Text("Nothing here yet")
                 .font(.system(size: 12))
                 .foregroundStyle(.white.opacity(0.4))
         }
