@@ -589,7 +589,21 @@ struct GraphView: View {
         if !externalPulses.isEmpty {
             externalPulses = externalPulses.filter { valid.contains($0.key) }
         }
+        recomputeVisibilityCache()
         frameInitialLayoutIfNeeded()
+    }
+
+    private func recomputeVisibilityCache() {
+        let set = computeVisibleNodeIDs()
+        cachedVisibleSet = set
+        cachedVisibleNodes = graph.nodes.filter { set.contains($0.id) }
+        recomputeFocusCache()
+    }
+
+    private func recomputeFocusCache() {
+        let focused = hoverNodeID ?? selectedNodeID
+        cachedFocusedID = focused
+        cachedNeighbors = focused.map(neighborSet) ?? []
     }
 
     private func handleExternalSignal(_ signal: ExternalChangeSignal?) {
