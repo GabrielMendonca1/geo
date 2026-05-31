@@ -539,6 +539,16 @@ struct GraphView: View {
     @State private var mouseDownNodeID: UUID?
 
     @State private var settingsOpen: Bool = false
+    @State private var zoomPersistTask: Task<Void, Never>?
+
+    private func scheduleZoomPersist(_ value: CGFloat) {
+        zoomPersistTask?.cancel()
+        zoomPersistTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 150_000_000)
+            if Task.isCancelled { return }
+            settings.zoom = Double(value)
+        }
+    }
 
     @State private var settings: GraphSettings = GraphView.bootstrappedSettings()
 
