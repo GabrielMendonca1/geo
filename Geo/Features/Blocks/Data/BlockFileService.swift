@@ -77,9 +77,9 @@ final class BlockFileService {
         let basePath = blocksDirectory.standardizedFileURL.path
         let fullPath = url.standardizedFileURL.path
         if fullPath.hasPrefix(basePath + "/") {
-            return String(fullPath.dropFirst(basePath.count + 1))
+            return String(fullPath.dropFirst(basePath.count + 1)).precomposedStringWithCanonicalMapping
         }
-        return url.lastPathComponent
+        return url.lastPathComponent.precomposedStringWithCanonicalMapping
     }
 
     func loadBlocksFromFiles(
