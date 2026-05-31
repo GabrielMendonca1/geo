@@ -3,12 +3,13 @@ import SwiftUI
 struct DockView: View {
     @ObservedObject var stateStore: NotchStateStore
     let metrics: NotchMetrics
+    @ObservedObject private var captureStore = LogStore.shared
     @Environment(\.appEnvironment) private var env
 
     @State private var blocks: [BlockEntity] = []
     @State private var tags: [Tag] = []
     @State private var searchText = ""
-    @State private var selectedTagId: String?
+    @State private var filter: NotchFilter = .all
 
     private var tagsById: [String: Tag] {
         Dictionary(tags.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
@@ -19,19 +20,24 @@ struct DockView: View {
         return tags.filter { used.contains($0.id) }
     }
 
-    private var filtered: [BlockEntity] {
-        var result = blocks
-        if let selectedTagId {
-            result = result.filter { $0.tagId == selectedTagId }
+    private var feed: [NotchFeedItem] {
+        var items: [NotchFeedItem]
+        switch filter {
+        case .all:
+            items = captureStore.captures.map { .capture($0) } + blocks.map { .block($0) }
+        case .images:
+            items = captureStore.captures.map { .capture($0) }
+        case .blocks:
+            items = blocks.map { .block($0) }
+        case .tag(let id):
+            items = blocks.filter { $0.tagId == id }.map { .block($0) }
         }
+        items.sort { $0.date > $1.date }
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         if !query.isEmpty {
-            result = result.filter {
-                $0.displayTitle.localizedCaseInsensitiveContains(query) ||
-                $0.markdown.localizedCaseInsensitiveContains(query)
-            }
+            items = items.filter { $0.searchText.localizedCaseInsensitiveContains(query) }
         }
-        return Array(result.prefix(40))
+        return Array(items.prefix(50))
     }
 
     var body: some View {
@@ -41,9 +47,9 @@ struct DockView: View {
                 .allowsHitTesting(false)
 
             VStack(spacing: 10) {
-                DockTopBar(searchText: $searchText, count: filtered.count)
-                NotchTagBar(tags: blockTags, selectedTagId: $selectedTagId)
-                NotchCardRow(blocks: filtered, tagsById: tagsById)
+                DockTopBar(searchText: $searchText, count: feed.count)
+                NotchFilterBar(tags: blockTags, filter: $filter)
+                NotchCardRow(items: feed, tagsById: tagsById)
             }
             .padding(.horizontal, 14)
             .padding(.top, 8)
