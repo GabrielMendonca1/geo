@@ -520,6 +520,7 @@ struct GraphView: View {
     var onNodeTap: (UUID) -> Void
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.tabIsActive) private var tabIsActive
     @StateObject private var simulation = GraphSimulation()
     @State private var externalPulses: [UUID: Date] = [:]
     private static let pulseDuration: TimeInterval = 1.2
