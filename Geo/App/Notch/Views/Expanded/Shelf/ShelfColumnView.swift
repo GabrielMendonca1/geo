@@ -21,6 +21,33 @@ struct NotchCard: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .strokeBorder(.white.opacity(0.08), lineWidth: 0.5)
         )
+        .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .onTapGesture { open() }
+        .pointingHandCursor()
+    }
+
+    private func open() {
+        switch item {
+        case .capture(let capture): openCapture(capture)
+        case .block(let block):
+            NotificationCenter.default.post(
+                name: .openBlockEditor,
+                object: nil,
+                userInfo: ["blockId": block.id]
+            )
+        }
+    }
+
+    private func openCapture(_ capture: CaptureItem) {
+        if let url = capture.sourceURL, FileManager.default.fileExists(atPath: url.path) {
+            NSWorkspace.shared.open(url)
+            return
+        }
+        guard let data = capture.fullImageData() else { return }
+        let tmp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("geo-\(capture.id.uuidString).png")
+        try? data.write(to: tmp)
+        NSWorkspace.shared.open(tmp)
     }
 
     @ViewBuilder
