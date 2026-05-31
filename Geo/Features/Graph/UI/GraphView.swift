@@ -437,11 +437,13 @@ private struct MouseEventMonitor: NSViewRepresentable {
     func makeNSView(context: Context) -> MouseNSView {
         let v = MouseNSView()
         v.callbacks = .init(down: onDown, drag: onDrag, up: onUp, move: onMove, exit: onExit)
+        v.isActive = context.environment.tabIsActive
         return v
     }
 
     func updateNSView(_ nsView: MouseNSView, context: Context) {
         nsView.callbacks = .init(down: onDown, drag: onDrag, up: onUp, move: onMove, exit: onExit)
+        nsView.isActive = context.environment.tabIsActive
     }
 
     @MainActor
