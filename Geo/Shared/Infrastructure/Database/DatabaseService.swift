@@ -202,6 +202,32 @@ final class DatabaseService: @unchecked Sendable {
         migrator.registerMigration("addBlockIsFullWidth") { db in
             try db.execute(sql: "ALTER TABLE blocks ADD COLUMN isFullWidth INTEGER NOT NULL DEFAULT 0")
         }
+        migrator.registerMigration("collapseBlockIdNFCDuplicates") { db in
+            func bytesEqual(_ a: String, _ b: String) -> Bool { Array(a.utf8) == Array(b.utf8) }
+            let rows = try Row.fetchAll(db, sql: "SELECT id, modifiedAt FROM blocks")
+            var groups: [String: [(id: String, modifiedAt: Date)]] = [:]
+            for row in rows {
+                let id: String = row["id"]
+                let modifiedAt: Date = row["modifiedAt"]
+                let canonical = id.precomposedStringWithCanonicalMapping
+                groups[canonical, default: []].append((id, modifiedAt))
+            }
+            for (canonical, members) in groups {
+                guard members.count > 1 || !bytesEqual(members[0].id, canonical) else { continue }
+                let survivor = members.first(where: { bytesEqual($0.id, canonical) })
+                    ?? members.max(by: { $0.modifiedAt < $1.modifiedAt })!
+                for member in members where !bytesEqual(member.id, survivor.id) {
+                    try db.execute(sql: "DELETE FROM block_tags WHERE blockId = ?", arguments: [member.id])
+                    try db.execute(sql: "DELETE FROM blocks_fts WHERE blockId = ?", arguments: [member.id])
+                    try db.execute(sql: "DELETE FROM blocks WHERE id = ?", arguments: [member.id])
+                }
+                if !bytesEqual(survivor.id, canonical) {
+                    try db.execute(sql: "UPDATE block_tags SET blockId = ? WHERE blockId = ?", arguments: [canonical, survivor.id])
+                    try db.execute(sql: "UPDATE blocks_fts SET blockId = ? WHERE blockId = ?", arguments: [canonical, survivor.id])
+                    try db.execute(sql: "UPDATE blocks SET id = ? WHERE id = ?", arguments: [canonical, survivor.id])
+                }
+            }
+        }
         return migrator
     }
 
