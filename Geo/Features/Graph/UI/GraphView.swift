@@ -450,6 +450,16 @@ private struct MouseEventMonitor: NSViewRepresentable {
         override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
         override var acceptsFirstResponder: Bool { true }
 
+        override func hitTest(_ point: NSPoint) -> NSView? {
+            var ancestor: NSView? = self
+            while let v = ancestor {
+                if v.isHidden || v.alphaValue <= 0.01 { return nil }
+                if let opacity = v.layer?.opacity, opacity <= 0.01 { return nil }
+                ancestor = v.superview
+            }
+            return super.hitTest(point)
+        }
+
         override func updateTrackingAreas() {
             super.updateTrackingAreas()
             if let existing = trackingArea {
