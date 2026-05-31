@@ -701,7 +701,7 @@ struct GraphView: View {
             let next = max(0.4, min(2.4, zoom * (1 + delta)))
             zoom = next
             pendingZoom = next
-            settings.zoom = Double(next)
+            scheduleZoomPersist(next)
         }
         .allowsHitTesting(false)
     }
