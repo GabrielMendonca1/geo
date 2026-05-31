@@ -1052,7 +1052,6 @@ struct GraphView: View {
     }
 
     private func renderCanvas(canvasContext: GraphicsContext, size: CGSize) {
-        canvasSize = size
         var ctx = canvasContext
         let visibleSet = visibleNodeIDs
         let focused = focusedNodeID
