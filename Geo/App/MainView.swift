@@ -28,6 +28,11 @@ struct MainView: View {
                 appEnvironment.settingsRepository.refreshPermissions()
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .openBlockEditor)) { note in
+            if let blockId = note.userInfo?["blockId"] as? String {
+                MenuActions.openBlockEditor(blockId, openWindow: openWindow)
+            }
+        }
         .background {
             ZStack {
                 Button("") { commandPalette.toggle() }
