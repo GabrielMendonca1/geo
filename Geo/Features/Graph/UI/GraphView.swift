@@ -691,7 +691,7 @@ struct GraphView: View {
             Canvas(rendersAsynchronously: true) { canvasContext, size in
                 renderCanvas(canvasContext: canvasContext, size: size)
             }
-            .onChange(of: context.date) { _, _ in simulation.step() }
+            .onChange(of: context.date) { _, _ in DispatchQueue.main.async { simulation.step() } }
         }
         .allowsHitTesting(false)
     }
