@@ -24,6 +24,8 @@ final class NotchDropView: NSView {
         return result === self ? nil : result
     }
 
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
         onDragEnter()
         return .copy
