@@ -4,6 +4,7 @@ import AppKit
 struct MainView: View {
     @Environment(\.appEnvironment) private var appEnvironment
     @Environment(\.navigationStore) private var navigationStore
+    @Environment(\.openWindow) private var openWindow
     @State private var window: NSWindow?
     @State private var commandPalette = CommandPaletteViewModel()
 
