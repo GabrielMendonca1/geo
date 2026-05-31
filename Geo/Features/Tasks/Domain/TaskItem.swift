@@ -499,6 +499,27 @@ struct TaskItem: Identifiable, Codable, Hashable {
     var body: TaskBody
     var reminders: [Reminder]
 
+    private enum CodingKeys: String, CodingKey {
+        case id, title, notes, linkedBlockId, status, priority, tagIds, orderIndex, estimatedMinutes, createdAt, modifiedAt, body, reminders
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        title = try c.decode(String.self, forKey: .title)
+        notes = try c.decodeIfPresent(String.self, forKey: .notes) ?? ""
+        linkedBlockId = try c.decodeIfPresent(String.self, forKey: .linkedBlockId)
+        status = (try? c.decode(TaskStatus.self, forKey: .status)) ?? .pending
+        priority = (try? c.decode(TaskPriority.self, forKey: .priority)) ?? .unset
+        tagIds = try c.decodeIfPresent([String].self, forKey: .tagIds) ?? []
+        orderIndex = try c.decodeIfPresent(Int.self, forKey: .orderIndex) ?? 0
+        estimatedMinutes = try c.decodeIfPresent(Int.self, forKey: .estimatedMinutes)
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
+        modifiedAt = try c.decodeIfPresent(Date.self, forKey: .modifiedAt) ?? createdAt
+        body = try c.decode(TaskBody.self, forKey: .body)
+        reminders = try c.decodeIfPresent([Reminder].self, forKey: .reminders) ?? []
+    }
+
     init(
         id: String,
         title: String,
