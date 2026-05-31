@@ -904,7 +904,7 @@ struct GraphView: View {
         return set
     }
 
-    private var visibleNodeIDs: Set<UUID> {
+    private func computeVisibleNodeIDs() -> Set<UUID> {
         var connected: Set<UUID> = []
         if !settings.showOrphans {
             for edge in graph.edges {
