@@ -734,6 +734,7 @@ struct GraphView: View {
             simulation.seedCachedPositions(seedPositions, settled: wasSettled)
         }
         simulation.ingest(graph: graph)
+        recomputeVisibilityCache()
         frameInitialLayoutIfNeeded()
     }
 
