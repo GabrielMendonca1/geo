@@ -102,6 +102,8 @@ private final class GraphSimulation: ObservableObject {
     private let timeStep: CGFloat = 0.85
     private var iterationCount = 0
     private let maxIterations = 1400
+    private var quietStreak = 0
+    private let quietStreakThreshold = 6
 
     func seedCachedPositions(_ positions: [UUID: CGPoint], settled: Bool) {
         for (id, pos) in positions where nodes[id] == nil {
