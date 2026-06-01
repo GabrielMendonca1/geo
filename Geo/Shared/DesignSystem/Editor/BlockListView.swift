@@ -107,7 +107,7 @@ struct BlockListView: View {
                             let rowConfig = BlockRowConfiguration(
                                 block: block,
                                 depth: block.depth,
-                                hasChildren: BlockTreeNavigator.hasChildren(index, in: document.blocks),
+                                hasChildren: parentIds.contains(block.id),
                                 isCollapsed: block.collapsed,
                                 isFocused: focusCoordinator.activeFocusedBlockId == block.id && !selectionManager.selectedBlockIds.isEmpty,
                                 isSelected: selectionManager.selectedBlockIds.contains(block.id),
