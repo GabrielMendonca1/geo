@@ -67,8 +67,8 @@ struct NotchCard: View {
     @ViewBuilder
     private func imageCard(_ capture: CaptureItem) -> some View {
         ZStack(alignment: .bottom) {
-            if let image = capture.previewImage ?? capture.fullImage() {
-                Image(nsImage: image).resizable().aspectRatio(contentMode: .fill)
+            if let thumbnail {
+                Image(nsImage: thumbnail).resizable().aspectRatio(contentMode: .fill)
             } else {
                 Color.white.opacity(0.06)
             }
