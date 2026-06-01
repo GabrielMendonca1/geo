@@ -1,7 +1,4 @@
 import AppKit
-import os.log
-
-private let wikiLinkNavLogger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "geo", category: "WikiLinkNav")
 
 private final class EditorBlockKindWrapper: NSObject {
     let kind: EditorBlockKind
