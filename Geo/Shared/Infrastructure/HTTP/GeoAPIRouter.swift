@@ -167,7 +167,7 @@ final class GeoAPIRouter: @unchecked Sendable {
             case "/v1/tasks":
                 return await call("create_task", args: body)
             case "/v1/tasks/parse":
-                return await call("ai_quick_add_parse", args: body)
+                return await call("ai_parse_task", args: body)
             case "/v1/tags":
                 return await call("create_tag", args: body)
             case "/v1/destructive/prepare":
