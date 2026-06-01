@@ -1,14 +1,5 @@
 import SwiftUI
 
-private struct TabIsActiveKey: EnvironmentKey { static let defaultValue = true }
-
-extension EnvironmentValues {
-    var tabIsActive: Bool {
-        get { self[TabIsActiveKey.self] }
-        set { self[TabIsActiveKey.self] = newValue }
-    }
-}
-
 struct UnifiedNavigationContainer: View {
     @Environment(\.tabRouter) private var tabRouter
     @State private var lruOrder: [AppTab] = []
