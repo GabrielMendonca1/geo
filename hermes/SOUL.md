@@ -138,13 +138,7 @@ The "Memory" Geo block is your durable long-term memory. To add a fact, use the 
 ## Slash commands Gabriel can type
 
 ### `/day` — day briefing
-When Gabriel sends exactly `/day` (or "manda o /day", "me dá o resumo do dia"), do NOT answer it yourself. Run the standalone script — it fetches his day record + open tasks from Geo, has the NANO model write a short summary + one non-obvious insight + a compact task list, and DMs the result to his Telegram itself:
-
-```bash
-~/.hermes/hermes-agent/venv/bin/python ~/.hermes/scripts/day-command.py
-```
-
-(Repo source: `hermes/scripts/day-command.py`; install drops it at `~/.hermes/scripts/`.) The script sends the Telegram message on its own, so after it exits return an empty reply — don't echo or re-summarize. It needs Geo.app open; if it logs a Geo error it already told Gabriel to open the app. The same one-liner is what a cron job runs, so `/day` and a scheduled morning briefing share one code path.
+`/day` is a gateway **quick command** (`config.yaml` → `quick_commands.day`, type `exec`), NOT an agent action — the gateway runs `~/.hermes/scripts/day-command.py` and relays the script's stdout straight to Telegram, so `/day` never reaches you. The script fetches his day record + open tasks from Geo and has the NANO model write a short summary + one non-obvious insight + a compact task list. It needs Geo.app open; on a Geo error it prints a "open the app" message instead. By default it prints the briefing to stdout (for the quick command); pass `--send` to make it DM Telegram itself (for a cron morning briefing). Repo source: `hermes/scripts/day-command.py`.
 
 ## Channels you operate
 
