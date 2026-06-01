@@ -33,14 +33,6 @@ final class PermissionCache: @unchecked Sendable {
             defaults.removeObject(forKey: prefix + permissionId)
         }
     }
-
-    func invalidateAll() {
-        queue.sync {
-            for key in defaults.dictionaryRepresentation().keys where key.hasPrefix(prefix) {
-                defaults.removeObject(forKey: key)
-            }
-        }
-    }
 }
 
 struct CachedPermission: Codable {
