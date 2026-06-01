@@ -142,8 +142,34 @@ struct NotchCard: View {
         formatter.unitsStyle = .abbreviated
         return formatter.localizedString(for: date, relativeTo: Date())
     }
+}
 
-    private func captureSize(_ capture: CaptureItem) -> String? {
+@MainActor
+final class NotchThumbnailCache {
+    static let shared = NotchThumbnailCache()
+
+    private let images = NSCache<NSUUID, NSImage>()
+    private var sizes: [UUID: String] = [:]
+
+    func load(_ capture: CaptureItem) async -> (image: NSImage?, size: String?) {
+        let key = capture.id as NSUUID
+        if let cached = images.object(forKey: key) {
+            return (cached, sizes[capture.id])
+        }
+
+        var data = capture.previewData
+        if data == nil {
+            data = await Task.detached { capture.fullImageData() }.value
+        }
+        let image = data.flatMap { NSImage(data: $0) }
+        if let image { images.setObject(image, forKey: key) }
+
+        let size = formattedSize(capture)
+        sizes[capture.id] = size
+        return (image, size)
+    }
+
+    private func formattedSize(_ capture: CaptureItem) -> String? {
         let bytes: Int?
         if let n = capture.imageData?.count, n > 0 {
             bytes = n
