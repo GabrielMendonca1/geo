@@ -1,6 +1,6 @@
 """geo-http-tools — authenticated HTTP client for Gabriel's Geo macOS app.
 
-Registers 34 tools (`geo_*` prefix, no `mcp_`) that talk to the localhost
+Registers 39 tools (`geo_*` prefix, no `mcp_`) that talk to the localhost
 HTTP API exposed by Geo.app (Slice A). Auth via macOS Keychain bearer.
 
 Destructive ops (`geo_delete_block`, `geo_delete_task`) gate on a Telegram
