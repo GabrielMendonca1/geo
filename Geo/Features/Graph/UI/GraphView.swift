@@ -985,10 +985,6 @@ struct GraphView: View {
             }
     }
 
-    private func handleHover(at point: CGPoint) {
-        hoverNodeID = nodeHit(at: point)
-    }
-
     private func handleTap(at location: CGPoint) {
         if let hit = nodeHit(at: location) {
             selectedNodeID = hit
