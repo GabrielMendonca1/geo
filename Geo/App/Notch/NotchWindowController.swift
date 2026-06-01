@@ -15,6 +15,7 @@ final class NotchWindowController {
     private var screenChangeObserver: NSObjectProtocol?
     private var stateCancellable: AnyCancellable?
     private var dragCancellable: AnyCancellable?
+    private var searchCancellable: AnyCancellable?
 
     init(stateStore: NotchStateStore, environment: AppEnvironment) {
         self.stateStore = stateStore
