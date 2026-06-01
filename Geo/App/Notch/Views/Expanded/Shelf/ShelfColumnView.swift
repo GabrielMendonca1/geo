@@ -83,8 +83,8 @@ struct NotchCard: View {
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(.white.opacity(0.85))
                 Spacer(minLength: 4)
-                if let size = captureSize(capture) {
-                    Text(size).font(.system(size: 10)).foregroundStyle(.white.opacity(0.55))
+                if let sizeText {
+                    Text(sizeText).font(.system(size: 10)).foregroundStyle(.white.opacity(0.55))
                 }
             }
             .padding(.horizontal, 10)
