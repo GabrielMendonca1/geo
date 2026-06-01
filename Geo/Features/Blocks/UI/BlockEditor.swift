@@ -4,8 +4,6 @@ import SwiftUI
 import UniformTypeIdentifiers
 import os.log
 
-private let wikiLinkNavLogger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "geo", category: "WikiLinkNav")
-
 struct BlockEditorView: View, Equatable {
     static func == (lhs: BlockEditorView, rhs: BlockEditorView) -> Bool {
         lhs.block.id == rhs.block.id && lhs.actions === rhs.actions
