@@ -5,7 +5,7 @@ import Combine
 struct NodesPane: View {
     @EnvironmentObject private var blocksViewModel: BlocksViewModel
     @Environment(\.openWindow) private var openWindow
-    @Environment(\.tabIsActive) private var tabIsActive
+    @Environment(\.tabRouter) private var tabRouter
     @ObservedObject private var graphStore = GraphStore.shared
     @State private var pendingFocus: FocusRequest?
     @AppStorage("nodesPane.splitFraction") private var splitFraction: Double = 0.5
