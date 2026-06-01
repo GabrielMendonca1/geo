@@ -33,7 +33,6 @@ REMINDER_AT_S = 25.0
 POLL_INTERVAL_S = 1.0
 
 _inbound_queue: "deque[tuple[float, str]]" = deque(maxlen=64)
-_inbound_lock = asyncio.Lock()
 _confirm_gate = asyncio.Lock()
 _consumed_ts = 0.0
 
