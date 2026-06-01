@@ -27,6 +27,9 @@ final class NotchWindowController {
         if let screenChangeObserver {
             NotificationCenter.default.removeObserver(screenChangeObserver)
         }
+        if let keyResignObserver {
+            NotificationCenter.default.removeObserver(keyResignObserver)
+        }
     }
 
     func show() {
