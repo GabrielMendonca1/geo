@@ -70,26 +70,21 @@ async def _handle_geo_search_context(args: dict, **_kw: Any) -> str:
 SCHEMA = {
     "name": "geo_search_context",
     "description": (
-        "Search Gabriel's Geo app for blocks matching a query and return the "
-        "results (and an optional nano-model summary). Use this on demand when "
-        "you need fresh Geo state for the current task — it is NOT injected "
-        "automatically every turn. Returns {ok, query, results, summary, error}; "
-        "ok=False with error set when Geo.app is closed."
+        "Answer a question from Gabriel's Geo brain (his personal blocks). "
+        "Relevance-ranks his notes, reads the top matches, and returns a "
+        "Haiku-extracted answer with ONLY the facts relevant to the question, "
+        "each cited by block title in [[brackets]]. USE THIS FIRST whenever you "
+        "need to know anything about Gabriel — his people, projects, preferences, "
+        "or history — rather than guessing titles with get_block_by_title or "
+        "reading raw matches from search_blocks. Returns {ok, query, answer, "
+        "sources, results, error}; answer is null / ok=False when Geo.app is closed."
     ),
     "parameters": {
         "type": "object",
         "properties": {
             "query": {
                 "type": "string",
-                "description": "Full-text search query over Geo blocks.",
-            },
-            "with_summary": {
-                "type": "boolean",
-                "description": (
-                    "When true, also return a telegraphic nano-model summary of "
-                    "the results (cheaper to read than raw matches). Default false."
-                ),
-                "default": False,
+                "description": "The question or topic to answer, in Gabriel's own natural-language words.",
             },
         },
         "required": ["query"],
