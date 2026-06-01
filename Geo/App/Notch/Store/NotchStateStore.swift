@@ -66,7 +66,7 @@ final class NotchStateStore: ObservableObject {
     func hoverEnded() {
         expandTask?.cancel()
         expandTask = nil
-        guard state == .expanded, !isPinned, !isDragActive else { return }
+        guard state == .expanded, !isPinned, !isDragActive, !searchActive else { return }
         collapseTask?.cancel()
         collapseTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 800_000_000)
