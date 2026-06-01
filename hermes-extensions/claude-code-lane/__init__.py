@@ -37,7 +37,7 @@ CLAUDE_CODE_RUN_SCHEMA = {
             },
             "model": {
                 "type": "string",
-                "description": "Optional model id (e.g. 'claude-opus-4-7'). Omit to use Claude Code default.",
+                "description": "Optional model id (e.g. 'claude-opus-4-8'). Omit to use Claude Code default.",
             },
             "max_runtime_seconds": {
                 "type": "integer",
