@@ -635,13 +635,6 @@ struct GraphView: View {
         simulation.reheat()
     }
 
-    private func handleHoverPhase(_ phase: HoverPhase) {
-        switch phase {
-        case .active(let location): handleHover(at: location)
-        case .ended: hoverNodeID = nil
-        }
-    }
-
     private var stackedContent: some View {
         ZStack(alignment: .topTrailing) {
             backgroundLayer
