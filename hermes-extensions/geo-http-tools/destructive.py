@@ -120,8 +120,7 @@ async def _await_confirmation(since_ts: float) -> str:
                 await _send_telegram_sync("still waiting — 5 s left to confirm")
             except Exception:
                 pass
-        async with _inbound_lock:
-            messages = list(_inbound_queue)
+        messages = list(_inbound_queue)
         for ts, text in messages:
             if ts < since_ts or ts <= _consumed_ts:
                 continue
