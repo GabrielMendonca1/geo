@@ -298,7 +298,7 @@ final class DatabaseService: @unchecked Sendable {
         return try await performRead { db in
             try String.fetchAll(
                 db,
-                sql: "SELECT blockId FROM blocks_fts WHERE blocks_fts MATCH ?",
+                sql: "SELECT blockId FROM blocks_fts WHERE blocks_fts MATCH ? ORDER BY bm25(blocks_fts) LIMIT 25",
                 arguments: [sanitized]
             )
         }
