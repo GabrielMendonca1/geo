@@ -602,6 +602,11 @@ struct GraphView: View {
         let set = computeVisibleNodeIDs()
         cachedVisibleSet = set
         cachedVisibleNodes = graph.nodes.filter { set.contains($0.id) }
+        cachedVisibleEdges = graph.edges.filter { edge in
+            guard set.contains(edge.sourceId) else { return false }
+            if let target = edge.targetId, !set.contains(target) { return false }
+            return true
+        }
         recomputeFocusCache()
     }
 
