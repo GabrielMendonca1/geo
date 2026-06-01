@@ -98,6 +98,7 @@ struct BlockListView: View {
                     LazyVStack(alignment: .leading, spacing: 0) {
                         let highlightsByBlock = Dictionary(grouping: findMatches, by: \.blockIndex).mapValues { $0.map(\.range) }
                         let activeMatch = findCurrentMatch < findMatches.count ? findMatches[findCurrentMatch] : nil
+                        let parentIds = Set(document.blocks.compactMap { $0.parentId })
                         ForEach(visibleIndices.map { (index: $0, id: document.blocks[$0].id) }, id: \.id) { pair in
                             let index = pair.index
                             let block = document.blocks[index]
