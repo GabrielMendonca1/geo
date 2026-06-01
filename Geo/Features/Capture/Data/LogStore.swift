@@ -270,11 +270,6 @@ class LogStore: ObservableObject {
         captures.removeSubrange(Self.maxHistoryItems..<captures.count)
     }
 
-
-    private static func byteCountString(_ count: Int) -> String {
-        ByteCountFormatter.string(fromByteCount: Int64(count), countStyle: .file)
-    }
-    
     private nonisolated func isReachable(_ url: URL?) -> Bool {
         guard let url else { return false }
         return (try? url.checkResourceIsReachable()) ?? false
