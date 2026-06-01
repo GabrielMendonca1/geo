@@ -29,6 +29,7 @@ final class NotchPanel: NSPanel {
         ]
     }
 
-    override var canBecomeKey: Bool { false }
+    var canBecomeKeyEnabled = false
+    override var canBecomeKey: Bool { canBecomeKeyEnabled }
     override var canBecomeMain: Bool { false }
 }
