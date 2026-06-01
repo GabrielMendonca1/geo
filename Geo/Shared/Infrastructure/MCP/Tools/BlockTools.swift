@@ -179,6 +179,35 @@ enum BlockTools {
         ).registered
     }
 
+    private static func matchSnippet(_ markdown: String, query: String) -> String {
+        var body = markdown
+        if body.hasPrefix("---") {
+            let afterOpen = body.index(body.startIndex, offsetBy: 3)
+            if let close = body.range(of: "\n---", range: afterOpen..<body.endIndex) {
+                body = String(body[close.upperBound...])
+            }
+        }
+        body = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        let window = 220
+        let opts: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
+        let tokens = query
+            .components(separatedBy: .whitespacesAndNewlines)
+            .map { $0.trimmingCharacters(in: .punctuationCharacters) }
+            .filter { $0.count > 1 }
+        guard let hit = tokens.compactMap({ body.range(of: $0, options: opts)?.lowerBound }).min() else {
+            return String(body.prefix(window))
+        }
+        let hitOffset = body.distance(from: body.startIndex, to: hit)
+        let startOffset = max(0, hitOffset - 60)
+        let lo = body.index(body.startIndex, offsetBy: startOffset)
+        let remaining = body.distance(from: lo, to: body.endIndex)
+        let hi = body.index(lo, offsetBy: min(window, remaining))
+        var snip = String(body[lo..<hi]).replacingOccurrences(of: "\n", with: " ")
+        if startOffset > 0 { snip = "…" + snip }
+        if hi < body.endIndex { snip += "…" }
+        return snip
+    }
+
     private static func searchBlocks(_ blocks: any BlocksRepository) -> MCPRegisteredTool {
         MCPToolBuilder(
             name: "search_blocks",
