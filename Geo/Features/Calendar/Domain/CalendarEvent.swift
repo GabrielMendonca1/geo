@@ -19,12 +19,6 @@ struct CalendarEvent: Identifiable, Hashable {
         return !Calendar.current.isDate(startDate, inSameDayAs: endDate)
     }
 
-    var durationInDays: Int {
-        guard let endDate else { return 1 }
-        let days = Calendar.current.dateComponents([.day], from: startDate, to: endDate).day ?? 0
-        return max(1, days + 1)
-    }
-
     static func from(task: TaskItem, occurrenceSuffix: String? = nil, blocksById: [String: BlockEntity], tagsById: [String: Tag]) -> CalendarEvent {
         let id = occurrenceSuffix.map { "task-\(task.id)-\($0)" } ?? "task-\(task.id)"
         return CalendarEvent(
