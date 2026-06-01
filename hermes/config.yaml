@@ -87,7 +87,7 @@ platforms:
 # Models
 # ---------------------------------------------------------------------------
 model:
-  full: claude-opus-4-7
+  full: claude-opus-4-8
   nano: claude-haiku-4-5
   # ANTHROPIC_API_KEY is read from ~/.hermes/.env
 
