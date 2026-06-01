@@ -13,6 +13,7 @@ final class NotchWindowController {
     private let hoverMonitor = NotchHoverMonitor()
     private let dropZonePanel = NotchDropZonePanel()
     private var screenChangeObserver: NSObjectProtocol?
+    private var keyResignObserver: NSObjectProtocol?
     private var stateCancellable: AnyCancellable?
     private var dragCancellable: AnyCancellable?
     private var searchCancellable: AnyCancellable?
