@@ -8,6 +8,9 @@ struct NotchCard: View {
     private let cardWidth: CGFloat = 168
     private let cardHeight: CGFloat = 132
 
+    @State private var thumbnail: NSImage?
+    @State private var sizeText: String?
+
     var body: some View {
         Group {
             switch item {
@@ -24,6 +27,17 @@ struct NotchCard: View {
         .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .onTapGesture { open() }
         .pointingHandCursor()
+        .task(id: captureKey) {
+            guard case .capture(let capture) = item else { return }
+            let loaded = await NotchThumbnailCache.shared.load(capture)
+            thumbnail = loaded.image
+            sizeText = loaded.size
+        }
+    }
+
+    private var captureKey: String? {
+        if case .capture(let capture) = item { return capture.id.uuidString }
+        return nil
     }
 
     private func open() {
