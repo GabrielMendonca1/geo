@@ -11,16 +11,15 @@ struct DockView: View {
     @State private var searchText = ""
     @State private var filter: NotchFilter = .all
 
-    private var tagsById: [String: Tag] {
-        Dictionary(tags.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-    }
+    @State private var feedItems: [NotchFeedItem] = []
+    @State private var tagsById: [String: Tag] = [:]
+    @State private var blockTags: [Tag] = []
 
-    private var blockTags: [Tag] {
+    private func rebuild() {
+        tagsById = Dictionary(tags.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let used = Set(blocks.compactMap { $0.tagId })
-        return tags.filter { used.contains($0.id) }
-    }
+        blockTags = tags.filter { used.contains($0.id) }
 
-    private var feed: [NotchFeedItem] {
         var items: [NotchFeedItem]
         switch filter {
         case .all:
@@ -37,7 +36,7 @@ struct DockView: View {
         if !query.isEmpty {
             items = items.filter { $0.searchText.localizedCaseInsensitiveContains(query) }
         }
-        return Array(items.prefix(50))
+        feedItems = Array(items.prefix(50))
     }
 
     var body: some View {
@@ -47,9 +46,9 @@ struct DockView: View {
                 .allowsHitTesting(false)
 
             VStack(spacing: 10) {
-                DockTopBar(searchText: $searchText, count: feed.count)
+                DockTopBar(stateStore: stateStore, searchText: $searchText, count: feedItems.count)
                 NotchFilterBar(tags: blockTags, filter: $filter)
-                NotchCardRow(items: feed, tagsById: tagsById)
+                NotchCardRow(items: feedItems, tagsById: tagsById)
             }
             .padding(.horizontal, 14)
             .padding(.top, 8)
@@ -58,11 +57,14 @@ struct DockView: View {
             .animation(.easeInOut(duration: 0.18), value: stateStore.isDragActive)
         }
         .task {
-            for await observed in env.blocksRepository.observe() { blocks = observed }
+            for await observed in env.blocksRepository.observe() { blocks = observed; rebuild() }
         }
         .task {
-            for await observed in env.tagsRepository.observe() { tags = observed }
+            for await observed in env.tagsRepository.observe() { tags = observed; rebuild() }
         }
+        .onReceive(captureStore.$captures) { _ in rebuild() }
+        .onChange(of: searchText) { rebuild() }
+        .onChange(of: filter) { rebuild() }
     }
 
     @ViewBuilder
