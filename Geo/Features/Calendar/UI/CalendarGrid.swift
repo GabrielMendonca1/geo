@@ -25,8 +25,8 @@ struct CalendarGrid: View, Equatable {
         lhs.scale == rhs.scale &&
         lhs.containerWidth == rhs.containerWidth &&
         lhs.containerHeight == rhs.containerHeight &&
-        lhs.events.count == rhs.events.count &&
-        lhs.spanningEvents.count == rhs.spanningEvents.count
+        lhs.events.mapValues { $0.map(\.event) } == rhs.events.mapValues { $0.map(\.event) } &&
+        lhs.spanningEvents.mapValues { $0.map(\.event) } == rhs.spanningEvents.mapValues { $0.map(\.event) }
     }
 
     var body: some View {
