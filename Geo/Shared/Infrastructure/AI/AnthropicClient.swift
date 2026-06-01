@@ -19,8 +19,6 @@ enum AnthropicClientError: Error, LocalizedError {
             return "Failed to parse AI response: \(detail)"
         case .truncated:
             return "AI response was truncated before completion."
-        case .toolUseLoopExceeded:
-            return "AI tool-use loop exceeded maximum iterations."
         }
     }
 }
