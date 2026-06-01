@@ -1089,8 +1089,7 @@ struct GraphView: View {
         }
 
         let renderNow = Date()
-        for node in graph.nodes {
-            guard visibleSet.contains(node.id) else { continue }
+        for node in cachedVisibleNodes {
             guard let worldPos = simulation.position(for: node.id), let radius = simulation.radius(for: node.id) else { continue }
             let center = projected(worldPos)
             let scaledRadius = radius * CGFloat(settings.nodeSizeScale) * effectiveZoom
