@@ -397,15 +397,7 @@ final class GeoAPIRouter: @unchecked Sendable {
         }
     }
 
-    private func preparedDeleteBlock(targetId: String, request: HTTPRequest, token: ValidatedToken) async -> HTTPResponse {
-        let body = parseJSONBody(request.body)
-        guard let txId = body["transaction_id"]?.stringValue else {
-            return .error(400, "DELETE requires transaction_id from prepare")
-        }
-        return await commitDestructive(txId: txId, body: body, token: token)
-    }
-
-    private func preparedDeleteTask(targetId: String, request: HTTPRequest, token: ValidatedToken) async -> HTTPResponse {
+    private func commitFromBody(request: HTTPRequest, token: ValidatedToken) async -> HTTPResponse {
         let body = parseJSONBody(request.body)
         guard let txId = body["transaction_id"]?.stringValue else {
             return .error(400, "DELETE requires transaction_id from prepare")
