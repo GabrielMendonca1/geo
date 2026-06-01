@@ -1041,9 +1041,7 @@ struct GraphView: View {
         let neutralGrey = Color(white: 0.55)
         let edgeBaseColor = Color(white: 0.5)
 
-        for edge in graph.edges {
-            guard visibleSet.contains(edge.sourceId) else { continue }
-            if let target = edge.targetId, !visibleSet.contains(target) { continue }
+        for edge in cachedVisibleEdges {
             if edge.targetId == nil && !settings.showUnresolved { continue }
             guard let sourcePos = simulation.position(for: edge.sourceId) else { continue }
             let sourceView = projected(sourcePos)
