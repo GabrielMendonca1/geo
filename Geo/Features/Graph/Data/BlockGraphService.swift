@@ -434,16 +434,16 @@ final class BlockGraphService: @unchecked Sendable {
     }
 
     private static let linkCacheLock = NSLock()
-    private static var linkCache: [Int: [String]] = [:]
+    private static var linkCache: [Int: (content: String, links: [String])] = [:]
     private static let linkCacheLimit = 20000
 
     internal static func extractWikiLinks(from content: String) -> [String] {
         guard !content.isEmpty else { return [] }
         let key = content.hashValue
         linkCacheLock.lock()
-        if let cached = linkCache[key] {
+        if let cached = linkCache[key], cached.content == content {
             linkCacheLock.unlock()
-            return cached
+            return cached.links
         }
         linkCacheLock.unlock()
         let parsed = parseWikiLinks(from: content)
@@ -451,7 +451,7 @@ final class BlockGraphService: @unchecked Sendable {
         if linkCache.count >= linkCacheLimit {
             linkCache.removeAll(keepingCapacity: true)
         }
-        linkCache[key] = parsed
+        linkCache[key] = (content: content, links: parsed)
         linkCacheLock.unlock()
         return parsed
     }
