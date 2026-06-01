@@ -90,6 +90,16 @@ final class NotchWindowController {
         self.panel = panel
         self.dropView = dropView
         self.host = host
+
+        if let keyResignObserver { NotificationCenter.default.removeObserver(keyResignObserver) }
+        keyResignObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didResignKeyNotification,
+            object: panel,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.stateStore.searchActive = false }
+        }
+
         updateMousePassthrough()
     }
 
