@@ -547,6 +547,7 @@ struct GraphView: View {
 
     @State private var cachedVisibleSet: Set<UUID> = []
     @State private var cachedVisibleNodes: [GraphNode] = []
+    @State private var cachedVisibleEdges: [GraphEdge] = []
     @State private var cachedFocusedID: UUID?
     @State private var cachedNeighbors: Set<UUID> = []
 
