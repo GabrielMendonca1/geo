@@ -48,6 +48,13 @@ final class NotchWindowController {
             NotificationCenter.default.removeObserver(keyResignObserver)
             self.keyResignObserver = nil
         }
+        if let screenChangeObserver {
+            NotificationCenter.default.removeObserver(screenChangeObserver)
+            self.screenChangeObserver = nil
+        }
+        stateCancellable = nil
+        dragCancellable = nil
+        searchCancellable = nil
         panel?.orderOut(nil)
         panel = nil
         dropView = nil
