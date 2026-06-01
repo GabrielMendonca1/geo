@@ -58,10 +58,6 @@ final class FABUsageTracker: ObservableObject, UsageTracker, @unchecked Sendable
         }
     }
 
-    func resetUsage(for pane: String) {
-        defaults.removeObject(forKey: "\(usageKey).\(pane)")
-    }
-
     private func saveUsage(_ usage: [String: Int], for pane: String) {
         let key = "\(usageKey).\(pane)"
         if let data = try? JSONEncoder().encode(usage) {
