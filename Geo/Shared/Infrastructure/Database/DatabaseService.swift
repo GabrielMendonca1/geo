@@ -379,7 +379,7 @@ final class DatabaseService: @unchecked Sendable {
             .map { $0.trimmingCharacters(in: .punctuationCharacters) }
             .filter { !$0.isEmpty }
             .map { "\"\($0.replacingOccurrences(of: "\"", with: "\"\""))\"*" }
-        return tokens.joined(separator: " ")
+        return tokens.joined(separator: " OR ")
     }
 
     func fetchAllBlocks() async throws -> [BlockIndexEntry] {
