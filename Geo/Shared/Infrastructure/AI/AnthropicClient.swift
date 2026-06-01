@@ -23,31 +23,6 @@ enum AnthropicClientError: Error, LocalizedError {
     }
 }
 
-struct ChatMessage: Sendable {
-    enum Role: String, Sendable { case user, assistant }
-    enum Block: Sendable {
-        case text(String)
-        case toolUse(id: String, name: String, input: AnyCodableValue)
-        case toolResult(toolUseId: String, content: String, isError: Bool)
-    }
-    let role: Role
-    let blocks: [Block]
-
-    static func user(_ text: String) -> ChatMessage {
-        ChatMessage(role: .user, blocks: [.text(text)])
-    }
-    static func assistant(_ text: String) -> ChatMessage {
-        ChatMessage(role: .assistant, blocks: [.text(text)])
-    }
-
-    var firstText: String? {
-        for block in blocks {
-            if case .text(let t) = block { return t }
-        }
-        return nil
-    }
-}
-
 struct ParsedTaskJSON: Codable, Sendable {
     let title: String
     let kind: String
