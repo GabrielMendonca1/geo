@@ -612,7 +612,11 @@ class BlocksStore: ObservableObject {
 
     func searchBlocks(matching query: String) async -> [Block] {
         let ids = await indexCoordinator.searchBlockIds(matching: query)
-        return await blocksForIds(ids)
+        guard !ids.isEmpty else { return [] }
+        let entries = await indexCoordinator.fetchBlocks(ids: ids)
+        let rank = Dictionary(uniqueKeysWithValues: ids.enumerated().map { ($1, $0) })
+        return entries.map { blockFrom(entry: $0) }
+            .sorted { (rank[$0.id] ?? Int.max) < (rank[$1.id] ?? Int.max) }
     }
 
     func flushPendingMetadata() {
