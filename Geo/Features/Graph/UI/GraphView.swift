@@ -973,45 +973,6 @@ struct GraphView: View {
     private var effectiveZoom: CGFloat { pendingZoom }
     private var effectivePan: CGSize { CGSize(width: pan.width + pendingPan.width, height: pan.height + pendingPan.height) }
 
-    private var panGesture: some Gesture {
-        DragGesture(minimumDistance: 1)
-            .onChanged { value in
-                if draggingNodeID == nil {
-                    if let hit = nodeHit(at: value.startLocation) {
-                        draggingNodeID = hit
-                        simulation.setPinned(true, for: hit)
-                        let world = unprojected(value.location)
-                        simulation.move(id: hit, to: world)
-                    } else {
-                        pendingPan = value.translation
-                    }
-                } else if let id = draggingNodeID {
-                    let world = unprojected(value.location)
-                    simulation.move(id: id, to: world)
-                }
-            }
-            .onEnded { value in
-                if let id = draggingNodeID {
-                    simulation.setPinned(false, for: id)
-                    draggingNodeID = nil
-                    simulation.nudge()
-                } else {
-                    let dx = value.translation.width
-                    let dy = value.translation.height
-                    if dx * dx + dy * dy < 16 {
-                        pendingPan = .zero
-                        handleTap(at: value.startLocation)
-                    } else {
-                        pan.width += dx
-                        pan.height += dy
-                        pendingPan = .zero
-                        settings.panX = Double(pan.width)
-                        settings.panY = Double(pan.height)
-                    }
-                }
-            }
-    }
-
     private var magnificationGesture: some Gesture {
         MagnificationGesture()
             .onChanged { value in
