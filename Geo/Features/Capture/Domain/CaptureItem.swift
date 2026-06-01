@@ -38,11 +38,6 @@ struct CaptureItem: Identifiable, Codable, Sendable {
         return imageData
     }
 
-    func fullImage() -> NSImage? {
-        guard let data = fullImageData() else { return nil }
-        return NSImage(data: data)
-    }
-
     var previewImage: NSImage? {
         guard let previewData else { return nil }
         return NSImage(data: previewData)
