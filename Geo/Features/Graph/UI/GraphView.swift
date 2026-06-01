@@ -389,20 +389,24 @@ private final class GraphSimulation: ObservableObject {
 }
 
 private struct ScrollWheelMonitor: NSViewRepresentable {
+    let isActiveCheck: () -> Bool
     let onScroll: (CGFloat) -> Void
 
     func makeNSView(context: Context) -> NSView {
         let view = MonitorView()
         view.onScroll = onScroll
+        view.isActiveCheck = isActiveCheck
         return view
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
         (nsView as? MonitorView)?.onScroll = onScroll
+        (nsView as? MonitorView)?.isActiveCheck = isActiveCheck
     }
 
     final class MonitorView: NSView {
         var onScroll: ((CGFloat) -> Void)?
+        var isActiveCheck: (() -> Bool)?
         private var monitor: Any?
 
         override func viewDidMoveToWindow() {
