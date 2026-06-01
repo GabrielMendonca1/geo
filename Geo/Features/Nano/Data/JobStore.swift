@@ -70,7 +70,7 @@ final class JobStore: ObservableObject {
         }
     }
 
-    func remove(_ id: String) throws {
+    func remove(_ id: String) {
         Task { [weak self] in
             await self?.runHermesCron(args: ["cron", "remove", id], op: "remove")
         }
