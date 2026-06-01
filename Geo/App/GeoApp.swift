@@ -383,25 +383,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         Task {
             _ = await PermissionRegistry.shared.requestAll()
         }
-
-        installHitTestLogger()
-    }
-
-    private func installHitTestLogger() {
-        hitTestMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown]) { event in
-            guard let window = event.window else { return event }
-            let p = event.locationInWindow
-            let hit = window.contentView?.hitTest(p)
-            var chain: [String] = []
-            var v = hit
-            while let cur = v {
-                chain.append("\(type(of: cur))[\(Int(cur.frame.width))x\(Int(cur.frame.height))]")
-                if cur === window.contentView { break }
-                v = cur.superview
-            }
-            NSLog("[HITTEST] win='\(window.title)' winW=\(Int(window.frame.width)) pt=(\(Int(p.x)),\(Int(p.y))) hit=\(hit.map { String(describing: type(of: $0)) } ?? "nil") chain=[\(chain.joined(separator: " <- "))]")
-            return event
-        }
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
