@@ -64,126 +64,134 @@ def _run_task(
     max_runtime: Optional[int],
     model: Optional[str],
 ) -> None:
-    conn = kb.connect()
-    workspace = Path(workspace_path)
-    workspace.mkdir(parents=True, exist_ok=True)
-
-    argv = [
-        CC_BIN,
-        "-p", body,
-        "--output-format", "stream-json",
-        "--verbose",
-        "--permission-mode", PERMISSION_MODE,
-    ]
-    if model:
-        argv.extend(["--model", model])
-
-    _log(f"task={task_id} spawning claude in {workspace} model={model or 'default'}")
-
-    proc = subprocess.Popen(
-        argv,
-        cwd=str(workspace),
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=1,
-        start_new_session=True,
-    )
-
-    with kb.write_txn(conn):
-        conn.execute(
-            "UPDATE tasks SET worker_pid = ? WHERE id = ?",
-            (proc.pid, task_id),
-        )
-
-    stop_hb = threading.Event()
-    timed_out = threading.Event()
-
-    def heartbeat_loop() -> None:
-        hb_conn = kb.connect()
-        try:
-            while not stop_hb.wait(HEARTBEAT_INTERVAL_S):
-                if proc.poll() is not None:
-                    break
-                kb.heartbeat_worker(hb_conn, task_id)
-        finally:
-            hb_conn.close()
-
-    def watchdog_loop() -> None:
-        if not stop_hb.wait(max_runtime or DEFAULT_MAX_RUNTIME_S):
-            timed_out.set()
-            try:
-                os.killpg(proc.pid, signal.SIGTERM)
-            except ProcessLookupError:
-                pass
-
-    hb_thread = threading.Thread(target=heartbeat_loop, daemon=True)
-    hb_thread.start()
-    wd_thread = threading.Thread(target=watchdog_loop, daemon=True)
-    wd_thread.start()
-
-    final_summary: Optional[str] = None
-    final_error: Optional[str] = None
-    saw_result = False
-
+    conn = None
     try:
-        assert proc.stdout is not None
-        for raw in proc.stdout:
-            line = raw.strip()
-            if not line:
-                continue
-            try:
-                evt = json.loads(line)
-            except json.JSONDecodeError:
-                with kb.write_txn(conn):
-                    kb._append_event(
-                        conn, task_id, "cc_raw",
-                        {"line": line[:2000]},
-                    )
-                continue
+        conn = kb.connect()
+        workspace = Path(workspace_path)
+        workspace.mkdir(parents=True, exist_ok=True)
 
-            kind = evt.get("type", "unknown")
-            with kb.write_txn(conn):
-                kb._append_event(conn, task_id, f"cc_{kind}", evt)
+        argv = [
+            CC_BIN,
+            "-p", body,
+            "--output-format", "stream-json",
+            "--verbose",
+            "--permission-mode", PERMISSION_MODE,
+        ]
+        if model:
+            argv.extend(["--model", model])
 
-            if kind == "result":
-                saw_result = True
-                summary = evt.get("result")
-                if evt.get("is_error"):
-                    final_error = (summary or "claude reported error")[:500]
-                else:
-                    final_summary = summary
-                break
-    finally:
-        stop_hb.set()
-        try:
-            proc.wait(timeout=30)
-        except subprocess.TimeoutExpired:
-            try:
-                os.killpg(proc.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-            proc.wait(timeout=5)
-        hb_thread.join(timeout=5)
-        wd_thread.join(timeout=5)
+        _log(f"task={task_id} spawning claude in {workspace} model={model or 'default'}")
 
-    if timed_out.is_set() and final_error is None:
-        final_error = "max_runtime exceeded"
-    if final_error is None and not saw_result:
-        final_error = f"claude-code exited without a result (code {proc.returncode})"
-
-    if final_error:
-        _log(f"task={task_id} BLOCKED: {final_error}")
-        kb.block_task(conn, task_id, reason=f"claude-code: {final_error}")
-    else:
-        _log(f"task={task_id} DONE")
-        kb.complete_task(
-            conn, task_id,
-            result=final_summary,
-            summary=(final_summary or "claude-code run completed")[:500],
+        proc = subprocess.Popen(
+            argv,
+            cwd=str(workspace),
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            start_new_session=True,
         )
-    conn.close()
+
+        with kb.write_txn(conn):
+            conn.execute(
+                "UPDATE tasks SET worker_pid = ? WHERE id = ?",
+                (proc.pid, task_id),
+            )
+
+        stop_hb = threading.Event()
+        timed_out = threading.Event()
+
+        def heartbeat_loop() -> None:
+            hb_conn = kb.connect()
+            try:
+                while not stop_hb.wait(HEARTBEAT_INTERVAL_S):
+                    if proc.poll() is not None:
+                        break
+                    kb.heartbeat_worker(hb_conn, task_id)
+            finally:
+                hb_conn.close()
+
+        def watchdog_loop() -> None:
+            if not stop_hb.wait(max_runtime or DEFAULT_MAX_RUNTIME_S):
+                timed_out.set()
+                try:
+                    os.killpg(proc.pid, signal.SIGTERM)
+                except ProcessLookupError:
+                    pass
+
+        hb_thread = threading.Thread(target=heartbeat_loop, daemon=True)
+        hb_thread.start()
+        wd_thread = threading.Thread(target=watchdog_loop, daemon=True)
+        wd_thread.start()
+
+        final_summary: Optional[str] = None
+        final_error: Optional[str] = None
+        saw_result = False
+
+        try:
+            assert proc.stdout is not None
+            for raw in proc.stdout:
+                line = raw.strip()
+                if not line:
+                    continue
+                try:
+                    evt = json.loads(line)
+                except json.JSONDecodeError:
+                    with kb.write_txn(conn):
+                        kb._append_event(
+                            conn, task_id, "cc_raw",
+                            {"line": line[:2000]},
+                        )
+                    continue
+
+                kind = evt.get("type", "unknown")
+                with kb.write_txn(conn):
+                    kb._append_event(conn, task_id, f"cc_{kind}", evt)
+
+                if kind == "result":
+                    saw_result = True
+                    summary = evt.get("result")
+                    if evt.get("is_error"):
+                        final_error = (summary or "claude reported error")[:500]
+                    else:
+                        final_summary = summary
+                    break
+        finally:
+            stop_hb.set()
+            try:
+                proc.wait(timeout=30)
+            except subprocess.TimeoutExpired:
+                try:
+                    os.killpg(proc.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                proc.wait(timeout=5)
+            hb_thread.join(timeout=5)
+            wd_thread.join(timeout=5)
+
+        if timed_out.is_set() and final_error is None:
+            final_error = "max_runtime exceeded"
+        if final_error is None and not saw_result:
+            final_error = f"claude-code exited without a result (code {proc.returncode})"
+
+        if final_error:
+            _log(f"task={task_id} BLOCKED: {final_error}")
+            kb.block_task(conn, task_id, reason=f"claude-code: {final_error}")
+        else:
+            _log(f"task={task_id} DONE")
+            kb.complete_task(
+                conn, task_id,
+                result=final_summary,
+                summary=(final_summary or "claude-code run completed")[:500],
+            )
+    except Exception as e:
+        _log(f"task={task_id} BLOCKED: spawn failed: {e!r}")
+        if conn is not None:
+            kb.block_task(conn, task_id, reason=f"claude-code: spawn failed: {e}")
+    finally:
+        if conn is not None:
+            conn.close()
 
 
 def _validate_workspace(row: dict) -> Optional[str]:
