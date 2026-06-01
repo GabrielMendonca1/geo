@@ -952,8 +952,6 @@ struct GraphView: View {
         }
     }
 
-    private var focusedNodeID: UUID? { hoverNodeID ?? selectedNodeID }
-
     private func labelOpacity(for node: GraphNode, focused: UUID?, isNeighbor: Bool) -> Double {
         if focused == node.id { return 1.0 }
         let zoomFactor: Double
