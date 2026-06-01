@@ -59,7 +59,7 @@ final class JobStore: ObservableObject {
         pollTask = nil
     }
 
-    func add(_ spec: JobSpec) throws {
+    func add(_ spec: JobSpec) {
         Task { [weak self] in
             await self?.runHermesCron(args: [
                 "cron", "create",
