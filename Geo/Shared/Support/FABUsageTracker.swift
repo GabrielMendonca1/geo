@@ -33,13 +33,6 @@ final class FABUsageTracker: ObservableObject, UsageTracker, @unchecked Sendable
         return usage
     }
 
-    func sortActionsByUsage(_ actions: [FABActionItem], in pane: String) -> [FABActionItem] {
-        let usage = getUsage(for: pane)
-        return actions.sorted { lhs, rhs in
-            usage[lhs.label, default: 0] > usage[rhs.label, default: 0]
-        }
-    }
-
     func getTopActions(in pane: String, count: Int = 2) -> [String] {
         getUsage(for: pane)
             .sorted { $0.value > $1.value }
