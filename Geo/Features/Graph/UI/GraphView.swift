@@ -457,7 +457,7 @@ private struct MouseEventMonitor: NSViewRepresentable {
             let exit: () -> Void
         }
         var callbacks: Callbacks?
-        var isActive = true
+        var isActiveCheck: (() -> Bool)?
         private var trackingArea: NSTrackingArea?
 
         override var isFlipped: Bool { true }
