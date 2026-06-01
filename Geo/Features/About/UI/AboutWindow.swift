@@ -44,7 +44,7 @@ class AboutWindow: NSWindowController {
     // Constructs and returns a new NSWindow configured for the About window.
     private static func makeWindow() -> NSWindow {
         // Set the window size and position; values are in points.
-        let contentRect = NSRect(x: 0, y: 0, width: 500, height: 260)
+        let contentRect = NSRect(x: 0, y: 0, width: 600, height: 360)
         // StyleMask determines the window's appearance and capabilities.
         let styleMask: NSWindow.StyleMask = [
             .titled,        // Has a title bar.
