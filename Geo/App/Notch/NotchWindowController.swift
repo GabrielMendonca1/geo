@@ -44,6 +44,10 @@ final class NotchWindowController {
     func hide() {
         hoverMonitor.stop()
         dropZonePanel.hide()
+        if let keyResignObserver {
+            NotificationCenter.default.removeObserver(keyResignObserver)
+            self.keyResignObserver = nil
+        }
         panel?.orderOut(nil)
         panel = nil
         dropView = nil
