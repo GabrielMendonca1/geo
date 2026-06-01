@@ -142,14 +142,28 @@ final class NotchWindowController {
         stateCancellable = stateStore.$state
             .receive(on: RunLoop.main)
             .sink { [weak self] newState in
-                self?.dropView?.isActive = newState != .hidden
-                self?.updateMousePassthrough()
-                self?.hoverMonitor.check()
+                guard let self else { return }
+                self.dropView?.isActive = newState != .hidden
+                self.panel?.canBecomeKeyEnabled = newState != .hidden
+                if newState == .hidden, self.panel?.isKeyWindow == true {
+                    self.panel?.resignKey()
+                }
+                self.updateMousePassthrough()
+                self.hoverMonitor.check()
             }
         dragCancellable = stateStore.$isDragActive
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.updateMousePassthrough()
+            }
+        searchCancellable = stateStore.$searchActive
+            .receive(on: RunLoop.main)
+            .sink { [weak self] active in
+                guard let self, !active else { return }
+                if self.panel?.isKeyWindow == true { self.panel?.resignKey() }
+                if !self.currentHoverZone().contains(NSEvent.mouseLocation) {
+                    self.stateStore.hoverEnded()
+                }
             }
     }
 
