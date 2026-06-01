@@ -157,11 +157,16 @@ enum BlockTools {
                 case .allow: break
                 case .deny(let reason): return .error(reason)
                 }
-                let normalized = title.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+                func norm(_ s: String) -> String {
+                    s.lowercased()
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                        .precomposedStringWithCanonicalMapping
+                }
+                let normalized = norm(title)
                 let all = try await blocks.list()
-                guard let block = all.first(where: {
-                    $0.displayTitle.lowercased().trimmingCharacters(in: .whitespacesAndNewlines) == normalized
-                }) else {
+                guard let block = all.first(where: { norm($0.displayTitle) == normalized })
+                    ?? all.first(where: { norm($0.displayTitle).contains(normalized) })
+                else {
                     return .error("No block found matching title: \(title)")
                 }
                 let result: [String: AnyCodableValue] = [
