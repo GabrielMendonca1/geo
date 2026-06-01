@@ -87,9 +87,14 @@ final class PermissionRegistry: ObservableObject {
 
     func refreshAll() {
         let ids = Array(permissions.keys)
+        var updated = states
         for id in ids {
-            _ = check(id, useCache: false)
+            guard let permission = permission(for: id) else { continue }
+            let state = permission.checkStatus()
+            cache.set(id, state: state)
+            updated[id] = state
         }
+        DispatchQueue.main.async { self.states = updated }
     }
 
     func openSettings(for id: String) {
