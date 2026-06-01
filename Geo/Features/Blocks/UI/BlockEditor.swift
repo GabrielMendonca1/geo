@@ -220,12 +220,10 @@ struct BlockEditorView: View, Equatable {
                         onWikiLinkClicked: { payload in
                             let normalizedTarget = WikiTitleNormalizer.normalize(payload.target)
                             let match = actions.resolveBlockByTitle(normalizedTarget)
-                            wikiLinkNavLogger.debug("wikilink resolve: target='\(payload.target, privacy: .public)' → blockId=\(match?.id ?? "nil", privacy: .public)")
                             guard let match else { return }
                             if let anchor = payload.anchor {
                                 PendingAnchorStore.shared.enqueue(blockId: match.id, anchor: anchor)
                             }
-                            wikiLinkNavLogger.debug("wikilink open: blockId=\(match.id, privacy: .public)")
                             openWindow(id: "editor", value: match.id)
                         }
                     )
