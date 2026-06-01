@@ -343,6 +343,13 @@ async def send_telegram(text: str) -> bool:
         return False
 
 
+async def deliver(text: str) -> bool:
+    if "--send" in sys.argv:
+        return await send_telegram(text)
+    print(text)
+    return True
+
+
 async def main() -> int:
     token = load_oauth_token()
     if not token:
@@ -359,7 +366,7 @@ async def main() -> int:
         geo_data = await fetch_geo(geo)
     except Exception as e:
         log(f"geo fetch failed (is Geo.app open?): {e}")
-        await send_telegram("/day: não consegui ler o Geo agora. Abre o app e tenta de novo.")
+        await deliver("/day: não consegui ler o Geo agora. Abre o app e tenta de novo.")
         return 1
 
     model = _nano_model()
@@ -370,10 +377,10 @@ async def main() -> int:
 
     summary = await run_nano(token, model, geo_data)
     if not summary:
-        await send_telegram("/day: o modelo falhou agora. Tenta de novo daqui a pouco.")
+        await deliver("/day: o modelo falhou agora. Tenta de novo daqui a pouco.")
         return 1
 
-    ok = await send_telegram(summary)
+    ok = await deliver(summary)
     log(f"sent={ok}")
     return 0 if ok else 1
 

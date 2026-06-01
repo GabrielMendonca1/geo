@@ -113,7 +113,7 @@ def whatsapp_state() -> dict:
 def gmail_state(env: dict, gateway_up: bool) -> dict:
     has_creds = bool(env.get("GMAIL_OAUTH_TOKEN") or env.get("GOOGLE_REFRESH_TOKEN"))
     if not has_creds:
-        return {"state": "disconnected", "detail": "no Gmail credentials"}
+        return {"state": "connecting", "detail": "Gmail not configured"}
     if not gateway_up:
         return {"state": "disconnected", "detail": "gateway down"}
     return {"state": "connected", "detail": "via hermes gateway"}
