@@ -466,7 +466,7 @@ private struct MouseEventMonitor: NSViewRepresentable {
         override var acceptsFirstResponder: Bool { true }
 
         override func hitTest(_ point: NSPoint) -> NSView? {
-            isActive ? super.hitTest(point) : nil
+            (isActiveCheck?() ?? true) ? super.hitTest(point) : nil
         }
 
         override func updateTrackingAreas() {
