@@ -1,8 +1,10 @@
 import SwiftUI
 
 struct DockTopBar: View {
+    @ObservedObject var stateStore: NotchStateStore
     @Binding var searchText: String
     let count: Int
+    @FocusState private var searchFocused: Bool
 
     var body: some View {
         HStack(spacing: 12) {
@@ -14,11 +16,14 @@ struct DockTopBar: View {
                     .textFieldStyle(.plain)
                     .font(.system(size: 13))
                     .foregroundStyle(.white)
+                    .focused($searchFocused)
+                    .onSubmit { searchFocused = false }
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
             .frame(maxWidth: 280, alignment: .leading)
             .background(Capsule().fill(.white.opacity(0.08)))
+            .onChange(of: searchFocused) { stateStore.searchActive = searchFocused }
 
             Spacer()
 
