@@ -415,6 +415,7 @@ private struct ScrollWheelMonitor: NSViewRepresentable {
             guard window != nil else { return }
             monitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
                 guard let self, let window = self.window, event.window === window else { return event }
+                guard self.isActiveCheck?() ?? true else { return event }
                 let location = self.convert(event.locationInWindow, from: nil)
                 guard self.bounds.contains(location) else { return event }
                 let delta = event.hasPreciseScrollingDeltas ? event.scrollingDeltaY * 0.0035 : event.scrollingDeltaY * 0.05
