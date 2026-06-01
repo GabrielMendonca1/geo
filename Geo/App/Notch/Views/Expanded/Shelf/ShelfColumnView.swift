@@ -152,13 +152,21 @@ struct NotchCard: View {
 final class NotchThumbnailCache {
     static let shared = NotchThumbnailCache()
 
-    private let images = NSCache<NSUUID, NSImage>()
-    private var sizes: [UUID: String] = [:]
+    private final class Entry {
+        let image: NSImage
+        let size: String?
+        init(image: NSImage, size: String?) {
+            self.image = image
+            self.size = size
+        }
+    }
+
+    private let cache = NSCache<NSUUID, Entry>()
 
     func load(_ capture: CaptureItem) async -> (image: NSImage?, size: String?) {
         let key = capture.id as NSUUID
-        if let cached = images.object(forKey: key) {
-            return (cached, sizes[capture.id])
+        if let cached = cache.object(forKey: key) {
+            return (cached.image, cached.size)
         }
 
         var data = capture.previewData
@@ -166,10 +174,8 @@ final class NotchThumbnailCache {
             data = await Task.detached { capture.fullImageData() }.value
         }
         let image = data.flatMap { NSImage(data: $0) }
-        if let image { images.setObject(image, forKey: key) }
-
         let size = formattedSize(capture)
-        sizes[capture.id] = size
+        if let image { cache.setObject(Entry(image: image, size: size), forKey: key) }
         return (image, size)
     }
 
