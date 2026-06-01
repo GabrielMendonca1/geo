@@ -91,7 +91,7 @@ private struct ResizeDividerHandle: NSViewRepresentable {
     final class DividerNSView: NSView {
         var onDragChanged: ((CGFloat) -> Void)?
         var onDragEnded: (() -> Void)?
-        var isActive = true
+        var isActiveCheck: (() -> Bool)?
 
         private var trackingArea: NSTrackingArea?
         private var dragStartX: CGFloat?
