@@ -60,7 +60,7 @@ final class FrontmatterStripMigrationService: @unchecked Sendable {
             let typeRaw = MarkdownConverter.normalizedType(document.frontmatter["type"]).rawValue
             let status = MarkdownConverter.normalizedStatus(document.frontmatter["status"])
 
-            let blockId = url.lastPathComponent
+            let blockId = url.lastPathComponent.precomposedStringWithCanonicalMapping
             var existing = sidecar[blockId] ?? BlocksStore.BlockMetadata()
             var existingChanged = false
 
