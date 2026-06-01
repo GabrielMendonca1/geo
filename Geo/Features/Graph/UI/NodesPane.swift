@@ -69,7 +69,7 @@ struct NodesPane: View {
 
 private struct ResizeDividerHandle: NSViewRepresentable {
     let width: CGFloat
-    let isActive: Bool
+    let isActiveCheck: () -> Bool
     var onDragChanged: (CGFloat) -> Void
     var onDragEnded: () -> Void
 
@@ -77,14 +77,14 @@ private struct ResizeDividerHandle: NSViewRepresentable {
         let view = DividerNSView()
         view.onDragChanged = onDragChanged
         view.onDragEnded = onDragEnded
-        view.isActive = isActive
+        view.isActiveCheck = isActiveCheck
         return view
     }
 
     func updateNSView(_ nsView: DividerNSView, context: Context) {
         nsView.onDragChanged = onDragChanged
         nsView.onDragEnded = onDragEnded
-        nsView.isActive = isActive
+        nsView.isActiveCheck = isActiveCheck
     }
 
     @MainActor
