@@ -196,11 +196,10 @@ enum BlockTools {
                 }
                 let results = try await blocks.search(matching: query)
                 let items = results.map { block -> [String: AnyCodableValue] in
-                    let snippet = String(block.markdown.prefix(200))
                     return [
                         "id": .string(block.id),
                         "title": .string(block.displayTitle),
-                        "snippet": .string(snippet),
+                        "snippet": .string(Self.matchSnippet(block.markdown, query: query)),
                     ]
                 }
                 return .json(items)
