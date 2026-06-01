@@ -105,7 +105,7 @@ private struct ResizeDividerHandle: NSViewRepresentable {
         override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
         override func hitTest(_ point: NSPoint) -> NSView? {
-            guard isActive else { return nil }
+            guard isActiveCheck?() ?? true else { return nil }
             let local = convert(point, from: superview)
             return bounds.contains(local) ? self : nil
         }
