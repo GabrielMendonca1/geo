@@ -6,7 +6,6 @@ enum AnthropicClientError: Error, LocalizedError {
     case invalidResponse
     case parseFailure(String)
     case truncated
-    case toolUseLoopExceeded
 
     var errorDescription: String? {
         switch self {
