@@ -238,58 +238,86 @@ def _strip_frontmatter(md: str) -> str:
 
 
 SEARCH_LIMIT = 8
-SEARCH_SUMMARIZE_THRESHOLD = 800
+EXTRACT_TOPK = 6
+EXTRACT_BODY_CAP = 4000
+
+
+def _parse_hits(raw: str) -> list:
+    try:
+        obj = json.loads(raw)
+    except Exception:
+        return []
+    if isinstance(obj, list):
+        return [h for h in obj if isinstance(h, dict)]
+    if isinstance(obj, dict):
+        for key in ("results", "blocks", "data", "items"):
+            val = obj.get(key)
+            if isinstance(val, list):
+                return [h for h in val if isinstance(h, dict)]
+    return []
 
 
 async def search_context(query: str, with_summary: bool = False) -> dict:
-    """On-demand Geo block search reusing this module's auth/HTTP machinery and
-    nano-model summarizer. Returns a dict the agent can read directly:
+    """Answer a question from Gabriel's Geo blocks: relevance-search his brain,
+    pull the full text of the top matches, and have Haiku extract ONLY the facts
+    that answer the question, cited by block title. Returns:
 
-        {"ok": bool, "query": str, "results": str|None,
-         "summary": str|None, "error": str|None}
+        {"ok": bool, "query": str, "answer": str|None,
+         "sources": [str], "results": str|None, "error": str|None}
 
-    Reused by the geo_search_context tool so the search+summarize logic lives in
-    one place. Silently degrades (ok=False, error set) when Geo.app is closed."""
+    `answer` is the cited extraction; `results` holds the raw block context only
+    as a fallback when extraction is unavailable. Degrades to ok=False with error
+    set when Geo.app is closed."""
     query = (query or "").strip()
     if not query:
-        return {"ok": False, "query": query, "results": None,
-                "summary": None, "error": "empty query"}
+        return {"ok": False, "query": query, "answer": None, "sources": [],
+                "results": None, "error": "empty query"}
 
     info = _read_api_json()
     if not info:
-        return {"ok": False, "query": query, "results": None,
-                "summary": None, "error": "Geo.app unreachable (api.json stale or pid dead)"}
+        return {"ok": False, "query": query, "answer": None, "sources": [],
+                "results": None, "error": "Geo.app unreachable (api.json stale or pid dead)"}
     token = _read_keychain_token()
     if not token:
-        return {"ok": False, "query": query, "results": None,
-                "summary": None, "error": "no Geo API token in keychain"}
+        return {"ok": False, "query": query, "answer": None, "sources": [],
+                "results": None, "error": "no Geo API token in keychain"}
 
     token_ref = {"token": token}
     base = f"http://127.0.0.1:{info['port']}"
     headers = {"Authorization": f"Bearer {token}", "X-Caller-Id": "hermes-hook"}
-    path = (
-        "/v1/blocks/search?q=" + urllib.parse.quote(query)
-        + f"&limit={SEARCH_LIMIT}"
-    )
+    search_path = "/v1/blocks/search?q=" + urllib.parse.quote(query) + f"&limit={SEARCH_LIMIT}"
+    sources: list = []
+    docs: list = []
     try:
         async with httpx.AsyncClient(base_url=base, headers=headers, timeout=8.0) as client:
-            raw = await asyncio.wait_for(_safe_get(client, path, token_ref), timeout=10.0)
+            raw = await asyncio.wait_for(_safe_get(client, search_path, token_ref), timeout=10.0)
+            if not raw:
+                return {"ok": True, "query": query, "answer": None, "sources": [],
+                        "results": None, "error": None}
+            for hit in _parse_hits(raw)[:EXTRACT_TOPK]:
+                bid = hit.get("id")
+                title = hit.get("title") or bid or "?"
+                body = None
+                if bid:
+                    body = _unwrap_block(await asyncio.wait_for(
+                        _safe_get(client, "/v1/blocks/" + urllib.parse.quote(str(bid)), token_ref),
+                        timeout=10.0))
+                if not body:
+                    body = hit.get("snippet") or ""
+                sources.append(title)
+                docs.append(f"### [[{title}]]\n{body}".strip()[:EXTRACT_BODY_CAP])
     except Exception as e:
-        return {"ok": False, "query": query, "results": None,
-                "summary": None, "error": f"http unreachable: {e}"}
+        return {"ok": False, "query": query, "answer": None, "sources": [],
+                "results": None, "error": f"http unreachable: {e}"}
 
-    if not raw:
-        return {"ok": True, "query": query, "results": None,
-                "summary": None, "error": None}
+    if not docs:
+        return {"ok": True, "query": query, "answer": None, "sources": [],
+                "results": None, "error": None}
 
-    summary = None
-    if with_summary and len(raw) > SEARCH_SUMMARIZE_THRESHOLD:
-        summary = await _summarize_with_haiku(raw, f"Geo search results for '{query}'")
-    elif with_summary:
-        summary = raw
-
-    return {"ok": True, "query": query, "results": raw,
-            "summary": summary, "error": None}
+    context_text = "\n\n".join(docs)
+    answer = await haiku.extract(query, context_text)
+    return {"ok": True, "query": query, "answer": answer, "sources": sources,
+            "results": (None if answer else context_text), "error": None}
 
 
 async def _build_body() -> Optional[str]:
