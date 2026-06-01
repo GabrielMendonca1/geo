@@ -10,6 +10,7 @@ final class NotchStateStore: ObservableObject {
 
     @Published private(set) var state: State
     @Published var isDragActive: Bool = false
+    @Published var searchActive: Bool = false
     @Published var isPinned: Bool {
         didSet {
             UserDefaults.standard.set(isPinned, forKey: Self.pinnedKey)
