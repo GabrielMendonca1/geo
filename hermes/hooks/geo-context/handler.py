@@ -29,6 +29,12 @@ from typing import Optional
 
 import httpx
 
+import sys as _sys
+_HOOK_DIR = os.path.dirname(os.path.abspath(__file__))
+if _HOOK_DIR not in _sys.path:
+    _sys.path.insert(0, _HOOK_DIR)
+import haiku
+
 HERMES_HOME = Path(os.path.expanduser("~/.hermes"))
 MEMORY_PATH = HERMES_HOME / "memories" / "MEMORY.md"
 STATE_PATH = Path(__file__).parent / ".state.json"
