@@ -97,12 +97,7 @@ final class BlockChangeReconciler {
         let relevant = urls.filter { $0.pathExtension.lowercased() == "md" }
         guard !relevant.isEmpty else { return }
         let resourceKeys: Set<URLResourceKey> = [.creationDateKey, .contentModificationDateKey]
-        let latestBlocks: [BlocksStore.Block]
-        if metadataChanged {
-            latestBlocks = blocks
-        } else {
-            latestBlocks = blocks
-        }
+        let latestBlocks = blocks
         var updatedBlocks = latestBlocks
         var blocksToIndex: [BlocksStore.Block] = []
         var removedIds: [String] = []
