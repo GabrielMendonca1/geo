@@ -191,6 +191,36 @@ final class GeoHTTPServer: @unchecked Sendable {
         })
     }
 
+    private func publishAPIInfo(attempt: Int) {
+        guard let p = listener?.port?.rawValue, p != 0 else {
+            if attempt < 20 {
+                queue.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+                    self?.publishAPIInfo(attempt: attempt + 1)
+                }
+            } else {
+                httpLogger.error("api.json not written: listener port unavailable after retries")
+            }
+            return
+        }
+        self.port = p
+        writeAPIInfo(port: p)
+        httpLogger.info("Geo HTTP listener ready on 127.0.0.1:\(p)")
+    }
+
+    private func ensureAPIInfo() {
+        guard port != 0 else { return }
+        if !FileManager.default.fileExists(atPath: apiInfoURL.path) {
+            writeAPIInfo(port: port)
+        }
+    }
+
+    private func ownsAPIInfo() -> Bool {
+        guard let data = try? Data(contentsOf: apiInfoURL),
+              let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let filePid = obj["pid"] as? Int else { return true }
+        return filePid == Int(ProcessInfo.processInfo.processIdentifier)
+    }
+
     private func writeAPIInfo(port: UInt16) {
         let url = apiInfoURL
         let parent = url.deletingLastPathComponent()
@@ -205,18 +235,11 @@ final class GeoHTTPServer: @unchecked Sendable {
         encoder.outputFormatting = [.sortedKeys, .prettyPrinted]
         guard let data = try? encoder.encode(payload) else { return }
 
-        let tmp = parent.appendingPathComponent("api.json.tmp.\(UUID().uuidString)")
         do {
-            try data.write(to: tmp, options: .atomic)
-            try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: tmp.path)
-            if FileManager.default.fileExists(atPath: url.path) {
-                try FileManager.default.removeItem(at: url)
-            }
-            try FileManager.default.moveItem(at: tmp, to: url)
+            try data.write(to: url, options: .atomic)
             try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
         } catch {
             httpLogger.error("api.json write failed: \(error.localizedDescription)")
-            try? FileManager.default.removeItem(at: tmp)
         }
     }
 }
