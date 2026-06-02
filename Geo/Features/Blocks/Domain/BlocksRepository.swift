@@ -24,6 +24,10 @@ protocol BlocksRepository: Sendable {
 }
 
 extension BlocksRepository {
+    func get(id: String) async throws -> BlockEntity? {
+        try await list().first(where: { $0.id == id })
+    }
+
     func setStatus(blockId: String, status: BlockStatus) async throws {
         try await setStatus(blockId: blockId, status: status.rawValue)
     }
