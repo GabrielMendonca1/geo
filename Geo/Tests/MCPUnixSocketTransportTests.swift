@@ -136,7 +136,12 @@ final class MCPUnixSocketTransportTests: XCTestCase {
                     stateLock.unlock()
                     return
                 }
-                if isComplete { return }
+                if isComplete {
+                    stateLock.lock()
+                    if !finished { finished = true; doneExpectation.fulfill() }
+                    stateLock.unlock()
+                    return
+                }
                 readOnce()
             }
         }
