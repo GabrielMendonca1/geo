@@ -537,56 +537,6 @@ extension View {
     }
 }
 
-struct SearchFieldView: NSViewRepresentable {
-    @Binding var text: String
-    @Binding var isPresented: Bool
-
-    func makeNSView(context: Context) -> NSSearchField {
-        let searchField = NSSearchField()
-        searchField.delegate = context.coordinator
-        searchField.placeholderString = "Search"
-        return searchField
-    }
-
-    func updateNSView(_ nsView: NSSearchField, context: Context) {
-        if nsView.stringValue != text {
-            nsView.stringValue = text
-        }
-
-        if isPresented && nsView.window?.firstResponder != nsView.currentEditor() {
-            DispatchQueue.main.async {
-                nsView.window?.makeFirstResponder(nsView)
-            }
-        }
-    }
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(text: $text, isPresented: $isPresented)
-    }
-
-    class Coordinator: NSObject, NSSearchFieldDelegate {
-        @Binding var text: String
-        @Binding var isPresented: Bool
-
-        init(text: Binding<String>, isPresented: Binding<Bool>) {
-            _text = text
-            _isPresented = isPresented
-        }
-
-        func controlTextDidChange(_ obj: Notification) {
-            guard let searchField = obj.object as? NSSearchField else { return }
-            text = searchField.stringValue
-        }
-
-        func controlTextDidEndEditing(_ obj: Notification) {
-            guard let searchField = obj.object as? NSSearchField else { return }
-            if searchField.stringValue.isEmpty {
-                isPresented = false
-            }
-        }
-    }
-}
-
 extension Notification.Name {
     static let openTaskForm = Notification.Name("openTaskForm")
     static let openTaskCreateForm = Notification.Name("openTaskCreateForm")
