@@ -48,9 +48,12 @@ mcp_servers: {}
 # for reference so the enabled set is documented in one place:
 #   geo-http-tools     authenticated Geo HTTP API tools (read/write/destructive)
 #   whatsapp-confirm   Telegram-gated WhatsApp send confirmation
-#   geo-search-tool    on-demand geo_search_context(query, with_summary?) tool;
-#                      replaces the old always-on geo-context auto-injection,
-#                      uses model.nano below to summarize. Enable with:
+#   geo-search-tool    on-demand geo_search_context(query, with_summary?) tool
+#                      for arbitrary Geo lookups; COMPLEMENTS the geo-context
+#                      boot hook (which injects the fixed identity bundle —
+#                      profile + memory + interaction protocol + today — into
+#                      MEMORY.md at session start). Uses model.nano below to
+#                      summarize. Enable with:
 #                        hermes plugins enable geo-search-tool
 # ---------------------------------------------------------------------------
 
