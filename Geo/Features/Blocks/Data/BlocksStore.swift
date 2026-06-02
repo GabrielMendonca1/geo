@@ -31,6 +31,10 @@ class BlocksStore: ObservableObject {
         return blocks[i]
     }
 
+    func block(id: String) -> Block? {
+        block(withId: id)
+    }
+
     @MainActor
     func setFocusedBlock(_ id: String?) {
         guard focusedBlockId != id else { return }
