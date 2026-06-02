@@ -521,6 +521,8 @@ struct GraphView: View {
     var seedPositions: [UUID: CGPoint] = [:]
     var wasSettled: Bool = false
     var externalChangeSignal: ExternalChangeSignal? = nil
+    var sidebarHidden: Bool = false
+    var onToggleSidebar: (() -> Void)? = nil
     var onLayoutChange: (([UUID: CGPoint], Bool) -> Void)? = nil
     var onNodeTap: (UUID) -> Void
 
