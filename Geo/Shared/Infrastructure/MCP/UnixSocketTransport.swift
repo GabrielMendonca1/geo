@@ -58,8 +58,8 @@ final class UnixSocketTransport: MCPTransport, @unchecked Sendable {
             }
         }
 
-        listener.newConnectionHandler = { [router] nwConnection in
-            let conn = MCPConnection(connection: nwConnection, router: router, authGuard: nil)
+        listener.newConnectionHandler = { [router, authGuard, enforceAuth] nwConnection in
+            let conn = MCPConnection(connection: nwConnection, router: router, authGuard: enforceAuth ? authGuard : nil)
             onConnection(conn)
         }
 
