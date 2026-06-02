@@ -87,6 +87,12 @@ final class LiveBlocksStoreAccess: BlocksStoreAccess, @unchecked Sendable {
         }
     }
 
+    func block(id: String) async -> BlocksStore.Block? {
+        await MainActor.run {
+            blocksStore.block(id: id)
+        }
+    }
+
     func searchBlocks(matching query: String) async -> [BlocksStore.Block] {
         await Task(operation: { @MainActor in
             await blocksStore.searchBlocks(matching: query)
