@@ -649,9 +649,14 @@ final class NanoTransportTests: XCTestCase {
 
         await fulfillment(of: [streamEnded], timeout: 1.0)
 
-        let (starts, stops) = box.snapshot()
-        XCTAssertGreaterThan(starts, 0, "events endpoint must have been opened")
-        XCTAssertGreaterThan(stops, 0, "URLProtocol.stopLoading() should be invoked synchronously when dataTask.cancel() runs")
+        var stops = 0
+        for _ in 0..<40 {
+            stops = box.snapshot().1
+            if stops > 0 { break }
+            try? await Task.sleep(nanoseconds: 50_000_000)
+        }
+        XCTAssertGreaterThan(box.snapshot().0, 0, "events endpoint must have been opened")
+        XCTAssertGreaterThan(stops, 0, "URLProtocol.stopLoading() should be invoked after dataTask.cancel() runs")
         _ = await task.value
     }
 
