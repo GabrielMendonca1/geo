@@ -92,41 +92,6 @@ struct TitleBarNavigationTabs: View {
     }
 }
 
-struct TitleBarSearchControl: View {
-    @Binding var text: String
-    @Binding var isPresented: Bool
-
-    var body: some View {
-        Group {
-            if isPresented {
-                let fieldWidth: CGFloat = text.isEmpty ? 140 : 220
-                SearchFieldView(text: $text, isPresented: $isPresented)
-                    .frame(width: fieldWidth, height: 20, alignment: .leading)
-                    .padding(6)
-                    .animation(.easeInOut(duration: 0.15), value: fieldWidth)
-            } else {
-                Button {
-                    withAnimation(.easeInOut(duration: 0.15)) {
-                        isPresented = true
-                    }
-                } label: {
-                    ZStack {
-                        Color.clear
-                        Image(systemName: "magnifyingglass")
-                            .font(.system(size: TitleBarMetrics.Accessory.symbolSize, weight: .semibold))
-                            .foregroundColor(.secondary.opacity(0.7))
-                    }
-                    .frame(width: TitleBarMetrics.Accessory.hitWidth, height: TitleBarMetrics.stripHeight)
-                    .contentShape(Rectangle())
-                }
-                .plainNoFocusButton()
-                .keyboardShortcut("f", modifiers: [.command])
-                .hoverTooltip(title: "Search", shortcut: "⌘F")
-            }
-        }
-    }
-}
-
 struct TitleBarLogoView: View {
 
     var body: some View {
