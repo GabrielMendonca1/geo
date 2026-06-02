@@ -136,7 +136,7 @@ final class GeoHTTPServerTests: XCTestCase {
         let http = response as! HTTPURLResponse
         var headers: [String: String] = [:]
         for (k, v) in http.allHeaderFields {
-            if let key = k as? String, let val = v as? String { headers[key] = val }
+            if let key = k as? String, let val = v as? String { headers[key.lowercased()] = val }
         }
         return (http.statusCode, data, headers)
     }
