@@ -122,7 +122,7 @@ final class APITokenStore: @unchecked Sendable {
     func readBootstrapRaw(callerId: String) -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: Self.bootstrapService,
+            kSecAttrService as String: self.bootstrapService,
             kSecAttrAccount as String: callerId,
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
@@ -163,13 +163,13 @@ final class APITokenStore: @unchecked Sendable {
     private func storeBootstrapRaw(callerId: String, raw: String) {
         let deleteQuery: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: Self.bootstrapService,
+            kSecAttrService as String: self.bootstrapService,
             kSecAttrAccount as String: callerId,
         ]
         _ = SecItemDelete(deleteQuery as CFDictionary)
         let addQuery: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: Self.bootstrapService,
+            kSecAttrService as String: self.bootstrapService,
             kSecAttrAccount as String: callerId,
             kSecValueData as String: Data(raw.utf8),
             kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
