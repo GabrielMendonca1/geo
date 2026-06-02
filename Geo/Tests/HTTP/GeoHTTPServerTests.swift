@@ -76,7 +76,7 @@ final class GeoHTTPServerTests: XCTestCase {
     func testMissingAuthReturns401() async throws {
         let (status, _, headers) = try await httpGet("/v1/blocks/orphans", token: nil)
         XCTAssertEqual(status, 401)
-        XCTAssertTrue((headers["WWW-Authenticate"] ?? "").contains("Bearer"))
+        XCTAssertTrue((headers["www-authenticate"] ?? "").contains("Bearer"))
     }
 
     func testHookTokenCannotPost() async throws {
@@ -89,7 +89,7 @@ final class GeoHTTPServerTests: XCTestCase {
         let stale = "stale-token-that-doesnt-exist"
         let (status, _, headers) = try await httpGet("/v1/blocks/orphans", token: stale)
         XCTAssertEqual(status, 401)
-        XCTAssertTrue((headers["WWW-Authenticate"] ?? "").contains("rotated"))
+        XCTAssertTrue((headers["www-authenticate"] ?? "").contains("rotated"))
     }
 
     func testPendingTransactionStoreHappyPath() throws {
