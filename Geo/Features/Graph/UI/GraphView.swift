@@ -780,11 +780,16 @@ struct GraphView: View {
     }
 
     private var simulationCanvas: some View {
-        TimelineView(.animation(paused: simulation.isSettled && draggingNodeID == nil)) { context in
+        TimelineView(.animation(paused: simulation.isSettled && draggingNodeID == nil && !hasActiveEffects)) { context in
             Canvas(rendersAsynchronously: true) { canvasContext, size in
                 renderCanvas(canvasContext: canvasContext, size: size)
             }
-            .onChange(of: context.date) { _, _ in DispatchQueue.main.async { simulation.step() } }
+            .onChange(of: context.date) { _, date in
+                DispatchQueue.main.async {
+                    simulation.step()
+                    pruneEffects(now: date)
+                }
+            }
         }
         .allowsHitTesting(false)
     }
