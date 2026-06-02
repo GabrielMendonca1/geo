@@ -271,18 +271,7 @@ class BlocksStore: ObservableObject {
         let currentBlock = self.blocks[index]
         let url = currentBlock.url
         let oldMarkdown = currentBlock.markdown
-
-        do {
-            try await fileService.writeMarkdownToDisk(newMarkdown, url: url)
-        } catch {
-            logger.error("Failed to write block \(currentBlock.id): \(error)")
-            NotificationCenter.default.post(
-                name: .blockWriteFailed,
-                object: nil,
-                userInfo: ["blockId": currentBlock.id, "error": error.localizedDescription]
-            )
-            return false
-        }
+        let oldBlock = currentBlock
 
         let interimBlock = Block(
             id: currentBlock.id,
@@ -310,6 +299,25 @@ class BlocksStore: ObservableObject {
         let snapshotForIndex = interimBlock
         var task: Task<Void, Never>!
         task = Task.detached(priority: .utility) { [weak self] in
+            do {
+                try await fileService.writeMarkdownToDisk(newMarkdown, url: url)
+            } catch {
+                logger.error("Failed to write block \(blockId): \(error)")
+                await MainActor.run { [weak self] in
+                    guard let self else { return }
+                    if let liveIndex = self.indexOfBlock(id: blockId),
+                       self.blocks[liveIndex].markdown == newMarkdown {
+                        self.blocks[liveIndex] = oldBlock
+                    }
+                    NotificationCenter.default.post(
+                        name: .blockWriteFailed,
+                        object: nil,
+                        userInfo: ["blockId": blockId, "error": error.localizedDescription]
+                    )
+                }
+                if let task { self?.removePendingSave(task) }
+                return
+            }
             fileService.cleanupRemovedImages(oldMarkdown: oldMarkdown, newMarkdown: newMarkdown)
             let document = markdownConverter.parse(newMarkdown)
             let newTitle = fileService.titleFromDocument(document, fallback: interimTitle, allowTodoTitle: false)
