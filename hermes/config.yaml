@@ -27,7 +27,7 @@ memory:
   stores:
     memory:
       path: ~/.hermes/memories/MEMORY.md
-      max_chars: 2200
+      max_chars: 5000  # holds the geo-context boot bundle (profile+memory+protocol+today) untruncated
       header: "[PERSISTENT MEMORY]"
     profile:
       path: ~/.hermes/memories/USER.md
