@@ -26,8 +26,7 @@ enum BlockTools {
     }
 
     private static func loadBlock(_ blocks: any BlocksRepository, id: String) async throws -> BlockEntity? {
-        let allBlocks = try await blocks.list()
-        return allBlocks.first(where: { $0.id == id })
+        try await blocks.get(id: id)
     }
 
     static func register(
