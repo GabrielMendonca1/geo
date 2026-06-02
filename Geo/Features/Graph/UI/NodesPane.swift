@@ -9,6 +9,7 @@ struct NodesPane: View {
     @ObservedObject private var graphStore = GraphStore.shared
     @State private var pendingFocus: FocusRequest?
     @AppStorage("nodesPane.splitFraction") private var splitFraction: Double = 0.5
+    @AppStorage("nodesPane.leftHidden") private var leftHidden: Bool = false
     @State private var liveFraction: Double? = nil
 
     private let handleWidth: CGFloat = 12
