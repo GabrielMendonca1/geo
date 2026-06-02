@@ -279,19 +279,17 @@ final class MCPConnection: @unchecked Sendable {
         return nil
     }
 
-    private func sendResponse(_ response: JSONRPCResponse, thenCancel: Bool = false) {
+    private func sendResponse(_ response: JSONRPCResponse) {
         do {
             let payload = try encoder.encode(response)
             let framed = MCPFramer.encodeFrame(payload)
-            connection.send(content: framed, completion: .contentProcessed { [weak self] error in
+            connection.send(content: framed, completion: .contentProcessed { error in
                 if let error {
                     logger.error("Write error: \(error.localizedDescription)")
                 }
-                if thenCancel { self?.connection.cancel() }
             })
         } catch {
             logger.error("Failed to encode response: \(error.localizedDescription)")
-            if thenCancel { connection.cancel() }
         }
     }
 
