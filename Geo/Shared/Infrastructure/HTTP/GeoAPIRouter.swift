@@ -378,8 +378,7 @@ final class GeoAPIRouter: @unchecked Sendable {
         case .deleteBlock:
             if let prepared = op.blockVersion {
                 do {
-                    let all = try await blocks.list()
-                    guard let current = all.first(where: { $0.id == op.targetId }) else {
+                    guard let current = try await blocks.get(id: op.targetId) else {
                         return .error(404, "block disappeared")
                     }
                     let currentVersion = MarkdownConverter.shared.frontmatterVersion(in: current.markdown)
