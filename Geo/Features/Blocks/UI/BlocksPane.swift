@@ -257,7 +257,6 @@ struct BlocksPane: View {
         .onChange(of: externalFocus) { _, newValue in
             guard let id = newValue?.blockId else { return }
             focusedBlockId = id
-            selectedBlockIds = [id]
             navigationStore.searchTexts[.nodes] = ""
             debouncedSearchText = ""
             searchResults = []
