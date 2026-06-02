@@ -127,6 +127,7 @@ final class APITokenStore: @unchecked Sendable {
             kSecAttrAccount as String: callerId,
         ]
         let status = SecItemDelete(query as CFDictionary)
+        validationCache.withLock { $0.removeAll() }
         return status == errSecSuccess
     }
 
