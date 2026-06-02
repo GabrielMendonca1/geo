@@ -220,7 +220,7 @@ final class BlockGraphServiceTests: XCTestCase {
         XCTAssertEqual(unresolved[0].targetTitle, "Nonexistent")
     }
 
-    func testApplyDelta_matchesFullRebuildAfterMutation() async {
+    @MainActor func testApplyDelta_matchesFullRebuildAfterMutation() async {
         let service = BlockGraphService(indexCoordinator: .shared, tagStore: nil)
         let initialEntries = [
             makeEntry(id: "a", title: "Alpha", content: "[[Beta]]"),
