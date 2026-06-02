@@ -16,7 +16,7 @@ final class MCPUnixSocketTransportTests: XCTestCase {
         let router = MCPRouter(registry: registry)
         let authGuard = MCPAuthGuard()
         authGuard.register(token: "test-token", endpointId: UUID(), endpointName: "TestEndpoint")
-        return UnixSocketTransport(socketPath: path, router: router, authGuard: authGuard, enforceAuth: true)
+        return UnixSocketTransport(socketPath: path, router: router, authGuard: authGuard)
     }
 
     private func waitUntil(timeout: TimeInterval, interval: TimeInterval = 0.05, _ predicate: () -> Bool) -> Bool {
