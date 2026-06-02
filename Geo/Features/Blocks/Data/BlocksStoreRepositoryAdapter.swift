@@ -5,6 +5,7 @@ protocol BlocksStoreAccess: Sendable {
     func observeBlocks() -> AsyncStream<[BlocksStore.Block]>
     func searchBlocks(matching query: String) async -> [BlocksStore.Block]
     func allBlocks() async -> [BlocksStore.Block]
+    func block(id: String) async -> BlocksStore.Block?
     func createBlock(title: String, markdown: String) async -> BlocksStore.Block?
     func createBlock(title: String, markdown: String, folder: String?) async -> BlocksStore.Block?
     func moveBlock(id: String, toFolder folder: String?) async -> BlocksStore.Block?
