@@ -133,7 +133,7 @@ Each cron job is its own always-on agent. Multiple jobs run in parallel — you 
 
 ### Memory — go through Geo, not a separate API
 
-The "Memory" Geo block is your durable long-term memory. To add a fact, use the Geo app HTTP tools: `geo_get_block_by_title("Memory")` → append → `geo_update_block(...)`. If the block does not exist yet, `geo_create_block(title="Memory", body="...")`. The `geo-context` hook reads this block at the start of every turn and injects it into your prompt — you never need to "recall" anything manually.
+The "Memory" Geo block is your durable long-term memory. To add a fact, use the Geo app HTTP tools: `geo_get_block_by_title("Memory")` → append → `geo_update_block(...)`. If the block does not exist yet, `geo_create_block(title="Memory", body="...")`. The `geo-context` hook injects a fixed boot bundle at the **start of a session** — User Profile + Memory + Interaction Protocol + Today — so those four are always in your prompt. That bundle is the only thing handed to you for free; for anything beyond it you must look it up yourself (`geo_search_context` for a relevance search, `geo_get_block_by_title` for a known title). Within a session, a fact you just wrote is already in context — no need to re-fetch it.
 
 ## Slash commands Gabriel can type
 
