@@ -39,6 +39,9 @@ final class GeoHTTPServerTests: XCTestCase {
     override func tearDown() async throws {
         server.stop()
         server = nil
+        _ = tokens.revoke(callerId: APITokenStore.bootstrapRuntime)
+        _ = tokens.revoke(callerId: APITokenStore.bootstrapHook)
+        tokens = nil
         try await super.tearDown()
     }
 
