@@ -52,6 +52,7 @@ final class APITokenStore: @unchecked Sendable {
     let service: String
     let bootstrapService: String
     private let lastUsedLock = OSAllocatedUnfairLock<[String: Date]>(initialState: [:])
+    private let validationCache = OSAllocatedUnfairLock<[String: ValidatedToken]>(initialState: [:])
     private var flushTimer: DispatchSourceTimer?
     private let flushQueue = DispatchQueue(label: "geo.http.tokens.flush")
 
