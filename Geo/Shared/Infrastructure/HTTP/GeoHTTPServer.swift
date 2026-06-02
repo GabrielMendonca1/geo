@@ -74,11 +74,7 @@ final class GeoHTTPServer: @unchecked Sendable {
             guard let self else { return }
             switch state {
             case .ready:
-                if let p = listener.port?.rawValue {
-                    self.port = p
-                    self.writeAPIInfo(port: p)
-                    httpLogger.info("Geo HTTP listener ready on 127.0.0.1:\(p)")
-                }
+                self.publishAPIInfo(attempt: 0)
             case .failed(let err):
                 httpLogger.error("Geo HTTP listener failed: \(err.localizedDescription)")
             case .cancelled:
