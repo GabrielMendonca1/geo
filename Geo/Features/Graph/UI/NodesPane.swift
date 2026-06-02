@@ -26,29 +26,37 @@ struct NodesPane: View {
             let rightWidth = max(0, total - leftWidth - handleWidth)
 
             HStack(spacing: 0) {
-                BlocksPane(externalFocus: pendingFocus)
-                    .frame(width: leftWidth)
-                    .clipped()
+                if !leftHidden {
+                    BlocksPane(externalFocus: pendingFocus)
+                        .frame(width: leftWidth)
+                        .clipped()
 
-                ResizeDividerHandle(
-                    width: handleWidth,
-                    isActiveCheck: { [tabRouter] in tabRouter.selectedTab == .nodes },
-                    onDragChanged: { deltaPx in
-                        let denom = Double(max(total, 1))
-                        let next = splitFraction + Double(deltaPx) / denom
-                        liveFraction = min(max(next, minFrac), maxFrac)
-                    },
-                    onDragEnded: {
-                        if let f = liveFraction { splitFraction = f }
-                        liveFraction = nil
-                    }
-                )
+                    ResizeDividerHandle(
+                        width: handleWidth,
+                        isActiveCheck: { [tabRouter] in tabRouter.selectedTab == .nodes },
+                        onDragChanged: { deltaPx in
+                            let denom = Double(max(total, 1))
+                            let next = splitFraction + Double(deltaPx) / denom
+                            liveFraction = min(max(next, minFrac), maxFrac)
+                        },
+                        onDragEnded: {
+                            if let f = liveFraction { splitFraction = f }
+                            liveFraction = nil
+                        }
+                    )
+                }
 
                 GraphView(
                     graph: graphStore.graph,
                     seedPositions: graphStore.cachedPositions,
                     wasSettled: graphStore.simulationSettled,
                     externalChangeSignal: graphStore.externalChangeSignal,
+                    sidebarHidden: leftHidden,
+                    onToggleSidebar: {
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                            leftHidden.toggle()
+                        }
+                    },
                     onLayoutChange: { positions, settled in
                         graphStore.updateLayoutCache(positions: positions, settled: settled)
                     }
@@ -58,7 +66,7 @@ struct NodesPane: View {
                         openWindow(value: blockId)
                     }
                 }
-                .frame(width: rightWidth)
+                .frame(width: leftHidden ? total : rightWidth)
                 .clipped()
             }
         }
