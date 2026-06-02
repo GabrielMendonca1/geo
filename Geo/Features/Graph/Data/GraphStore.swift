@@ -36,7 +36,7 @@ final class GraphStore: ObservableObject {
         guard observationTask == nil else { return }
         observationTask = Task { [weak self] in
             let stream = blocksViewModel.$blocks
-                .debounce(for: .milliseconds(100), scheduler: DispatchQueue.main)
+                .debounce(for: .milliseconds(16), scheduler: DispatchQueue.main)
                 .values
             for await blocks in stream {
                 await self?.refresh(from: blocks)
