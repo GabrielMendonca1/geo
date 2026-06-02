@@ -45,17 +45,19 @@ private struct TokenAttributes: Codable {
 final class APITokenStore: @unchecked Sendable {
     static let shared = APITokenStore()
 
-    static let service = "geo-api"
-    static let bootstrapService = "geo-api-bootstrap"
     static let bootstrapRuntime = "hermes-runtime"
     static let bootstrapHook = "hermes-hook"
     private static let lastUsedDefaultsKey = "ai.geo.api.lastUsed"
 
+    let service: String
+    let bootstrapService: String
     private let lastUsedLock = OSAllocatedUnfairLock<[String: Date]>(initialState: [:])
     private var flushTimer: DispatchSourceTimer?
     private let flushQueue = DispatchQueue(label: "geo.http.tokens.flush")
 
-    init() {
+    init(service: String = "geo-api", bootstrapService: String = "geo-api-bootstrap") {
+        self.service = service
+        self.bootstrapService = bootstrapService
         loadLastUsedFromDisk()
         startFlushTimer()
     }
