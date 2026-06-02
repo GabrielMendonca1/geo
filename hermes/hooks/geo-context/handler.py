@@ -379,7 +379,7 @@ def _hash(body: str) -> str:
 
 
 async def handle(event_type: str, context: dict) -> None:
-    if event_type not in ("agent:start", "session:reset", "session:start"):
+    if event_type not in ("session:start", "session:reset"):
         return
     platform = context.get("platform", "?")
     state = _load_state()
