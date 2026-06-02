@@ -1245,6 +1245,18 @@ struct GraphView: View {
                 )
             }
         }
+
+        for (_, ghost) in removalPulses {
+            let elapsed = renderNow.timeIntervalSince(ghost.start)
+            guard elapsed >= 0, elapsed < Self.removalDuration else { continue }
+            let t = elapsed / Self.removalDuration
+            let center = projected(ghost.position)
+            let scaled = ghost.radius * CGFloat(settings.nodeSizeScale) * effectiveZoom
+            let ringRadius = scaled + CGFloat(t) * 16
+            let ringAlpha = (1 - t) * 0.5
+            let ringRect = CGRect(x: center.x - ringRadius, y: center.y - ringRadius, width: ringRadius * 2, height: ringRadius * 2)
+            ctx.stroke(Path(ellipseIn: ringRect), with: .color(Color(white: 0.55).opacity(ringAlpha)), lineWidth: 1.2)
+        }
     }
 }
 
