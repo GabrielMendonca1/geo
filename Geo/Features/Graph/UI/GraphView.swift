@@ -603,6 +603,69 @@ struct GraphView: View {
         frameInitialLayoutIfNeeded()
     }
 
+    private func detectCRUDPulses(from oldGraph: BlockGraph, to newGraph: BlockGraph) {
+        guard !oldGraph.nodes.isEmpty else { return }
+        let oldIds = Set(oldGraph.nodes.map(\.id))
+        let newIds = Set(newGraph.nodes.map(\.id))
+        let added = newIds.subtracting(oldIds)
+        let removed = oldIds.subtracting(newIds)
+
+        let oldNode = Dictionary(oldGraph.nodes.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let newNode = Dictionary(newGraph.nodes.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let oldSig = incidentSignatures(oldGraph)
+        let newSig = incidentSignatures(newGraph)
+        var updated = Set<UUID>()
+        for id in newIds.intersection(oldIds) where oldNode[id] != newNode[id] || oldSig[id] != newSig[id] {
+            updated.insert(id)
+        }
+
+        let churn = added.count + removed.count + updated.count
+        guard churn > 0, churn <= max(8, newGraph.nodes.count / 4) else { return }
+
+        let now = Date()
+        let pulseTargets = added.union(updated)
+        if !pulseTargets.isEmpty {
+            var merged = externalPulses.filter { now.timeIntervalSince($0.value) < Self.pulseDuration }
+            for id in pulseTargets { merged[id] = now }
+            externalPulses = merged
+        }
+        if !removed.isEmpty {
+            var ghosts = removalPulses.filter { now.timeIntervalSince($0.value.start) < Self.removalDuration }
+            for id in removed {
+                guard let pos = simulation.position(for: id) else { continue }
+                ghosts[id] = (pos, simulation.radius(for: id) ?? 8, now)
+            }
+            removalPulses = ghosts
+        }
+        simulation.nudge()
+    }
+
+    private func incidentSignatures(_ graph: BlockGraph) -> [UUID: Set<String>] {
+        var sig: [UUID: Set<String>] = [:]
+        for edge in graph.edges {
+            if let target = edge.targetId {
+                sig[edge.sourceId, default: []].insert("o:\(target.uuidString)")
+                sig[target, default: []].insert("i:\(edge.sourceId.uuidString)")
+            } else {
+                sig[edge.sourceId, default: []].insert("u:\(edge.targetTitle)")
+            }
+        }
+        return sig
+    }
+
+    private func pruneEffects(now: Date) {
+        if !externalPulses.isEmpty {
+            let kept = externalPulses.filter { now.timeIntervalSince($0.value) < Self.pulseDuration }
+            if kept.count != externalPulses.count { externalPulses = kept }
+        }
+        if !removalPulses.isEmpty {
+            let kept = removalPulses.filter { now.timeIntervalSince($0.value.start) < Self.removalDuration }
+            if kept.count != removalPulses.count { removalPulses = kept }
+        }
+    }
+
+    private var hasActiveEffects: Bool { !externalPulses.isEmpty || !removalPulses.isEmpty }
+
     private func recomputeVisibilityCache() {
         let set = computeVisibleNodeIDs()
         cachedVisibleSet = set
