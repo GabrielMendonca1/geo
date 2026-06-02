@@ -11,15 +11,13 @@ final class UnixSocketTransport: MCPTransport, @unchecked Sendable {
     private let socketPath: String
     private let router: MCPRouter
     private let authGuard: MCPAuthGuard
-    private let enforceAuth: Bool
     private let queue = DispatchQueue(label: "geo.mcp.transport.unix", qos: .userInitiated)
     private var listener: NWListener?
 
-    init(socketPath: String, router: MCPRouter, authGuard: MCPAuthGuard, enforceAuth: Bool = false) {
+    init(socketPath: String, router: MCPRouter, authGuard: MCPAuthGuard) {
         self.socketPath = socketPath
         self.router = router
         self.authGuard = authGuard
-        self.enforceAuth = enforceAuth
         self.identifier = "unix:\(socketPath)"
     }
 
