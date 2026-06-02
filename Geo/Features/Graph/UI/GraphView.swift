@@ -716,8 +716,35 @@ struct GraphView: View {
             labelOverlay
             gestureLayer
             scrollWheelLayer
+            sidebarToggle
             settingsToggle
             settingsDrawer
+        }
+    }
+
+    @ViewBuilder
+    private var sidebarToggle: some View {
+        if let onToggleSidebar {
+            Button(action: onToggleSidebar) {
+                Image(systemName: "sidebar.left")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Palette.foreground.opacity(0.85))
+                    .frame(width: 30, height: 30)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(Palette.secondaryBackground.opacity(0.85))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(Palette.border.opacity(0.5), lineWidth: 0.5)
+                    )
+            }
+            .buttonStyle(.plain)
+            .help(sidebarHidden ? "Show list" : "Hide list")
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .padding(.top, 12)
+            .padding(.leading, 12)
+            .zIndex(10)
         }
     }
 
