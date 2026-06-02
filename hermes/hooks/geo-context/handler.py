@@ -114,6 +114,9 @@ def _format_today(raw: Optional[str]) -> Optional[str]:
 
 
 def _read_keychain_token() -> Optional[str]:
+    env_token = os.environ.get("GEO_API_TOKEN")
+    if env_token and env_token.strip():
+        return env_token.strip()
     try:
         result = subprocess.run(
             ["security", "find-generic-password",
