@@ -67,7 +67,7 @@ def _nano_model() -> str:
 
 HAIKU_MODEL = _nano_model()
 TODAY_SUMMARIZE_THRESHOLD = 600
-MAX_MEMORY_BODY = 4000
+MAX_MEMORY_BODY = 5000
 TTL_SECONDS = 60.0
 
 
