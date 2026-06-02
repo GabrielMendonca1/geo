@@ -112,7 +112,7 @@ final class APITokenStore: @unchecked Sendable {
     func revoke(callerId: String) -> Bool {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: Self.service,
+            kSecAttrService as String: self.service,
             kSecAttrAccount as String: callerId,
         ]
         let status = SecItemDelete(query as CFDictionary)
@@ -151,7 +151,7 @@ final class APITokenStore: @unchecked Sendable {
         let digestData = Data(digest.utf8)
         let addQuery: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: Self.service,
+            kSecAttrService as String: self.service,
             kSecAttrAccount as String: callerId,
             kSecValueData as String: digestData,
             kSecAttrGeneric as String: attrData,
@@ -180,7 +180,7 @@ final class APITokenStore: @unchecked Sendable {
     private func lookupByDigest(_ digest: String) -> (TokenAttributes, String)? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: Self.service,
+            kSecAttrService as String: self.service,
             kSecMatchLimit as String: kSecMatchLimitAll,
             kSecReturnAttributes as String: true,
         ]
@@ -204,7 +204,7 @@ final class APITokenStore: @unchecked Sendable {
     private func readDigestData(callerId: String) -> Data? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: Self.service,
+            kSecAttrService as String: self.service,
             kSecAttrAccount as String: callerId,
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
@@ -218,7 +218,7 @@ final class APITokenStore: @unchecked Sendable {
     private func listAllAttributes() -> [TokenAttributes] {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: Self.service,
+            kSecAttrService as String: self.service,
             kSecMatchLimit as String: kSecMatchLimitAll,
             kSecReturnAttributes as String: true,
         ]
