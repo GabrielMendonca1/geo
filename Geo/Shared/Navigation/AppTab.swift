@@ -43,13 +43,6 @@ enum AppTab: String, CaseIterable {
         }
     }
 
-    var supportsSearch: Bool {
-        switch self {
-        case .tasks, .nodes: return true
-        default: return false
-        }
-    }
-
     var shortcutHint: String {
         if self == .settings { return "⌘," }
         if let index = Self.defaultNavigationOrder.firstIndex(of: self) {
