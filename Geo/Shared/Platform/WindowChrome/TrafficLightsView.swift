@@ -137,25 +137,6 @@ extension View {
             CGSize(width: TitleBarMetrics.Accessory.width, height: TitleBarMetrics.stripHeight)
         })
     }
-
-    func titleBarSearch(text: Binding<String>, isPresented: Binding<Bool>, isVisible: Bool = true) -> some View {
-        modifier(TitleBarHostAccessoryModifier(
-            isVisible: isVisible,
-            layout: .leading,
-            makeHost: {
-                NSHostingView(rootView: TitleBarSearchControl(text: text, isPresented: isPresented))
-            },
-            sizing: { _ in
-                let collapsed = TitleBarMetrics.Accessory.width
-                let expanded: CGFloat = text.wrappedValue.isEmpty ? 152 : 232
-                return CGSize(
-                    width: isPresented.wrappedValue ? expanded : collapsed,
-                    height: TitleBarMetrics.stripHeight
-                )
-            },
-            sizingKey: "\(text.wrappedValue)|\(isPresented.wrappedValue)"
-        ))
-    }
 }
 
 private extension NSUserInterfaceItemIdentifier {
