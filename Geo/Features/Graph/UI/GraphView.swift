@@ -530,7 +530,9 @@ struct GraphView: View {
     @Environment(\.tabRouter) private var tabRouter
     @StateObject private var simulation = GraphSimulation()
     @State private var externalPulses: [UUID: Date] = [:]
+    @State private var removalPulses: [UUID: (position: CGPoint, radius: CGFloat, start: Date)] = [:]
     private static let pulseDuration: TimeInterval = 1.2
+    private static let removalDuration: TimeInterval = 0.9
 
     @State private var zoom: CGFloat = CGFloat(GraphView.bootstrappedSettings().zoom)
     @State private var pendingZoom: CGFloat = CGFloat(GraphView.bootstrappedSettings().zoom)
