@@ -578,7 +578,7 @@ struct GraphView: View {
                     onLayoutChange?(simulation.layout.positions, simulation.isSettled)
                 }
                 .onChange(of: geo.size) { _, newSize in canvasSize = newSize }
-                .onChange(of: graph) { _, newGraph in handleGraphChange(newGraph) }
+                .onChange(of: graph) { oldGraph, newGraph in handleGraphChange(from: oldGraph, to: newGraph) }
                 .onChange(of: externalChangeSignal) { _, signal in handleExternalSignal(signal) }
                 .onChange(of: simulation.isSettled) { _, settled in handleSettledChange(settled) }
                 .onChange(of: forcesTuple) { _, _ in handleForcesChange() }
