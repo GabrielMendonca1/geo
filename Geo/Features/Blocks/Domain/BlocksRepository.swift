@@ -4,6 +4,7 @@ protocol BlocksRepository: Sendable {
     func observe() -> AsyncStream<[BlockEntity]>
     func search(matching query: String) async throws -> [BlockEntity]
     func list() async throws -> [BlockEntity]
+    func get(id: String) async throws -> BlockEntity?
     func create(title: String, markdown: String) async throws -> BlockEntity
     func create(title: String, markdown: String, folder: String?) async throws -> BlockEntity
     func move(id: String, toFolder folder: String?) async throws -> BlockEntity
