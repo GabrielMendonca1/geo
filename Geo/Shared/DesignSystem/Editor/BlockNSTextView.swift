@@ -233,7 +233,6 @@ final class BlockNSTextView: NSTextView {
                         let target = (ts.attribute(.geoWikiTarget, at: charIndex, effectiveRange: nil) as? String) ?? displayed
                         let anchor = ts.attribute(.geoWikiAnchor, at: charIndex, effectiveRange: nil) as? String
                         let isEmbed = (ts.attribute(.geoEmbed, at: charIndex, effectiveRange: nil) as? Bool) == true
-                        wikiLinkNavLogger.debug("wikilink click: target='\(target, privacy: .public)' atIndex=\(charIndex)")
                         onEvent?(.wikiLinkClicked(WikiLinkClickPayload(target: target, anchor: anchor, isEmbed: isEmbed)))
                         return
                     }
