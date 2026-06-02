@@ -94,10 +94,13 @@ final class GeoHTTPServer: @unchecked Sendable {
     func stop() {
         listener?.cancel()
         listener = nil
-        try? FileManager.default.removeItem(at: apiInfoURL)
+        if ownsAPIInfo() {
+            try? FileManager.default.removeItem(at: apiInfoURL)
+        }
     }
 
     private func accept(_ conn: NWConnection) {
+        ensureAPIInfo()
         conn.start(queue: queue)
         readRequest(conn: conn, buffer: Data())
     }
