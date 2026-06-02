@@ -183,10 +183,10 @@ async def _safe_get(client: httpx.AsyncClient, path: str, token_ref: dict) -> Op
 async def _fetch_geo_blocks():
     info = _read_api_json()
     if not info:
-        return None, None, None
+        return None, None, None, None
     token = _read_keychain_token()
     if not token:
-        return None, None, None
+        return None, None, None, None
     token_ref = {"token": token}
     base = f"http://127.0.0.1:{info['port']}"
     headers = {
@@ -197,13 +197,15 @@ async def _fetch_geo_blocks():
         async with httpx.AsyncClient(base_url=base, headers=headers, timeout=8.0) as client:
             profile_path = "/v1/blocks/by-title?title=" + urllib.parse.quote("User Profile")
             memory_path = "/v1/blocks/by-title?title=" + urllib.parse.quote("Memory")
+            protocol_path = "/v1/blocks/by-title?title=" + urllib.parse.quote("Interaction Protocol")
             profile = await asyncio.wait_for(_safe_get(client, profile_path, token_ref), timeout=10.0)
             memory = await asyncio.wait_for(_safe_get(client, memory_path, token_ref), timeout=10.0)
+            protocol = await asyncio.wait_for(_safe_get(client, protocol_path, token_ref), timeout=10.0)
             today = await asyncio.wait_for(_safe_get(client, "/v1/days/today", token_ref), timeout=10.0)
-            return profile, memory, today
+            return profile, memory, protocol, today
     except Exception as e:
         _log(f"http unreachable (Geo.app closed?): {e}")
-        return None, None, None
+        return None, None, None, None
 
 
 async def _summarize_with_haiku(text: str, label: str) -> str:
