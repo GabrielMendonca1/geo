@@ -2,6 +2,8 @@
 
 In Geo, create or update a block titled **`Memory`** containing the body below. The `geo-context` hook injects this block into every hermes session — making it the canonical source of agent operating rules. `SOUL.md` deliberately points here instead of duplicating it.
 
+> Note: the boot bundle the hook writes at session start also includes a **`User Profile`** block and an **`Interaction Protocol`** block (each fetched by title from Geo and injected alongside this `Memory` block). Seed those two blocks the same way if you want them in context.
+
 Copy-paste the section under "Body" into the block.
 
 ## Body
