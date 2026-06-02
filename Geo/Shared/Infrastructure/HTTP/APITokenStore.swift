@@ -89,10 +89,20 @@ final class APITokenStore: @unchecked Sendable {
 
     func validate(rawToken: String) -> ValidatedToken? {
         let digest = Self.digest(of: rawToken)
+        if let cached = validationCache.withLock({ $0[digest] }) {
+            if let exp = cached.expiresAt, exp <= Date() {
+                validationCache.withLock { $0[digest] = nil }
+                return nil
+            }
+            lastUsedLock.withLock { $0[cached.callerId] = Date() }
+            return cached
+        }
         guard let (attrs, callerId) = lookupByDigest(digest) else { return nil }
         if let exp = attrs.expiresAt, exp <= Date() { return nil }
+        let validated = ValidatedToken(callerId: callerId, scope: attrs.scope, expiresAt: attrs.expiresAt)
+        validationCache.withLock { $0[digest] = validated }
         lastUsedLock.withLock { $0[callerId] = Date() }
-        return ValidatedToken(callerId: callerId, scope: attrs.scope, expiresAt: attrs.expiresAt)
+        return validated
     }
 
     func list() -> [TokenSummary] {
