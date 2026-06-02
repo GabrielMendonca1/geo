@@ -23,7 +23,6 @@ final class TabRouter {
 final class NavigationStore {
     let tabRouter: TabRouter
     private(set) var path: [String] = []
-    var searchPresentedTabs: [AppTab: Bool] = [:]
     var searchTexts: [AppTab: String] = [:]
     var fabExpanded: Bool = false
 
@@ -32,18 +31,9 @@ final class NavigationStore {
         set { tabRouter.selectTab(newValue) }
     }
 
-    var isSearchPresented: Bool {
-        get { searchPresentedTabs[tabRouter.selectedTab, default: false] }
-        set { searchPresentedTabs[tabRouter.selectedTab] = newValue }
-    }
-
     var searchText: String {
         get { searchTexts[tabRouter.selectedTab, default: ""] }
         set { searchTexts[tabRouter.selectedTab] = newValue }
-    }
-
-    var searchVisible: Bool {
-        tabRouter.selectedTab.supportsSearch
     }
 
     init(selectedTab: AppTab? = nil) {
