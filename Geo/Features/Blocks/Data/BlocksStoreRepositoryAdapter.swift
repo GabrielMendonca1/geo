@@ -251,6 +251,13 @@ struct BlocksStoreRepositoryAdapter: BlocksRepository, @unchecked Sendable {
         await storeAccess.allBlocks().map(BlockEntity.init(from:))
     }
 
+    func get(id: String) async throws -> BlockEntity? {
+        let trimmed = id.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        guard let block = await storeAccess.block(id: trimmed) else { return nil }
+        return BlockEntity(from: block)
+    }
+
     func search(matching query: String) async throws -> [BlockEntity] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
