@@ -589,7 +589,8 @@ struct GraphView: View {
         }
     }
 
-    private func handleGraphChange(_ newGraph: BlockGraph) {
+    private func handleGraphChange(from oldGraph: BlockGraph, to newGraph: BlockGraph) {
+        detectCRUDPulses(from: oldGraph, to: newGraph)
         simulation.ingest(graph: newGraph)
         let valid = Set(newGraph.nodes.map(\.id))
         if let sel = selectedNodeID, !valid.contains(sel) { selectedNodeID = nil }
