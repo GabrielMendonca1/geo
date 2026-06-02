@@ -76,6 +76,9 @@ def _read_api_json() -> tuple[int, int]:
 
 
 def _read_keychain_token() -> str:
+    env_token = os.environ.get("GEO_API_TOKEN")
+    if env_token and env_token.strip():
+        return env_token.strip()
     try:
         proc = subprocess.run(
             [
