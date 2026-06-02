@@ -1,11 +1,12 @@
 name: geo-context
 description: >
-  Geo context fetch (User Profile + Memory + Today's block) from Gabriel's
-  Geo data. Auto-injection is DISABLED: this no longer fires on agent:start
-  / session:reset, so MEMORY.md is no longer rewritten before every turn.
-  The fetch+summarize logic now lives behind the on-demand geo_search_context
-  tool (hermes-extensions/geo-search-tool), which the agent calls with a query
-  when it actually needs Geo state, using the cheap nano model.
-  handler.py is retained as the importable source of that logic. The hash/TTL
-  gating and silent no-op when Geo.app is closed still apply to any caller.
-events: []
+  Geo context fetch (User Profile + Memory + Interaction Protocol + Today's
+  block) from Gabriel's Geo data. Auto-injection is ENABLED again: this fires
+  on session:start / session:reset and rewrites MEMORY.md with the fixed
+  identity bundle (profile + memory + interaction protocol + today), which
+  config.yaml injects into every turn. The bundle now also includes the
+  Interaction Protocol block. The fetch+summarize logic is also reused behind
+  the on-demand geo_search_context tool (hermes-extensions/geo-search-tool),
+  which the agent calls with a query for arbitrary lookups beyond this bundle.
+  The hash/TTL gating and silent no-op when Geo.app is closed still apply.
+events: [session:start, session:reset]
