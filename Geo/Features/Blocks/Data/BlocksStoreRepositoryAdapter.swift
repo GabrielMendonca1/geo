@@ -25,6 +25,9 @@ protocol BlocksStoreAccess: Sendable {
 }
 
 extension BlocksStoreAccess {
+    func block(id: String) async -> BlocksStore.Block? {
+        await allBlocks().first(where: { $0.id == id })
+    }
     func createBlock(title: String, markdown: String, folder: String?) async -> BlocksStore.Block? {
         await createBlock(title: title, markdown: markdown)
     }
