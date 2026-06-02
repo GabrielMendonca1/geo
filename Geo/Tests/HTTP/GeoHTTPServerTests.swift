@@ -12,9 +12,10 @@ final class GeoHTTPServerTests: XCTestCase {
 
     override func setUp() async throws {
         try await super.setUp()
-        tokens = APITokenStore.shared
-        _ = tokens.revoke(callerId: APITokenStore.bootstrapRuntime)
-        _ = tokens.revoke(callerId: APITokenStore.bootstrapHook)
+        tokens = APITokenStore(
+            service: "geo-api-test-\(UUID().uuidString)",
+            bootstrapService: "geo-api-bootstrap-test-\(UUID().uuidString)"
+        )
         tokens.ensureBootstrapTokens()
         runtimeToken = tokens.readBootstrapRaw(callerId: APITokenStore.bootstrapRuntime)
         hookToken = tokens.readBootstrapRaw(callerId: APITokenStore.bootstrapHook)
@@ -23,7 +24,7 @@ final class GeoHTTPServerTests: XCTestCase {
 
         let registry = MCPToolRegistry(tools: [])
         let blocks = FakeBlocksRepository()
-        let router = GeoAPIRouter(registry: registry, blocks: blocks)
+        let router = GeoAPIRouter(registry: registry, tokens: tokens, blocks: blocks)
         server = GeoHTTPServer(router: router)
         try server.start()
 
