@@ -17,12 +17,6 @@ struct TitleBarOverlay: View {
                 .padding(.trailing, 8)
             TitleBarNavigationTabs(tabRouter: navigationStore.tabRouter)
             TitleBarSettingsButton()
-            TitleBarSearchControl(
-                text: Bindable(navigationStore).searchText,
-                isPresented: Bindable(navigationStore).isSearchPresented
-            )
-            .opacity(navigationStore.searchVisible ? 1 : 0)
-            .allowsHitTesting(navigationStore.searchVisible)
             Spacer()
             TitleBarLogoView()
                 .padding(.trailing, 14)
