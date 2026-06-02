@@ -221,8 +221,7 @@ final class MCPConnection: @unchecked Sendable {
         }
 
         guard request.method == "initialize" else {
-            sendResponse(.error(id: request.id, code: JSONRPCError.invalidRequest, message: "First message must be 'initialize' with authToken"))
-            connection.cancel()
+            sendResponse(.error(id: request.id, code: JSONRPCError.invalidRequest, message: "First message must be 'initialize' with authToken"), thenCancel: true)
             return
         }
 
@@ -230,8 +229,7 @@ final class MCPConnection: @unchecked Sendable {
               let validated = authGuard.validate(token: token, clientId: peerClientId())
         else {
             logger.warning("MCP connection rejected — invalid or missing auth token")
-            sendResponse(.error(id: request.id, code: JSONRPCError.invalidRequest, message: "Unauthorized"))
-            connection.cancel()
+            sendResponse(.error(id: request.id, code: JSONRPCError.invalidRequest, message: "Unauthorized"), thenCancel: true)
             return
         }
 
