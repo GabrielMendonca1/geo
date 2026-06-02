@@ -319,8 +319,7 @@ final class GeoAPIRouter: @unchecked Sendable {
         switch op {
         case .deleteBlock:
             do {
-                let all = try await blocks.list()
-                guard let block = all.first(where: { $0.id == targetId }) else {
+                guard let block = try await blocks.get(id: targetId) else {
                     return .error(404, "block not found")
                 }
                 blockVersion = MarkdownConverter.shared.frontmatterVersion(in: block.markdown)
