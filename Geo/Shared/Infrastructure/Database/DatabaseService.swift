@@ -298,6 +298,7 @@ final class DatabaseService: @unchecked Sendable {
         try await performWrite { db in
             for id in removals {
                 try db.execute(sql: "DELETE FROM block_tags WHERE blockId = ?", arguments: [id])
+                try db.execute(sql: "DELETE FROM block_days WHERE blockId = ?", arguments: [id])
                 try db.execute(sql: "DELETE FROM blocks_fts WHERE blockId = ?", arguments: [id])
                 try db.execute(sql: "DELETE FROM blocks WHERE id = ?", arguments: [id])
             }
