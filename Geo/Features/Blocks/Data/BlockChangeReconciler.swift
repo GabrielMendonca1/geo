@@ -115,6 +115,9 @@ final class BlockChangeReconciler {
                 var blockMetadata = metadataService.metadata(for: blockId)
                 blockMetadata.status = MarkdownConverter.shared.status(in: content)
                 blockMetadata.type = MarkdownConverter.shared.type(in: content)
+                if let fmLayer = MarkdownConverter.shared.layer(in: content) {
+                    blockMetadata.layer = fmLayer
+                }
                 let diskFrontmatterVersion = MarkdownConverter.shared.frontmatterVersion(in: content)
                 let memBlock = blocks.first(where: { $0.id == blockId })
                 if memBlock?.markdown == content {
