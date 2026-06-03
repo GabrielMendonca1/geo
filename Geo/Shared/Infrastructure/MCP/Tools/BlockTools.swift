@@ -111,10 +111,6 @@ enum BlockTools {
                 guard validateBlockId(id) else {
                     return .error("invalid block id")
                 }
-                switch AgentAuthorization.authorize(.read, on: id, layer: nil) {
-                case .allow: break
-                case .deny(let reason): return .error(reason)
-                }
                 let allBlocks = try await blocks.list()
                 guard let block = allBlocks.first(where: { $0.id == id }) else {
                     return .error("Block not found: \(id)")
@@ -511,10 +507,6 @@ enum BlockTools {
             handler: { args in
                 guard let id = args["id"]?.stringValue else {
                     return .error("Missing required parameter: id")
-                }
-                switch AgentAuthorization.authorize(.read, on: id, layer: nil) {
-                case .allow: break
-                case .deny(let reason): return .error(reason)
                 }
                 do {
                     let result = try await graph.findNeighbors(of: id)
