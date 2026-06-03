@@ -158,7 +158,7 @@ CP2 Data structures:
   mentionsByKey: [CanonicalKey: [MentionRef]]   // O(1) group
   canonicalTitle: [CanonicalKey: String]        // deterministic: longest, then lexicographically smallest (resumable)
   DSU parent[]                                   // union-find near-dup clusters
-  vec0 keyed by canonical key (ANN)
+  node_vec BLOBs keyed by canonical key (Accelerate cosine)
 CP3 Architecture/I/O:
   Round-trips BOUNDED: Pass-1 = ceil(chunks/maxPerBatch) submissions
     (1 batch ≈ 1–10 calls, NOT 1/chunk). Pass-2 = 0 or 1 batch.
