@@ -92,10 +92,10 @@ enum DayTools {
                 guard let dateStr = args["date"]?.stringValue else {
                     return .error("Missing required parameter: date")
                 }
-                guard let date = DateFormatters.iso8601FullDate.date(from: dateStr) else {
+                guard let date = DateFormatters.dayId.date(from: dateStr) else {
                     return .error("Invalid date format. Use YYYY-MM-DD")
                 }
-                let dayId = Day.idFromDate(date)
+                let dayId = DateFormatters.dayId.string(from: date)
                 ensureDailyNote(dayId: dayId)
                 let (blockIds, captureCount) = await derivedBlockIds(days, date: date, dayId: dayId, indexCoordinator: indexCoordinator)
                 let result: [String: AnyCodableValue] = [
