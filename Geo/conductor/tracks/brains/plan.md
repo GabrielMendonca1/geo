@@ -202,7 +202,7 @@ Write tools in `BlockTools.swift`/`TagTools.swift` (note `link_block_to_day` is 
 
 **Delegate contract.** Agent resolves the brain's absolute folder via `get_brain_manifest(brain).folder`, then `claude_code_run(directory: <brain folder>, prompt, ...)` (`hermes-extensions/claude-code-lane/README.md:11`). The subagent is read-only (only the brain's files, no write tools); it returns a synthesis the parent writes into the personal brain.
 
-**search_blocks semantic mode.** Gains `mode: lexical | semantic` (default `lexical`, backwards-compatible) + `brain`. `semantic` calls `index.semanticSearch(query, topK)` (sqlite-vec). Validated at `BlockTools.swift:210`.
+**search_blocks semantic mode.** Gains `mode: lexical | semantic` (default `lexical`, backwards-compatible) + `brain`. `semantic` calls `index.semanticSearch(query, topK)` (Accelerate brute-force). Validated at `BlockTools.swift:210`.
 
 **Critical files:** `BlockTools.swift` · `GeoAPIRouter.swift` · `MCPToolRegistry.swift` · `GeoApp.swift` · `AgentAuthorization.swift`.
 
