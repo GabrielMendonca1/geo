@@ -9,6 +9,7 @@ final class BlockGraphServiceTests: XCTestCase {
         title: String,
         content: String,
         tagId: String? = nil,
+        tags: [String] = [],
         layer: String = "user"
     ) -> BlockIndexEntry {
         BlockIndexEntry(
@@ -22,7 +23,7 @@ final class BlockGraphServiceTests: XCTestCase {
             dayId: nil,
             openTaskCount: 0,
             completedTaskCount: 0,
-            tags: [],
+            tags: tags,
             layer: layer
         )
     }
