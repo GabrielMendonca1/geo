@@ -196,7 +196,8 @@ final class BrainsTests: XCTestCase {
             XCTAssertEqual(lhs, rhs, accuracy: 1e-6)
         }
         try await database.upsertVector(blockId: "b.md", embedding: [0.4, 0.5, 0.6])
-        XCTAssertEqual(try await database.loadAllVectors().count, 1)
+        let afterUpdate = try await database.loadAllVectors().count
+        XCTAssertEqual(afterUpdate, 1)
     }
 
     func testSemanticSearchRanksByCosineEndToEnd() async throws {
