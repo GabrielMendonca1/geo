@@ -103,4 +103,92 @@ final class MarkdownIndexingServiceTests: XCTestCase {
         XCTAssertEqual(result.openTaskCount, 0)
         XCTAssertEqual(result.completedTaskCount, 0)
     }
+
+    func testExtractDayIdsFromBodyWikilinks() {
+        let markdown = "Logged this on [[2026-06-03]] for the record."
+
+        let result = sut.extract(from: markdown)
+
+        XCTAssertEqual(result.dayIds, ["2026-06-03"])
+    }
+
+    func testExtractDayIdsHandlesAliasedAndDedupes() {
+        let markdown = "see [[2026-06-03|today]] and again [[2026-06-03]]"
+
+        let result = sut.extract(from: markdown)
+
+        XCTAssertEqual(result.dayIds, ["2026-06-03"])
+    }
+
+    func testExtractDayIdsRejectsInvalidDates() {
+        let markdown = "bad date [[2026-13-99]] should not index"
+
+        let result = sut.extract(from: markdown)
+
+        XCTAssertTrue(result.dayIds.isEmpty)
+    }
+
+    func testExtractDayIdsIgnoresCodeBlocks() {
+        let markdown = """
+        ```
+        [[2026-06-03]]
+        ```
+        """
+
+        let result = sut.extract(from: markdown)
+
+        XCTAssertTrue(result.dayIds.isEmpty)
+    }
+
+    func testExtractMergesFrontmatterTagsWithBodyHashtags() {
+        let markdown = """
+        ---
+        tags: [arc, pkm]
+        ---
+        body #pkm #swift
+        """
+
+        let result = sut.extract(from: markdown)
+
+        XCTAssertEqual(result.tags, ["arc", "pkm", "swift"])
+    }
+
+    func testExtractFrontmatterTagsCaseFoldedToMatchBlockTags() {
+        let markdown = """
+        ---
+        tags: [ARC]
+        ---
+        body
+        """
+
+        let result = sut.extract(from: markdown)
+
+        XCTAssertEqual(result.tags, ["arc"])
+    }
+
+    func testExtractSurfacesFrontmatterId() {
+        let markdown = """
+        ---
+        id: 7f3a1b2c-0000-4000-8000-000000000001
+        ---
+        body
+        """
+
+        let result = sut.extract(from: markdown)
+
+        XCTAssertEqual(result.frontmatterId, "7f3a1b2c-0000-4000-8000-000000000001")
+    }
+
+    func testExtractFrontmatterIdAbsentIsNil() {
+        let markdown = """
+        ---
+        type: fleeting
+        ---
+        body
+        """
+
+        let result = sut.extract(from: markdown)
+
+        XCTAssertNil(result.frontmatterId)
+    }
 }
