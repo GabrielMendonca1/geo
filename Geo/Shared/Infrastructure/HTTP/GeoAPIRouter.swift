@@ -35,7 +35,9 @@ final class GeoAPIRouter: @unchecked Sendable {
             return tagCaller(.error(403, "insufficient scope: requires \(required.rawValue)"), token.callerId)
         }
 
-        let response = await dispatch(request: request, token: token)
+        let response = await GeoAPIRouter.$requestBrain.withValue(request.headers["x-geo-brain"]) {
+            await dispatch(request: request, token: token)
+        }
         return tagCaller(response, token.callerId)
     }
 
