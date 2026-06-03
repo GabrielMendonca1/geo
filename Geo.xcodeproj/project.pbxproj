@@ -859,6 +859,8 @@
 				TBU000113REF /* FrontmatterStripRetirementTests.swift */,
 				TBU000112REF /* FrontmatterBlockBuilderTests.swift */,
 				TBU000111REF /* Phase0FrontmatterReinjectionTests.swift */,
+				P1H1A1S1E1B1L1T0001 /* Phase1LayerBackfillTests.swift */,
+				P1H1A1S1E1R1D1T0001 /* Phase1LayerReadTests.swift */,
 				MCPUNIX0000000000000REF /* MCPUnixSocketTransportTests.swift */,
 				MCPCLIENTTESTS0000REF /* MCPClientTests.swift */,
 				EFC9FA8B1A8FCD006338E317 /* SubscriptionManagerTests.swift */,
