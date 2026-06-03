@@ -368,6 +368,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 let blocks = await MainActor.run { container.blocksStore.blocks }
                 await IndexCoordinator.shared.rebuildIndex(blocks: blocks)
             }
+            await Phase2TagBackfillMigration.shared.runIfEnabled(
+                fileService: fileService,
+                database: DatabaseService.shared,
+                recordWrite: { id in reconciler.recordWrite(for: id) }
+            )
+            if await Phase2TagBackfillMigration.shared.didRunThisLaunch {
+                await MainActor.run { container.blocksStore.reload() }
+                let blocks = await MainActor.run { container.blocksStore.blocks }
+                await IndexCoordinator.shared.rebuildIndex(blocks: blocks)
+            }
         }
         container.templateService.loadTemplates()
         container.notchWindowController.show()
