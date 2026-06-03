@@ -26,15 +26,18 @@ macOS productivity hub (Swift/SwiftUI, local-first) + the hermes LaunchAgent tha
 │  │         FileWatcher · AI · MCP server (TCP + stdio)      │  │
 │  │       │                                                  │  │
 │  │       ▼                                                  │  │
-│  │  ~/Library/Application Support/Geo/                      │  │
-│  │   Blocks/*.md  Tasks/*.md  tags.json  days.json          │  │
+│  │  ~/Library/Application Support/Geo/   (files are truth)  │  │
+│  │   Blocks/<Layer>/**.md (frontmatter Properties +         │  │
+│  │     inline [[wikilinks]] & [[YYYY-MM-DD]] day-links)     │  │
+│  │   Tasks/*.md · tags.json (colors) · days.json            │  │
+│  │   Index/blocks.sqlite (rebuildable cache, derived)       │  │
 │  └────┬──────────────────────────┬──────────────────────────┘  │
-│       │ MCP stdio                │ MCP stdio                   │
-│       ▼                          ▼                             │
+│       │ HTTP API (127.0.0.1)     │ native FS                   │
+│       ▼ + native FS reads        ▼ (~/Library/.../Geo/)        │
 │  ┌──────────────────┐   ┌──────────────────────────────────┐   │
 │  │ geo-mcp-bridge   │   │  hermes  (LaunchAgent, ~/.hermes)│   │
 │  │ Swift binary     │   │  • WhatsApp/Gmail/Telegram bridge│   │
-│  │ thin MCP bridge  │   │  • cron prompts                  │   │
+│  │ legacy MCP bridge│   │  • cron prompts                  │   │
 │  └──────────────────┘   │  • claude-code-lane (CC workers) │   │
 │                         │  • api_server HTTP+SSE @ 8642    │   │
 │                         └──────────────────────────────────┘   │
