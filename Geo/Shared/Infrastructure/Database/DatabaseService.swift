@@ -247,6 +247,16 @@ final class DatabaseService: @unchecked Sendable {
                 }
             }
         }
+        migrator.registerMigration("createBlockDaysAndAltId") { db in
+            try db.create(table: "block_days") { t in
+                t.column("blockId", .text).notNull()
+                t.column("dayId", .text).notNull()
+                t.primaryKey(["blockId", "dayId"])
+            }
+            try db.create(index: "block_days_day", on: "block_days", columns: ["dayId"])
+            try db.execute(sql: "ALTER TABLE blocks ADD COLUMN altId TEXT")
+            try db.execute(sql: "CREATE INDEX block_altId ON blocks(altId)")
+        }
     }
 
     private static func registerDomainMigrations(_ migrator: inout DatabaseMigrator) {
