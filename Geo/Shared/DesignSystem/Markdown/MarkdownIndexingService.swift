@@ -79,7 +79,7 @@ final class MarkdownIndexingService {
         for match in matches {
             guard match.numberOfRanges > 1,
                   let tagRange = Range(match.range(at: 1), in: markdown) else { continue }
-            let tag = markdown[tagRange].lowercased()
+            let tag = String(markdown[tagRange]).precomposedStringWithCanonicalMapping.lowercased()
             tags.append(tag)
         }
         return Array(Set(tags)).sorted()
