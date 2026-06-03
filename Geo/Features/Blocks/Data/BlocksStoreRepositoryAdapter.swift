@@ -415,6 +415,16 @@ struct BlocksStoreRepositoryAdapter: BlocksRepository, @unchecked Sendable {
         return try await storeAccess.mutateFrontmatter(blockId: blockId, merge: merge)
     }
 
+    func linkToDay(blockId: String, dayId: String) async throws {
+        guard !blockId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw RepositoryError.invalidInput
+        }
+        let linked = await storeAccess.linkToDay(blockId: blockId, dayId: dayId)
+        guard linked else {
+            throw RepositoryError.notFound
+        }
+    }
+
     @MainActor
     func saveSync(id: String, markdown: String) -> Bool {
         storeAccess.updateBlockAndFlush(id: id, markdown: markdown)
