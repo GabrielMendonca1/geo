@@ -751,7 +751,7 @@ struct GraphView: View {
 
     private var gestureLayer: some View {
         MouseEventMonitor(
-            isActiveCheck: { [tabRouter] in tabRouter.selectedTab == .nodes },
+            isActiveCheck: { [tabRouter, isActive] in isActive?() ?? (tabRouter.selectedTab == .nodes) },
             onDown: handleMouseDown,
             onDrag: handleMouseDrag,
             onUp: handleMouseUp,
