@@ -44,32 +44,6 @@ final class LiveDayStoreAccess: DayStoreAccess, @unchecked Sendable {
             dayStore.day(for: date)
         }
     }
-
-    func addOrUpdateDay(_ day: Day) {
-        MainActor.assumeIsolated {
-            dayStore.addOrUpdateDay(day)
-        }
-    }
-
-    func addBlockToDay(date: Date, blockId: String) {
-        MainActor.assumeIsolated {
-            dayStore.addBlockToDay(date: date, blockId: blockId)
-        }
-    }
-
-    func addCaptureToDay(date: Date, captureId: UUID) {
-        MainActor.assumeIsolated {
-            dayStore.addCaptureToDay(date: date, captureId: captureId)
-        }
-    }
-
-    func deleteDay(date: Date) -> Bool {
-        MainActor.assumeIsolated {
-            guard let day = dayStore.day(for: date) else { return false }
-            dayStore.deleteDay(id: day.id)
-            return true
-        }
-    }
 }
 
 struct DayStoreRepositoryAdapter: DayRepository, @unchecked Sendable {
