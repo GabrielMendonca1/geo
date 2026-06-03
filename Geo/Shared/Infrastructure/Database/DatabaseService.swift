@@ -326,6 +326,18 @@ final class DatabaseService: @unchecked Sendable {
         }
     }
 
+    func blockIds(matchingDay dayId: String) async throws -> [String] {
+        try await performRead { db in
+            try String.fetchAll(db, sql: "SELECT blockId FROM block_days WHERE dayId = ?", arguments: [dayId])
+        }
+    }
+
+    func blockId(forAltId altId: String) async throws -> String? {
+        try await performRead { db in
+            try String.fetchOne(db, sql: "SELECT id FROM blocks WHERE altId = ? LIMIT 1", arguments: [altId])
+        }
+    }
+
     func blockIdsWithOpenTaskCheckboxes() async throws -> [String] {
         try await performRead { db in
             try String.fetchAll(db, sql: "SELECT id FROM blocks WHERE openTaskCount > 0")
