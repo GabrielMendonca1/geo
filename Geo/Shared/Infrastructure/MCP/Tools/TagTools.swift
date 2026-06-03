@@ -85,13 +85,9 @@ enum TagTools {
                 guard validateBlockId(blockId) else {
                     return .error("invalid block id")
                 }
-                let allBlocks = try await blocks.list()
-                guard let block = allBlocks.first(where: { $0.id == blockId }) else {
-                    return .error("Block not found: \(blockId)")
-                }
-                switch AgentAuthorization.authorize(.setTag, on: blockId, layer: block.metadata.layer) {
-                case .allow: break
-                case .deny(let reason): return .error(reason)
+                switch try await AgentAuthorization.authorizeWrite(.setTag, id: blockId, in: blocks) {
+                case .ok: break
+                case .denied(let result): return result
                 }
 
                 if tagName.isEmpty {
