@@ -41,13 +41,15 @@ final class Phase3DayLinkWriteTests: XCTestCase {
     }
 
     private func makeBlock(markdown: String) async throws -> BlocksStore.Block {
+        try? await Task.sleep(nanoseconds: 200_000_000)
         let unique = "P3-\(UUID().uuidString.prefix(8))"
         guard let block = await store.createBlock(title: unique, markdown: markdown) else {
             throw XCTSkip("block creation returned nil")
         }
         await store.flushAll()
-        for _ in 0..<40 {
-            if store.blocks.contains(where: { $0.id == block.id }) { break }
+        for _ in 0..<60 {
+            if FileManager.default.fileExists(atPath: block.url.path),
+               store.blocks.contains(where: { $0.id == block.id }) { break }
             try? await Task.sleep(nanoseconds: 50_000_000)
         }
         return block
