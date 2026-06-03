@@ -64,11 +64,11 @@ final class LiveBlocksStoreAccess: BlocksStoreAccess, @unchecked Sendable {
             let box = BlocksObservationBox()
             let setupTask = Task { @MainActor [blocksStore] in
                 continuation.yield(blocksStore.blocks)
-                var lastFingerprint = blocksStore.blocks.map { BlockFingerprint(id: $0.id, title: $0.title, lastEdited: $0.lastEdited, tagId: $0.tagId) }
+                var lastFingerprint = blocksStore.blocks.map { BlockFingerprint(id: $0.id, title: $0.title, lastEdited: $0.lastEdited, tagId: $0.tagId, tagName: $0.metadata.tagName) }
                 box.cancellable = blocksStore.$blocks
                     .dropFirst()
                     .sink { blocks in
-                        let newFingerprint = blocks.map { BlockFingerprint(id: $0.id, title: $0.title, lastEdited: $0.lastEdited, tagId: $0.tagId) }
+                        let newFingerprint = blocks.map { BlockFingerprint(id: $0.id, title: $0.title, lastEdited: $0.lastEdited, tagId: $0.tagId, tagName: $0.metadata.tagName) }
                         if newFingerprint != lastFingerprint {
                             lastFingerprint = newFingerprint
                             continuation.yield(blocks)
