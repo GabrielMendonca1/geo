@@ -1841,6 +1841,7 @@
 				B1C2D3E4F5061728394B0004 /* StorageMigrationService.swift in Sources */,
 				B1C2D3E4F5061728394B0040 /* FrontmatterStripMigrationService.swift in Sources */,
 				B1C2D3E4F5061728394B0041 /* Phase0FrontmatterReinjectionMigration.swift in Sources */,
+				P1H1A1S1E1B1L1D0001 /* Phase1LayerBackfillMigration.swift in Sources */,
 				B1C2D3E4F5061728394B0042 /* FrontmatterBlockBuilder.swift in Sources */,
 				B1C2D3E4F5061728394B0005 /* MarkdownIndexingService.swift in Sources */,
 				B1C2D3E4F5061728394B0007 /* MarkdownConverter.swift in Sources */,
