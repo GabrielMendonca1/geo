@@ -55,6 +55,7 @@ class BlocksStore: ObservableObject {
     struct BlockMetadata: Codable, Hashable {
         var dayId: String?
         var tagId: String?
+        var tagName: String?
         var isFullWidth: Bool
         var status: String?
         var type: BlockType
@@ -64,6 +65,7 @@ class BlocksStore: ObservableObject {
         init(
             dayId: String? = nil,
             tagId: String? = nil,
+            tagName: String? = nil,
             isFullWidth: Bool = false,
             status: String? = nil,
             type: BlockType = .fleeting,
@@ -72,6 +74,7 @@ class BlocksStore: ObservableObject {
         ) {
             self.dayId = dayId
             self.tagId = tagId
+            self.tagName = tagName
             self.isFullWidth = isFullWidth
             self.status = status
             self.type = type
@@ -87,6 +90,7 @@ class BlocksStore: ObservableObject {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             dayId = try container.decodeIfPresent(String.self, forKey: .dayId)
             tagId = try container.decodeIfPresent(String.self, forKey: .tagId)
+            tagName = nil
             isFullWidth = try container.decodeIfPresent(Bool.self, forKey: .isFullWidth) ?? false
             status = try container.decodeIfPresent(String.self, forKey: .status)
             type = try container.decodeIfPresent(BlockType.self, forKey: .type) ?? .fleeting
