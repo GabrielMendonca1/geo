@@ -437,7 +437,7 @@ extension BlocksStore.Block {
             markdown: entity.markdown,
             url: entity.url,
             tagId: entity.tagId,
-            metadata: BlocksStore.BlockMetadata(dayId: entity.metadata.dayId, tagId: entity.metadata.tagId, isFullWidth: entity.metadata.isFullWidth, status: entity.metadata.status, type: entity.metadata.type, layer: entity.metadata.layer)
+            metadata: BlocksStore.BlockMetadata(dayId: entity.metadata.dayId, tagId: entity.metadata.tagId, tagName: entity.metadata.tagName, isFullWidth: entity.metadata.isFullWidth, status: entity.metadata.status, type: entity.metadata.type, layer: entity.metadata.layer)
         )
     }
 }
