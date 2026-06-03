@@ -249,7 +249,6 @@ final class BlocksStoreFrontmatterMutatorTests: XCTestCase {
 
     func testReconcilerExternalLayerFlipUpdatesMemory() async throws {
         let block = try await makeBlock(markdown: "---\ntype: fleeting\nlayer: agent\n---\n# Ext\n")
-        print("DBG initial layer=\(String(describing: store.blocks.first(where: { $0.id == block.id })?.metadata.layer))")
 
         let flipped = "---\ntype: fleeting\nlayer: shared\nfrontmatter_version: 99\n---\n# Ext edited\n"
         try flipped.write(to: block.url, atomically: true, encoding: .utf8)
@@ -258,7 +257,6 @@ final class BlocksStoreFrontmatterMutatorTests: XCTestCase {
         store.changeReconciler.handleExternalChanges([block.url], currentBlocks: store.blocks)
 
         let live = store.blocks.first(where: { $0.id == block.id })
-        print("DBG live markdown=\(live?.markdown ?? "nil") layer=\(String(describing: live?.metadata.layer)) fmv=\(String(describing: live?.metadata.frontmatter_version))")
         XCTAssertEqual(live?.metadata.layer, .shared, "External frontmatter layer flip propagates")
     }
 }
