@@ -149,7 +149,7 @@ final class GraphStore: ObservableObject {
                     dayId: block.metadata.dayId,
                     openTaskCount: 0,
                     completedTaskCount: 0,
-                    tags: [],
+                    tags: block.metadata.tagName.map { [$0] } ?? [],
                     type: block.metadata.type.rawValue,
                     status: block.metadata.status,
                     layer: block.metadata.layer.rawValue,
