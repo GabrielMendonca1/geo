@@ -274,7 +274,7 @@ final class IndexCoordinator {
         let index = indexer.extract(from: document)
         let type = block.metadata.type.rawValue
         let status = block.metadata.status
-        let layer = block.metadata.layer.rawValue
+        let layer = MarkdownConverter.normalizedLayer(document.frontmatter["layer"])?.rawValue ?? block.metadata.layer.rawValue
         return BlockIndexEntry(
             id: block.id,
             path: block.url.path,
