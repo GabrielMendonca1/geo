@@ -67,7 +67,6 @@ final class BlockChangeReconciler {
         var blocksToIndex: [BlocksStore.Block] = []
         var removedIds: [String] = []
         var externallyChangedIds: [String] = []
-        var metadataDirty = false
 
         for url in relevant {
             let blockId = fileService.relativeId(for: url)
