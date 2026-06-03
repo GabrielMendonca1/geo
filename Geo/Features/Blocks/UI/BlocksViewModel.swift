@@ -612,21 +612,31 @@ final class BlocksViewModel: ObservableObject {
 
     private func groupBlocksByTag(_ blocks: [BlockEntity], tags: [Tag]) -> [BlockGroup] {
         var grouped: [String: [BlockEntity]] = [:]
+        var resolvedTagByKey: [String: Tag] = [:]
+        var keyOrder: [String] = []
         var untagged: [BlockEntity] = []
 
         for block in blocks {
-            if let tagId = block.tagId {
-                grouped[tagId, default: []].append(block)
-            } else {
+            guard let key = resolvedTagKey(for: block) else {
                 untagged.append(block)
+                continue
             }
+            if grouped[key] == nil { keyOrder.append(key) }
+            grouped[key, default: []].append(block)
+            if resolvedTagByKey[key] == nil { resolvedTagByKey[key] = resolvedTag(for: block) }
         }
 
         var results: [BlockGroup] = []
-        for tag in tags {
-            guard let items = grouped[tag.id], !items.isEmpty else { continue }
+        for key in keyOrder {
+            guard let items = grouped[key], !items.isEmpty else { continue }
+            let tag = resolvedTagByKey[key]
             results.append(
-                BlockGroup(id: tag.id, title: tag.name, color: tag.color.swiftUIColor, blocks: items)
+                BlockGroup(
+                    id: key,
+                    title: tag?.name ?? key,
+                    color: tag?.color.swiftUIColor,
+                    blocks: items
+                )
             )
         }
 
