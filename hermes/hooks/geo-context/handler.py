@@ -70,6 +70,11 @@ TODAY_SUMMARIZE_THRESHOLD = 600
 MAX_MEMORY_BODY = 5000
 TTL_SECONDS = 60.0
 
+# geo-mcp-subscriber keeps this warm via MCP push; read it before falling back
+# to live HTTP. See hermes-extensions/geo-mcp-subscriber/.
+GEO_CACHE_SNAPSHOT = HERMES_HOME / "geo-cache" / "snapshot.json"
+CACHE_FRESH_SECS = 180.0
+
 
 def _log(msg: str) -> None:
     print(f"[geo-context] {msg}", flush=True)
