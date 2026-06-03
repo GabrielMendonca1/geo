@@ -18,22 +18,26 @@ class DayStore: ObservableObject {
     private let daysURL: URL
     private let queue = DispatchQueue(label: "com.geo.daystore", qos: .userInitiated)
     private var reloadObserver: NSObjectProtocol?
+    private let indexCoordinator: IndexCoordinator
 
-    init(baseURL: URL? = nil) {
+    init(baseURL: URL? = nil, indexCoordinator: IndexCoordinator = .shared) {
         let resolvedBase = baseURL
             ?? fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? fileManager.homeDirectoryForCurrentUser
         daysURL = resolvedBase.appendingPathComponent("Geo/days.json")
+        self.indexCoordinator = indexCoordinator
 
         try? fileManager.createDirectory(at: daysURL.deletingLastPathComponent(), withIntermediateDirectories: true)
 
         loadDays()
+        refreshFromDerive()
         reloadObserver = NotificationCenter.default.addObserver(
             forName: dayStoreNeedsReloadNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in
             self?.loadDays()
+            self?.refreshFromDerive()
         }
     }
 
