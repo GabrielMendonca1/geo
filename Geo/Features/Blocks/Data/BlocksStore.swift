@@ -674,6 +674,7 @@ class BlocksStore: ObservableObject {
     private func metadataFor(entry: BlockIndexEntry) -> BlockMetadata {
         var meta = metadataService.currentMetadata(for: entry.id) ?? BlockMetadata()
         meta.tagId = entry.tagId
+        meta.tagName = entry.tags.first
         meta.dayId = entry.dayId
         meta.status = markdownConverter.status(in: entry.content)
         meta.type = markdownConverter.type(in: entry.content)
