@@ -2066,6 +2066,7 @@
 				TBU000107BLD /* BlocksStoreFrontmatterMutatorTests.swift in Sources */,
 				TBU000108BLD /* HermesMigrationFixesTests.swift in Sources */,
 				TBU000109BLD /* FrontmatterEditorTests.swift in Sources */,
+				TBU000110BLD /* FrontmatterYAMLRoundTripTests.swift in Sources */,
 				MCPUNIX0000000000000BLD /* MCPUnixSocketTransportTests.swift in Sources */,
 				MCPCLIENTTESTS0000BLD /* MCPClientTests.swift in Sources */,
 				D79B1530FA4C738B1BCA5FDC /* SubscriptionManagerTests.swift in Sources */,
