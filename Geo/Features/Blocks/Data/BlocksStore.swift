@@ -244,7 +244,6 @@ class BlocksStore: ObservableObject {
         )
 
         blocks.insert(newBlock, at: 0)
-        dayManager.recordBlockCreation(id: newBlock.id)
         changeReconciler.recordWrite(for: newBlock.id)
 
         let blockId = newBlock.id
