@@ -209,14 +209,18 @@ final class BrainRegistry: @unchecked Sendable {
         )
     }
 
-    func index(for id: String) -> BrainIndex? {
+    func database(for id: String) -> DatabaseService? {
         guard let paths = paths(id) else { return nil }
+        return isPersonal(id) ? .shared : DatabaseService(databaseURL: paths.indexURL, schema: .domain)
+    }
+
+    func index(for id: String) -> BrainIndex? {
+        guard manifestsById[id] != nil else { return nil }
         cacheLock.lock()
         defer { cacheLock.unlock() }
         if let cached = indexCache[id] { return cached }
-        let index: BrainIndex = isPersonal(id)
-            ? DatabaseBrainIndex(id: id, database: .shared)
-            : DatabaseBrainIndex(id: id, database: DatabaseService(databaseURL: paths.indexURL))
+        guard let database = database(for: id) else { return nil }
+        let index: BrainIndex = DatabaseBrainIndex(id: id, database: database)
         indexCache[id] = index
         return index
     }
