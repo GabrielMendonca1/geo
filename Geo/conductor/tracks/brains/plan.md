@@ -150,8 +150,10 @@ CP1 Logic/BigO:
     (1) canonical-key bucket: key = normalize(title) (diacritic+case fold,
         NFC) → exact/alias merge O(N) hash map.
     (2) only UNIQUE keys (U ≪ N, ~hundreds) get an NLEmbedding vector.
-    (3) near-dup merge among U via sqlite-vec ANN: each key top-k (k≈10),
-        union-find merge if cos>0.86. O(U·log U), never O(N²).
+    (3) near-dup merge among U: Accelerate cosine, each key top-k (k≈10),
+        union-find merge if cos>thr. No ANN → O(U²), but U~hundreds so
+        ~10^4-10^5 ops, fine; NEVER O(N²). thr (~0.86) is NLEmbedding-
+        specific — tune; false-merge (two distinct concepts) is the danger.
 CP2 Data structures:
   mentionsByKey: [CanonicalKey: [MentionRef]]   // O(1) group
   canonicalTitle: [CanonicalKey: String]        // first/longest wins
