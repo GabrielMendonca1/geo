@@ -503,9 +503,13 @@ final class BlocksViewModel: ObservableObject {
         let tagFiltered: [BlockEntity]
         if let tagFilter = selectedTagFilter {
             if tagFilter == "untagged" {
-                tagFiltered = matches.filter { $0.tagId == nil }
+                tagFiltered = matches.filter { resolvedTagKey(for: $0) == nil }
             } else {
-                tagFiltered = matches.filter { $0.tagId == tagFilter }
+                let filterKey = TagStore.canonicalName(tagFilter)
+                tagFiltered = matches.filter { block in
+                    guard let key = resolvedTagKey(for: block) else { return false }
+                    return key == filterKey || key == tagFilter
+                }
             }
         } else {
             tagFiltered = matches
