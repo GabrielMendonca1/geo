@@ -134,6 +134,13 @@ enum FrontmatterYAML {
         return needsQuoting(s) ? quote(s) : s
     }
 
+    static let integerKeys: Set<String> = ["frontmatter_version"]
+
+    static func emitScalar(key: String, value: String) -> String {
+        if integerKeys.contains(key), Int(value) != nil { return value }
+        return emitScalar(value)
+    }
+
     static func emitInlineList(_ items: [String]) -> String {
         "[" + items.map { needsQuoting($0) ? quote($0) : $0 }.joined(separator: ", ") + "]"
     }
