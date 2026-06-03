@@ -46,13 +46,19 @@ final class MarkdownIndexingService {
 
     func extract(from document: MarkdownDocument) -> MarkdownIndexResult {
         let searchableBody = stripCodeBlocks(from: document.body)
-        let tags = extractTags(from: searchableBody)
+        let bodyTags = extractTags(from: searchableBody)
+        let frontmatterTags = extractFrontmatterTags(document.frontmatter)
+        let tags = Array(Set(bodyTags + frontmatterTags)).sorted()
         let openTaskCount = countMatches(in: searchableBody, regex: openTaskRegex)
         let completedTaskCount = countMatches(in: searchableBody, regex: completedTaskRegex)
+        let dayIds = extractDayIds(from: searchableBody)
+        let frontmatterId = extractFrontmatterId(document.frontmatter)
         return MarkdownIndexResult(
             tags: tags,
             openTaskCount: openTaskCount,
-            completedTaskCount: completedTaskCount
+            completedTaskCount: completedTaskCount,
+            dayIds: dayIds,
+            frontmatterId: frontmatterId
         )
     }
 
