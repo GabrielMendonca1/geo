@@ -134,4 +134,80 @@ final class BrainsTests: XCTestCase {
         let semantic = try await index.semanticSearch(query: [0.1, 0.2], k: 5)
         XCTAssertTrue(semantic.isEmpty)
     }
+
+    func testPersonalSchemaHasNoDomainTablesButStaysTolerant() async throws {
+        let url = tempDir().appendingPathComponent("personal.sqlite")
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let database = DatabaseService(databaseURL: url)
+        try await database.upsertBlock(BlockIndexEntry(id: "p.md", path: "p.md", title: "P", content: "x", createdAt: Date(), modifiedAt: Date(), tagId: nil, dayId: nil, openTaskCount: 0, completedTaskCount: 0, tags: []))
+        XCTAssertEqual(try await database.fetchBlocks(ids: ["p.md"]).count, 1)
+        let vectors = try await database.loadAllVectors()
+        XCTAssertTrue(vectors.isEmpty)
+        let edges = try await database.outgoingEdges(from: "p.md")
+        XCTAssertTrue(edges.isEmpty)
+    }
+
+    func testEdgeRoundTripBothDirections() async throws {
+        let url = tempDir().appendingPathComponent("index.sqlite")
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let database = DatabaseService(databaseURL: url, schema: .domain)
+        try await database.setEdges(forSource: "n1.md", edges: [
+            DatabaseService.BrainEdge(sourceId: "n1.md", targetTitle: "Concept A", targetId: "a.md"),
+            DatabaseService.BrainEdge(sourceId: "n1.md", targetTitle: "Concept B", targetId: nil),
+        ])
+        XCTAssertEqual(try await database.outgoingEdges(from: "n1.md").count, 2)
+        let incoming = try await database.incomingEdges(to: "a.md")
+        XCTAssertEqual(incoming.count, 1)
+        XCTAssertEqual(incoming.first?.sourceId, "n1.md")
+    }
+
+    func testResolveEdgeTargetsAndSetEdgesReplaces() async throws {
+        let url = tempDir().appendingPathComponent("index.sqlite")
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let database = DatabaseService(databaseURL: url, schema: .domain)
+        try await database.setEdges(forSource: "n1.md", edges: [
+            DatabaseService.BrainEdge(sourceId: "n1.md", targetTitle: "Concept A", targetId: nil),
+        ])
+        try await database.resolveEdgeTargets(title: "Concept A", toBlockId: "a.md")
+        XCTAssertEqual(try await database.incomingEdges(to: "a.md").count, 1)
+        try await database.setEdges(forSource: "n1.md", edges: [
+            DatabaseService.BrainEdge(sourceId: "n1.md", targetTitle: "Concept C", targetId: "c.md"),
+        ])
+        XCTAssertEqual(try await database.outgoingEdges(from: "n1.md").count, 1)
+        XCTAssertEqual(try await database.incomingEdges(to: "a.md").count, 0)
+    }
+
+    func testVectorBlobRoundTrip() async throws {
+        let url = tempDir().appendingPathComponent("index.sqlite")
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let database = DatabaseService(databaseURL: url, schema: .domain)
+        try await database.upsertVector(blockId: "b.md", embedding: [0.1, 0.2, 0.3])
+        let loaded = try await database.loadAllVectors()
+        XCTAssertEqual(loaded.count, 1)
+        XCTAssertEqual(loaded.first?.id, "b.md")
+        XCTAssertEqual(loaded.first?.vector.count, 3)
+        XCTAssertEqual(loaded.first?.vector ?? [], [0.1, 0.2, 0.3], accuracy: 1e-6)
+        try await database.upsertVector(blockId: "b.md", embedding: [0.4, 0.5, 0.6])
+        XCTAssertEqual(try await database.loadAllVectors().count, 1)
+    }
+
+    func testSemanticSearchRanksByCosineEndToEnd() async throws {
+        let url = tempDir().appendingPathComponent("index.sqlite")
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let database = DatabaseService(databaseURL: url, schema: .domain)
+        try await database.upsertVector(blockId: "a.md", embedding: [1, 0])
+        try await database.upsertVector(blockId: "b.md", embedding: [0, 1])
+        try await database.upsertVector(blockId: "c.md", embedding: [0.7, 0.7])
+        let index = DatabaseBrainIndex(id: "test", database: database)
+        let top = try await index.semanticSearch(query: [1, 0], k: 2)
+        XCTAssertEqual(top.map(\.id), ["a.md", "c.md"])
+    }
+
+    func testSemanticSearchEmptyWhenNoVectors() async throws {
+        let url = tempDir().appendingPathComponent("index.sqlite")
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let database = DatabaseService(databaseURL: url, schema: .domain)
+        let index = DatabaseBrainIndex(id: "test", database: database)
+        XCTAssertTrue(try await index.semanticSearch(query: [1, 0], k: 5).isEmpty)
+    }
 }
