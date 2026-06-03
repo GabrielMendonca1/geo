@@ -128,31 +128,31 @@ final class Phase0FrontmatterReinjectionMigration: @unchecked Sendable {
     }
 
     private func bodyAfterFrontmatter(_ raw: String) -> String {
-        let lines = raw.components(separatedBy: "\n")
-        var index = 0
-        while index < lines.count, lines[index].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            index += 1
+        var cursor = raw.startIndex
+        func nextLine() -> (line: Substring, end: String.Index)? {
+            guard cursor < raw.endIndex else { return nil }
+            let start = cursor
+            var i = cursor
+            while i < raw.endIndex, raw[i] != "\n" { i = raw.index(after: i) }
+            let line = raw[start..<i]
+            let end = i < raw.endIndex ? raw.index(after: i) : raw.endIndex
+            cursor = end
+            return (line, end)
         }
-        guard index < lines.count,
-              lines[index].trimmingCharacters(in: .whitespacesAndNewlines) == "---" else {
-            return raw
-        }
-        let openLine = index
-        index += 1
-        while index < lines.count {
-            if lines[index].trimmingCharacters(in: .whitespacesAndNewlines) == "---" {
-                let closeLine = index
-                let prefixLines = Array(lines.prefix(closeLine + 1))
-                let prefixLength = prefixLines.joined(separator: "\n").count + (closeLine + 1 <= lines.count ? 1 : 0)
-                if prefixLength <= raw.count {
-                    let startIdx = raw.index(raw.startIndex, offsetBy: prefixLength)
-                    return String(raw[startIdx...])
-                }
-                return ""
+
+        var sawOpen = false
+        while let (line, end) = nextLine() {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !sawOpen {
+                if trimmed.isEmpty { continue }
+                guard trimmed == "---" else { return raw }
+                sawOpen = true
+                continue
             }
-            index += 1
+            if trimmed == "---" {
+                return String(raw[end...])
+            }
         }
-        _ = openLine
         return raw
     }
 }
