@@ -4,6 +4,8 @@ struct MarkdownIndexResult: Equatable {
     let tags: [String]
     let openTaskCount: Int
     let completedTaskCount: Int
+    let dayIds: [String]
+    let frontmatterId: String?
 }
 
 extension Notification.Name {
