@@ -367,14 +367,21 @@ async def search_context(query: str, with_summary: bool = False) -> dict:
 
 
 async def _build_body() -> Optional[str]:
-    raw_profile, raw_memory, raw_protocol, raw_today = await _fetch_geo_blocks()
+    bundle, parsed = await _fetch_geo_blocks()
+    if not bundle:
+        return None
 
-    profile = _unwrap_block(raw_profile)
-    memory = _unwrap_block(raw_memory)
-    protocol = _unwrap_block(raw_protocol)
-    today = _format_today(raw_today)
+    if parsed:
+        profile, memory = bundle["profile"], bundle["memory"]
+        protocol, today, tasks = bundle["protocol"], bundle["today"], bundle["tasks"]
+    else:
+        profile = _unwrap_block(bundle["profile"])
+        memory = _unwrap_block(bundle["memory"])
+        protocol = _unwrap_block(bundle["protocol"])
+        today = _format_today(bundle["today"])
+        tasks = None
 
-    if not any([profile, memory, protocol, today]):
+    if not any([profile, memory, protocol, today, tasks]):
         return None
 
     sections: list[str] = [
@@ -387,6 +394,8 @@ async def _build_body() -> Optional[str]:
         sections.append(f"## Memory\n\n{memory}")
     if protocol:
         sections.append(f"## Interaction protocol\n\n{protocol}")
+    if tasks:
+        sections.append(f"## Open tasks\n\n{tasks}")
     if today:
         body = today
         if len(body) > TODAY_SUMMARIZE_THRESHOLD:
