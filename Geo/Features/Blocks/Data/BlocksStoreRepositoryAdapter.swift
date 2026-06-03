@@ -26,6 +26,9 @@ protocol BlocksStoreAccess: Sendable {
 }
 
 extension BlocksStoreAccess {
+    func setTagByName(_ name: String?, for blockId: String) async -> Bool {
+        await setTag(name, for: blockId)
+    }
     func block(id: String) async -> BlocksStore.Block? {
         await allBlocks().first(where: { $0.id == id })
     }
