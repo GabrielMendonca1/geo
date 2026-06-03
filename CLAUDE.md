@@ -154,5 +154,7 @@ Zero-data-loss: `days.json`, `tags.json` (full schema incl. colors/membership), 
 
 ## Cross-cutting
 
-- The macOS app is the **only** thing that owns the data on disk. Hermes reaches Geo data via MCP (through `geo-mcp-bridge`), not by reading files directly.
-- Extending hermes capabilities = adding an MCP tool under `hermes-extensions/`, not bypassing the bridge.
+- The macOS app **owns deriving the indexes** (FTS/graph/tag-map/day-map → `Index/blocks.sqlite`); the `.md` files are the truth both the app and hermes share. MCP is retired as the data contract (ADR-0002 §1.2/§8).
+- Hermes runs side-by-side on the same Mac. It reaches Geo via the app's authorized **HTTP endpoint** (`127.0.0.1`) for layer-changing / creation writes, and may **read files directly + raw-FS-write the layers it owns** (`Agente`/`Revisao`/`Compartilhado`) — never `Voce/` (enforced server-side by `AgentAuthorization` + FileWatcher quarantine; agents 400 on user/`Você` writes).
+- The ~39-tool transaction surface is collapsing to **native FS ops + KEEP-COMPUTE** (tasks / AI / dedup / bm25 / graph stay as compute tools; raw block CRUD becomes file ops). `geo-mcp-bridge` is a legacy bridge, no longer the sole path.
+- Extending hermes capabilities = adding a tool under `hermes-extensions/` or a native FS op, not re-centralizing on the MCP bridge.
