@@ -45,8 +45,8 @@ final class Phase0FrontmatterReinjectionMigration: @unchecked Sendable {
     ) async throws {
         let rows = try await database.fetchAllMetadataRows()
         guard !rows.isEmpty else {
-            logger.fault("Phase 0 re-injection aborted: zero metadata rows (would demote every block to .user). No files written.")
-            return
+            logger.fault("Phase 0 re-injection aborted: zero metadata rows (would demote every block to .user). No files written; not marking done so it re-runs once the index is populated.")
+            throw Phase0FrontmatterReinjectionError.emptyDatabase
         }
 
         var metadataById: [String: (type: String, status: String?, layer: String, tagId: String?, isFullWidth: Bool)] = [:]
