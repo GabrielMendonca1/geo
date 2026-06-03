@@ -13,6 +13,15 @@ enum BrainIngestState: String, Codable, Sendable {
     case failed
 }
 
+enum BrainIngestStep: String, Codable, Sendable {
+    case pending
+    case summarizing
+    case reconciling
+    case embedding
+    case ready
+    case failed
+}
+
 struct BrainManifest: Codable, Equatable, Identifiable, Sendable {
     static let currentSchemaVersion = 1
 
