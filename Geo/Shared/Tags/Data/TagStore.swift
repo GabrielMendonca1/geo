@@ -128,7 +128,7 @@ class TagStore: ObservableObject {
         return tag
     }
 
-    static func defaultColor(forName name: String) -> TagColor {
+    nonisolated static func defaultColor(forName name: String) -> TagColor {
         let hue = Double(abs(name.hashValue) % 360) / 360.0
         let nsColor = NSColor(hue: hue, saturation: 0.55, brightness: 0.85, alpha: 1.0)
         return TagColor(
