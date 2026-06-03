@@ -72,6 +72,8 @@ extension AppTab {
             NodesPane()
         case .nano:
             NanoPane()
+        case .brains:
+            BrainsPane()
         case .settings:
             SettingsPane()
         }
