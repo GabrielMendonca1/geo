@@ -101,6 +101,13 @@ final class BlocksStoreFullWidthInlineTests: XCTestCase {
         XCTAssertTrue(became)
         await store.flushAll()
 
+        // Wait for full_width to land on disk before reloading from files.
+        for _ in 0..<60 {
+            if let disk = try? String(contentsOf: block.url, encoding: .utf8),
+               MarkdownConverter.shared.fullWidth(in: disk) { break }
+            try? await Task.sleep(nanoseconds: 50_000_000)
+        }
+
         // Reload via files: full_width should be derived from frontmatter, not SQLite.
         let metaless: [String: BlocksStore.BlockMetadata] = [:]
         let reloaded = await store.fileService.loadBlocksFromFiles(metadata: metaless, converter: MarkdownConverter.shared)
