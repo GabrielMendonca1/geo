@@ -287,6 +287,7 @@ final class DatabaseService: @unchecked Sendable {
     func removeBlock(id: String) async throws {
         try await performWrite { db in
             try db.execute(sql: "DELETE FROM block_tags WHERE blockId = ?", arguments: [id])
+            try db.execute(sql: "DELETE FROM block_days WHERE blockId = ?", arguments: [id])
             try db.execute(sql: "DELETE FROM blocks_fts WHERE blockId = ?", arguments: [id])
             try db.execute(sql: "DELETE FROM blocks WHERE id = ?", arguments: [id])
         }
