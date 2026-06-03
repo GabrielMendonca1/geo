@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import AppKit
 import os.log
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "geo", category: "TagStore")
