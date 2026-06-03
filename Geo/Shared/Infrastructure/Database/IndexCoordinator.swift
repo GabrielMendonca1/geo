@@ -76,6 +76,17 @@ final class IndexCoordinator {
         }
     }
 
+    func dayLinkMap() async -> [String: [String]] {
+        let entries = await fetchAllBlocks()
+        var map: [String: [String]] = [:]
+        for entry in entries {
+            for dayId in entry.dayIds {
+                map[dayId, default: []].append(entry.id)
+            }
+        }
+        return map
+    }
+
     func blockId(forAltId altId: String) async -> String? {
         do {
             return try await database.blockId(forAltId: altId)
