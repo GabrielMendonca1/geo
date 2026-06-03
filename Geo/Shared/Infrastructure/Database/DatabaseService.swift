@@ -20,6 +20,8 @@ struct BlockIndexEntry: Equatable {
     let status: String?
     let layer: String
     let isFullWidth: Bool
+    let dayIds: [String]
+    let altId: String?
 
     init(
         id: String,
@@ -36,7 +38,9 @@ struct BlockIndexEntry: Equatable {
         type: String = "fleeting",
         status: String? = nil,
         layer: String = "user",
-        isFullWidth: Bool = false
+        isFullWidth: Bool = false,
+        dayIds: [String] = [],
+        altId: String? = nil
     ) {
         self.id = id
         self.path = path
@@ -53,6 +57,8 @@ struct BlockIndexEntry: Equatable {
         self.status = status
         self.layer = layer
         self.isFullWidth = isFullWidth
+        self.dayIds = dayIds
+        self.altId = altId
     }
 }
 
