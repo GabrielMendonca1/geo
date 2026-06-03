@@ -273,21 +273,23 @@ enum BlockTools {
                     markdown = "# \(title)\n\(content)"
                 }
 
+                let dayArg = args["day_id"]?.stringValue
+                let date: Date
+                if let dayArg, let parsed = DateFormatters.iso8601FullDate.date(from: dayArg) {
+                    date = parsed
+                } else {
+                    date = Date()
+                }
+                let dayId = DateFormatters.dayId.string(from: date)
+                if !MarkdownIndexingService.shared.extract(from: markdown).dayIds.contains(dayId) {
+                    markdown = "\(markdown)\n[[\(dayId)]]\n"
+                }
+
                 let block = try await blocks.create(title: title, markdown: markdown)
 
                 if let tagName = args["tag_name"]?.stringValue, !tagName.isEmpty {
                     try await blocks.setTagByName(blockId: block.id, name: tagName)
                 }
-
-                let dayId = args["day_id"]?.stringValue
-                let formatter = DateFormatters.iso8601FullDate
-                let date: Date
-                if let dayId, let parsed = formatter.date(from: dayId) {
-                    date = parsed
-                } else {
-                    date = Date()
-                }
-                try await days.addBlockToDay(date: date, blockId: block.id)
 
                 if let typeRaw = args["type"]?.stringValue {
                     let validTypes: Set<String> = ["fleeting", "literature", "permanent", "moc", "project"]
