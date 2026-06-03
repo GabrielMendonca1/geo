@@ -82,10 +82,12 @@ final class BlocksStoreFullWidthInlineTests: XCTestCase {
     func testSetFullWidthFalseOmitsKey() async throws {
         let block = try await makeBlock()
         store.setFullWidth(true, for: block.id)
-        XCTAssertTrue(await waitForFullWidth(block.id, expected: true))
+        let becameTrue = await waitForFullWidth(block.id, expected: true)
+        XCTAssertTrue(becameTrue)
 
         store.setFullWidth(false, for: block.id)
-        XCTAssertTrue(await waitForFullWidth(block.id, expected: false))
+        let becameFalse = await waitForFullWidth(block.id, expected: false)
+        XCTAssertTrue(becameFalse)
 
         let live = store.blocks.first(where: { $0.id == block.id })
         XCTAssertFalse(live?.metadata.isFullWidth ?? true)
