@@ -28,7 +28,11 @@ struct NotchCardRow: View {
     }
 
     private func tagFor(_ item: NotchFeedItem) -> Tag? {
-        if case .block(let block) = item, let id = block.tagId {
+        guard case .block(let block) = item else { return nil }
+        if let name = block.metadata.tagName {
+            return tagsById[TagStore.canonicalName(name)]
+        }
+        if let id = block.tagId {
             return tagsById[id]
         }
         return nil
