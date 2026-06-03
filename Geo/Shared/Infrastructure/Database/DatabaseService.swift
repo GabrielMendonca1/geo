@@ -653,7 +653,7 @@ final class DatabaseService: @unchecked Sendable {
         }
         let rows = try Row.fetchAll(
             db,
-            sql: "SELECT id, path, title, content, createdAt, modifiedAt, tagId, dayId, openTaskCount, completedTaskCount, type, status, layer, isFullWidth FROM blocks \(clause)",
+            sql: "SELECT id, path, title, content, createdAt, modifiedAt, tagId, dayId, openTaskCount, completedTaskCount, type, status, layer, isFullWidth, altId FROM blocks \(clause)",
             arguments: arguments
         )
         let tagRows = try Row.fetchAll(
@@ -666,6 +666,17 @@ final class DatabaseService: @unchecked Sendable {
             let blockId: String = row["blockId"]
             let tag: String = row["tag"]
             tagsById[blockId, default: []].append(tag)
+        }
+        let dayRows = try Row.fetchAll(
+            db,
+            sql: "SELECT blockId, dayId FROM block_days \(tagClause)",
+            arguments: arguments
+        )
+        var daysById: [String: [String]] = [:]
+        for row in dayRows {
+            let blockId: String = row["blockId"]
+            let dayId: String = row["dayId"]
+            daysById[blockId, default: []].append(dayId)
         }
         return rows.compactMap { row in
             let id: String = row["id"]
@@ -682,6 +693,7 @@ final class DatabaseService: @unchecked Sendable {
             let status: String? = row["status"]
             let layer: String = row["layer"]
             let isFullWidthInt: Int = row["isFullWidth"]
+            let altId: String? = row["altId"]
             return BlockIndexEntry(
                 id: id,
                 path: path,
@@ -697,7 +709,9 @@ final class DatabaseService: @unchecked Sendable {
                 type: type,
                 status: status,
                 layer: layer,
-                isFullWidth: isFullWidthInt != 0
+                isFullWidth: isFullWidthInt != 0,
+                dayIds: daysById[id] ?? [],
+                altId: altId
             )
         }
     }
