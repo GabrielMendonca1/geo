@@ -3,6 +3,10 @@ import os.log
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "geo", category: "Phase0FrontmatterReinjection")
 
+enum Phase0FrontmatterReinjectionError: Error {
+    case emptyDatabase
+}
+
 final class Phase0FrontmatterReinjectionMigration: @unchecked Sendable {
     static let shared = Phase0FrontmatterReinjectionMigration()
 
