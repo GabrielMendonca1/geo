@@ -283,6 +283,10 @@ final class GeoAPIRouter: @unchecked Sendable {
     }
 
     private func call(_ toolName: String, args: [String: AnyCodableValue]) async -> HTTPResponse {
+        var args = args
+        if args["brain"] == nil, let brain = GeoAPIRouter.requestBrain, !brain.isEmpty {
+            args["brain"] = .string(brain)
+        }
         do {
             let result = try await registry.call(name: toolName, arguments: args)
             return toolResultToResponse(result)
