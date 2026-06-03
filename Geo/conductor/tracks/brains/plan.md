@@ -96,7 +96,7 @@ protocol BrainIndex {
 `lexicalSearch`/`listByType`/`get` map directly to existing `DatabaseService` methods (`:295`, `:326`, `:435`). `listNeighbors`/`getGraphSnapshot` read the persisted `edges` table instead of recomputing.
 
 ### Embedding storage/query
-Apple `NLEmbedding.sentenceEmbedding` → fixed dim D (≈512; pin D in `brain.json`). Store as `float[D]` in `node_vec`. Query: embed text → `SELECT blockId FROM node_vec JOIN vec_map ... ORDER BY distance LIMIT k` via sqlite-vec KNN.
+Apple `NLEmbedding.sentenceEmbedding` → fixed dim D (pin D in `brain.json`). Store contiguous `float[D]` blobs in `node_vec(blockId PK, embedding BLOB)`. Query: embed text → load blobs → **Accelerate brute-force cosine** (`vDSP`/`cblas_sgemv`), top-k. NOT sqlite-vec — it can't load against GRDB's system SQLite (`OMIT_LOAD_EXTENSION`; Verification BLOCKER 1). No `vec_map` (blockId is the PK). ANN only at >250k nodes, contingent on a custom static SQLite link. (Adopting a custom SQLite later means threading a GRDB `Configuration` through `openOrRecreate`/`forceRecreate`, which today use a bare `DatabaseQueue(path:)`.)
 
 ```triad
 DESIGN — N = chunks/nodes per brain, bounded 100k–1M
