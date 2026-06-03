@@ -1,6 +1,6 @@
 # Geo
 
-macOS productivity hub (Swift/SwiftUI, local-first) + the hermes LaunchAgent that reads/writes Geo's data over MCP. Captures, organizes, transcribes; bridges WhatsApp / Gmail / Telegram and dispatches subagents.
+macOS productivity hub (Swift/SwiftUI, local-first) + the hermes LaunchAgent that reads/writes Geo's data over HTTP / native filesystem on the same Mac (MCP retired as the data contract). Captures, organizes, transcribes; bridges WhatsApp / Gmail / Telegram and dispatches subagents.
 
 ## Architecture
 
