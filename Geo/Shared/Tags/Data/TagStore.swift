@@ -104,19 +104,68 @@ class TagStore: ObservableObject {
         return tags.first { $0.id == id }
     }
 
+    func tag(forName name: String) -> Tag? {
+        let canonical = Self.canonicalName(name)
+        return tags.first { Self.canonicalName($0.name) == canonical }
+    }
+
+    func color(forName name: String) -> TagColor? {
+        tag(forName: name)?.color
+    }
+
+    @discardableResult
+    func ensureColor(forName rawName: String) -> Tag {
+        let canonical = Self.canonicalName(rawName)
+        if let existing = tag(forName: canonical) {
+            return existing
+        }
+        let tag = Tag(id: UUID().uuidString, name: canonical, color: Self.defaultColor(forName: canonical))
+        tags.append(tag)
+        lastWriteTime = Date()
+        let snapshot = tags
+        queue.async { self.saveTags(snapshot) }
+        return tag
+    }
+
+    static func defaultColor(forName name: String) -> TagColor {
+        let hue = Double(abs(name.hashValue) % 360) / 360.0
+        let nsColor = NSColor(hue: hue, saturation: 0.55, brightness: 0.85, alpha: 1.0)
+        return TagColor(
+            red: Double(nsColor.redComponent),
+            green: Double(nsColor.greenComponent),
+            blue: Double(nsColor.blueComponent),
+            alpha: 1.0
+        )
+    }
+
     private func loadTags() {
         guard fileManager.fileExists(atPath: tagsURL.path) else { return }
         do {
             let data = try Data(contentsOf: tagsURL)
-            tags = try JSONDecoder().decode([Tag].self, from: data)
+            tags = try Self.decodeTags(data)
         } catch {
             logger.error("Failed to load tags: \(error.localizedDescription)")
         }
     }
 
+    static func decodeTags(_ data: Data) throws -> [Tag] {
+        let decoder = JSONDecoder()
+        if let legacy = try? decoder.decode([Tag].self, from: data) {
+            return legacy
+        }
+        let shrunk = try decoder.decode([String: TagColorEntry].self, from: data)
+        return shrunk
+            .sorted { ($0.value.order ?? Int.max, $0.key) < ($1.value.order ?? Int.max, $1.key) }
+            .map { Tag(id: UUID().uuidString, name: $0.key, color: $0.value.color) }
+    }
+
     nonisolated private func saveTags(_ snapshot: [Tag]) {
         do {
-            let data = try JSONEncoder().encode(snapshot)
+            var entries: [String: TagColorEntry] = [:]
+            for (index, tag) in snapshot.enumerated() {
+                entries[Self.canonicalName(tag.name)] = TagColorEntry(color: tag.color, icon: nil, order: index)
+            }
+            let data = try JSONEncoder().encode(entries)
             try data.write(to: tagsURL, options: .atomic)
         } catch {
             logger.error("Failed to save tags: \(error.localizedDescription)")
