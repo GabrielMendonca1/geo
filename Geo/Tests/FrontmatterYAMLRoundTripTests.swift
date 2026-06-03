@@ -67,7 +67,7 @@ final class FrontmatterYAMLRoundTripTests: XCTestCase {
         let document = MarkdownConverter.shared.parse(input)
         var out = "---\n"
         for key in ["frontmatter_version", "type", "status"] {
-            out += "\(key): \(FrontmatterYAML.emitScalar(document.frontmatter[key]!))\n"
+            out += "\(key): \(FrontmatterYAML.emitScalar(key: key, value: document.frontmatter[key]!))\n"
         }
         out += "---\n" + document.body
         XCTAssertEqual(out, input)
