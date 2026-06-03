@@ -85,6 +85,45 @@ final class MarkdownIndexingService {
         return Array(Set(tags)).sorted()
     }
 
+    private func extractFrontmatterTags(_ frontmatter: [String: String]) -> [String] {
+        guard let raw = frontmatter["tags"],
+              let parsed = FrontmatterYAML.parseInlineList(raw) else { return [] }
+        var result: [String] = []
+        for element in parsed {
+            let normalized = element
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .precomposedStringWithCanonicalMapping
+                .lowercased()
+            if !normalized.isEmpty {
+                result.append(normalized)
+            }
+        }
+        return result
+    }
+
+    private func extractFrontmatterId(_ frontmatter: [String: String]) -> String? {
+        guard let raw = frontmatter["id"] else { return nil }
+        let trimmed = raw
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private func extractDayIds(from markdown: String) -> [String] {
+        let range = NSRange(markdown.startIndex..<markdown.endIndex, in: markdown)
+        let matches = dayLinkRegex.matches(in: markdown, range: range)
+        var dayIds: [String] = []
+        for match in matches {
+            guard match.numberOfRanges > 1,
+                  let dateRange = Range(match.range(at: 1), in: markdown) else { continue }
+            let dayId = String(markdown[dateRange])
+            guard DateFormatters.dayId.date(from: dayId) != nil else { continue }
+            dayIds.append(dayId)
+        }
+        return Array(Set(dayIds)).sorted()
+    }
+
     private func countMatches(in markdown: String, regex: NSRegularExpression) -> Int {
         let range = NSRange(markdown.startIndex..<markdown.endIndex, in: markdown)
         return regex.numberOfMatches(in: markdown, range: range)
