@@ -68,4 +68,24 @@ extension BlockLayer {
             return true
         }
     }
+
+    init?(folderSegment: String) {
+        let normalized = folderSegment.precomposedStringWithCanonicalMapping.lowercased()
+        switch normalized {
+        case "voce": self = .user
+        case "agente": self = .agent
+        case "revisao": self = .review
+        case "compartilhado": self = .shared
+        default: return nil
+        }
+    }
+
+    var folderName: String {
+        switch self {
+        case .user: return "Voce"
+        case .agent: return "Agente"
+        case .review: return "Revisao"
+        case .shared: return "Compartilhado"
+        }
+    }
 }
