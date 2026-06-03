@@ -140,7 +140,8 @@ final class BrainsTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
         let database = DatabaseService(databaseURL: url)
         try await database.upsertBlock(BlockIndexEntry(id: "p.md", path: "p.md", title: "P", content: "x", createdAt: Date(), modifiedAt: Date(), tagId: nil, dayId: nil, openTaskCount: 0, completedTaskCount: 0, tags: []))
-        XCTAssertEqual(try await database.fetchBlocks(ids: ["p.md"]).count, 1)
+        let fetched = try await database.fetchBlocks(ids: ["p.md"]).count
+        XCTAssertEqual(fetched, 1)
         let vectors = try await database.loadAllVectors()
         XCTAssertTrue(vectors.isEmpty)
         let edges = try await database.outgoingEdges(from: "p.md")
