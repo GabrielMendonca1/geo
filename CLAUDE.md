@@ -135,9 +135,13 @@ Swift binary (`main.swift` + `build.sh`) — thin MCP bridge for the macOS app. 
 cd geo-mcp-bridge && ./build.sh
 ```
 
-## Frontmatter coordination
+## Storage model (files are truth)
 
-Frontmatter writes go through `BlocksStore.FrontmatterMutator` with a monotonic `frontmatter_version` counter to avoid lost updates between the app and hermes (since both reach `~/Library/Application Support/Geo/Blocks/*.md` through the MCP bridge).
+A block **is** its `.md` file. The file holds the whole truth: frontmatter Properties (`id`, `type`, `status`, `layer`, `tags`, `full_width` — omitted when false) plus inline `[[wikilinks]]` and `[[YYYY-MM-DD]]` day-links in the body. The app **derives** everything else — FTS, the graph, the tag-map (`block_tags`), and the day-map (`block_days`) — into `Index/blocks.sqlite`, which is a **rebuildable cache, never authoritative**: corruption is fixed by re-deriving from the files (FileWatcher → `BlockChangeReconciler` → `rebuildIndex`). See `Geo/docs/adr/ADR-0002-files-are-truth-vault-native-storage.md` for the full model, the folder→layer map (`Voce`/`Agente`/`Revisao`/`Compartilhado` ASCII slugs), and the phased (default-OFF gated) migration.
+
+Zero-data-loss: `days.json`, `tags.json` (full schema incl. colors/membership), and the SQLite metadata columns (`layer`/`tagId`/`dayId`/`isFullWidth`) are **kept as rebuildable caches / fallbacks** for blocks whose Properties are not yet inlined. Phase 1–3 reads are frontmatter/derived-preferred *with* a fallback to SQLite/`days.json`. The retired `.blocks-metadata.json` sidecar (Phase 0) is gone from the runtime; SQLite is its replacement cache. The hard cutover (dropping the fallback columns) is **deferred behind a default-OFF gate** (`geo.migration.filesAreTruth.enabled`); `FilesAreTruthMigrationRunner` is the single deliberate completion path — it backs up the whole `Geo/` dir first, aborts if the index is empty, then runs the idempotent reinject→layer→tags→day-links backfills. `Index/blocks.sqlite` is the sole live cache; `geo-index.db` (stale FTS), the 0-byte `Index/blocks.db`, and the 0-byte `geo.sqlite` are orphan disk artifacts with no code references (clean manually).
+
+`frontmatter_version` is **demoted**: it is still written (harmlessly, monotonic) but is no longer treated as cross-process coordination — concurrency is a non-issue (single-user serial app), and all readers tolerate its absence (→ 0). `FrontmatterMutatorActor` only serializes same-block writes in-process; it is not a multi-writer lock.
 
 > Historical: an in-app AI/Agent pane (`Geo/Features/Agent/`) used to drive its own kanban with `symphony: true` frontmatter and `~/.symphony/workspaces/`. Removed in favor of `claude-code-lane`, which owns the worker-spawning role entirely outside the app. Inert `symphony: true` keys in existing blocks and the `~/.symphony/workspaces/` tree on disk are leftover user data — code stops reading them but they survive until cleaned manually.
 
