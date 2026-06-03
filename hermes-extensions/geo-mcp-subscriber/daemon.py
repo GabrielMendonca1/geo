@@ -224,18 +224,22 @@ class Subscriber:
     def refresh(self) -> None:
         # Clear dirty up-front so a change arriving mid-fetch re-arms a refresh.
         self.dirty = False
-        snap: dict[str, Any] = {}
+        snap: dict[str, Any] = {"v": SNAPSHOT_VERSION}
         for key, title in BUNDLE:
-            snap[key] = self._tool_text("get_block_by_title", {"title": title})
-        snap["today"] = self._tool_text("get_today", {})
+            snap[f"{key}_md"] = _unwrap_block(
+                self._tool_text("get_block_by_title", {"title": title}))
+        snap["today_line"] = _format_today(self._tool_text("get_today", {}))
+        snap["tasks_md"] = _format_tasks(
+            self._tool_text("list_tasks", {"status": "pending"}))
         snap["fetched_at"] = time.time()
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
         SNAPSHOT_TMP.write_text(json.dumps(snap), encoding="utf-8")
         os.replace(SNAPSHOT_TMP, SNAPSHOT)
         self.last_fetch = time.monotonic()
-        present = [k for k, _ in BUNDLE if snap.get(k)]
-        _log(f"cache refreshed -> {SNAPSHOT.name} "
-             f"(blocks: {present or 'none'}, today: {'yes' if snap['today'] else 'no'})")
+        present = [k for k, _ in BUNDLE if snap.get(f"{k}_md")]
+        _log(f"cache refreshed -> {SNAPSHOT.name} (blocks: {present or 'none'}, "
+             f"today: {'yes' if snap['today_line'] else 'no'}, "
+             f"tasks: {'yes' if snap['tasks_md'] else 'no'})")
 
     def run(self) -> None:
         self.handshake()
