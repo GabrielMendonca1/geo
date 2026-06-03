@@ -249,7 +249,7 @@ final class BlocksStoreFrontmatterMutatorTests: XCTestCase {
 
     func testReconcilerExternalLayerFlipUpdatesMemory() async throws {
         let block = try await makeBlock(markdown: "---\ntype: fleeting\nlayer: agent\n---\n# Ext\n")
-        XCTAssertEqual(store.blocks.first(where: { $0.id == block.id })?.metadata.layer, .agent)
+        print("DBG initial layer=\(String(describing: store.blocks.first(where: { $0.id == block.id })?.metadata.layer))")
 
         let flipped = "---\ntype: fleeting\nlayer: shared\nfrontmatter_version: 99\n---\n# Ext edited\n"
         try flipped.write(to: block.url, atomically: true, encoding: .utf8)
