@@ -100,11 +100,12 @@ Apple `NLEmbedding.sentenceEmbedding` → fixed dim D (pin D in `brain.json`). S
 
 ```triad
 DESIGN — N = chunks/nodes per brain, bounded 100k–1M
-(a) semantic top-k:  embed query (O(1) NLEmbedding) → sqlite-vec KNN.
-    brute-force scans all N vectors = O(N·D). At N≤~100k,D≈512 ~50M flops
+(a) semantic top-k:  embed query (O(1) NLEmbedding) → Accelerate cosine.
+    brute-force scans all N vectors = O(N·D). At N≤~100k,D~512 ~50M flops
     (<50ms) — fine. At N→1M ~500M/query borderline. Decision: ship
-    brute-force vec0; gate ANN (IVF) behind nodeCount>250k in brain.json.
-    Shape: contiguous float[D] blob, no per-row Swift object.
+    Swift/Accelerate brute-force over float[D] BLOBs (vDSP/cblas_sgemv);
+    gate ANN behind nodeCount>250k (needs custom static SQLite, not v1).
+    Shape: contiguous float[D] blob, no per-row Swift object, no sqlite-vec.
 (b) get(id):  blocks.id TEXT PRIMARY KEY → O(1) B-tree. No change.
 (c) neighbors: persisted edges(sourceId idx, targetId idx) → O(deg) both
     directions. Replaces buildGraph's O(N) rebuild-per-call
