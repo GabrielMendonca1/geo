@@ -76,6 +76,10 @@ final class DatabaseService: @unchecked Sendable {
     init(databaseURL: URL? = nil, fileManager: FileManager = .default, schema: DatabaseSchemaProfile = .personal) {
         let baseURL = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? fileManager.homeDirectoryForCurrentUser
+        // Index/blocks.sqlite is the SOLE live, rebuildable cache (FTS + graph + tag/day maps),
+        // re-derived from the .md files via FileWatcher -> BlockChangeReconciler -> rebuildIndex.
+        // Orphan disk artifacts with no code references: geo-index.db (stale FTS), the 0-byte
+        // Index/blocks.db, and the 0-byte geo.sqlite — clean manually, never read here.
         let resolvedURL = databaseURL
             ?? baseURL.appendingPathComponent("Geo/Index/blocks.sqlite")
         try? fileManager.createDirectory(at: resolvedURL.deletingLastPathComponent(), withIntermediateDirectories: true)
