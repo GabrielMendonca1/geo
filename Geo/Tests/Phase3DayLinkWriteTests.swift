@@ -103,7 +103,8 @@ final class Phase3DayLinkWriteTests: XCTestCase {
         let block = try await makeBlock(markdown: "---\ntype: fleeting\n---\n# Fresh\n")
         let live = store.blocks.first(where: { $0.id == block.id })
         XCTAssertTrue(live?.markdown.contains("[[\(todayId)]]") == true, "create auto-inserts today's day-link")
-        XCTAssertTrue(await waitForDay(todayId, contains: block.id), "appears under today's derive")
+        let indexed = await waitForDay(todayId, contains: block.id)
+        XCTAssertTrue(indexed, "appears under today's derive")
     }
 
     func testGetDayUnionsDerivedBlocksWithCaptures() async throws {
