@@ -59,41 +59,6 @@ final class BlockChangeReconciler {
         let now = Date()
         let blocks = currentBlocks ?? []
 
-        let metadataChanged = urls.contains { $0.lastPathComponent == ".blocks-metadata.json" }
-        if metadataChanged && now.timeIntervalSince(metadataService.currentLastWriteTime()) >= externalWriteGracePeriod {
-            metadataService.loadMetadata()
-            var updatedBlocks = blocks
-            var metadataChangedIds: [String] = []
-            for i in updatedBlocks.indices {
-                let block = updatedBlocks[i]
-                let meta = metadataService.metadata(for: block.id)
-                if block.metadata != meta {
-                    updatedBlocks[i] = BlocksStore.Block(
-                        id: block.id,
-                        title: block.title,
-                        date: block.date,
-                        lastEdited: block.lastEdited,
-                        markdown: block.markdown,
-                        url: block.url,
-                        tagId: meta.tagId,
-                        metadata: meta
-                    )
-                    metadataChangedIds.append(block.id)
-                }
-            }
-            if !metadataChangedIds.isEmpty {
-                onBlocksChanged?(updatedBlocks)
-                NotificationCenter.default.post(
-                    name: .blocksExternallyChanged,
-                    object: nil,
-                    userInfo: [
-                        BlockExternalChangeKey.changedIds: metadataChangedIds,
-                        BlockExternalChangeKey.removedIds: [String]()
-                    ]
-                )
-            }
-        }
-
         let relevant = urls.filter { $0.pathExtension.lowercased() == "md" }
         guard !relevant.isEmpty else { return }
         let resourceKeys: Set<URLResourceKey> = [.creationDateKey, .contentModificationDateKey]
