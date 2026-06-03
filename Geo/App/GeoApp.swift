@@ -325,7 +325,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         DayMigrationService.shared.migrateIfNeeded()
         Task { [container] in
-            await FrontmatterStripMigrationService.shared.runIfNeeded()
+            FrontmatterStripMigrationService.shared.markRetired()
             let fileService = await MainActor.run { container.blocksStore.fileService }
             let metadata = await MainActor.run { container.blocksStore.metadataService.blocksMetadata }
             await IndexCoordinator.shared.repairIntegrity(fileService: fileService, metadata: metadata)
