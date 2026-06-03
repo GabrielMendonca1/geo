@@ -14,6 +14,7 @@ protocol BlocksStoreAccess: Sendable {
     func updateBlock(id: String, markdown: String) async -> Bool
     func deleteBlock(id: String) async -> Bool
     func setTag(_ tagId: String?, for blockId: String) async -> Bool
+    func setTagByName(_ name: String?, for blockId: String) async -> Bool
     func setFullWidth(_ isFullWidth: Bool, for blockId: String) async -> Bool
     func setLayer(_ layer: BlockLayer, for blockId: String) async -> Bool
     func setType(_ type: BlockType, for blockId: String) async -> Bool
