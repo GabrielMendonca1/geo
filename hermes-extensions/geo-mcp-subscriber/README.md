@@ -57,7 +57,7 @@ exists) and the hermes venv (`~/.hermes/hermes-agent/venv`).
 |---|---|
 | `daemon.py` | The subscriber loop (stdlib only). |
 | `ai.hermes.geo-mcp-subscriber.plist` | LaunchAgent template (`__VAR__` placeholders). |
-| `install.sh` | rsync to `~/.hermes/plugins/`, template plist, bootstrap. |
+| `install.sh` | rsync to `~/.hermes/daemons/` (NOT `plugins/` — no tools, stays out of the plugin scanner), template plist, bootstrap. |
 | `plugin.yaml` | Metadata (`kind: daemon`, no tools). |
 | `__init__.py` | No-op plugin shell; the daemon does the work. |
 
