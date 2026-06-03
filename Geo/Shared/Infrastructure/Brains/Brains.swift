@@ -32,6 +32,8 @@ struct BrainManifest: Codable, Equatable, Identifiable, Sendable {
     var sourceCount: Int
     var nodeCount: Int
     var ingestState: BrainIngestState
+    var ingestStep: BrainIngestStep?
+    var lastError: String?
     var embeddingModel: String?
     var embeddingDims: Int?
     var schemaVersion: Int
@@ -46,6 +48,8 @@ struct BrainManifest: Codable, Equatable, Identifiable, Sendable {
         sourceCount: Int = 0,
         nodeCount: Int = 0,
         ingestState: BrainIngestState = .empty,
+        ingestStep: BrainIngestStep? = nil,
+        lastError: String? = nil,
         embeddingModel: String? = nil,
         embeddingDims: Int? = nil,
         schemaVersion: Int = BrainManifest.currentSchemaVersion,
@@ -59,6 +63,8 @@ struct BrainManifest: Codable, Equatable, Identifiable, Sendable {
         self.sourceCount = sourceCount
         self.nodeCount = nodeCount
         self.ingestState = ingestState
+        self.ingestStep = ingestStep
+        self.lastError = lastError
         self.embeddingModel = embeddingModel
         self.embeddingDims = embeddingDims
         self.schemaVersion = schemaVersion
