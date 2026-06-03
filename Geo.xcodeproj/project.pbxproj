@@ -1605,6 +1605,7 @@
 				P1H1A1S1E1R1E1F0001 /* Phase1LayerBackfillMigration.swift */,
 				P2H2A2S2E2R2E2F0002 /* Phase2TagBackfillMigration.swift */,
 				P3H3A3S3E3R3E3F0003 /* Phase3DayLinkBackfillMigration.swift */,
+				FA7E5T7R7U7T7H0005 /* FilesAreTruthMigrationRunner.swift */,
 				A1B2C3D4E5F60718293A0042 /* FrontmatterBlockBuilder.swift */,
 			);
 			path = Migrations;
