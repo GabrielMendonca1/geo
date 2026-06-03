@@ -97,13 +97,9 @@ enum DayTools {
                 guard let date = formatter.date(from: dateStr) else {
                     return .error("Invalid date format. Use YYYY-MM-DD")
                 }
-                let allBlocks = try await blocks.list()
-                guard let block = allBlocks.first(where: { $0.id == blockId }) else {
-                    return .error("Block not found: \(blockId)")
-                }
-                switch AgentAuthorization.authorize(.linkToDay, on: blockId, layer: block.metadata.layer) {
-                case .allow: break
-                case .deny(let reason): return .error(reason)
+                switch try await AgentAuthorization.authorizeWrite(.linkToDay, id: blockId, in: blocks) {
+                case .ok: break
+                case .denied(let result): return result
                 }
                 try await days.addBlockToDay(date: date, blockId: blockId)
                 return .json(["success": true])
