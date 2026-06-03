@@ -840,7 +840,7 @@ enum FrontmatterEditor {
     static func serialize(_ value: AnyCodableValue) -> String {
         switch value {
         case .string(let s):
-            return s
+            return FrontmatterYAML.emitScalar(s)
         case .int(let i):
             return String(i)
         case .double(let d):
@@ -850,8 +850,7 @@ enum FrontmatterEditor {
         case .null:
             return ""
         case .array(let arr):
-            let items = arr.map { serialize($0) }
-            return "[\(items.joined(separator: ", "))]"
+            return FrontmatterYAML.emitInlineList(arr.map { $0.stringValue ?? serialize($0) })
         case .object:
             return ""
         }
