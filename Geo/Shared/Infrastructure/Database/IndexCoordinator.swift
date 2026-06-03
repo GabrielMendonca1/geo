@@ -233,8 +233,6 @@ final class IndexCoordinator {
         } else {
             logger.info("repairIntegrity: index in sync with disk")
         }
-
-        await migrateSidecarMetadataToSQLite(sidecar: metadata, fileService: fileService)
     }
 
     private func enumerateDiskIds(in fileService: BlockFileService) -> Set<String> {
