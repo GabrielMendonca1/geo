@@ -622,6 +622,7 @@
 		TBU000107REF /* BlocksStoreFrontmatterMutatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlocksStoreFrontmatterMutatorTests.swift; sourceTree = "<group>"; };
 		TBU000108REF /* HermesMigrationFixesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesMigrationFixesTests.swift; sourceTree = "<group>"; };
 		TBU000109REF /* FrontmatterEditorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrontmatterEditorTests.swift; sourceTree = "<group>"; };
+		TBU000110REF /* FrontmatterYAMLRoundTripTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrontmatterYAMLRoundTripTests.swift; sourceTree = "<group>"; };
 		THEME00020000002 /* ThemePalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemePalette.swift; sourceTree = "<group>"; };
 		TYPO00010000002 /* EditorTypographyPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorTypographyPreferences.swift; sourceTree = "<group>"; };
 		V0PHMCPFRAM0001R /* MCPFramer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MCPFramer.swift; sourceTree = "<group>"; };
