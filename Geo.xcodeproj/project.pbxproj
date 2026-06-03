@@ -1576,6 +1576,7 @@
 				A1B2C3D4E5F60718293A0004 /* StorageMigrationService.swift */,
 				A1B2C3D4E5F60718293A0040 /* FrontmatterStripMigrationService.swift */,
 				A1B2C3D4E5F60718293A0041 /* Phase0FrontmatterReinjectionMigration.swift */,
+				P1H1A1S1E1R1E1F0001 /* Phase1LayerBackfillMigration.swift */,
 				A1B2C3D4E5F60718293A0042 /* FrontmatterBlockBuilder.swift */,
 			);
 			path = Migrations;
