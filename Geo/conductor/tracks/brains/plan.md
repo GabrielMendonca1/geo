@@ -77,7 +77,7 @@ A new `Geo/Shared/Infrastructure/Brains/BrainRegistry.swift` (sibling to `Databa
 ### Per-brain SQLite schema (reuses existing, adds two tables)
 Reuse `buildMigrator`'s `blocks`, `block_tags`, `blocks_fts` exactly (`DatabaseService.swift:114-204`) so `BlockIndexEntry` and all fetch/upsert paths work unchanged. Add:
 - `edges(sourceId TEXT, targetTitle TEXT, targetId TEXT NULL)` + index on `sourceId` and `targetId` — **persists** what `buildGraph` recomputes, since domain brains are batch-built and read-only. `targetId` resolved once at build.
-- `node_vec` via sqlite-vec `vec0(embedding float[D])`; rowid maps to the block. Plus `vec_map(blockId TEXT PRIMARY KEY, vecRowid INTEGER)` for O(1) blockId↔rowid.
+- `node_vec(blockId TEXT PRIMARY KEY, embedding BLOB)` — contiguous `float[D]` blob per block, scanned with Accelerate brute-force cosine (NOT sqlite-vec — unloadable; BLOCKER 1). No `vec_map`; blockId is the PK.
 
 ### Node frontmatter spec (domain-brain nodes)
 Parser is flat `key: value` only (`MarkdownConverter.swift:75-82`), so all fields are scalars. Reuse `type` (`literature` leaves; `permanent`/`moc` hubs), `status`, `[[links]]` in body, `layer` (single fixed value). Add brain-specific scalar keys: `source_ref` (relative path into `sources/`), `chunk_hash` (content-hash for dedup/idempotent rebuild), `vec_rowid`.
