@@ -64,7 +64,8 @@ final class BlocksStoreFullWidthInlineTests: XCTestCase {
         let block = try await makeBlock()
         store.setFullWidth(true, for: block.id)
 
-        XCTAssertTrue(await waitForFullWidth(block.id, expected: true))
+        let became = await waitForFullWidth(block.id, expected: true)
+        XCTAssertTrue(became)
         let live = store.blocks.first(where: { $0.id == block.id })
         XCTAssertTrue(live?.metadata.isFullWidth ?? false)
         XCTAssertTrue(MarkdownConverter.shared.fullWidth(in: live?.markdown ?? ""))
