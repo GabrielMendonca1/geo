@@ -37,31 +37,32 @@ enum DayTools {
     }
 
     private static func derivedBlockIds(
-        _ days: any DayRepository,
-        date: Date,
         dayId: String,
+        captures: (any CaptureRepository)?,
         indexCoordinator: IndexCoordinator
     ) async -> (blockIds: [String], captureCount: Int) {
-        let cached = await days.day(for: date)
-        let derived = await indexCoordinator.blockIds(matchingDay: dayId)
-
-        var seen = Set<String>()
-        var union: [String] = []
-        for id in derived where seen.insert(id).inserted { union.append(id) }
-        for id in (cached?.blockIds ?? []) where seen.insert(id).inserted { union.append(id) }
-
-        return (union, cached?.captureIds.count ?? 0)
+        // Block membership derives PURELY from block_days (inline [[date]] backlinks).
+        let blockIds = await indexCoordinator.blockIds(matchingDay: dayId)
+        // Captures are unioned via CaptureItem.dayId, never days.json.
+        let captureCount: Int
+        if let captures {
+            let all = (try? await captures.list()) ?? []
+            captureCount = all.filter { $0.dayId == dayId }.count
+        } else {
+            captureCount = 0
+        }
+        return (blockIds, captureCount)
     }
 
     static func register(
-        days: any DayRepository,
         blocks: any BlocksRepository,
+        captures: (any CaptureRepository)? = nil,
         indexCoordinator: IndexCoordinator = .shared
     ) -> [MCPRegisteredTool] {
-        [getToday(days, indexCoordinator), getDay(days, indexCoordinator), linkBlockToDay(blocks)]
+        [getToday(captures, indexCoordinator), getDay(captures, indexCoordinator), linkBlockToDay(blocks)]
     }
 
-    private static func getToday(_ days: any DayRepository, _ indexCoordinator: IndexCoordinator) -> MCPRegisteredTool {
+    private static func getToday(_ captures: (any CaptureRepository)?, _ indexCoordinator: IndexCoordinator) -> MCPRegisteredTool {
         MCPToolBuilder(
             name: "get_today",
             description: "Get today's day record with linked blocks (derived from inline [[date]] backlinks) and captures.",
