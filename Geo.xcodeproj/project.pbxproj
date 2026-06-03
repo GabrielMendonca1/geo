@@ -837,6 +837,7 @@
 				TBU000107REF /* BlocksStoreFrontmatterMutatorTests.swift */,
 				TBU000108REF /* HermesMigrationFixesTests.swift */,
 				TBU000109REF /* FrontmatterEditorTests.swift */,
+				TBU000110REF /* FrontmatterYAMLRoundTripTests.swift */,
 				MCPUNIX0000000000000REF /* MCPUnixSocketTransportTests.swift */,
 				MCPCLIENTTESTS0000REF /* MCPClientTests.swift */,
 				EFC9FA8B1A8FCD006338E317 /* SubscriptionManagerTests.swift */,
