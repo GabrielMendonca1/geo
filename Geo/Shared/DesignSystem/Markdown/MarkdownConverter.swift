@@ -77,13 +77,144 @@ final class MarkdownConverter {
             let parts = line.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
             guard !parts.isEmpty else { continue }
             let key = parts[0].trimmingCharacters(in: .whitespacesAndNewlines)
-            let value = parts.count > 1 ? parts[1].trimmingCharacters(in: .whitespacesAndNewlines) : ""
+            let rawValue = parts.count > 1 ? String(parts[1]) : ""
             if !key.isEmpty {
-                frontmatter[key] = value
+                if FrontmatterYAML.parseInlineList(rawValue) != nil {
+                    frontmatter[key] = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                } else {
+                    frontmatter[key] = FrontmatterYAML.parseScalar(rawValue)
+                }
             }
         }
         let body = lines.dropFirst(index).joined(separator: "\n")
         return MarkdownDocument(frontmatter: frontmatter, body: body)
     }
 
+    func frontmatterList(_ document: MarkdownDocument, key: String) -> [String] {
+        document.frontmatter[key].flatMap { FrontmatterYAML.parseInlineList($0) } ?? []
+    }
+
+}
+
+enum FrontmatterYAML {
+    private static let indicatorChars: Set<Character> = ["-", "?", ":", ",", "[", "]", "{", "}", "#", "&", "*", "!", "|", ">", "'", "\"", "%", "@", "`"]
+    private static let reservedWords: Set<String> = ["true", "false", "null", "yes", "no", "~"]
+
+    static func needsQuoting(_ s: String) -> Bool {
+        if s.isEmpty { return true }
+        if s != s.trimmingCharacters(in: .whitespaces) { return true }
+        for ch in s where ch == ":" || ch == "#" || ch == "[" || ch == "]" || ch == "{" || ch == "}" || ch == "," || ch == "\"" || ch == "'" || ch == "\n" {
+            return true
+        }
+        if let first = s.first, indicatorChars.contains(first) { return true }
+        if reservedWords.contains(s.lowercased()) { return true }
+        if Int(s) != nil { return true }
+        if Double(s) != nil { return true }
+        return false
+    }
+
+    static func quote(_ s: String) -> String {
+        var out = "\""
+        for ch in s {
+            switch ch {
+            case "\\": out += "\\\\"
+            case "\"": out += "\\\""
+            case "\n": out += "\\n"
+            case "\t": out += "\\t"
+            case "\r": out += "\\r"
+            default: out.append(ch)
+            }
+        }
+        out += "\""
+        return out
+    }
+
+    static func emitScalar(_ s: String) -> String {
+        if parseInlineList(s) != nil { return s }
+        return needsQuoting(s) ? quote(s) : s
+    }
+
+    static func emitInlineList(_ items: [String]) -> String {
+        "[" + items.map { needsQuoting($0) ? quote($0) : $0 }.joined(separator: ", ") + "]"
+    }
+
+    static func parseScalar(_ raw: String) -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespaces)
+        if trimmed.count >= 2, trimmed.first == "\"", trimmed.last == "\"" {
+            return unescapeDouble(String(trimmed.dropFirst().dropLast()))
+        }
+        if trimmed.count >= 2, trimmed.first == "'", trimmed.last == "'" {
+            return String(trimmed.dropFirst().dropLast()).replacingOccurrences(of: "''", with: "'")
+        }
+        return trimmed
+    }
+
+    static func parseInlineList(_ raw: String) -> [String]? {
+        let trimmed = raw.trimmingCharacters(in: .whitespaces)
+        guard trimmed.hasPrefix("["), trimmed.hasSuffix("]") else { return nil }
+        let inner = String(trimmed.dropFirst().dropLast())
+        if inner.trimmingCharacters(in: .whitespaces).isEmpty { return [] }
+        var elements: [String] = []
+        var current = ""
+        var inDouble = false
+        var inSingle = false
+        var escaped = false
+        for ch in inner {
+            if escaped {
+                current.append(ch)
+                escaped = false
+                continue
+            }
+            if inDouble && ch == "\\" {
+                current.append(ch)
+                escaped = true
+                continue
+            }
+            if ch == "\"" && !inSingle {
+                inDouble.toggle()
+                current.append(ch)
+                continue
+            }
+            if ch == "'" && !inDouble {
+                inSingle.toggle()
+                current.append(ch)
+                continue
+            }
+            if ch == "," && !inDouble && !inSingle {
+                elements.append(current)
+                current = ""
+                continue
+            }
+            current.append(ch)
+        }
+        elements.append(current)
+        let parsed = elements.map { parseScalar($0) }
+        var result = parsed
+        while result.first?.isEmpty == true { result.removeFirst() }
+        while result.last?.isEmpty == true { result.removeLast() }
+        return result
+    }
+
+    private static func unescapeDouble(_ s: String) -> String {
+        var out = ""
+        var escaped = false
+        for ch in s {
+            if escaped {
+                switch ch {
+                case "n": out += "\n"
+                case "t": out += "\t"
+                case "r": out += "\r"
+                case "\\": out += "\\"
+                case "\"": out += "\""
+                default: out.append(ch)
+                }
+                escaped = false
+            } else if ch == "\\" {
+                escaped = true
+            } else {
+                out.append(ch)
+            }
+        }
+        return out
+    }
 }
