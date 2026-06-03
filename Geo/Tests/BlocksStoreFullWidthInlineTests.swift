@@ -97,7 +97,8 @@ final class BlocksStoreFullWidthInlineTests: XCTestCase {
     func testLoadDerivesFullWidthFromFrontmatter() async throws {
         let block = try await makeBlock()
         store.setFullWidth(true, for: block.id)
-        XCTAssertTrue(await waitForFullWidth(block.id, expected: true))
+        let became = await waitForFullWidth(block.id, expected: true)
+        XCTAssertTrue(became)
         await store.flushAll()
 
         // Reload via files: full_width should be derived from frontmatter, not SQLite.
