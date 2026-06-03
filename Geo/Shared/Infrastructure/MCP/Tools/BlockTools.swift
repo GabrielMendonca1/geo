@@ -387,12 +387,9 @@ enum BlockTools {
                 guard validateBlockId(id) else {
                     return .error("invalid block id")
                 }
-                guard let block = try await loadBlock(blocks, id: id) else {
-                    return .error("Block not found: \(id)")
-                }
-                switch AgentAuthorization.authorize(.delete, on: id, layer: block.metadata.layer) {
-                case .allow: break
-                case .deny(let reason): return .error(reason)
+                switch try await AgentAuthorization.authorizeWrite(.delete, id: id, in: blocks) {
+                case .ok: break
+                case .denied(let result): return result
                 }
                 try await blocks.delete(id: id)
                 return .json(["success": true])
