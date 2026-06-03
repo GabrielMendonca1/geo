@@ -108,8 +108,8 @@ DESIGN — N = chunks/nodes per brain, bounded 100k–1M
     Shape: contiguous float[D] blob, no per-row Swift object, no sqlite-vec.
 (b) get(id):  blocks.id TEXT PRIMARY KEY → O(1) B-tree. No change.
 (c) neighbors: persisted edges(sourceId idx, targetId idx) → O(deg) both
-    directions. Replaces buildGraph's O(N) rebuild-per-call
-    (BlockGraphService.swift:402-434) — critical at N=1M.
+    directions. Replaces the O(N) rebuild-per-call
+    (findNeighbors :402-434 → buildGraph :247-328) — critical at N=1M.
 (d) vector storage: vec0 rowid ↔ blockId via vec_map(blockId PK). O(1) both
     ways; vectors live in their own table, touched only on the semantic path.
 Honest note: most domain brains N≈10k–100k → brute-force vec + indexed edges
