@@ -11,8 +11,9 @@ struct NotchFilterBar: View {
                 NotchChip(title: "Images", isActive: filter == .images) { filter = .images }
                 NotchChip(title: "Blocks", isActive: filter == .blocks) { filter = .blocks }
                 ForEach(tags) { tag in
-                    NotchTagChip(tag: tag, isActive: filter == .tag(tag.id)) {
-                        filter = (filter == .tag(tag.id)) ? .all : .tag(tag.id)
+                    let key = TagStore.canonicalName(tag.name)
+                    NotchTagChip(tag: tag, isActive: filter == .tag(key)) {
+                        filter = (filter == .tag(key)) ? .all : .tag(key)
                     }
                 }
             }
