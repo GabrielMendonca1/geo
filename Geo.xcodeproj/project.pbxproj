@@ -126,6 +126,8 @@
 		B1C2D3E4F5061728394B0040 /* FrontmatterStripMigrationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A0040 /* FrontmatterStripMigrationService.swift */; };
 		B1C2D3E4F5061728394B0041 /* Phase0FrontmatterReinjectionMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A0041 /* Phase0FrontmatterReinjectionMigration.swift */; };
 		P1H1A1S1E1B1L1D0001 /* Phase1LayerBackfillMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = P1H1A1S1E1R1E1F0001 /* Phase1LayerBackfillMigration.swift */; };
+		P2H2A2S2E2B2L2D0002 /* Phase2TagBackfillMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = P2H2A2S2E2R2E2F0002 /* Phase2TagBackfillMigration.swift */; };
+		P3H3A3S3E3B3L3D0003 /* Phase3DayLinkBackfillMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = P3H3A3S3E3R3E3F0003 /* Phase3DayLinkBackfillMigration.swift */; };
 		B1C2D3E4F5061728394B0042 /* FrontmatterBlockBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A0042 /* FrontmatterBlockBuilder.swift */; };
 		B1C2D3E4F5A6B1C2D3E4F5A6 /* MonaSans-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A1B2C3D4E5F6 /* MonaSans-Medium.ttf */; };
 		BEA00000000000000000001 /* BlockEditorActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEA00000000000000000002 /* BlockEditorActions.swift */; };
@@ -314,6 +316,9 @@
 		TBU000111BLD /* Phase0FrontmatterReinjectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBU000111REF /* Phase0FrontmatterReinjectionTests.swift */; };
 		P1H1A1S1E1B1L1T0002 /* Phase1LayerBackfillTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = P1H1A1S1E1B1L1T0001 /* Phase1LayerBackfillTests.swift */; };
 		P1H1A1S1E1R1D1T0002 /* Phase1LayerReadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = P1H1A1S1E1R1D1T0001 /* Phase1LayerReadTests.swift */; };
+		P2RDT0001B /* Phase2TagInlineReadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = P2RDT0001F /* Phase2TagInlineReadTests.swift */; };
+		P2CPT0001B /* TagColorProvisionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = P2CPT0001F /* TagColorProvisionTests.swift */; };
+		P2WRT0001B /* Phase2TagWriteTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = P2WRT0001F /* Phase2TagWriteTests.swift */; };
 		THEME00020000001 /* ThemePalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = THEME00020000002 /* ThemePalette.swift */; };
 		TYPO00010000001 /* EditorTypographyPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = TYPO00010000002 /* EditorTypographyPreferences.swift */; };
 		V0PHMCPFRAM0001B /* MCPFramer.swift in Sources */ = {isa = PBXBuildFile; fileRef = V0PHMCPFRAM0001R /* MCPFramer.swift */; };
@@ -424,6 +429,7 @@
 		A1B2C3D4E5F60718293A0040 /* FrontmatterStripMigrationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrontmatterStripMigrationService.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F60718293A0041 /* Phase0FrontmatterReinjectionMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phase0FrontmatterReinjectionMigration.swift; sourceTree = "<group>"; };
 		P1H1A1S1E1R1E1F0001 /* Phase1LayerBackfillMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phase1LayerBackfillMigration.swift; sourceTree = "<group>"; };
+		P2H2A2S2E2R2E2F0002 /* Phase2TagBackfillMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phase2TagBackfillMigration.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F60718293A0042 /* FrontmatterBlockBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrontmatterBlockBuilder.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A1B2C3D4E5F6 /* MonaSans-Medium.ttf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; name = "MonaSans-Medium.ttf"; path = "Geo/Resources/Fonts/MonaSans-Medium.ttf"; sourceTree = SOURCE_ROOT; };
 		A9937952854366473575ED09 /* NotificationManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
@@ -641,6 +647,9 @@
 		TBU000111REF /* Phase0FrontmatterReinjectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phase0FrontmatterReinjectionTests.swift; sourceTree = "<group>"; };
 		P1H1A1S1E1B1L1T0001 /* Phase1LayerBackfillTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phase1LayerBackfillTests.swift; sourceTree = "<group>"; };
 		P1H1A1S1E1R1D1T0001 /* Phase1LayerReadTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phase1LayerReadTests.swift; sourceTree = "<group>"; };
+		P2RDT0001F /* Phase2TagInlineReadTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phase2TagInlineReadTests.swift; sourceTree = "<group>"; };
+		P2CPT0001F /* TagColorProvisionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagColorProvisionTests.swift; sourceTree = "<group>"; };
+		P2WRT0001F /* Phase2TagWriteTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phase2TagWriteTests.swift; sourceTree = "<group>"; };
 		THEME00020000002 /* ThemePalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemePalette.swift; sourceTree = "<group>"; };
 		TYPO00010000002 /* EditorTypographyPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorTypographyPreferences.swift; sourceTree = "<group>"; };
 		V0PHMCPFRAM0001R /* MCPFramer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MCPFramer.swift; sourceTree = "<group>"; };
@@ -861,6 +870,9 @@
 				TBU000111REF /* Phase0FrontmatterReinjectionTests.swift */,
 				P1H1A1S1E1B1L1T0001 /* Phase1LayerBackfillTests.swift */,
 				P1H1A1S1E1R1D1T0001 /* Phase1LayerReadTests.swift */,
+				P2RDT0001F /* Phase2TagInlineReadTests.swift */,
+				P2CPT0001F /* TagColorProvisionTests.swift */,
+				P2WRT0001F /* Phase2TagWriteTests.swift */,
 				MCPUNIX0000000000000REF /* MCPUnixSocketTransportTests.swift */,
 				MCPCLIENTTESTS0000REF /* MCPClientTests.swift */,
 				EFC9FA8B1A8FCD006338E317 /* SubscriptionManagerTests.swift */,
@@ -1579,6 +1591,7 @@
 				A1B2C3D4E5F60718293A0040 /* FrontmatterStripMigrationService.swift */,
 				A1B2C3D4E5F60718293A0041 /* Phase0FrontmatterReinjectionMigration.swift */,
 				P1H1A1S1E1R1E1F0001 /* Phase1LayerBackfillMigration.swift */,
+				P2H2A2S2E2R2E2F0002 /* Phase2TagBackfillMigration.swift */,
 				A1B2C3D4E5F60718293A0042 /* FrontmatterBlockBuilder.swift */,
 			);
 			path = Migrations;
@@ -1842,6 +1855,7 @@
 				B1C2D3E4F5061728394B0040 /* FrontmatterStripMigrationService.swift in Sources */,
 				B1C2D3E4F5061728394B0041 /* Phase0FrontmatterReinjectionMigration.swift in Sources */,
 				P1H1A1S1E1B1L1D0001 /* Phase1LayerBackfillMigration.swift in Sources */,
+				P2H2A2S2E2B2L2D0002 /* Phase2TagBackfillMigration.swift in Sources */,
 				B1C2D3E4F5061728394B0042 /* FrontmatterBlockBuilder.swift in Sources */,
 				B1C2D3E4F5061728394B0005 /* MarkdownIndexingService.swift in Sources */,
 				B1C2D3E4F5061728394B0007 /* MarkdownConverter.swift in Sources */,
@@ -2102,6 +2116,9 @@
 				TBU000111BLD /* Phase0FrontmatterReinjectionTests.swift in Sources */,
 				P1H1A1S1E1B1L1T0002 /* Phase1LayerBackfillTests.swift in Sources */,
 				P1H1A1S1E1R1D1T0002 /* Phase1LayerReadTests.swift in Sources */,
+				P2RDT0001B /* Phase2TagInlineReadTests.swift in Sources */,
+				P2CPT0001B /* TagColorProvisionTests.swift in Sources */,
+				P2WRT0001B /* Phase2TagWriteTests.swift in Sources */,
 				MCPUNIX0000000000000BLD /* MCPUnixSocketTransportTests.swift in Sources */,
 				MCPCLIENTTESTS0000BLD /* MCPClientTests.swift in Sources */,
 				D79B1530FA4C738B1BCA5FDC /* SubscriptionManagerTests.swift in Sources */,
