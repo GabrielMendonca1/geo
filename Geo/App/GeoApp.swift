@@ -337,46 +337,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 container.blocksStore.metadataService.hydrateFromIndex(hydrated)
             }
             let reconciler = await MainActor.run { container.blocksStore.changeReconciler }
-            await Phase0FrontmatterReinjectionMigration.shared.runIfEnabled(
+            // The files-are-truth migration is the single deliberate completion path.
+            // Default OFF: nothing below runs unless geo.migration.filesAreTruth.enabled is flipped.
+            let backupDir = fileService.blocksDirectory.deletingLastPathComponent()
+                .appendingPathComponent("Backups", isDirectory: true)
+            let hooks = FilesAreTruthMigrationRunner.Hooks(
+                reloadAndRebuild: { [container] in
+                    await MainActor.run { container.blocksStore.reload() }
+                    let blocks = await MainActor.run { container.blocksStore.blocks }
+                    await IndexCoordinator.shared.rebuildIndex(blocks: blocks)
+                },
+                refreshDays: { [container] in
+                    await MainActor.run { container.dayStore.refreshFromDerive() }
+                }
+            )
+            await FilesAreTruthMigrationRunner.shared.runIfEnabled(
                 fileService: fileService,
                 database: DatabaseService.shared,
-                recordWrite: { id in reconciler.recordWrite(for: id) }
+                recordWrite: { id in reconciler.recordWrite(for: id) },
+                backupDirectory: backupDir,
+                hooks: hooks
             )
-            if await Phase0FrontmatterReinjectionMigration.shared.didRunThisLaunch {
-                await MainActor.run { container.blocksStore.reload() }
-                let blocks = await MainActor.run { container.blocksStore.blocks }
-                await IndexCoordinator.shared.rebuildIndex(blocks: blocks)
-            }
-            await Phase1LayerBackfillMigration.shared.runIfEnabled(
-                fileService: fileService,
-                database: DatabaseService.shared,
-                recordWrite: { id in reconciler.recordWrite(for: id) }
-            )
-            if await Phase1LayerBackfillMigration.shared.didRunThisLaunch {
-                await MainActor.run { container.blocksStore.reload() }
-                let blocks = await MainActor.run { container.blocksStore.blocks }
-                await IndexCoordinator.shared.rebuildIndex(blocks: blocks)
-            }
-            await Phase2TagBackfillMigration.shared.runIfEnabled(
-                fileService: fileService,
-                database: DatabaseService.shared,
-                recordWrite: { id in reconciler.recordWrite(for: id) }
-            )
-            if await Phase2TagBackfillMigration.shared.didRunThisLaunch {
-                await MainActor.run { container.blocksStore.reload() }
-                let blocks = await MainActor.run { container.blocksStore.blocks }
-                await IndexCoordinator.shared.rebuildIndex(blocks: blocks)
-            }
-            await Phase3DayLinkBackfillMigration.shared.runIfEnabled(
-                fileService: fileService,
-                recordWrite: { id in reconciler.recordWrite(for: id) }
-            )
-            if await Phase3DayLinkBackfillMigration.shared.didRunThisLaunch {
-                await MainActor.run { container.blocksStore.reload() }
-                let blocks = await MainActor.run { container.blocksStore.blocks }
-                await IndexCoordinator.shared.rebuildIndex(blocks: blocks)
-                await MainActor.run { container.dayStore.refreshFromDerive() }
-            }
         }
         container.templateService.loadTemplates()
         container.notchWindowController.show()
