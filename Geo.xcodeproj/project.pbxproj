@@ -656,6 +656,10 @@
 		TBU000112REF /* FrontmatterBlockBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrontmatterBlockBuilderTests.swift; sourceTree = "<group>"; };
 		TBU000111REF /* Phase0FrontmatterReinjectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phase0FrontmatterReinjectionTests.swift; sourceTree = "<group>"; };
 		P1H1A1S1E1B1L1T0001 /* Phase1LayerBackfillTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phase1LayerBackfillTests.swift; sourceTree = "<group>"; };
+		FW4READTST0001REF /* MarkdownConverterFullWidthTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownConverterFullWidthTests.swift; sourceTree = "<group>"; };
+		FW4INLNTST0002REF /* BlocksStoreFullWidthInlineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlocksStoreFullWidthInlineTests.swift; sourceTree = "<group>"; };
+		FATRUNNRTST0003REF /* FilesAreTruthMigrationRunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilesAreTruthMigrationRunnerTests.swift; sourceTree = "<group>"; };
+		SIDECARTST0004REF /* SidecarRetirementTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidecarRetirementTests.swift; sourceTree = "<group>"; };
 		P1H1A1S1E1R1D1T0001 /* Phase1LayerReadTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phase1LayerReadTests.swift; sourceTree = "<group>"; };
 		P2RDT0001F /* Phase2TagInlineReadTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phase2TagInlineReadTests.swift; sourceTree = "<group>"; };
 		P2CPT0001F /* TagColorProvisionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagColorProvisionTests.swift; sourceTree = "<group>"; };
