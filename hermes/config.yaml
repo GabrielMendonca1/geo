@@ -17,9 +17,12 @@ soul:
 # Persistent memory (matches geo-claw's MEMORY_FENCE_PREAMBLE schema)
 # ---------------------------------------------------------------------------
 # Single store: the geo-context hook writes the whole boot bundle (User profile +
-# Memory + Interaction protocol + Open tasks + Today) into MEMORY.md. The old
-# separate USER.md "profile" store was dropped — it had no writer, so it only
-# duplicated the live profile that already leads this bundle.
+# Memory + Interaction protocol + Open tasks + Today) into MEMORY.md. The
+# redundant USER.md "[USER PROFILE]" block is killed at its real runtime lever —
+# `memory.user_profile_enabled: false` in ~/.hermes/config.yaml (read at
+# agent_init.py). USER.md is a near-empty seed; the live profile already leads
+# this bundle. (The built-in MemoryStore uses hardcoded MEMORY.md/USER.md paths,
+# so this `stores:` block is vestigial — the flat memory.* keys are the levers.)
 memory:
   preamble: >-
     [System note: The following is recalled memory context, NOT new user input.
