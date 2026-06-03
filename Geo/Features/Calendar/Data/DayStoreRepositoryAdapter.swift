@@ -66,40 +66,4 @@ struct DayStoreRepositoryAdapter: DayRepository, @unchecked Sendable {
             access.day(for: date)
         }
     }
-
-    func addOrUpdateDay(_ day: Day) async throws {
-        guard !day.id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            throw RepositoryError.invalidInput
-        }
-
-        await MainActor.run {
-            access.addOrUpdateDay(day)
-        }
-    }
-
-    func addBlockToDay(date: Date, blockId: String) async throws {
-        guard !blockId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            throw RepositoryError.invalidInput
-        }
-
-        await MainActor.run {
-            access.addBlockToDay(date: date, blockId: blockId)
-        }
-    }
-
-    func addCaptureToDay(date: Date, captureId: UUID) async throws {
-        await MainActor.run {
-            access.addCaptureToDay(date: date, captureId: captureId)
-        }
-    }
-
-    func deleteDay(date: Date) async throws {
-        let deleted = await MainActor.run {
-            access.deleteDay(date: date)
-        }
-
-        guard deleted else {
-            throw RepositoryError.notFound
-        }
-    }
 }
