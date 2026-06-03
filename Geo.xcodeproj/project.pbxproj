@@ -2100,6 +2100,8 @@
 				TBU000113BLD /* FrontmatterStripRetirementTests.swift in Sources */,
 				TBU000112BLD /* FrontmatterBlockBuilderTests.swift in Sources */,
 				TBU000111BLD /* Phase0FrontmatterReinjectionTests.swift in Sources */,
+				P1H1A1S1E1B1L1T0002 /* Phase1LayerBackfillTests.swift in Sources */,
+				P1H1A1S1E1R1D1T0002 /* Phase1LayerReadTests.swift in Sources */,
 				MCPUNIX0000000000000BLD /* MCPUnixSocketTransportTests.swift in Sources */,
 				MCPCLIENTTESTS0000BLD /* MCPClientTests.swift in Sources */,
 				D79B1530FA4C738B1BCA5FDC /* SubscriptionManagerTests.swift in Sources */,
