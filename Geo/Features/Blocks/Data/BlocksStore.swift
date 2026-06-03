@@ -736,6 +736,10 @@ class BlocksStore: ObservableObject {
         meta.type = markdownConverter.type(in: entry.content)
         meta.layer = markdownConverter.layer(in: entry.content) ?? BlockLayer(rawValue: entry.layer) ?? .default
         meta.frontmatter_version = markdownConverter.frontmatterVersion(in: entry.content)
+        let document = markdownConverter.parse(entry.content)
+        meta.isFullWidth = document.frontmatter["full_width"] != nil
+            ? MarkdownConverter.normalizedFullWidth(document.frontmatter["full_width"])
+            : meta.isFullWidth
         return meta
     }
 
