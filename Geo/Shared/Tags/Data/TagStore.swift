@@ -149,7 +149,7 @@ class TagStore: ObservableObject {
         }
     }
 
-    static func decodeTags(_ data: Data) throws -> [Tag] {
+    nonisolated static func decodeTags(_ data: Data) throws -> [Tag] {
         let decoder = JSONDecoder()
         if let legacy = try? decoder.decode([Tag].self, from: data) {
             return legacy
