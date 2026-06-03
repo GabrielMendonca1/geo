@@ -16,7 +16,12 @@ struct DockView: View {
     @State private var blockTags: [Tag] = []
 
     private func rebuild() {
-        tagsById = Dictionary(tags.map { (TagStore.canonicalName($0.name), $0) }, uniquingKeysWith: { first, _ in first })
+        var tagLookup: [String: Tag] = [:]
+        for tag in tags {
+            tagLookup[tag.id] = tag
+            tagLookup[TagStore.canonicalName(tag.name)] = tag
+        }
+        tagsById = tagLookup
         let used = Set(blocks.compactMap { $0.tagKey(using: tags) })
         blockTags = tags.filter { used.contains(TagStore.canonicalName($0.name)) }
 
