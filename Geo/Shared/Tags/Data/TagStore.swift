@@ -181,16 +181,28 @@ class TagStore: ObservableObject {
     }
 
     private func isUniqueName(_ name: String, excluding excludedId: String? = nil) -> Bool {
-        let normalized = normalizeName(name)
+        let normalized = Self.canonicalName(name)
         return !tags.contains { tag in
             if let excludedId, tag.id == excludedId {
                 return false
             }
-            return normalizeName(tag.name) == normalized
+            return Self.canonicalName(tag.name) == normalized
         }
     }
 
-    private func normalizeName(_ name: String) -> String {
-        name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    static func canonicalName(_ name: String) -> String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines)
+            .precomposedStringWithCanonicalMapping
+            .lowercased()
     }
+}
+
+struct TagColorEntry: Codable, Hashable {
+    let color: TagColor
+    let icon: String?
+    let order: Int?
+}
+
+extension String {
+    var nilIfEmpty: String? { isEmpty ? nil : self }
 }
