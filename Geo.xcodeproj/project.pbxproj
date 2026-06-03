@@ -312,6 +312,8 @@
 		TBU000113BLD /* FrontmatterStripRetirementTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBU000113REF /* FrontmatterStripRetirementTests.swift */; };
 		TBU000112BLD /* FrontmatterBlockBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBU000112REF /* FrontmatterBlockBuilderTests.swift */; };
 		TBU000111BLD /* Phase0FrontmatterReinjectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBU000111REF /* Phase0FrontmatterReinjectionTests.swift */; };
+		P1H1A1S1E1B1L1T0002 /* Phase1LayerBackfillTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = P1H1A1S1E1B1L1T0001 /* Phase1LayerBackfillTests.swift */; };
+		P1H1A1S1E1R1D1T0002 /* Phase1LayerReadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = P1H1A1S1E1R1D1T0001 /* Phase1LayerReadTests.swift */; };
 		THEME00020000001 /* ThemePalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = THEME00020000002 /* ThemePalette.swift */; };
 		TYPO00010000001 /* EditorTypographyPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = TYPO00010000002 /* EditorTypographyPreferences.swift */; };
 		V0PHMCPFRAM0001B /* MCPFramer.swift in Sources */ = {isa = PBXBuildFile; fileRef = V0PHMCPFRAM0001R /* MCPFramer.swift */; };
