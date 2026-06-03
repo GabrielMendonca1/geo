@@ -67,6 +67,24 @@ final class IndexCoordinator {
         }
     }
 
+    func blockIds(matchingDay dayId: String) async -> [String] {
+        do {
+            return try await database.blockIds(matchingDay: dayId)
+        } catch {
+            logger.error("blockIds(matchingDay:) failed: \(error)")
+            return []
+        }
+    }
+
+    func blockId(forAltId altId: String) async -> String? {
+        do {
+            return try await database.blockId(forAltId: altId)
+        } catch {
+            logger.error("blockId(forAltId:) failed: \(error)")
+            return nil
+        }
+    }
+
     func blockIdsWithOpenTaskCheckboxes() async -> [String] {
         do {
             return try await database.blockIdsWithOpenTaskCheckboxes()
