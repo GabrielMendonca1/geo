@@ -198,12 +198,7 @@ final class BlockGraphService: @unchecked Sendable {
 
         for entry in changedEntries {
             guard let uuid = stringToUUID[entry.id] else { continue }
-            let color: Color?
-            if let tagId = entry.tagId {
-                color = tagColors[tagId]
-            } else {
-                color = nil
-            }
+            let color = Self.nodeColor(for: entry, tagColors: tagColors)
             let type = BlockType(rawValue: entry.type) ?? .fleeting
             let layer = BlockLayer(rawValue: entry.layer) ?? .default
             let priorWeight = nodesById[uuid]?.weight ?? 0
