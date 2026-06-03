@@ -50,6 +50,7 @@ final class BlockFileService {
             guard (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true else { continue }
             let rel = relativeId(for: url)
             if rel == "Attachments" || rel.hasPrefix("Attachments/") { continue }
+            if rel == "Daily" || rel.hasPrefix("Daily/") { continue }
             folders.append(rel)
         }
         return folders.sorted()
