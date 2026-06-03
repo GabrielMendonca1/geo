@@ -193,16 +193,48 @@ final class BrainRegistry: @unchecked Sendable {
 
     func isPersonal(_ id: String) -> Bool { id == Self.personalId }
 
-    func manifest(_ id: String) -> BrainManifest? { manifestsById[id] }
+    func manifest(_ id: String) -> BrainManifest? {
+        cacheLock.lock(); defer { cacheLock.unlock() }
+        return manifestsById[id]
+    }
 
     func list() -> [BrainManifest] {
-        manifestsById.values.sorted {
+        cacheLock.lock()
+        let values = Array(manifestsById.values)
+        cacheLock.unlock()
+        return values.sorted {
             ($0.kind == .essence ? 0 : 1, $0.title.lowercased()) < ($1.kind == .essence ? 0 : 1, $1.title.lowercased())
         }
     }
 
+    @discardableResult
+    func createBrain(id: String, title: String, gist: String = "") throws -> BrainManifest {
+        let folder = brainsRoot.appendingPathComponent(id)
+        try fileManager.createDirectory(at: folder.appendingPathComponent("sources"), withIntermediateDirectories: true)
+        let manifest = BrainManifest(id: id, title: title, gist: gist, kind: .domain)
+        try manifest.save(to: folder.appendingPathComponent("brain.json"))
+        cacheLock.lock(); manifestsById[id] = manifest; cacheLock.unlock()
+        return manifest
+    }
+
+    func addSource(from url: URL, toBrain id: String) throws {
+        guard let paths = paths(id) else { throw BrainIngestError.unknownBrain(id) }
+        try fileManager.createDirectory(at: paths.sourcesDir, withIntermediateDirectories: true)
+        let destination = paths.sourcesDir.appendingPathComponent(url.lastPathComponent)
+        try? fileManager.removeItem(at: destination)
+        try fileManager.copyItem(at: url, to: destination)
+        guard var manifest = manifest(id) else { return }
+        manifest.sourceCount += 1
+        manifest.ingestState = .ingesting
+        manifest.ingestStep = .pending
+        manifest.updatedAt = Date()
+        try manifest.save(to: paths.manifestURL)
+        cacheLock.lock(); manifestsById[id] = manifest; cacheLock.unlock()
+    }
+
     func paths(_ id: String) -> BrainPaths? {
-        guard manifestsById[id] != nil else { return nil }
+        cacheLock.lock(); let known = manifestsById[id] != nil; cacheLock.unlock()
+        guard known else { return nil }
         if isPersonal(id) {
             return BrainPaths(
                 id: id,
