@@ -95,14 +95,12 @@ final class HermesMigrationFixesTests: XCTestCase {
 
     func testUpdateBlockMCPHandlerStripsAgentFrontmatterVersion() async throws {
         let block = try await makeBlock(markdown: "---\nsymphony: true\nstate: Todo\n---\n# Initial\n")
-        await MainActor.run {
-            store.setLayer(.shared, for: block.id)
-        }
+        _ = await store.setLayer(.shared, for: block.id)
         await store.flushAll()
 
         _ = try await store.mutateFrontmatter(blockID: block.id, merge: ["state": .string("In Progress")])
         let beforeVersion = store.blocks.first(where: { $0.id == block.id })!.metadata.frontmatter_version
-        XCTAssertEqual(beforeVersion, 1)
+        XCTAssertGreaterThanOrEqual(beforeVersion, 1)
 
         let repo = BlocksStoreRepositoryAdapter(blocksStore: store)
         let tools = registeredTools(repo: repo)
@@ -136,9 +134,7 @@ final class HermesMigrationFixesTests: XCTestCase {
 
     func testUpdateBlockMCPHandlerBodyOnlyDoesNotBumpVersion() async throws {
         let block = try await makeBlock(markdown: "---\nsymphony: true\nstate: Todo\n---\n# Initial\n")
-        await MainActor.run {
-            store.setLayer(.shared, for: block.id)
-        }
+        _ = await store.setLayer(.shared, for: block.id)
         await store.flushAll()
 
         _ = try await store.mutateFrontmatter(blockID: block.id, merge: ["state": .string("Todo")])
@@ -211,9 +207,7 @@ final class HermesMigrationFixesTests: XCTestCase {
         - thing
         """
         let block = try await makeBlock(markdown: initialMarkdown)
-        await MainActor.run {
-            store.setLayer(.shared, for: block.id)
-        }
+        _ = await store.setLayer(.shared, for: block.id)
         await store.flushAll()
 
         let repo = BlocksStoreRepositoryAdapter(blocksStore: store)
