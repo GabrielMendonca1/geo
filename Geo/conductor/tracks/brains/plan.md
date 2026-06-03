@@ -270,6 +270,18 @@ ONE: a brain can hold 100k+ nodes — the node list MUST page through `BrainInde
 
 ---
 
+## Implementation status — 2026-06-03 (end-to-end build, 617 tests green, 0 regressions)
+
+Built via the `brains-e2e-blueprint` workflow → critique-hardened → implemented phase-by-phase, each build+test gated. Suite: **617 pass / 0 fail** (was 595; +22 Brains tests). **Zero behavioral changes to working UI** (verified: existing 595 all still green).
+
+- ✅ **2b-storage** — `DatabaseSchemaProfile {personal,domain}`; domain DBs get `edges` + `node_vec(blockId PK, dims, embedding BLOB)`; personal `blocks.sqlite` migrator untouched (default profile). Edge/vector methods are **table-tolerant** (personal DB → `[]`, not throw — fixed critique P0#1). `DatabaseBrainIndex.semanticSearch` = Accelerate brute-force over BLOBs. Single `.domain` factory `BrainRegistry.database(for:)`.
+- ✅ **2b-ingest** (`BrainIngest.swift`) — `ChunkSummarizer`/`EmbeddingService` protocols (real `AnthropicHaikuSummarizer` via new `AnthropicClient.complete` [byte-identical wire: maxTokens 2048, 2-block system], `NLEmbeddingService` reading live `dimension`) + fakes; `SourceExtractor` (PDF/text/HTML); `Chunker` (SHA256-NFC); `BrainReconciler` (canonical-key bucket, deterministic); non-recursive `IngestPipeline.advance` state machine (pending→reconciling→embedding→ready), idempotent, bounded concurrency cap 8, sole app-internal writer.
+- ✅ **2a** — resolve-once `BrainCallContext` interceptor in `MCPToolRegistry.call` (**pure pass-through when no `brain` — zero registry touch**, critique P1#9), read-only guard, `brainScopedReadTools` allowlist; HTTP `x-geo-brain` header injected once in `GeoAPIRouter.call`; `BrainTools` (`list_brains`/`get_brain_manifest`); `search_blocks` routes to the brain index when scoped.
+- ✅ **2c** — `GraphView` gains optional `isActive: (() -> Bool)?` defaulting to the exact current `tabRouter == .nodes` behavior (additive, byte-identical when nil); `BrainGraphStore` renders a brain's graph via `BlockGraphService` over its index.
+- ✅ **3** — additive **Brains tab** (appended to `defaultNavigationOrder`; ⌘1–4 unchanged): `BrainsPane` (list/create) + `CreateBrainSheet` + attach-sources `.fileImporter` (kicks ingest) + read-only `BrainNodeView`. `BrainRegistry` made live (mutable, thread-safe `createBrain`/`addSource`).
+
+**Deferred (noted, non-blocking):** (1) embedded per-brain `GraphView` inside the brain detail view — `BrainGraphStore` is built+tested, just not wired into a view yet (avoided GraphView's large call surface); (2) image/audio source extraction (PDF/text/HTML ship; OCR deferred per the `NSImage`/Sendable hazard); (3) `mode:semantic` on the MCP `search_blocks` tool — semantic works via `index.semanticSearch`, not yet wired to the tool's query-embedding path (needs an `EmbeddingService` injected into `BlockTools.register`). **UI is build-verified, not visually verified** — recommend a visual pass (run the app, open the Brains tab).
+
 ## Open questions
 
 1. **"Next window" trigger** — what concretely advances the non-recursive job? App foreground, a Brains-tab visit, or any user write? (Affects perceived latency.)
