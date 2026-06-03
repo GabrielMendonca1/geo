@@ -877,8 +877,9 @@ private struct BlocksControlBar: View {
             if !tags.isEmpty {
                 Divider()
                 ForEach(tags) { tag in
-                    pickerRow(label: tag.name, selected: selectedTagFilter == tag.id) {
-                        selectedTagFilter = tag.id
+                    let key = TagStore.canonicalName(tag.name)
+                    pickerRow(label: tag.name, selected: selectedTagFilter == key) {
+                        selectedTagFilter = key
                     }
                 }
             }
@@ -886,9 +887,9 @@ private struct BlocksControlBar: View {
     }
 
     private var tagMenuText: String {
-        guard let id = selectedTagFilter else { return "Tag" }
-        if id == "untagged" { return "Untagged" }
-        return tags.first(where: { $0.id == id })?.name ?? "Tag"
+        guard let key = selectedTagFilter else { return "Tag" }
+        if key == "untagged" { return "Untagged" }
+        return tags.first(where: { TagStore.canonicalName($0.name) == key })?.name ?? key
     }
 
     private var viewMenu: some View {
