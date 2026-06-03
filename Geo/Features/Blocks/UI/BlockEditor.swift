@@ -446,6 +446,11 @@ private extension BlockEditorView {
         actions.resolvedTag(liveBlock)
     }
 
+    func isCurrentTag(_ tag: Tag) -> Bool {
+        guard let current = currentTag else { return false }
+        return TagStore.canonicalName(current.name) == TagStore.canonicalName(tag.name)
+    }
+
     var outlineHeadings: [OutlineHeading] {
         OutlineExtractor.headings(from: document?.blocks ?? [])
     }
