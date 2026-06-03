@@ -114,8 +114,16 @@ final class DatabaseService: @unchecked Sendable {
         return (try? DatabaseQueue()) ?? DatabaseQueue.makeMemoryFallback()
     }
 
-    private static func buildMigrator() -> DatabaseMigrator {
+    private static func buildMigrator(schema: DatabaseSchemaProfile = .personal) -> DatabaseMigrator {
         var migrator = DatabaseMigrator()
+        registerPersonalMigrations(&migrator)
+        if case .domain = schema {
+            registerDomainMigrations(&migrator)
+        }
+        return migrator
+    }
+
+    private static func registerPersonalMigrations(_ migrator: inout DatabaseMigrator) {
         migrator.registerMigration("createBlocks") { db in
             try db.create(table: "blocks") { t in
                 t.column("id", .text).primaryKey()
