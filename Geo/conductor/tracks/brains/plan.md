@@ -273,7 +273,7 @@ ONE: a brain can hold 100k+ nodes — the node list MUST page through `BrainInde
 ## Open questions
 
 1. **"Next window" trigger** — what concretely advances the non-recursive job? App foreground, a Brains-tab visit, or any user write? (Affects perceived latency.)
-2. **sqlite-vec packaging** — loadable extension vs vendored; how GRDB opens it on each per-brain connection.
+2. **Vector store** — RESOLVED for v1: sqlite-vec is unloadable (GRDB system-SQLite `OMIT_LOAD_EXTENSION`), so v1 brute-forces `float[D]` BLOBs with Accelerate. Open: at what N to invest in a custom static SQLite + sqlite-vec/ANN (guess >250k).
 3. **Embedding quality** — is `NLEmbedding` (~512d) good enough for domain retrieval, or do we need a local model (MLX/Ollama) sooner than "later"? Spike in Phase 0.
 4. **Audio sources** — ship `SFSpeechRecognizer` in v1 or defer the type?
 5. **Concept-merge threshold** — `cos>0.86` is a guess; tune on a real corpus. False-merge (two distinct concepts collapsed) is the dangerous direction.
