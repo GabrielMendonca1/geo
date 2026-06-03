@@ -639,15 +639,19 @@ class BlocksStore: ObservableObject {
         }
     }
 
-    func clearTagAssignments(for tagId: String) {
-        let affectedBlockIds = metadataService.blocksMetadata
-            .filter { $0.value.tagId == tagId }
-            .map { $0.key }
+    @MainActor
+    func clearTagAssignments(for tagId: String) async {
+        let tagName = TagStore.shared.tag(for: tagId)?.name
+        let tagKey = tagName.map { TagStore.canonicalName($0) }
+        let affectedBlockIds = blocks.filter { block in
+            if let name = block.metadata.tagName {
+                return tagKey != nil && TagStore.canonicalName(name) == tagKey
+            }
+            return block.tagId == tagId
+        }.map(\.id)
 
         for blockId in affectedBlockIds {
-            updateBlockMetadata(for: blockId) { metadata in
-                metadata.tagId = nil
-            }
+            _ = await setTagByName(nil, for: blockId)
         }
     }
 
