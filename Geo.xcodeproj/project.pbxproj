@@ -415,6 +415,8 @@
 		A1B2C3D4E5F60718293A0008 /* MarkdownStyler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownStyler.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F60718293A0010 /* InlineImageLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InlineImageLoader.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F60718293A0040 /* FrontmatterStripMigrationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrontmatterStripMigrationService.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718293A0041 /* Phase0FrontmatterReinjectionMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phase0FrontmatterReinjectionMigration.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718293A0042 /* FrontmatterBlockBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrontmatterBlockBuilder.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A1B2C3D4E5F6 /* MonaSans-Medium.ttf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; name = "MonaSans-Medium.ttf"; path = "Geo/Resources/Fonts/MonaSans-Medium.ttf"; sourceTree = SOURCE_ROOT; };
 		A9937952854366473575ED09 /* NotificationManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		AA00002FEED900000000002 /* GeoStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeoStyle.swift; sourceTree = "<group>"; };
