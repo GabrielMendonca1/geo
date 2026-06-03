@@ -49,6 +49,7 @@ private struct BlockFingerprint: Equatable {
     let title: String
     let lastEdited: Date
     let tagId: String?
+    let tagName: String?
 }
 
 final class LiveBlocksStoreAccess: BlocksStoreAccess, @unchecked Sendable {
