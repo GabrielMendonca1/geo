@@ -411,7 +411,7 @@ struct BlocksPane: View {
         } label: {
             BlockListRow(
                 block: block,
-                tag: viewModel.tag(for: block.tagId),
+                tag: viewModel.resolvedTag(for: block),
                 linkedTaskCount: linkedTaskCount,
                 isSelected: selectedBlockIds.contains(block.id)
             )
