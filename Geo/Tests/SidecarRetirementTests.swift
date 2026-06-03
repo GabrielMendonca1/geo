@@ -69,15 +69,16 @@ final class SidecarRetirementTests: XCTestCase {
             try? await Task.sleep(nanoseconds: 50_000_000)
         }
 
-        let edited = "---\ntype: permanent\n---\n# Body edited externally\n"
-        try edited.write(to: block.url, atomically: true, encoding: .utf8)
-        try await Task.sleep(nanoseconds: 1_100_000_000)
-
         var changedIds: [String] = []
         let token = NotificationCenter.default.addObserver(forName: .blocksExternallyChanged, object: nil, queue: nil) { note in
-            if let ids = note.userInfo?[BlockExternalChangeKey.changedIds] as? [String] { changedIds = ids }
+            if let ids = note.userInfo?[BlockExternalChangeKey.changedIds] as? [String] { changedIds.append(contentsOf: ids) }
         }
         defer { NotificationCenter.default.removeObserver(token) }
+
+        let edited = "---\ntype: permanent\n---\n# Body edited externally\n"
+        try edited.write(to: block.url, atomically: true, encoding: .utf8)
+        // Wait past the reconciler's own-write grace period so the edit is treated as external.
+        try await Task.sleep(nanoseconds: 1_600_000_000)
 
         store.changeReconciler.handleExternalChanges([block.url], currentBlocks: store.blocks)
         try? await Task.sleep(nanoseconds: 100_000_000)
