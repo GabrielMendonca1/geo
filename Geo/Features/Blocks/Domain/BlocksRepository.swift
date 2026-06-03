@@ -49,4 +49,8 @@ extension BlocksRepository {
     func createFolder(_ folder: String) async throws {}
 
     func listFolders() async -> [String] { [] }
+
+    func linkToDay(blockId: String, dayId: String) async throws {
+        throw RepositoryError.notFound
+    }
 }
