@@ -189,33 +189,40 @@ async def _safe_get(client: httpx.AsyncClient, path: str, token_ref: dict) -> Op
 
 
 def _read_cache_bundle():
-    """Return (profile, memory, protocol, today) from the geo-mcp-subscriber
-    push cache when it exists and is fresh, else None. Values are the raw
-    tool-result text strings (same shape as the HTTP responses), so the
-    _unwrap_block / _format_today parsers below handle them unchanged."""
+    """Return the render-ready boot bundle from the geo-mcp-subscriber push
+    cache (schema v2) when it exists and is fresh, else None. The daemon already
+    unwrapped the blocks and pre-formatted today/tasks, so the values go straight
+    into the body with no re-parsing. A pre-v2 snapshot is treated as a miss so
+    the HTTP path re-derives it (safe either deploy order)."""
     try:
         obj = json.loads(GEO_CACHE_SNAPSHOT.read_text(encoding="utf-8"))
     except Exception:
         return None
+    if int(obj.get("v") or 1) < 2:
+        return None
     fetched = float(obj.get("fetched_at") or 0)
     if not fetched or (time.time() - fetched) > CACHE_FRESH_SECS:
         return None
-    bundle = (obj.get("profile"), obj.get("memory"),
-              obj.get("protocol"), obj.get("today"))
-    return bundle if any(bundle) else None
+    bundle = {"profile": obj.get("profile_md"), "memory": obj.get("memory_md"),
+              "protocol": obj.get("protocol_md"), "today": obj.get("today_line"),
+              "tasks": obj.get("tasks_md")}
+    return bundle if any(bundle.values()) else None
 
 
 async def _fetch_geo_blocks():
+    """Return (bundle, parsed). On a cache hit parsed=True and the values are
+    already render-ready; on the HTTP fallback parsed=False and the values are
+    raw tool envelopes the caller must run through _unwrap_block/_format_today."""
     cached = _read_cache_bundle()
     if cached is not None:
         _log("boot bundle served from geo-mcp-subscriber cache")
-        return cached
+        return cached, True
     info = _read_api_json()
     if not info:
-        return None, None, None, None
+        return None, False
     token = _read_keychain_token()
     if not token:
-        return None, None, None, None
+        return None, False
     token_ref = {"token": token}
     base = f"http://127.0.0.1:{info['port']}"
     headers = {
@@ -227,14 +234,17 @@ async def _fetch_geo_blocks():
             profile_path = "/v1/blocks/by-title?title=" + urllib.parse.quote("User Profile")
             memory_path = "/v1/blocks/by-title?title=" + urllib.parse.quote("Memory")
             protocol_path = "/v1/blocks/by-title?title=" + urllib.parse.quote("Interaction Protocol")
-            profile = await asyncio.wait_for(_safe_get(client, profile_path, token_ref), timeout=10.0)
-            memory = await asyncio.wait_for(_safe_get(client, memory_path, token_ref), timeout=10.0)
-            protocol = await asyncio.wait_for(_safe_get(client, protocol_path, token_ref), timeout=10.0)
-            today = await asyncio.wait_for(_safe_get(client, "/v1/days/today", token_ref), timeout=10.0)
-            return profile, memory, protocol, today
+            profile, memory, protocol, today = await asyncio.gather(
+                asyncio.wait_for(_safe_get(client, profile_path, token_ref), timeout=10.0),
+                asyncio.wait_for(_safe_get(client, memory_path, token_ref), timeout=10.0),
+                asyncio.wait_for(_safe_get(client, protocol_path, token_ref), timeout=10.0),
+                asyncio.wait_for(_safe_get(client, "/v1/days/today", token_ref), timeout=10.0),
+            )
+            return {"profile": profile, "memory": memory, "protocol": protocol,
+                    "today": today, "tasks": None}, False
     except Exception as e:
         _log(f"http unreachable (Geo.app closed?): {e}")
-        return None, None, None, None
+        return None, False
 
 
 async def _summarize_with_haiku(text: str, label: str) -> str:
