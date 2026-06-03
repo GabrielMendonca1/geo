@@ -191,7 +191,7 @@ class TagStore: ObservableObject {
         }
     }
 
-    static func canonicalName(_ name: String) -> String {
+    nonisolated static func canonicalName(_ name: String) -> String {
         name.trimmingCharacters(in: .whitespacesAndNewlines)
             .precomposedStringWithCanonicalMapping
             .lowercased()
