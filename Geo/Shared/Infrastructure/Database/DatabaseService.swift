@@ -581,8 +581,8 @@ final class DatabaseService: @unchecked Sendable {
             sql: """
             INSERT INTO blocks (
                 id, path, title, content, createdAt, modifiedAt, tagId, dayId,
-                openTaskCount, completedTaskCount, type, status, layer, isFullWidth
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                openTaskCount, completedTaskCount, type, status, layer, isFullWidth, altId
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 path = excluded.path,
                 title = excluded.title,
@@ -596,7 +596,8 @@ final class DatabaseService: @unchecked Sendable {
                 type = excluded.type,
                 status = excluded.status,
                 layer = excluded.layer,
-                isFullWidth = excluded.isFullWidth
+                isFullWidth = excluded.isFullWidth,
+                altId = excluded.altId
             """,
             arguments: [
                 entry.id,
@@ -612,7 +613,8 @@ final class DatabaseService: @unchecked Sendable {
                 entry.type,
                 entry.status,
                 entry.layer,
-                entry.isFullWidth ? 1 : 0
+                entry.isFullWidth ? 1 : 0,
+                entry.altId
             ]
         )
 
@@ -621,6 +623,14 @@ final class DatabaseService: @unchecked Sendable {
             try db.execute(
                 sql: "INSERT INTO block_tags (blockId, tag) VALUES (?, ?)",
                 arguments: [entry.id, tag]
+            )
+        }
+
+        try db.execute(sql: "DELETE FROM block_days WHERE blockId = ?", arguments: [entry.id])
+        for dayId in entry.dayIds {
+            try db.execute(
+                sql: "INSERT INTO block_days (blockId, dayId) VALUES (?, ?)",
+                arguments: [entry.id, dayId]
             )
         }
 
