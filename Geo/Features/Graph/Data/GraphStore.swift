@@ -114,6 +114,7 @@ final class GraphStore: ObservableObject {
             hasher.combine(block.title)
             hasher.combine(block.markdown)
             hasher.combine(block.tagId)
+            hasher.combine(block.metadata.tagName)
             hasher.combine(block.metadata.type)
             hasher.combine(block.metadata.layer)
             newFingerprint[block.id] = hasher.finalize()
