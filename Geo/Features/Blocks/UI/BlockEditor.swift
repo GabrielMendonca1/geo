@@ -443,7 +443,7 @@ private final class TitleBarHoverTracker: NSResponder {
 private extension BlockEditorView {
 
     var currentTag: Tag? {
-        actions.currentTag(liveBlock.tagId)
+        actions.resolvedTag(liveBlock)
     }
 
     var outlineHeadings: [OutlineHeading] {
