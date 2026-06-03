@@ -669,12 +669,10 @@ enum BlockTools {
                     return .error("invalid block id")
                 }
                 do {
-                    guard let source = try await loadBlock(blocks, id: id) else {
-                        return .error("Block not found: \(id)")
-                    }
-                    switch AgentAuthorization.authorize(.setStatus, on: id, layer: source.metadata.layer) {
-                    case .allow: break
-                    case .deny(let reason): return .error(reason)
+                    let source: BlockEntity
+                    switch try await AgentAuthorization.authorizeWrite(.setStatus, id: id, in: blocks) {
+                    case .ok(let loaded): source = loaded
+                    case .denied(let result): return result
                     }
                     let sourceTitle = source.displayTitle
                     let body = "# Extraído de [[\(sourceTitle)]]\n\n"
