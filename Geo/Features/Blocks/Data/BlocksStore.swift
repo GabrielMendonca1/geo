@@ -224,7 +224,11 @@ class BlocksStore: ObservableObject {
         if let folder, !folder.isEmpty { try? fileService.createFolder(folder) }
         let url = fileService.uniqueURL(forTitle: filename, inFolder: folder)
 
-        let body = markdown.isEmpty ? (sanitized.isEmpty ? "" : "# \(sanitized)\n") : markdown
+        let baseBody = markdown.isEmpty ? (sanitized.isEmpty ? "" : "# \(sanitized)\n") : markdown
+        let todayId = dayManager.currentDayId ?? Day.idFromDate(Date())
+        let body = MarkdownIndexingService.shared.extract(from: baseBody).dayIds.contains(todayId)
+            ? baseBody
+            : DayLinkBody.inserting(dayId: todayId, into: baseBody)
 
         let now = Date()
         let metadata = BlockMetadata()
