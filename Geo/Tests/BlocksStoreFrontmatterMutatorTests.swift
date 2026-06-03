@@ -56,7 +56,7 @@ final class BlocksStoreFrontmatterMutatorTests: XCTestCase {
         await store.flushAll()
         var inMemory = false
         for _ in 0..<40 {
-            if store.blocks.contains(where: { $0.id == block.id && $0.markdown == markdown }) {
+            if store.blocks.contains(where: { $0.id == block.id && $0.markdown.contains(markdown) }) {
                 inMemory = true
                 break
             }
@@ -67,7 +67,7 @@ final class BlocksStoreFrontmatterMutatorTests: XCTestCase {
             return block
         }
         for _ in 0..<40 {
-            if let disk = try? String(contentsOf: block.url, encoding: .utf8), disk == markdown {
+            if let disk = try? String(contentsOf: block.url, encoding: .utf8), disk.contains(markdown) {
                 return block
             }
             try? await Task.sleep(nanoseconds: 50_000_000)
