@@ -914,6 +914,14 @@ enum FrontmatterEditor {
     }
 }
 
+enum DayLinkBody {
+    static func inserting(dayId: String, into markdown: String) -> String {
+        let token = "[[\(dayId)]]"
+        let trimmedTail = markdown.hasSuffix("\n") ? markdown : markdown + "\n"
+        return trimmedTail + token + "\n"
+    }
+}
+
 struct BlockCheckbox: Hashable, Sendable {
     let text: String
     let checked: Bool
