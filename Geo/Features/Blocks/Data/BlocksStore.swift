@@ -551,9 +551,19 @@ class BlocksStore: ObservableObject {
         }
     }
 
-    func setLayer(_ layer: BlockLayer, for blockId: String) {
-        updateBlockMetadata(for: blockId) { metadata in
-            metadata.layer = layer
+    @MainActor
+    @discardableResult
+    func setLayer(_ layer: BlockLayer, for blockId: String) async -> Bool {
+        guard indexOfBlock(id: blockId) != nil else { return false }
+        do {
+            _ = try await mutateFrontmatter(blockID: blockId, merge: ["layer": .string(layer.rawValue)])
+            if let live = block(withId: blockId) {
+                metadataService.persistMetadata(live.metadata, for: blockId)
+            }
+            return true
+        } catch {
+            logger.error("setLayer failed for \(blockId): \(error.localizedDescription)")
+            return false
         }
     }
 
