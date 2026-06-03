@@ -4,10 +4,6 @@ import Combine
 protocol DayStoreAccess: Sendable {
     func observeDays() -> AsyncStream<[Day]>
     func day(for date: Date) -> Day?
-    func addOrUpdateDay(_ day: Day)
-    func addBlockToDay(date: Date, blockId: String)
-    func addCaptureToDay(date: Date, captureId: UUID)
-    func deleteDay(date: Date) -> Bool
 }
 
 private final class DayObservationBox: @unchecked Sendable {
