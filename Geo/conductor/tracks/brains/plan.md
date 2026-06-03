@@ -194,7 +194,7 @@ The `brain` param is a plain optional string riding the existing `[String: AnyCo
 | create_task, update_task, delete_task, complete_task, add_reminder, record_habit_occurrence, ai_parse_task | personal-only life | rejected if ≠ personal | 400 |
 | list_tasks, get_task, list_tasks_for_day, list_upcoming, get_today, get_day, list_tags, create_tag | personal-only life | rejected if ≠ personal | 400 |
 
-Write tools in `BlockTools.swift`/`TagTools.swift`; life tools in `TaskTools.swift`/`DayTools.swift`; `AITools.swift`. None gain a `brain` param.
+Write tools in `BlockTools.swift`/`TagTools.swift` (note `link_block_to_day` is in `DayTools.swift:82`); life tools in `TaskTools.swift`/`DayTools.swift`/`AITools.swift`. None gain a `brain` param.
 
 **Read-only enforcement.** Structural: write/life handlers never call `BrainRegistry.resolve`. Explicit guard is one line at the chokepoint: in `GeoAPIRouter.dispatch` (`GeoAPIRouter.swift:71`) and `MCPRouter` (`MCPRouter.swift:80`), before `registry.call`, if the tool is not in the brain-scoped read allowlist and `args["brain"]` is present and ≠ personal → `.error(400)`. Home the `static let brainScopedReadTools: Set<String>` near `requiredScope` (`GeoAPIRouter.swift:62`), but run the actual check in `dispatch`/`call` where the tool name + `args["brain"]` exist (`requiredScope` only sees method/path). This is a distinct seam from `AgentAuthorization` (`:25`) — that is a per-block-*layer* gate inside handlers, not a tool-name gate.
 
