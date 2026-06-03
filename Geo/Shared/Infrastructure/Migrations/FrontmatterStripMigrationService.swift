@@ -15,16 +15,17 @@ final class FrontmatterStripMigrationService: @unchecked Sendable {
         self.fileManager = fileManager
     }
 
-    func runIfNeeded() async {
-        guard !userDefaults.bool(forKey: userDefaultsKey) else { return }
-        do {
-            try await migrate()
-            userDefaults.set(true, forKey: userDefaultsKey)
-        } catch {
-            logger.error("Frontmatter strip migration failed: \(error.localizedDescription)")
-        }
+    func markRetired() {
+        userDefaults.set(true, forKey: userDefaultsKey)
     }
 
+    func runIfNeeded() async {
+        markRetired()
+    }
+
+    // PERMANENTLY DEAD: frontmatter is no longer stripped (Phase 0 retires this).
+    // Kept only for back-compat references; `runIfNeeded` now only marks retired so a
+    // restored backup with the flag cleared can never re-strip the vault.
     private func migrate() async throws {
         let baseURL = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? fileManager.homeDirectoryForCurrentUser
