@@ -71,7 +71,7 @@ enum DayTools {
                 let date = Date()
                 let dayId = Day.idFromDate(date)
                 ensureDailyNote(dayId: dayId)
-                let (blockIds, captureCount) = await derivedBlockIds(days, date: date, dayId: dayId, indexCoordinator: indexCoordinator)
+                let (blockIds, captureCount) = await derivedBlockIds(dayId: dayId, captures: captures, indexCoordinator: indexCoordinator)
                 let result: [String: AnyCodableValue] = [
                     "id": .string(dayId),
                     "block_ids": .array(blockIds.map { .string($0) }),
