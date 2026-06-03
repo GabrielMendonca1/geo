@@ -6,9 +6,10 @@ push subscription. Connects to the Geo macOS app's MCP server over its Unix
 socket (``~/Library/Application Support/Geo/mcp.sock``, newline-delimited
 JSON-RPC, no auth on the unix transport), subscribes to ``block`` and ``task``
 changes (``geo/subscribe`` -> one-way ``geo/changed`` notifications), and on
-every change refetches the four boot-bundle pieces — User Profile, Memory,
-Interaction Protocol, Today — over the SAME socket and atomically rewrites
-``~/.hermes/geo-cache/snapshot.json``.
+every change refetches the boot bundle — User Profile, Memory, Interaction
+Protocol, Today, and open tasks — over the SAME socket, renders it to its final
+form (blocks unwrapped, today/tasks pre-formatted), and atomically rewrites
+``~/.hermes/geo-cache/snapshot.json`` (schema v2).
 
 The geo-context hook reads that snapshot (freshness-gated) instead of making
 HTTP round-trips at session start, and falls back to live HTTP if the cache is
