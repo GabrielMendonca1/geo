@@ -110,7 +110,8 @@ final class Phase3DayLinkWriteTests: XCTestCase {
     func testGetDayUnionsDerivedBlocksWithCaptures() async throws {
         let dayId = "2026-06-02"
         let block = try await makeBlock(markdown: "---\nlayer: agent\n---\n# Linked\n[[\(dayId)]]\n")
-        XCTAssertTrue(await waitForDay(dayId, contains: block.id))
+        let indexed = await waitForDay(dayId, contains: block.id)
+        XCTAssertTrue(indexed)
 
         let captureDay = DayWithTwoCapturesRepo(dayId: dayId)
         let tools = DayTools.register(days: captureDay, blocks: blocksAdapter, indexCoordinator: indexCoordinator)
