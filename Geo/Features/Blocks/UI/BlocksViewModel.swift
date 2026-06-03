@@ -416,8 +416,14 @@ final class BlocksViewModel: ObservableObject {
     }
 
     func clearTagAssignments(for tagId: String) async {
+        let tagKey = tag(for: tagId).map { TagStore.canonicalName($0.name) }
         let targetIds = blocks
-            .filter { $0.tagId == tagId }
+            .filter { block in
+                if let key = resolvedTagKey(for: block) {
+                    return key == tagId || (tagKey != nil && key == tagKey)
+                }
+                return false
+            }
             .map(\.id)
 
         guard !targetIds.isEmpty else { return }
