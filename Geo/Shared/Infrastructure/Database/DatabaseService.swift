@@ -241,7 +241,25 @@ final class DatabaseService: @unchecked Sendable {
                 }
             }
         }
-        return migrator
+    }
+
+    private static func registerDomainMigrations(_ migrator: inout DatabaseMigrator) {
+        migrator.registerMigration("createBrainEdges") { db in
+            try db.create(table: "edges") { t in
+                t.column("sourceId", .text).notNull()
+                t.column("targetTitle", .text).notNull()
+                t.column("targetId", .text)
+            }
+            try db.create(index: "edges_source", on: "edges", columns: ["sourceId"])
+            try db.create(index: "edges_target", on: "edges", columns: ["targetId"])
+        }
+        migrator.registerMigration("createBrainNodeVec") { db in
+            try db.create(table: "node_vec") { t in
+                t.column("blockId", .text).primaryKey()
+                t.column("dims", .integer).notNull()
+                t.column("embedding", .blob).notNull()
+            }
+        }
     }
 
     func upsertBlock(_ entry: BlockIndexEntry) async throws {
