@@ -30,6 +30,7 @@ enum AppTab: String, CaseIterable {
         case .tasks: return "Tasks"
         case .nodes: return "Graph"
         case .nano: return "Geo"
+        case .brains: return "Brains"
         case .settings: return "Settings"
         }
     }
