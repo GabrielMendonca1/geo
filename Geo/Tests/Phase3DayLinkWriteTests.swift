@@ -97,6 +97,11 @@ final class Phase3DayLinkWriteTests: XCTestCase {
         let deniedResult = try await link.handler(["block_id": .string(userBlock.id), "date": .string(dayId)])
         XCTAssertEqual(deniedResult.isError, true, "user-layer block denied")
 
+        let directAgent = await store.linkBlockToDay(blockId: agentBlock.id, dayId: dayId)
+        XCTAssertTrue(directAgent, "store-level link on agent block succeeds")
+        let agentInStore = store.block(id: agentBlock.id) != nil
+        XCTAssertTrue(agentInStore, "agent block present in store")
+
         let okResult = try await link.handler(["block_id": .string(agentBlock.id), "date": .string(dayId)])
         XCTAssertNil(okResult.isError, "agent-layer block allowed (idempotent insert)")
     }
