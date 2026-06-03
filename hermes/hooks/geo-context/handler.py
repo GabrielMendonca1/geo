@@ -73,7 +73,10 @@ TTL_SECONDS = 60.0
 # geo-mcp-subscriber keeps this warm via MCP push; read it before falling back
 # to live HTTP. See hermes-extensions/geo-mcp-subscriber/.
 GEO_CACHE_SNAPSHOT = HERMES_HOME / "geo-cache" / "snapshot.json"
-CACHE_FRESH_SECS = 180.0
+# Trust the cache past the daemon's 600s safety-refresh: a snapshot only goes
+# stale if the daemon dies (it refreshes on every block/task change), so this
+# only falls back to HTTP when the daemon is truly down, not every 3 minutes.
+CACHE_FRESH_SECS = 660.0
 
 
 def _log(msg: str) -> None:
