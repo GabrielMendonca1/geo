@@ -321,12 +321,10 @@ enum BlockTools {
                 guard validateBlockId(id) else {
                     return .error("invalid block id")
                 }
-                guard let block = try await loadBlock(blocks, id: id) else {
-                    return .error("Block not found: \(id)")
-                }
-                switch AgentAuthorization.authorize(.update, on: id, layer: block.metadata.layer) {
-                case .allow: break
-                case .deny(let reason): return .error(reason)
+                let block: BlockEntity
+                switch try await AgentAuthorization.authorizeWrite(.update, id: id, in: blocks) {
+                case .ok(let loaded): block = loaded
+                case .denied(let result): return result
                 }
 
                 let incoming = MarkdownConverter.shared.parse(content)
