@@ -311,6 +311,7 @@ final class DatabaseService: @unchecked Sendable {
     func rebuildIndex(entries: [BlockIndexEntry]) async throws {
         try await performWrite { db in
             try db.execute(sql: "DELETE FROM block_tags")
+            try db.execute(sql: "DELETE FROM block_days")
             try db.execute(sql: "DELETE FROM blocks_fts")
             try db.execute(sql: "DELETE FROM blocks")
             for entry in entries {
