@@ -34,6 +34,20 @@ final class MarkdownConverter {
         return BlockType(rawValue: trimmed) ?? .fleeting
     }
 
+    func layer(in markdown: String) -> BlockLayer? {
+        let document = parse(markdown)
+        return Self.normalizedLayer(document.frontmatter["layer"])
+    }
+
+    static func normalizedLayer(_ raw: String?) -> BlockLayer? {
+        guard let raw else { return nil }
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
+            .precomposedStringWithCanonicalMapping
+            .lowercased()
+        return trimmed.isEmpty ? nil : BlockLayer(rawValue: trimmed)
+    }
+
     static func frontmatterVersion(_ raw: String?) -> Int {
         guard let raw else { return 0 }
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
