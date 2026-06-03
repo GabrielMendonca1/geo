@@ -336,6 +336,17 @@ struct BlocksStoreRepositoryAdapter: BlocksRepository, @unchecked Sendable {
         }
     }
 
+    func setTagByName(blockId: String, name: String?) async throws {
+        guard !blockId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw RepositoryError.invalidInput
+        }
+
+        let updated = await storeAccess.setTagByName(name, for: blockId)
+        guard updated else {
+            throw RepositoryError.notFound
+        }
+    }
+
     func setFullWidth(blockId: String, isFullWidth: Bool) async throws {
         guard !blockId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw RepositoryError.invalidInput
