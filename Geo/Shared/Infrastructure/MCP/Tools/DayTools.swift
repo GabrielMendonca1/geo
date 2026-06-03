@@ -1,44 +1,90 @@
 import Foundation
+import os.log
 
 enum DayTools {
+    private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "geo", category: "MCPDayTools")
     private static let validIdCharacters = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-")
 
     private static func validateBlockId(_ id: String) -> Bool {
         guard !id.isEmpty, id.count <= 256 else { return false }
-        if id.contains("/") || id.contains("\\") || id.contains("..") || id.contains("\0") {
+        if id.contains("\\") || id.contains("\0") || id.hasPrefix("/") {
             return false
         }
-        return id.unicodeScalars.allSatisfy { validIdCharacters.contains($0) }
+        let segments = id.split(separator: "/", omittingEmptySubsequences: false)
+        for segment in segments {
+            if segment.isEmpty || segment == "." || segment == ".." { return false }
+            if !segment.unicodeScalars.allSatisfy({ validIdCharacters.contains($0) }) { return false }
+        }
+        return true
     }
 
-    static func register(days: any DayRepository, blocks: any BlocksRepository) -> [MCPRegisteredTool] {
-        [getToday(days), getDay(days), linkBlockToDay(days, blocks)]
+    private static var dailyDirectory: URL {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.homeDirectoryForCurrentUser
+        return base.appendingPathComponent("Geo/Blocks/Daily", isDirectory: true)
     }
 
-    private static func getToday(_ days: any DayRepository) -> MCPRegisteredTool {
+    private static func ensureDailyNote(dayId: String) {
+        let dir = dailyDirectory
+        let url = dir.appendingPathComponent("\(dayId).md")
+        guard !FileManager.default.fileExists(atPath: url.path) else { return }
+        do {
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            try "# \(dayId)\n".write(to: url, atomically: true, encoding: .utf8)
+        } catch {
+            logger.error("Failed to create daily note for \(dayId, privacy: .public): \(error.localizedDescription, privacy: .private)")
+        }
+    }
+
+    private static func derivedBlockIds(
+        _ days: any DayRepository,
+        date: Date,
+        dayId: String,
+        indexCoordinator: IndexCoordinator
+    ) async -> (blockIds: [String], captureCount: Int) {
+        let cached = await days.day(for: date)
+        let derived = await indexCoordinator.blockIds(matchingDay: dayId)
+
+        var seen = Set<String>()
+        var union: [String] = []
+        for id in derived where seen.insert(id).inserted { union.append(id) }
+        for id in (cached?.blockIds ?? []) where seen.insert(id).inserted { union.append(id) }
+
+        return (union, cached?.captureIds.count ?? 0)
+    }
+
+    static func register(
+        days: any DayRepository,
+        blocks: any BlocksRepository,
+        indexCoordinator: IndexCoordinator = .shared
+    ) -> [MCPRegisteredTool] {
+        [getToday(days, indexCoordinator), getDay(days, indexCoordinator), linkBlockToDay(blocks)]
+    }
+
+    private static func getToday(_ days: any DayRepository, _ indexCoordinator: IndexCoordinator) -> MCPRegisteredTool {
         MCPToolBuilder(
             name: "get_today",
-            description: "Get today's day record with linked blocks and captures.",
+            description: "Get today's day record with linked blocks (derived from inline [[date]] backlinks) and captures.",
             schema: JSONSchemaObject(),
             handler: { _ in
-                let day = await days.day(for: Date())
-                guard let day else {
-                    return .json(["id": AnyCodableValue.null, "block_ids": AnyCodableValue.array([]), "capture_count": AnyCodableValue.int(0)])
-                }
+                let date = Date()
+                let dayId = Day.idFromDate(date)
+                ensureDailyNote(dayId: dayId)
+                let (blockIds, captureCount) = await derivedBlockIds(days, date: date, dayId: dayId, indexCoordinator: indexCoordinator)
                 let result: [String: AnyCodableValue] = [
-                    "id": .string(day.id),
-                    "block_ids": .array(day.blockIds.map { .string($0) }),
-                    "capture_count": .int(day.captureIds.count),
+                    "id": .string(dayId),
+                    "block_ids": .array(blockIds.map { .string($0) }),
+                    "capture_count": .int(captureCount),
                 ]
                 return .json(result)
             }
         ).registered
     }
 
-    private static func getDay(_ days: any DayRepository) -> MCPRegisteredTool {
+    private static func getDay(_ days: any DayRepository, _ indexCoordinator: IndexCoordinator) -> MCPRegisteredTool {
         MCPToolBuilder(
             name: "get_day",
-            description: "Get a specific day's record.",
+            description: "Get a specific day's record. Blocks are derived from inline [[date]] backlinks, unioned with captures.",
             schema: JSONSchemaObject(properties: [
                 "date": .string("Date in YYYY-MM-DD format"),
             ], required: ["date"]),
@@ -46,35 +92,28 @@ enum DayTools {
                 guard let dateStr = args["date"]?.stringValue else {
                     return .error("Missing required parameter: date")
                 }
-                let formatter = DateFormatters.iso8601FullDate
-                guard let date = formatter.date(from: dateStr) else {
+                guard let date = DateFormatters.iso8601FullDate.date(from: dateStr) else {
                     return .error("Invalid date format. Use YYYY-MM-DD")
                 }
-                let day = await days.day(for: date)
-                guard let day else {
-                    let empty: [String: AnyCodableValue] = [
-                        "id": .string(dateStr),
-                        "block_ids": .array([]),
-                        "capture_count": .int(0),
-                    ]
-                    return .json(empty)
-                }
+                let dayId = Day.idFromDate(date)
+                ensureDailyNote(dayId: dayId)
+                let (blockIds, captureCount) = await derivedBlockIds(days, date: date, dayId: dayId, indexCoordinator: indexCoordinator)
                 let result: [String: AnyCodableValue] = [
-                    "id": .string(day.id),
-                    "block_ids": .array(day.blockIds.map { .string($0) }),
-                    "capture_count": .int(day.captureIds.count),
+                    "id": .string(dayId),
+                    "block_ids": .array(blockIds.map { .string($0) }),
+                    "capture_count": .int(captureCount),
                 ]
                 return .json(result)
             }
         ).registered
     }
 
-    private static func linkBlockToDay(_ days: any DayRepository, _ blocks: any BlocksRepository) -> MCPRegisteredTool {
+    private static func linkBlockToDay(_ blocks: any BlocksRepository) -> MCPRegisteredTool {
         MCPToolBuilder(
             name: "link_block_to_day",
-            description: "Link a block to a specific day.",
+            description: "Link a block to a specific day by inserting an inline [[YYYY-MM-DD]] backlink into its body (Obsidian Daily Notes convention).",
             schema: JSONSchemaObject(properties: [
-                "block_id": .string("Block ID (filename)"),
+                "block_id": .string("Block ID (filename or relative path)"),
                 "date": .string("Date in YYYY-MM-DD format"),
             ], required: ["block_id", "date"]),
             handler: { args in
@@ -85,15 +124,19 @@ enum DayTools {
                 guard validateBlockId(blockId) else {
                     return .error("invalid block id")
                 }
-                let formatter = DateFormatters.iso8601FullDate
-                guard let date = formatter.date(from: dateStr) else {
+                guard let date = DateFormatters.iso8601FullDate.date(from: dateStr) else {
                     return .error("Invalid date format. Use YYYY-MM-DD")
                 }
                 switch try await AgentAuthorization.authorizeWrite(.linkToDay, id: blockId, in: blocks) {
                 case .ok: break
                 case .denied(let result): return result
                 }
-                try await days.addBlockToDay(date: date, blockId: blockId)
+                let dayId = DateFormatters.dayId.string(from: date)
+                do {
+                    try await blocks.linkToDay(blockId: blockId, dayId: dayId)
+                } catch {
+                    return .error("failed to link block to day")
+                }
                 return .json(["success": true])
             }
         ).registered
