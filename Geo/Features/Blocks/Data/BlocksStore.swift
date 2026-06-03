@@ -537,10 +537,16 @@ class BlocksStore: ObservableObject {
         }
     }
 
-    func linkBlockToDay(_ blockId: String, dayId: String) {
-        updateBlockMetadata(for: blockId) { metadata in
-            metadata.dayId = dayId
+    @MainActor
+    @discardableResult
+    func linkBlockToDay(blockId: String, dayId: String) async -> Bool {
+        guard DateFormatters.dayId.date(from: dayId) != nil else { return false }
+        guard let block = block(withId: blockId) else { return false }
+        if MarkdownIndexingService.shared.extract(from: block.markdown).dayIds.contains(dayId) {
+            return true
         }
+        let newMarkdown = DayLinkBody.inserting(dayId: dayId, into: block.markdown)
+        return await updateBlock(block, newMarkdown: newMarkdown)
     }
 
     @MainActor
