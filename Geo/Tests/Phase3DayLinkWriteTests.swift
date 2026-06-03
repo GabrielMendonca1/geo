@@ -65,7 +65,7 @@ final class Phase3DayLinkWriteTests: XCTestCase {
     func testLinkInsertsDayLinkIntoBodyIdempotentAndIndexed() async throws {
         let original = "---\ntype: fleeting\nlayer: agent\n---\n# Note\nbody text\n"
         let block = try await makeBlock(markdown: original)
-        let dayId = "2026-06-03"
+        let dayId = "2025-01-09"
 
         let first = await store.linkBlockToDay(blockId: block.id, dayId: dayId)
         XCTAssertTrue(first)
