@@ -21,10 +21,6 @@ enum DayTools {
             description: "Get today's day record with linked blocks and captures.",
             schema: JSONSchemaObject(),
             handler: { _ in
-                switch AgentAuthorization.authorize(.read, on: nil, layer: nil) {
-                case .allow: break
-                case .deny(let reason): return .error(reason)
-                }
                 let day = await days.day(for: Date())
                 guard let day else {
                     return .json(["id": AnyCodableValue.null, "block_ids": AnyCodableValue.array([]), "capture_count": AnyCodableValue.int(0)])
@@ -49,10 +45,6 @@ enum DayTools {
             handler: { args in
                 guard let dateStr = args["date"]?.stringValue else {
                     return .error("Missing required parameter: date")
-                }
-                switch AgentAuthorization.authorize(.read, on: nil, layer: nil) {
-                case .allow: break
-                case .deny(let reason): return .error(reason)
                 }
                 let formatter = DateFormatters.iso8601FullDate
                 guard let date = formatter.date(from: dateStr) else {
