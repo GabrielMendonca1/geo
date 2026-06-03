@@ -6,6 +6,22 @@
 
 ---
 
+## ⚠ Verification pass (v1.1) — corrections from a codebase-audit swarm
+
+A 4-agent swarm audited every `file:line` claim against live code. Citations were ~95% accurate; **two architectural assumptions were wrong** and must be resolved in Phase 0.
+
+**BLOCKER 1 — sqlite-vec cannot be loaded (Decision #5 changed).** GRDB links macOS system `libsqlite3`, compiled with `OMIT_LOAD_EXTENSION` (`load_extension` → "no such function"); GRDB exposes no extension-load API. **v1 fix:** store contiguous `float[D]` blobs in a plain `node_vec(blockId PK, embedding BLOB)` table and brute-force cosine in Swift with **Accelerate** (`vDSP`/`cblas_sgemv`) — the triad's own ~50M-flop budget at N≤100k already justifies it, no sqlite-vec needed. `vec_map` collapses into the `node_vec` row. sqlite-vec/ANN returns only as the **>250k-node upgrade**, contingent on statically linking a custom SQLite (project-config change, not app code).
+
+**BLOCKER 2 — the Anthropic Batch API does not exist (Decision #3 caveat).** `AnthropicClient` does only synchronous single calls to a hardcoded `/v1/messages`; no `message_batches`/`custom_id`/poller, `sendWithRetry` is `private`, and the only public method (`parseTask`) hardcodes the task-JSON schema. The cost model, the "bounded round-trips" triad claim, and the non-recursive "advance-one-step" state machine **all assume batch = NET-NEW work.** Two ways forward: **(a)** build a batch client (submit→poll→retrieve-by-`custom_id`) — but a batch can take minutes–24h, stretching "next interaction window"; or **(b)** v1 on bounded *concurrent synchronous* Haiku calls (cap fan-out ~8). Either way Pass-1 needs a new **generic** message method first.
+
+**FIX 3 — HTTP needs explicit `brain` wiring (§3).** "One optional param rides the shared args dict" is TRUE for MCP (single shared `registry`, untyped `[String:AnyCodableValue]`) but **not free on HTTP**: `GeoAPIRouter.dispatch` rebuilds args per route, so each brain-scoped read route needs `if let b = request.query["brain"] { args["brain"] = .string(b) }` (~10 one-line edits). The `brainScopedReadTools` guard runs in `dispatch`/`call`, **not** `requiredScope` (which only sees method/path). Default path stays identical.
+
+**FIX 4 — `BlocksPane` does NOT page (§4).** Its list is `ForEach(filteredBlocks)` over a fully-materialized array; `LazyVStack` defers view construction, not data loading. Reusing it verbatim loads 100k nodes into RAM. `BrainsViewModel` must add **real `limit/offset` paging over `BrainIndex`** (BlocksPane is a *styling* precedent only). The per-brain GraphView decouple has **3** edit sites, not 2: the missed one is `GraphView.swift:530` `@Environment(\.tabRouter)` feeding the `:753/:825` gates — without cutting it a brain graph renders but is frozen (`selectedTab != .nodes`).
+
+Minor citation fixes folded into the sections below: `MarkdownConverter.parse` is an **instance** method at `:49` (not static `:186`; file is 89 lines); `performWrite` is defined at `:572` (`:235` is a call site); per-brain neighbor rebuild is `findNeighbors :402-434 → buildGraph :247-328`; `JobRuntime` (`JobStore.swift:21`) is a read-only hermes status **DTO**, not a reusable state engine; `link_block_to_day` is in `DayTools.swift:82`; `MyCommands.swift:38` is the tab-shortcut generator (auto-wires `⌘<n>` for a new tab), not `⌘N`.
+
+---
+
 ## Concept
 
 Two kinds of brain, **one node format, two factories with opposite write-postures:**
