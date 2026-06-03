@@ -450,6 +450,7 @@
 		BKP000000000000000001REF /* BackupService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupService.swift; sourceTree = "<group>"; };
 		BKP000000000000000002REF /* BackupServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupServiceTests.swift; sourceTree = "<group>"; };
 		BLKIDXSCHEMA0000REF /* BlockIndexSchemaTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockIndexSchemaTests.swift; sourceTree = "<group>"; };
+		BLKLAYERFOLD0000REF /* BlockLayerFolderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockLayerFolderTests.swift; sourceTree = "<group>"; };
 		C11A00000000000000000011 /* DayRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayRepository.swift; sourceTree = "<group>"; };
 		C11A00000000000000000012 /* DayStoreRepositoryAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayStoreRepositoryAdapter.swift; sourceTree = "<group>"; };
 		C11A00000000000000000013 /* CalendarViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarViewModel.swift; sourceTree = "<group>"; };
