@@ -128,6 +128,7 @@ final class AppContainer {
                 + DayTools.register(days: dayStoreAdapter, blocks: blocksAdapter)
                 + TagTools.register(tags: tagsAdapter, blocks: blocksAdapter)
                 + AITools.register()
+                + BrainTools.register()
         }
         let mcpAuthGuard = MCPAuthGuard()
         let registry = MCPToolRegistry(tools: mcpTools)
