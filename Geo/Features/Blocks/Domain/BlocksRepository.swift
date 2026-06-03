@@ -33,6 +33,10 @@ extension BlocksRepository {
         try await setStatus(blockId: blockId, status: status.rawValue)
     }
 
+    func setTagByName(blockId: String, name: String?) async throws {
+        try await setTag(blockId: blockId, tagId: name)
+    }
+
     func create(title: String, markdown: String, folder: String?) async throws -> BlockEntity {
         try await create(title: title, markdown: markdown)
     }
