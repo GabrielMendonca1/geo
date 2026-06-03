@@ -56,13 +56,18 @@ struct BlockIndexEntry: Equatable {
     }
 }
 
+enum DatabaseSchemaProfile: Sendable {
+    case personal
+    case domain
+}
+
 final class DatabaseService: @unchecked Sendable {
     static let shared = DatabaseService()
 
     private var dbQueue: DatabaseQueue
     private let queue = DispatchQueue(label: "com.geo.database", qos: .userInitiated)
 
-    init(databaseURL: URL? = nil, fileManager: FileManager = .default) {
+    init(databaseURL: URL? = nil, fileManager: FileManager = .default, schema: DatabaseSchemaProfile = .personal) {
         let baseURL = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? fileManager.homeDirectoryForCurrentUser
         let resolvedURL = databaseURL
