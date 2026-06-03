@@ -21,6 +21,7 @@ protocol BlocksRepository: Sendable {
     func checkboxes(in blockId: String) async -> [BlockCheckbox]
     func toggleCheckbox(in blockId: String, lineNumber: Int) async throws
     func mutateFrontmatter(blockId: String, merge: [String: AnyCodableValue]) async throws -> Int
+    func linkToDay(blockId: String, dayId: String) async throws
     @MainActor func saveSync(id: String, markdown: String) -> Bool
 }
 
