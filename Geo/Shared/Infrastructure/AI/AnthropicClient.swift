@@ -85,7 +85,7 @@ enum AnthropicClient {
         }
     }
 
-    static func parseTask(input: String, nowISO: String) async throws -> ParsedTaskJSON {
+    static func complete(system: [(text: String, cached: Bool)], user: String, maxTokens: Int = maxTokens) async throws -> String {
         guard let apiKey = AIKeychainService.readKey(), !apiKey.isEmpty else {
             throw AnthropicClientError.missingAPIKey
         }
@@ -93,19 +93,14 @@ enum AnthropicClient {
         let body = RequestBody(
             model: model,
             max_tokens: maxTokens,
-            system: [
+            system: system.map {
                 RequestBody.SystemBlock(
                     type: "text",
-                    text: staticSystemPrompt,
-                    cache_control: RequestBody.SystemBlock.CacheControl(type: "ephemeral")
-                ),
-                RequestBody.SystemBlock(
-                    type: "text",
-                    text: "Current time (ISO 8601 UTC): \(nowISO)",
-                    cache_control: nil
+                    text: $0.text,
+                    cache_control: $0.cached ? RequestBody.SystemBlock.CacheControl(type: "ephemeral") : nil
                 )
-            ],
-            messages: [RequestBody.Message(role: "user", content: input)]
+            },
+            messages: [RequestBody.Message(role: "user", content: user)]
         )
 
         var request = URLRequest(url: endpoint)
@@ -150,6 +145,17 @@ enum AnthropicClient {
             throw AnthropicClientError.invalidResponse
         }
 
+        return rawText
+    }
+
+    static func parseTask(input: String, nowISO: String) async throws -> ParsedTaskJSON {
+        let rawText = try await complete(
+            system: [
+                (staticSystemPrompt, true),
+                ("Current time (ISO 8601 UTC): \(nowISO)", false)
+            ],
+            user: input
+        )
         let cleaned = stripCodeFences(rawText)
         return try decodeTaskJSON(cleaned)
     }
