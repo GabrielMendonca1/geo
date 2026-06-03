@@ -122,7 +122,10 @@ final class DatabaseBrainIndex: BrainIndex, @unchecked Sendable {
     }
 
     func semanticSearch(query embedding: [Float], k: Int) async throws -> [(id: String, score: Float)] {
-        []
+        guard k > 0, !embedding.isEmpty else { return [] }
+        let candidates = try await database.loadAllVectors()
+        guard !candidates.isEmpty else { return [] }
+        return VectorMath.topK(query: embedding, candidates: candidates, k: k)
     }
 
     func listByType(_ type: String) async throws -> [BlockIndexEntry] {
