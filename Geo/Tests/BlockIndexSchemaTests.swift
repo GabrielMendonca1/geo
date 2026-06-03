@@ -184,4 +184,65 @@ final class BlockIndexSchemaTests: XCTestCase {
         let mixed = try await service.searchBlocksContaining(wikiLink: "Alpha")
         XCTAssertEqual(Set(mixed.map { $0.id }), ["a", "c"])
     }
+
+    func testBlockDaysTablePersistsAndQueries() async throws {
+        let service = makeService()
+        try await service.upsertBlock(makeEntry(id: "a", title: "A", content: "x", dayIds: ["2026-06-03", "2026-06-04"]))
+        try await service.upsertBlock(makeEntry(id: "b", title: "B", content: "y", dayIds: ["2026-06-05"]))
+
+        let day3 = try await service.blockIds(matchingDay: "2026-06-03")
+        XCTAssertEqual(day3, ["a"])
+        let day5 = try await service.blockIds(matchingDay: "2026-06-05")
+        XCTAssertEqual(day5, ["b"])
+    }
+
+    func testBlockDaysClearedOnReupsert() async throws {
+        let service = makeService()
+        try await service.upsertBlock(makeEntry(id: "a", title: "A", content: "x", dayIds: ["2026-06-03", "2026-06-04"]))
+        try await service.upsertBlock(makeEntry(id: "a", title: "A", content: "x", dayIds: ["2026-06-03"]))
+
+        let day4 = try await service.blockIds(matchingDay: "2026-06-04")
+        XCTAssertTrue(day4.isEmpty)
+        let day3 = try await service.blockIds(matchingDay: "2026-06-03")
+        XCTAssertEqual(day3, ["a"])
+    }
+
+    func testBlockDaysRemovedOnDelete() async throws {
+        let service = makeService()
+        try await service.upsertBlock(makeEntry(id: "a", title: "A", content: "x", dayIds: ["2026-06-03"]))
+        try await service.removeBlock(id: "a")
+
+        let day3 = try await service.blockIds(matchingDay: "2026-06-03")
+        XCTAssertTrue(day3.isEmpty)
+    }
+
+    func testRebuildIndexWipesBlockDays() async throws {
+        let service = makeService()
+        try await service.upsertBlock(makeEntry(id: "a", title: "A", content: "x", dayIds: ["2026-06-03"]))
+        try await service.rebuildIndex(entries: [makeEntry(id: "b", title: "B", content: "y", dayIds: ["2026-06-04"])])
+
+        let day3 = try await service.blockIds(matchingDay: "2026-06-03")
+        XCTAssertTrue(day3.isEmpty)
+        let day4 = try await service.blockIds(matchingDay: "2026-06-04")
+        XCTAssertEqual(day4, ["b"])
+    }
+
+    func testAltIdRoundTripsThroughFetch() async throws {
+        let service = makeService()
+        let alt = "7f3a1b2c-0000-4000-8000-000000000001"
+        try await service.upsertBlock(makeEntry(id: "a", title: "A", content: "x", altId: alt))
+
+        let fetched = try await service.fetchBlocks(ids: ["a"])
+        XCTAssertEqual(fetched.first?.altId, alt)
+        let resolved = try await service.blockId(forAltId: alt)
+        XCTAssertEqual(resolved, "a")
+    }
+
+    func testFetchBlocksHydratesDayIds() async throws {
+        let service = makeService()
+        try await service.upsertBlock(makeEntry(id: "a", title: "A", content: "x", dayIds: ["2026-06-03", "2026-06-04"]))
+
+        let fetched = try await service.fetchBlocks(ids: ["a"])
+        XCTAssertEqual(fetched.first?.dayIds.sorted(), ["2026-06-03", "2026-06-04"])
+    }
 }
