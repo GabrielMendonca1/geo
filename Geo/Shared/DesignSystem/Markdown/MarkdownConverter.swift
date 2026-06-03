@@ -162,9 +162,14 @@ enum FrontmatterYAML {
     }
 
     static let integerKeys: Set<String> = ["frontmatter_version"]
+    static let booleanKeys: Set<String> = ["full_width"]
 
     static func emitScalar(key: String, value: String) -> String {
         if integerKeys.contains(key), Int(value) != nil { return value }
+        if booleanKeys.contains(key) {
+            let lowered = value.trimmingCharacters(in: .whitespaces).lowercased()
+            if lowered == "true" || lowered == "false" { return lowered }
+        }
         return emitScalar(value)
     }
 
