@@ -588,9 +588,22 @@ class BlocksStore: ObservableObject {
         }
     }
 
+    @MainActor
     func setFullWidth(_ isFullWidth: Bool, for blockId: String) {
-        updateBlockMetadata(for: blockId) { metadata in
-            metadata.isFullWidth = isFullWidth
+        guard indexOfBlock(id: blockId) != nil else { return }
+        let merge: [String: AnyCodableValue] = isFullWidth
+            ? ["full_width": .bool(true)]
+            : ["full_width": .null]
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                _ = try await self.mutateFrontmatter(blockID: blockId, merge: merge)
+                if let live = self.block(withId: blockId) {
+                    self.metadataService.persistMetadata(live.metadata, for: blockId)
+                }
+            } catch {
+                logger.error("setFullWidth failed for \(blockId): \(error.localizedDescription)")
+            }
         }
     }
 
