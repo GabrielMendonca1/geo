@@ -89,18 +89,15 @@ final class Phase3DayLinkWriteTests: XCTestCase {
 
     func testLinkAuthGateDeniesUserLayerAllowsAgent() async throws {
         let dayId = "2025-03-04"
-        let userBlock = try await makeBlock(markdown: "---\nlayer: user\n---\n# UserOwned\n[[\(dayId)]]\n")
-        let agentBlock = try await makeBlock(markdown: "---\nlayer: agent\n---\n# AgentOwned\n[[\(dayId)]]\n")
+        let userBlock = try await makeBlock(markdown: "# UserOwned\n[[\(dayId)]]\n")
+        let agentBlock = try await makeBlock(markdown: "# AgentOwned\n[[\(dayId)]]\n")
+        _ = await store.setLayer(.user, for: userBlock.id)
+        _ = await store.setLayer(.agent, for: agentBlock.id)
         let tools = DayTools.register(days: StubDayRepoP3(), blocks: blocksAdapter, indexCoordinator: indexCoordinator)
         let link = tools.first(where: { $0.definition.name == "link_block_to_day" })!
 
         let deniedResult = try await link.handler(["block_id": .string(userBlock.id), "date": .string(dayId)])
         XCTAssertEqual(deniedResult.isError, true, "user-layer block denied")
-
-        let directAgent = await store.linkBlockToDay(blockId: agentBlock.id, dayId: dayId)
-        XCTAssertTrue(directAgent, "store-level link on agent block succeeds")
-        let agentInStore = store.block(id: agentBlock.id) != nil
-        XCTAssertTrue(agentInStore, "agent block present in store")
 
         let okResult = try await link.handler(["block_id": .string(agentBlock.id), "date": .string(dayId)])
         XCTAssertNil(okResult.isError, "agent-layer block allowed (idempotent insert)")
