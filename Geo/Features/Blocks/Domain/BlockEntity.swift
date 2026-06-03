@@ -40,6 +40,14 @@ struct BlockEntity: Identifiable, Hashable, Sendable {
 
     var tagName: String? { metadata.tagName }
 
+    func tagKey(using tags: [Tag]) -> String? {
+        if let name = metadata.tagName {
+            return TagStore.canonicalName(name)
+        }
+        guard let tagId, let tag = tags.first(where: { $0.id == tagId }) else { return nil }
+        return TagStore.canonicalName(tag.name)
+    }
+
     init(
         id: String,
         title: String,
