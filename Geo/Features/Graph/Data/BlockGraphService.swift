@@ -239,7 +239,8 @@ final class BlockGraphService: @unchecked Sendable {
         return (graph, idLookup)
     }
 
-    func buildGraph(from entries: [BlockIndexEntry], tagColors: [String: Color]) -> (graph: BlockGraph, idLookup: [UUID: String]) {
+    func buildGraph(from rawEntries: [BlockIndexEntry], tagColors: [String: Color]) -> (graph: BlockGraph, idLookup: [UUID: String]) {
+        let entries = rawEntries.filter { !$0.id.hasPrefix("Daily/") }
         guard !entries.isEmpty else { return (.empty, [:]) }
 
         var idMap: [String: UUID] = [:]
