@@ -68,6 +68,11 @@ final class SidecarRetirementTests: XCTestCase {
             if store.blocks.contains(where: { $0.id == block.id }) { break }
             try? await Task.sleep(nanoseconds: 50_000_000)
         }
+        // Ensure createBlock's detached disk write has landed before editing the file.
+        for _ in 0..<40 {
+            if (try? String(contentsOf: block.url, encoding: .utf8)) != nil { break }
+            try? await Task.sleep(nanoseconds: 50_000_000)
+        }
 
         var changedIds: [String] = []
         let token = NotificationCenter.default.addObserver(forName: .blocksExternallyChanged, object: nil, queue: nil) { note in
@@ -75,10 +80,11 @@ final class SidecarRetirementTests: XCTestCase {
         }
         defer { NotificationCenter.default.removeObserver(token) }
 
+        // Wait past the reconciler's own-write grace period, then edit the file externally.
+        try await Task.sleep(nanoseconds: 1_600_000_000)
         let edited = "---\ntype: permanent\nfrontmatter_version: 99\n---\n# Body edited externally\n"
         try edited.write(to: block.url, atomically: true, encoding: .utf8)
-        // Wait past the reconciler's own-write grace period so the edit is treated as external.
-        try await Task.sleep(nanoseconds: 1_600_000_000)
+        try await Task.sleep(nanoseconds: 100_000_000)
 
         store.changeReconciler.handleExternalChanges([block.url], currentBlocks: store.blocks)
         try? await Task.sleep(nanoseconds: 100_000_000)
