@@ -378,6 +378,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 let blocks = await MainActor.run { container.blocksStore.blocks }
                 await IndexCoordinator.shared.rebuildIndex(blocks: blocks)
             }
+            await Phase3DayLinkBackfillMigration.shared.runIfEnabled(
+                fileService: fileService,
+                recordWrite: { id in reconciler.recordWrite(for: id) }
+            )
+            if await Phase3DayLinkBackfillMigration.shared.didRunThisLaunch {
+                await MainActor.run { container.blocksStore.reload() }
+                let blocks = await MainActor.run { container.blocksStore.blocks }
+                await IndexCoordinator.shared.rebuildIndex(blocks: blocks)
+                await MainActor.run { container.dayStore.refreshFromDerive() }
+            }
         }
         container.templateService.loadTemplates()
         container.notchWindowController.show()
