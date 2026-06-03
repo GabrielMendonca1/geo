@@ -60,6 +60,19 @@ final class MarkdownConverter {
         return Self.frontmatterVersion(document.frontmatter["frontmatter_version"])
     }
 
+    static func normalizedFullWidth(_ raw: String?) -> Bool {
+        guard let raw else { return false }
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
+            .lowercased()
+        return trimmed == "true" || trimmed == "yes"
+    }
+
+    func fullWidth(in markdown: String) -> Bool {
+        let document = parse(markdown)
+        return Self.normalizedFullWidth(document.frontmatter["full_width"])
+    }
+
     func parse(_ markdown: String) -> MarkdownDocument {
         let lines = markdown.components(separatedBy: .newlines)
         var index = 0
