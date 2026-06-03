@@ -57,6 +57,8 @@ extension AgentAuthorization {
         guard let block = try await blocks.get(id: id) else {
             return .denied(.error("Block not found: \(id)"))
         }
+        // block.metadata.layer is frontmatter-preferred (BlocksStore reads frontmatter `layer:`
+        // when present, else falls back to the SQLite cache column). Policy below is unchanged.
         switch authorize(operation, on: id, layer: block.metadata.layer) {
         case .allow:
             return .ok(block)
