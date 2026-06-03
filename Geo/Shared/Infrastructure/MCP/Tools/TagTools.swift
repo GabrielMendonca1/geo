@@ -87,13 +87,9 @@ enum TagTools {
                 }
 
                 if tagName.isEmpty {
-                    try await blocks.setTag(blockId: blockId, tagId: nil)
+                    try await blocks.setTagByName(blockId: blockId, name: nil)
                 } else {
-                    let allTags = try await tags.list()
-                    guard let tag = allTags.first(where: { $0.name.caseInsensitiveCompare(tagName) == .orderedSame }) else {
-                        return .error("Tag not found: \(tagName)")
-                    }
-                    try await blocks.setTag(blockId: blockId, tagId: tag.id)
+                    try await blocks.setTagByName(blockId: blockId, name: tagName)
                 }
                 return .json(["success": true])
             }
