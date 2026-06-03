@@ -347,6 +347,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     logger.error("metadata-sidecar: failed to rename to .bak: \(error.localizedDescription)")
                 }
             }
+            let reconciler = await MainActor.run { container.blocksStore.changeReconciler }
+            await Phase0FrontmatterReinjectionMigration.shared.runIfEnabled(
+                fileService: fileService,
+                database: DatabaseService.shared,
+                recordWrite: { id in reconciler.recordWrite(for: id) }
+            )
+            if await Phase0FrontmatterReinjectionMigration.shared.didRunThisLaunch {
+                await MainActor.run { container.blocksStore.reload() }
+                let blocks = await MainActor.run { container.blocksStore.blocks }
+                await IndexCoordinator.shared.rebuildIndex(blocks: blocks)
+            }
         }
         container.templateService.loadTemplates()
         container.notchWindowController.show()
