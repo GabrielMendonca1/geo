@@ -654,6 +654,9 @@
 		P2RDT0001F /* Phase2TagInlineReadTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phase2TagInlineReadTests.swift; sourceTree = "<group>"; };
 		P2CPT0001F /* TagColorProvisionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagColorProvisionTests.swift; sourceTree = "<group>"; };
 		P2WRT0001F /* Phase2TagWriteTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phase2TagWriteTests.swift; sourceTree = "<group>"; };
+		P3DLWT0001F /* Phase3DayLinkWriteTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phase3DayLinkWriteTests.swift; sourceTree = "<group>"; };
+		P3DLBT0001F /* Phase3DayLinkBackfillTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phase3DayLinkBackfillTests.swift; sourceTree = "<group>"; };
+		P3DSDT0001F /* Phase3DayStoreDeriveTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phase3DayStoreDeriveTests.swift; sourceTree = "<group>"; };
 		THEME00020000002 /* ThemePalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemePalette.swift; sourceTree = "<group>"; };
 		TYPO00010000002 /* EditorTypographyPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorTypographyPreferences.swift; sourceTree = "<group>"; };
 		V0PHMCPFRAM0001R /* MCPFramer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MCPFramer.swift; sourceTree = "<group>"; };
