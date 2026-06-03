@@ -1,6 +1,10 @@
 # Track: Brains — Local NotebookLM-style Domain Knowledge Graphs
 
-**Status:** Planning (v1.1 — hardened by a codebase-verification swarm)
+**Status:** v2 — ARCHITECTURE PIVOT 2026-06-03 (file-native vaults; supersedes the in-app DB design below)
+
+> ## ⚠ v2 pivot — files are truth, agent works app-closed
+> Gabriel's decision (2026-06-03): a brain is a **plain Markdown vault** (a folder of `.md` notes) at **`~/Geo/Brains/<name>/`** = the source of truth, Obsidian-style. The 24/7 agent (hermes) **reads, writes, and ingests** these files **directly on the filesystem** — no Geo app required. Brains are **read-write** for the agent (the read-only guard is dropped). **Ingest runs in a CLI** — `hermes-extensions/brain-vault/brain.py` (`create`/`list`/`ingest`/`reindex`, Haiku summarization, `--dry-run`), app-closed. See `hermes-extensions/brain-vault/README.md`.
+> The v1 Swift internals below (per-brain SQLite + `node_vec`/`edges`, the `MCPToolRegistry` brain interceptor + read-only guard, the in-app `IngestPipeline`) are **demoted to an optional app-only cache / superseded**: the Swift app should become a *viewer/indexer* that reads `~/Geo/Brains/` (rework pending). The 617-green tests and the additive UI still stand; they're just no longer the source of truth. **Everything below this banner is the prior v1 in-app design, retained for reference.**
 **Created:** 2026-06-02
 **Goal:** Let the user spin up many isolated, read-only **domain brains** — each a NotebookLM-style knowledge graph batch-built from attached sources — that the agent can search, navigate, and delegate into. The personal **essence brain** stays the only writable, growing graph.
 
