@@ -129,7 +129,9 @@ enum BlockTools {
                     "title": .string(block.displayTitle),
                     "markdown": .string(block.markdown),
                 ]
-                if let tagId = block.tagId, let tag = allTags.first(where: { $0.id == tagId }) {
+                if let name = block.metadata.tagName {
+                    result["tag_name"] = .string(name)
+                } else if let tagId = block.tagId, let tag = allTags.first(where: { $0.id == tagId }) {
                     result["tag_name"] = .string(tag.name)
                 }
                 if let dayId = block.metadata.dayId {
