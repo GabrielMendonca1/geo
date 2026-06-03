@@ -124,6 +124,8 @@
 		B1C2D3E4F5061728394B000A /* Markdown in Frameworks */ = {isa = PBXBuildFile; productRef = AABBCCDD00112233445566AA /* Markdown */; };
 		B1C2D3E4F5061728394B0010 /* InlineImageLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A0010 /* InlineImageLoader.swift */; };
 		B1C2D3E4F5061728394B0040 /* FrontmatterStripMigrationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A0040 /* FrontmatterStripMigrationService.swift */; };
+		B1C2D3E4F5061728394B0041 /* Phase0FrontmatterReinjectionMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A0041 /* Phase0FrontmatterReinjectionMigration.swift */; };
+		B1C2D3E4F5061728394B0042 /* FrontmatterBlockBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A0042 /* FrontmatterBlockBuilder.swift */; };
 		B1C2D3E4F5A6B1C2D3E4F5A6 /* MonaSans-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A1B2C3D4E5F6 /* MonaSans-Medium.ttf */; };
 		BEA00000000000000000001 /* BlockEditorActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEA00000000000000000002 /* BlockEditorActions.swift */; };
 		BKP000000000000000001BLD /* BackupService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BKP000000000000000001REF /* BackupService.swift */; };
