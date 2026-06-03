@@ -16,9 +16,9 @@ struct DockView: View {
     @State private var blockTags: [Tag] = []
 
     private func rebuild() {
-        tagsById = Dictionary(tags.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-        let used = Set(blocks.compactMap { $0.tagId })
-        blockTags = tags.filter { used.contains($0.id) }
+        tagsById = Dictionary(tags.map { (TagStore.canonicalName($0.name), $0) }, uniquingKeysWith: { first, _ in first })
+        let used = Set(blocks.compactMap { $0.tagKey(using: tags) })
+        blockTags = tags.filter { used.contains(TagStore.canonicalName($0.name)) }
 
         var items: [NotchFeedItem]
         switch filter {
@@ -28,8 +28,8 @@ struct DockView: View {
             items = captureStore.captures.map { .capture($0) }
         case .blocks:
             items = blocks.map { .block($0) }
-        case .tag(let id):
-            items = blocks.filter { $0.tagId == id }.map { .block($0) }
+        case .tag(let key):
+            items = blocks.filter { $0.tagKey(using: tags) == key }.map { .block($0) }
         }
         items.sort { $0.date > $1.date }
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
