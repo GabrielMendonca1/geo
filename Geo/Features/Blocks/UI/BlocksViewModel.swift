@@ -233,6 +233,29 @@ final class BlocksViewModel: ObservableObject {
         return tags.first(where: { $0.id == id })
     }
 
+    func tag(forName name: String?) -> Tag? {
+        guard let name else { return nil }
+        let canonical = TagStore.canonicalName(name)
+        if let existing = tags.first(where: { TagStore.canonicalName($0.name) == canonical }) {
+            return existing
+        }
+        return Tag(id: canonical, name: name, color: TagStore.defaultColor(forName: canonical))
+    }
+
+    func resolvedTag(for block: BlockEntity) -> Tag? {
+        if let name = block.metadata.tagName {
+            return tag(forName: name)
+        }
+        return tag(for: block.tagId)
+    }
+
+    func resolvedTagKey(for block: BlockEntity) -> String? {
+        if let name = block.metadata.tagName {
+            return TagStore.canonicalName(name)
+        }
+        return block.tagId
+    }
+
     func createBlock(title: String, markdown: String) async -> BlockEntity? {
         guard let repository else { return nil }
 
