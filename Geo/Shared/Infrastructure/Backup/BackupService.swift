@@ -183,8 +183,12 @@ final class BackupService: @unchecked Sendable {
               fileManager.fileExists(atPath: sqlite.path) else {
             throw BackupError.invalidArchive
         }
-        let blockFiles = (try? fileManager.contentsOfDirectory(at: blocksDir, includingPropertiesForKeys: nil)) ?? []
-        let blockCount = blockFiles.filter { $0.pathExtension.lowercased() == "md" }.count
+        var blockCount = 0
+        if let enumerator = fileManager.enumerator(at: blocksDir, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) {
+            for case let url as URL in enumerator where url.pathExtension.lowercased() == "md" {
+                blockCount += 1
+            }
+        }
         let hasTasks = fileManager.fileExists(atPath: root.appendingPathComponent("Tasks").path)
         let hasTags = fileManager.fileExists(atPath: root.appendingPathComponent("tags.json").path)
         return ArchiveInfo(blockCount: blockCount, hasTasks: hasTasks, hasTags: hasTags)
