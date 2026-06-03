@@ -124,7 +124,7 @@ enum DayTools {
                 guard validateBlockId(blockId) else {
                     return .error("invalid block id")
                 }
-                guard let date = DateFormatters.iso8601FullDate.date(from: dateStr) else {
+                guard let date = DateFormatters.dayId.date(from: dateStr) else {
                     return .error("Invalid date format. Use YYYY-MM-DD")
                 }
                 switch try await AgentAuthorization.authorizeWrite(.linkToDay, id: blockId, in: blocks) {
