@@ -59,7 +59,7 @@ The verbs map onto tools that already exist, brain-scoped by one parameter:
 
 ## 1. Storage & Data Layer
 
-Geo's personal brain today stores markdown under `Geo/Blocks/*.md` (`BlockFileService.swift:24`) and indexes into a single `Geo/Index/blocks.sqlite` (`DatabaseService.swift:69`) with a `blocks` table, `block_tags`, and an FTS5 `blocks_fts` virtual table (`DatabaseService.swift:114-138`). Edges are not persisted — they are derived at query time from `[[wiki-links]]` in `content` by `BlockGraphService.buildGraph` (`BlockGraphService.swift:247-328`). Brains extend this verbatim, per-brain, and add a persisted edge table + a sqlite-vec vector table.
+Geo's personal brain today stores markdown under `Geo/Blocks/*.md` (`BlockFileService.swift:24`) and indexes into a single `Geo/Index/blocks.sqlite` (`DatabaseService.swift:69`) with a `blocks` table, `block_tags`, and an FTS5 `blocks_fts` virtual table (`DatabaseService.swift:114-138`). Edges are not persisted — they are derived at query time from `[[wiki-links]]` in `content` by `BlockGraphService.buildGraph` (`BlockGraphService.swift:247-328`). Brains extend this verbatim, per-brain, and add a persisted edge table + a `float[D]` BLOB vector table.
 
 ### On-disk per-brain layout
 ```
