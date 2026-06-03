@@ -161,8 +161,7 @@ class BlocksStore: ObservableObject {
         let fileService = BlockFileService(baseURL: baseURL, markdownConverter: markdownConverter)
         self.fileService = fileService
 
-        let metadataURL = fileService.blocksDirectory.appendingPathComponent(".blocks-metadata.json")
-        let metadataService = BlockMetadataService(metadataURL: metadataURL)
+        let metadataService = BlockMetadataService()
         self.metadataService = metadataService
 
         let reconciler = BlockChangeReconciler(
@@ -172,8 +171,9 @@ class BlocksStore: ObservableObject {
         )
         self.changeReconciler = reconciler
 
-        storageMigration.migrateIfNeeded(blocksDirectory: fileService.blocksDirectory, metadataURL: metadataURL)
-        metadataService.loadMetadata()
+        // Legacy blocks.json -> .md import (gated, done-flagged). It owns its own sidecar URL.
+        let legacyMetadataURL = fileService.blocksDirectory.appendingPathComponent(".blocks-metadata.json")
+        storageMigration.migrateIfNeeded(blocksDirectory: fileService.blocksDirectory, metadataURL: legacyMetadataURL)
 
         reconciler.onBlocksChanged = { [weak self] updatedBlocks in
             self?.blocks = updatedBlocks
