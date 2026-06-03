@@ -265,11 +265,8 @@ enum BlockTools {
 
                 let block = try await blocks.create(title: title, markdown: markdown)
 
-                if let tagName = args["tag_name"]?.stringValue {
-                    let allTags = try await tags.list()
-                    if let tag = allTags.first(where: { $0.name.caseInsensitiveCompare(tagName) == .orderedSame }) {
-                        try await blocks.setTag(blockId: block.id, tagId: tag.id)
-                    }
+                if let tagName = args["tag_name"]?.stringValue, !tagName.isEmpty {
+                    try await blocks.setTagByName(blockId: block.id, name: tagName)
                 }
 
                 let dayId = args["day_id"]?.stringValue
