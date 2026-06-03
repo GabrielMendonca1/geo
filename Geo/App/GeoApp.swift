@@ -125,7 +125,7 @@ final class AppContainer {
         let mcpTools = MainActor.assumeIsolated {
             BlockTools.register(blocks: blocksAdapter, tags: tagsAdapter, days: dayStoreAdapter)
                 + TaskTools.register(tasks: tasksAdapter)
-                + DayTools.register(days: dayStoreAdapter, blocks: blocksAdapter)
+                + DayTools.register(blocks: blocksAdapter, captures: captureAdapter)
                 + TagTools.register(tags: tagsAdapter, blocks: blocksAdapter)
                 + AITools.register()
                 + BrainTools.register()
