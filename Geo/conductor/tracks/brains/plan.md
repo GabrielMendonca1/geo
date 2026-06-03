@@ -1,6 +1,6 @@
 # Track: Brains — Local NotebookLM-style Domain Knowledge Graphs
 
-**Status:** Planning (v1 spec)
+**Status:** Planning (v1.1 — hardened by a codebase-verification swarm)
 **Created:** 2026-06-02
 **Goal:** Let the user spin up many isolated, read-only **domain brains** — each a NotebookLM-style knowledge graph batch-built from attached sources — that the agent can search, navigate, and delegate into. The personal **essence brain** stays the only writable, growing graph.
 
