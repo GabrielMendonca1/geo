@@ -156,7 +156,8 @@ final class BrainsTests: XCTestCase {
             DatabaseService.BrainEdge(sourceId: "n1.md", targetTitle: "Concept A", targetId: "a.md"),
             DatabaseService.BrainEdge(sourceId: "n1.md", targetTitle: "Concept B", targetId: nil),
         ])
-        XCTAssertEqual(try await database.outgoingEdges(from: "n1.md").count, 2)
+        let outgoing = try await database.outgoingEdges(from: "n1.md")
+        XCTAssertEqual(outgoing.count, 2)
         let incoming = try await database.incomingEdges(to: "a.md")
         XCTAssertEqual(incoming.count, 1)
         XCTAssertEqual(incoming.first?.sourceId, "n1.md")
