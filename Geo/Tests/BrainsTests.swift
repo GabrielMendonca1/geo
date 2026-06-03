@@ -220,4 +220,70 @@ final class BrainsTests: XCTestCase {
         let results = try await index.semanticSearch(query: [1, 0], k: 5)
         XCTAssertTrue(results.isEmpty)
     }
+
+    private func registryWithDomainBrain(base: URL, id: String) throws -> BrainRegistry {
+        let dir = base.appendingPathComponent("Brains/\(id)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try BrainManifest(id: id, title: id.uppercased(), kind: .domain).save(to: dir.appendingPathComponent("brain.json"))
+        return BrainRegistry(baseURL: base)
+    }
+
+    private func echoBrainTool(named name: String) -> MCPRegisteredTool {
+        MCPToolBuilder(name: name, description: "", schema: JSONSchemaObject(properties: [:]), handler: { _ in
+            .text(BrainCallContext.current?.brainId ?? "none")
+        }).registered
+    }
+
+    func testInterceptorPassThroughWhenNoBrain() async throws {
+        let base = tempDir()
+        defer { try? FileManager.default.removeItem(at: base) }
+        let registry = MCPToolRegistry(tools: [echoBrainTool(named: "search_blocks")], brains: BrainRegistry(baseURL: base))
+        let result = try await registry.call(name: "search_blocks", arguments: [:])
+        XCTAssertEqual(result.content.first?.text, "none")
+        XCTAssertNil(result.isError)
+    }
+
+    func testInterceptorRoutesReadToolToDomainBrain() async throws {
+        let base = tempDir()
+        defer { try? FileManager.default.removeItem(at: base) }
+        let brains = try registryWithDomainBrain(base: base, id: "x")
+        let registry = MCPToolRegistry(tools: [echoBrainTool(named: "search_blocks")], brains: brains)
+        let result = try await registry.call(name: "search_blocks", arguments: ["brain": .string("x")])
+        XCTAssertEqual(result.content.first?.text, "x")
+    }
+
+    func testInterceptorBlocksWriteToolOnDomainBrain() async throws {
+        let base = tempDir()
+        defer { try? FileManager.default.removeItem(at: base) }
+        let brains = try registryWithDomainBrain(base: base, id: "x")
+        let write = MCPToolBuilder(name: "update_block", description: "", schema: JSONSchemaObject(properties: [:]), handler: { _ in .text("wrote") }).registered
+        let registry = MCPToolRegistry(tools: [write], brains: brains)
+        let result = try await registry.call(name: "update_block", arguments: ["brain": .string("x")])
+        XCTAssertEqual(result.isError, true)
+        XCTAssertTrue(result.content.first?.text.contains("read-only-blocked") ?? false)
+    }
+
+    func testInterceptorUnknownBrainErrors() async throws {
+        let base = tempDir()
+        defer { try? FileManager.default.removeItem(at: base) }
+        let registry = MCPToolRegistry(tools: [echoBrainTool(named: "search_blocks")], brains: BrainRegistry(baseURL: base))
+        let result = try await registry.call(name: "search_blocks", arguments: ["brain": .string("ghost")])
+        XCTAssertEqual(result.isError, true)
+        XCTAssertTrue(result.content.first?.text.contains("Unknown brain") ?? false)
+    }
+
+    func testBrainToolsListAndManifest() async throws {
+        let base = tempDir()
+        defer { try? FileManager.default.removeItem(at: base) }
+        let brains = try registryWithDomainBrain(base: base, id: "immunology")
+        let tools = BrainTools.register(registry: brains)
+        let list = try XCTUnwrap(tools.first { $0.definition.name == "list_brains" })
+        let listResult = try await list.handler([:])
+        XCTAssertNil(listResult.isError)
+        XCTAssertTrue(listResult.content.first?.text.contains("essence") ?? false)
+        XCTAssertTrue(listResult.content.first?.text.contains("immunology") ?? false)
+        let manifestTool = try XCTUnwrap(tools.first { $0.definition.name == "get_brain_manifest" })
+        let unknown = try await manifestTool.handler(["brain": .string("nope")])
+        XCTAssertEqual(unknown.isError, true)
+    }
 }
