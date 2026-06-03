@@ -68,6 +68,9 @@ final class BlockEditorActions {
         self.currentTag = { [weak viewModel] tagId in
             viewModel?.tag(for: tagId)
         }
+        self.resolvedTag = { [weak viewModel] block in
+            viewModel?.resolvedTag(for: block)
+        }
         self.allTags = { [weak viewModel] in
             viewModel?.tags ?? []
         }
