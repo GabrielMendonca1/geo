@@ -154,7 +154,7 @@ final class BrainRegistry: @unchecked Sendable {
 
     private let baseURL: URL
     private let fileManager: FileManager
-    private let manifestsById: [String: BrainManifest]
+    private var manifestsById: [String: BrainManifest]
     private let cacheLock = NSLock()
     private var indexCache: [String: BrainIndex] = [:]
 
