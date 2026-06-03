@@ -40,10 +40,14 @@ CACHE_DIR = Path(os.path.expanduser(
 SNAPSHOT = CACHE_DIR / "snapshot.json"
 SNAPSHOT_TMP = CACHE_DIR / "snapshot.json.tmp"
 
-# The geo-context boot bundle: three blocks by title + today's day record.
-# Mirrors hermes/hooks/geo-context/handler.py::_fetch_geo_blocks — keep in sync.
+# The geo-context boot bundle: three blocks by title + today + open tasks.
+# Mirrors hermes/hooks/geo-context/handler.py — keep in sync. The snapshot is
+# written render-ready (v2): blocks unwrapped + frontmatter-stripped, today and
+# tasks pre-formatted, so the hook concatenates without re-parsing.
+SNAPSHOT_VERSION = 2
 BUNDLE = [("profile", "User Profile"), ("memory", "Memory"),
           ("protocol", "Interaction Protocol")]
+TASKS_MAX = 12
 
 DEBOUNCE_S = 1.5           # coalesce bursts of geo/changed before refetching
 SAFETY_REFRESH_S = 600.0   # missed-event safety net (contract §3 recommendation)
@@ -57,6 +61,72 @@ PROTOCOL_VERSION = "2024-11-05"
 
 def _log(msg: str) -> None:
     print(f"[geo-mcp-subscriber] {msg}", flush=True)
+
+
+def _strip_frontmatter(md: str) -> str:
+    if not md.startswith("---"):
+        return md.strip()
+    parts = md.split("---", 2)
+    return parts[2].strip() if len(parts) >= 3 else md.strip()
+
+
+def _unwrap_block(raw: Optional[str]) -> Optional[str]:
+    if not raw:
+        return None
+    if raw.lstrip().lower().startswith("no block found"):
+        return None
+    try:
+        obj = json.loads(raw)
+        md = obj.get("markdown") or obj.get("body") or obj.get("content")
+        if md:
+            return _strip_frontmatter(md)
+    except (json.JSONDecodeError, AttributeError):
+        pass
+    return _strip_frontmatter(raw)
+
+
+def _format_today(raw: Optional[str]) -> Optional[str]:
+    if not raw:
+        return None
+    try:
+        obj = json.loads(raw)
+    except (json.JSONDecodeError, AttributeError):
+        return raw
+    date = obj.get("id") or "today"
+    block_ids = obj.get("block_ids") or []
+    capture_count = obj.get("capture_count", 0)
+    parts = [f"date: {date}"]
+    if block_ids:
+        parts.append(f"linked blocks: {len(block_ids)}")
+    if capture_count:
+        parts.append(f"captures: {capture_count}")
+    if len(parts) == 1:
+        parts.append("nothing logged yet")
+    return " · ".join(parts)
+
+
+def _format_tasks(raw: Optional[str]) -> Optional[str]:
+    if not raw:
+        return None
+    try:
+        tasks = json.loads(raw)
+    except (json.JSONDecodeError, AttributeError):
+        return None
+    if not isinstance(tasks, list):
+        return None
+    rows = [t for t in tasks if isinstance(t, dict)
+            and t.get("status") == "pending"
+            and t.get("kind") in ("task", "event")]
+    rows.sort(key=lambda t: t.get("anchor") or "9999")
+    lines = []
+    for t in rows[:TASKS_MAX]:
+        title = t.get("title") or "?"
+        meta = [m for m in ((t.get("anchor") or "")[:10],
+                            t.get("priority") if t.get("priority") not in (None, "unset") else None)
+                if m]
+        suffix = f" ({' · '.join(meta)})" if meta else ""
+        lines.append(f"- {title}{suffix}")
+    return "\n".join(lines) if lines else None
 
 
 class Disconnected(Exception):
