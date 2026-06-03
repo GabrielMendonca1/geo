@@ -41,6 +41,7 @@ enum AppTab: String, CaseIterable {
         case .tasks: return "checklist.unchecked"
         case .nodes: return "point.3.connected.trianglepath.dotted"
         case .nano: return "rectangle.grid.2x2.fill"
+        case .brains: return "brain.head.profile"
         case .settings: return "gearshape"
         }
     }
