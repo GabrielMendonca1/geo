@@ -246,7 +246,9 @@ final class IndexCoordinator {
             type: type,
             status: status,
             layer: layer,
-            isFullWidth: block.metadata.isFullWidth
+            isFullWidth: block.metadata.isFullWidth,
+            dayIds: index.dayIds,
+            altId: index.frontmatterId
         )
     }
 
@@ -270,7 +272,9 @@ final class IndexCoordinator {
             type: type,
             status: status,
             layer: layer,
-            isFullWidth: block.metadata.isFullWidth
+            isFullWidth: block.metadata.isFullWidth,
+            dayIds: index.dayIds,
+            altId: index.frontmatterId
         )
     }
 
