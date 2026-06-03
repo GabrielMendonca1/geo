@@ -239,7 +239,7 @@ Card badge renders the state-machine value: `pending` (clock), in-flight states 
 Node list reuses `LazyVStack`/`BlockListRow`. Tapping opens `BrainNodeView` — a NEW read-only viewer, NOT `BlockEditorView` (built around `BlockEditorActions` + autosave, `BlockEditor.swift:12,55`). Renders title + markdown with no `TextEditor`, no layer/tag chips, a "Read-only · domain brain" pill. Absence of `actions` structurally prevents edits.
 
 ### Triad-critical constraint
-ONE: a brain can hold 100k+ nodes — the node list MUST page through `BrainIndex` `limit/offset` into a `LazyVStack` (as `BlocksPane.swift:376` does); never return all nodes to render a list. Graph snapshot is bounded server-side (top-N by degree). No further triad-critical path.
+ONE: a brain can hold 100k+ nodes — the node list MUST page through `BrainIndex` `limit/offset` into a `LazyVStack`. **Correction (verified):** `BlocksPane.swift:376` does NOT page — it's `ForEach` over a fully-materialized array (`LazyVStack` defers view construction, not data loading), so it's a *styling* precedent only; `BrainsViewModel` must add real `limit/offset` windowing BlocksPane lacks, or 100k nodes load into RAM. Graph snapshot is bounded server-side (top-N by degree). No further triad-critical path.
 
 **Critical files:** `AppTab.swift` · `GraphStore.swift` · `NodesPane.swift` · `BlocksPane.swift` · `GraphView.swift`.
 
