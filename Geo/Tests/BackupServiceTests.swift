@@ -78,6 +78,30 @@ final class BackupServiceTests: XCTestCase {
         XCTAssertTrue(info.hasTags)
     }
 
+    func testValidateArchiveCountsNestedLayerFoldersRecursively() async throws {
+        let blocks = dataDir.appendingPathComponent("Blocks", isDirectory: true)
+        let index = dataDir.appendingPathComponent("Index", isDirectory: true)
+        let nestedVoce = blocks.appendingPathComponent("Voce/MOC", isDirectory: true)
+        let nestedAgente = blocks.appendingPathComponent("Agente", isDirectory: true)
+        try FileManager.default.createDirectory(at: nestedVoce, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: nestedAgente, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: index, withIntermediateDirectories: true)
+
+        try "# Flat".write(to: blocks.appendingPathComponent("flat.md"), atomically: true, encoding: .utf8)
+        try "# Nested A".write(to: nestedVoce.appendingPathComponent("a.md"), atomically: true, encoding: .utf8)
+        try "# Nested B".write(to: nestedAgente.appendingPathComponent("b.md"), atomically: true, encoding: .utf8)
+        try "{\"work\":\"#0055FF\"}".write(to: dataDir.appendingPathComponent("tags.json"), atomically: true, encoding: .utf8)
+        let db = DatabaseService(databaseURL: index.appendingPathComponent("blocks.sqlite"))
+        try await db.upsertBlock(makeEntry(id: "flat", title: "Flat", content: "body"))
+
+        let service = BackupService(dataDirectory: dataDir)
+        let url = try service.exportArchive(to: exportDir)
+
+        let info = try service.validateArchive(at: url)
+        XCTAssertEqual(info.blockCount, 3, "Block count must recurse into nested layer folders")
+        XCTAssertTrue(info.hasTags)
+    }
+
     func testValidateArchiveRejectsMissingIndex() async throws {
         let blocks = dataDir.appendingPathComponent("Blocks", isDirectory: true)
         try FileManager.default.createDirectory(at: blocks, withIntermediateDirectories: true)
