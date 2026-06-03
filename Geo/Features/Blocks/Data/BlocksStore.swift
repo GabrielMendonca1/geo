@@ -663,7 +663,7 @@ class BlocksStore: ObservableObject {
         meta.dayId = entry.dayId
         meta.status = markdownConverter.status(in: entry.content)
         meta.type = markdownConverter.type(in: entry.content)
-        meta.layer = BlockLayer(rawValue: entry.layer) ?? .default
+        meta.layer = markdownConverter.layer(in: entry.content) ?? BlockLayer(rawValue: entry.layer) ?? .default
         meta.frontmatter_version = markdownConverter.frontmatterVersion(in: entry.content)
         return meta
     }
