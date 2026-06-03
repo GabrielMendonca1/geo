@@ -258,6 +258,7 @@ final class BlocksStoreFrontmatterMutatorTests: XCTestCase {
         store.changeReconciler.handleExternalChanges([block.url], currentBlocks: store.blocks)
 
         let live = store.blocks.first(where: { $0.id == block.id })
+        print("DBG live markdown=\(live?.markdown ?? "nil") layer=\(String(describing: live?.metadata.layer)) fmv=\(String(describing: live?.metadata.frontmatter_version))")
         XCTAssertEqual(live?.metadata.layer, .shared, "External frontmatter layer flip propagates")
     }
 }
