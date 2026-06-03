@@ -169,7 +169,7 @@ CP4 Failure/idempotency:
 ```
 
 ### 2.5 State machine (non-recursive, advance-one-step)
-`pending → submitted → collecting → embedding → indexing → ready`, persisted in `brain.json` (mirror `JobRuntime`, `JobStore.swift:21`). NO daemon (decision #4): on the user's **next interaction window**, advance exactly one transition. Each step idempotent (hash skip) so a crash mid-step re-enters the same state harmlessly. `failed` state on unrecoverable extraction/batch error.
+`pending → submitted → collecting → embedding → indexing → ready`, persisted in `brain.json` (shape mirrors `JobRuntime`, `JobStore.swift:21` — but that is a read-only hermes status DTO, so the transition engine is net-new). NO daemon (decision #4): on the user's **next interaction window**, advance exactly one transition. Each step idempotent (hash skip) so a crash mid-step re-enters the same state harmlessly. `failed` state on unrecoverable extraction/batch error.
 
 ### 2.6 App-internal write path (single-writer, bypasses agent)
 Build `BlockIndexEntry` (`DatabaseService.swift:7`) per note; write `.md` via `BlockFileService.writeMarkdownToDisk` (`:144`); upsert through the brain `DatabaseService.upsertBlock` (`:234`) — all writes funnel the existing serial `performWrite` (`:235`). Edges resolved with `extractWikiLinks` + `normalize` (`BlockGraphService.440/484`). Invoked only by the ingest job, never an MCP tool → agent stays read-only (decision #6).
