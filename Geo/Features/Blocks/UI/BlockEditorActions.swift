@@ -16,6 +16,7 @@ final class BlockEditorActions {
     let clearFocusedBlock: (String) -> Void
     let resolveBlockByTitle: (String) -> BlockEntity?
     let currentTag: (String?) -> Tag?
+    let resolvedTag: (BlockEntity) -> Tag?
     let allTags: () -> [Tag]
     let blocksSnapshot: () -> [BlockEntity]
     let lifecycleActions: () -> BlockLifecycleActions
