@@ -141,4 +141,35 @@ class DayStore: ObservableObject {
             logger.error("Failed to load days: \(error)")
         }
     }
+
+    func refreshFromDerive() {
+        Task { [weak self, indexCoordinator] in
+            let derived = await indexCoordinator.dayLinkMap()
+            await MainActor.run {
+                self?.applyDerived(derived)
+            }
+        }
+    }
+
+    private func applyDerived(_ derived: [String: [String]]) {
+        for (dayId, blockIds) in derived {
+            guard let date = DateFormatters.dayId.date(from: dayId) else { continue }
+            if let index = daysById[dayId] {
+                var existing = Set(days[index].blockIds)
+                var merged = days[index].blockIds
+                for blockId in blockIds where existing.insert(blockId).inserted {
+                    merged.append(blockId)
+                }
+                if merged.count != days[index].blockIds.count {
+                    days[index].blockIds = merged
+                }
+            } else {
+                var day = Day(date: date)
+                day.blockIds = blockIds
+                days.append(day)
+                days.sort { $0.date > $1.date }
+                rebuildDaysIndex()
+            }
+        }
+    }
 }
