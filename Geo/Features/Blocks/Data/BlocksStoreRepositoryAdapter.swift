@@ -148,13 +148,15 @@ final class LiveBlocksStoreAccess: BlocksStoreAccess, @unchecked Sendable {
     }
 
     func setTag(_ tagId: String?, for blockId: String) async -> Bool {
-        await MainActor.run {
-            guard blocksStore.blocks.contains(where: { $0.id == blockId }) else {
-                return false
-            }
-            blocksStore.setTag(tagId, for: blockId)
-            return true
-        }
+        await Task(operation: { @MainActor in
+            await blocksStore.setTag(tagId, for: blockId)
+        }).value
+    }
+
+    func setTagByName(_ name: String?, for blockId: String) async -> Bool {
+        await Task(operation: { @MainActor in
+            await blocksStore.setTagByName(name, for: blockId)
+        }).value
     }
 
     func setFullWidth(_ isFullWidth: Bool, for blockId: String) async -> Bool {
