@@ -13,6 +13,7 @@ protocol BlocksRepository: Sendable {
     func update(id: String, markdown: String) async throws
     func delete(id: String) async throws
     func setTag(blockId: String, tagId: String?) async throws
+    func setTagByName(blockId: String, name: String?) async throws
     func setFullWidth(blockId: String, isFullWidth: Bool) async throws
     func setLayer(blockId: String, layer: BlockLayer) async throws
     func setType(blockId: String, type: BlockType) async throws
