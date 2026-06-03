@@ -163,15 +163,26 @@ final class BlockGraphServiceTests: XCTestCase {
         XCTAssertEqual(result.graph.edges[0].targetId, aId)
     }
 
-    func testBuildGraphAppliesTagColors() {
+    func testBuildGraphAppliesTagColorsByName() {
         let service = BlockGraphService(indexCoordinator: .shared, tagStore: nil)
         let entries = [
-            makeEntry(id: "a", title: "Alpha", content: "", tagId: "t1")
+            makeEntry(id: "a", title: "Alpha", content: "", tags: ["arc"])
         ]
         let green = Color.green
-        let result = service.buildGraph(from: entries, tagColors: ["t1": green])
+        // color map keyed by canonical tag NAME, not UUID
+        let result = service.buildGraph(from: entries, tagColors: ["arc": green])
         XCTAssertEqual(result.graph.nodes.count, 1)
         XCTAssertEqual(result.graph.nodes[0].tagColor, green)
+    }
+
+    func testBuildGraphTagColorCollapsesCaseVariants() {
+        let service = BlockGraphService(indexCoordinator: .shared, tagStore: nil)
+        let entries = [
+            makeEntry(id: "a", title: "Alpha", content: "", tags: ["ARC"])
+        ]
+        let green = Color.green
+        let result = service.buildGraph(from: entries, tagColors: ["arc": green])
+        XCTAssertEqual(result.graph.nodes[0].tagColor, green, "ARC and arc resolve to one color")
     }
 
     func testBuildGraphAppliesLayer() {
