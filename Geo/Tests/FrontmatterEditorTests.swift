@@ -101,4 +101,28 @@ final class FrontmatterEditorTests: XCTestCase {
         let output = FrontmatterEditor.upsert(in: input, values: ["state": .string("Done")])
         XCTAssertTrue(output.hasSuffix(body))
     }
+
+    func testUpsertScalarWithColonGetsQuotedAndRoundTrips() {
+        let input = "---\nstate: Todo\n---\n# Body\n"
+        let output = FrontmatterEditor.upsert(in: input, values: ["name": .string("Direito: oportunidade")])
+        let parsed = MarkdownConverter.shared.parse(output).frontmatter
+        XCTAssertEqual(parsed["name"], "Direito: oportunidade")
+    }
+
+    func testUpsertTagsInlineListRoundTrips() {
+        let input = "---\nstate: Todo\n---\n# Body\n"
+        let output = FrontmatterEditor.upsert(in: input, values: [
+            "tags": .array([.string("arc"), .string("engenharia-de-software")])
+        ])
+        XCTAssertTrue(output.contains("tags: [arc, engenharia-de-software]"))
+        let document = MarkdownConverter.shared.parse(output)
+        XCTAssertEqual(MarkdownConverter.shared.frontmatterList(document, key: "tags"), ["arc", "engenharia-de-software"])
+    }
+
+    func testPreExistingBracketStringNotDoubleQuoted() {
+        let input = "---\nstate: Todo\ntags: [a, b]\n---\n# Body\n"
+        let output = FrontmatterEditor.upsert(in: input, values: ["state": .string("Done")])
+        XCTAssertTrue(output.contains("tags: [a, b]"))
+        XCTAssertFalse(output.contains("tags: \"[a, b]\""))
+    }
 }
