@@ -66,10 +66,6 @@ enum BlockTools {
                 "limit": .integer("Max results to return"),
             ]),
             handler: { args in
-                switch AgentAuthorization.authorize(.read, on: nil, layer: nil) {
-                case .allow: break
-                case .deny(let reason): return .error(reason)
-                }
                 let allBlocks = try await blocks.list()
                 let allTags = try await tags.list()
                 let tagMap = Dictionary(uniqueKeysWithValues: allTags.map { ($0.id, $0.name) })
@@ -152,10 +148,6 @@ enum BlockTools {
                 guard let title = args["title"]?.stringValue else {
                     return .error("Missing required parameter: title")
                 }
-                switch AgentAuthorization.authorize(.read, on: nil, layer: nil) {
-                case .allow: break
-                case .deny(let reason): return .error(reason)
-                }
                 func norm(_ s: String) -> String {
                     s.lowercased()
                         .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -217,10 +209,6 @@ enum BlockTools {
             handler: { args in
                 guard let query = args["query"]?.stringValue else {
                     return .error("Missing required parameter: query")
-                }
-                switch AgentAuthorization.authorize(.read, on: nil, layer: nil) {
-                case .allow: break
-                case .deny(let reason): return .error(reason)
                 }
                 let results = try await blocks.search(matching: query)
                 let items = results.map { block -> [String: AnyCodableValue] in
@@ -438,10 +426,6 @@ enum BlockTools {
                 "block_id": .string("Target block ID (filename) — preferred over title"),
             ]),
             handler: { args in
-                switch AgentAuthorization.authorize(.read, on: nil, layer: nil) {
-                case .allow: break
-                case .deny(let reason): return .error(reason)
-                }
                 let providedTitle = args["title"]?.stringValue
                 let providedId = args["block_id"]?.stringValue
                 let resolvedTitle: String
@@ -478,10 +462,6 @@ enum BlockTools {
             description: "Return blocks with no incoming or outgoing wikilinks. Useful to surface notes that aren't yet integrated into the knowledge graph.",
             schema: JSONSchemaObject(properties: [:]),
             handler: { _ in
-                switch AgentAuthorization.authorize(.read, on: nil, layer: nil) {
-                case .allow: break
-                case .deny(let reason): return .error(reason)
-                }
                 do {
                     let entries = try await graph.findOrphans()
                     let items = entries.map { entry -> [String: AnyCodableValue] in
@@ -504,10 +484,6 @@ enum BlockTools {
             description: "Return [[wikilinks]] in your notes that point to blocks that don't exist yet. Each item is a writing prompt — these are gaps to fill.",
             schema: JSONSchemaObject(properties: [:]),
             handler: { _ in
-                switch AgentAuthorization.authorize(.read, on: nil, layer: nil) {
-                case .allow: break
-                case .deny(let reason): return .error(reason)
-                }
                 do {
                     let pairs = try await graph.findUnresolvedLinks()
                     let items = pairs.map { pair -> [String: AnyCodableValue] in
@@ -571,10 +547,6 @@ enum BlockTools {
                 guard let type = args["type"]?.stringValue else {
                     return .error("Missing required parameter: type")
                 }
-                switch AgentAuthorization.authorize(.read, on: nil, layer: nil) {
-                case .allow: break
-                case .deny(let reason): return .error(reason)
-                }
                 let validTypes: Set<String> = ["fleeting", "literature", "permanent", "moc", "project"]
                 let normalized = type.lowercased()
                 guard validTypes.contains(normalized) else {
@@ -606,10 +578,6 @@ enum BlockTools {
             handler: { args in
                 guard let status = args["status"]?.stringValue else {
                     return .error("Missing required parameter: status")
-                }
-                switch AgentAuthorization.authorize(.read, on: nil, layer: nil) {
-                case .allow: break
-                case .deny(let reason): return .error(reason)
                 }
                 let normalized = status.lowercased()
                 let entries = await index.fetchBlocks(byStatus: normalized)
@@ -699,10 +667,6 @@ enum BlockTools {
                 "limit": .integer("Max nodes to include, sorted by weight desc"),
             ]),
             handler: { args in
-                switch AgentAuthorization.authorize(.read, on: nil, layer: nil) {
-                case .allow: break
-                case .deny(let reason): return .error(reason)
-                }
                 do {
                     let snapshot = try await graph.loadGraph()
                     var nodes = snapshot.graph.nodes
