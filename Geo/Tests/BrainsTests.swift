@@ -217,6 +217,7 @@ final class BrainsTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
         let database = DatabaseService(databaseURL: url, schema: .domain)
         let index = DatabaseBrainIndex(id: "test", database: database)
-        XCTAssertTrue(try await index.semanticSearch(query: [1, 0], k: 5).isEmpty)
+        let results = try await index.semanticSearch(query: [1, 0], k: 5)
+        XCTAssertTrue(results.isEmpty)
     }
 }
