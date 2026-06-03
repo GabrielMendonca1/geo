@@ -110,8 +110,8 @@ DESIGN — N = chunks/nodes per brain, bounded 100k–1M
 (c) neighbors: persisted edges(sourceId idx, targetId idx) → O(deg) both
     directions. Replaces the O(N) rebuild-per-call
     (findNeighbors :402-434 → buildGraph :247-328) — critical at N=1M.
-(d) vector storage: vec0 rowid ↔ blockId via vec_map(blockId PK). O(1) both
-    ways; vectors live in their own table, touched only on the semantic path.
+(d) vector storage: node_vec(blockId PK, embedding BLOB) — no vec_map, no
+    vec0; vectors live in their own table, touched only on the semantic path.
 Honest note: most domain brains N≈10k–100k → brute-force vec + indexed edges
 is correct and simple; ANN is a documented escape hatch, not v1.
 ```
