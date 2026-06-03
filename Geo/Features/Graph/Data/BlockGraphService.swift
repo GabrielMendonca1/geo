@@ -337,7 +337,7 @@ final class BlockGraphService: @unchecked Sendable {
         var map: [String: Color] = [:]
         map.reserveCapacity(tags.count)
         for tag in tags {
-            map[tag.id] = Color(
+            map[TagStore.canonicalName(tag.name)] = Color(
                 .sRGB,
                 red: tag.color.red,
                 green: tag.color.green,
@@ -346,6 +346,13 @@ final class BlockGraphService: @unchecked Sendable {
             )
         }
         return map
+    }
+
+    private static func nodeColor(for entry: BlockIndexEntry, tagColors: [String: Color]) -> Color? {
+        if let name = entry.tags.first {
+            return tagColors[TagStore.canonicalName(name)]
+        }
+        return nil
     }
 
     func findOrphans() async throws -> [BlockIndexEntry] {
