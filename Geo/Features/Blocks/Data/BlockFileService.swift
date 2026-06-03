@@ -119,6 +119,9 @@ final class BlockFileService {
                     if let fmLayer = MarkdownConverter.normalizedLayer(document.frontmatter["layer"]) {
                         blockMetadata.layer = fmLayer
                     }
+                    if document.frontmatter["full_width"] != nil {
+                        blockMetadata.isFullWidth = MarkdownConverter.normalizedFullWidth(document.frontmatter["full_width"])
+                    }
 
                     let resourceValues = try? url.resourceValues(forKeys: resourceKeys)
                     let date = resourceValues?.creationDate ?? resourceValues?.contentModificationDate ?? .distantPast
