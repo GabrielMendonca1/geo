@@ -1,27 +1,31 @@
-"""Two-phase destructive flow with Telegram confirm.
+"""Two-phase destructive flow with a Telegram Y/N confirm.
 
-prepare → DM Gabriel → wait 30s for Y/N → commit or abort.
+prepare → DM Gabriel → wait 30 s for Y/N → commit or abort.
 
 The 300-s server-side backstop on `/destructive/prepare` is the safety net:
 if we crash mid-flow, Geo expires the transaction on its own.
 
-Block_version is passed through prepare so commit can detect a 409 Conflict
+`block_version` is passed through prepare so commit can detect a 409 Conflict
 (someone — the app, another agent — wrote to the file between phases).
 
-Inbound listening:
-A ``pre_gateway_dispatch`` hook (registered from ``__init__.py``) drops every
-inbound message from ``GABRIEL_TELEGRAM_CHAT_ID`` into ``_inbound_queue``. The
-destructive flow drains the queue with a 1-s poll for 30 s wall-clock. The
-hook returns ``None`` (action="allow") so normal dispatch continues — we don't
-swallow the confirmation reply, we just observe it.
+Confirmation mechanism (why this is self-contained):
+The agent's turn blocks inside the tool call awaiting Gabriel's reply. When his
+"Y" arrives the gateway fires the ``pre_gateway_dispatch`` hook BEFORE its
+"interrupt running agent" step (gateway/run.py). The hook resolves the pending
+confirmation and returns ``action="skip"``, which makes the gateway drop the
+reply early — so it does NOT interrupt/cancel the blocked turn (the old bug:
+"Y did nothing"). Resolution uses a module-level ``_pending`` + ``threading.Event``
+so it works regardless of event-loop/thread and needs no gateway session plumbing
+(the native approval queue's notifier is only registered by the TUI gateway, not
+the Telegram one — which is why the previous native bridge silently fell back).
 """
 
 from __future__ import annotations
 
 import asyncio
 import json
+import threading
 import time
-from collections import deque
 from typing import Any, Callable, Optional
 
 from .client import GeoAPIClient, GeoConflict, GeoError
@@ -30,11 +34,10 @@ GABRIEL_TELEGRAM_CHAT_ID = "5225262193"
 TELEGRAM_TARGET = f"telegram:{GABRIEL_TELEGRAM_CHAT_ID}"
 CONFIRM_TIMEOUT_S = 30.0
 REMINDER_AT_S = 25.0
-POLL_INTERVAL_S = 1.0
 
-_inbound_queue: "deque[tuple[float, str]]" = deque(maxlen=64)
+# One in-flight confirmation at a time (deletes are rare; _confirm_gate serializes).
 _confirm_gate = asyncio.Lock()
-_consumed_ts = 0.0
+_pending: "Optional[_PendingConfirm]" = None
 
 
 def _err(msg: str) -> str:
@@ -45,21 +48,58 @@ def _result(ok: bool, **fields: Any) -> str:
     return json.dumps({"ok": ok, **fields}, default=str)
 
 
-def _record_inbound(text: str) -> None:
-    _inbound_queue.append((time.time(), text))
+class _PendingConfirm:
+    """A delete awaiting Gabriel's Y/N. Resolved by the inbound hook from any
+    thread via a threading.Event; awaited on the loop via asyncio.to_thread."""
+
+    __slots__ = ("_event", "verdict")
+
+    def __init__(self) -> None:
+        self._event = threading.Event()
+        self.verdict = "timeout"
+
+    @property
+    def resolved(self) -> bool:
+        return self._event.is_set()
+
+    def resolve(self, verdict: str) -> None:
+        if not self._event.is_set():
+            self.verdict = verdict
+            self._event.set()
+
+    async def wait(self) -> str:
+        # Two-stage so we can nudge a reminder at REMINDER_AT_S without a reply.
+        got = await asyncio.to_thread(self._event.wait, REMINDER_AT_S)
+        if not got:
+            try:
+                await _send_telegram_sync("⏳ 5 s left — reply Y to delete, or it cancels.")
+            except Exception:
+                pass
+            await asyncio.to_thread(self._event.wait, CONFIRM_TIMEOUT_S - REMINDER_AT_S)
+        return self.verdict
+
+
+def _classify_reply(text: str) -> Optional[str]:
+    norm = text.strip().lower()
+    if norm in ("y", "yes", "yeah", "yep", "confirm", "ok", "okay", "sim"):
+        return "yes"
+    if norm in ("n", "no", "nope", "deny", "cancel", "abort", "não", "nao"):
+        return "no"
+    return None
 
 
 def pre_gateway_dispatch_hook(event=None, **_kw: Any) -> Optional[dict]:
-    """Plugin hook: capture Gabriel's Telegram replies for the destructive flow.
+    """Resolve a pending Geo delete from Gabriel's Telegram Y/N reply.
 
-    MUST be synchronous — hermes' invoke_hook calls callbacks with `cb(**kwargs)`
-    and never awaits, so an async hook would return an un-awaited coroutine and
-    never record the reply. Must NOT swallow the message — return None (allow)
-    so hermes dispatches normally. We only observe.
+    Returns ``action="skip"`` when the reply answers a pending confirmation, so
+    the gateway drops it before the interrupt step and the blocked delete turn
+    survives to commit. Returns ``None`` (allow) otherwise.
     """
     if event is None:
         return None
     try:
+        if _pending is None or _pending.resolved:
+            return None
         source = getattr(event, "source", None)
         if source is None:
             return None
@@ -67,21 +107,21 @@ def pre_gateway_dispatch_hook(event=None, **_kw: Any) -> Optional[dict]:
         platform_name = getattr(platform, "value", str(platform) if platform else "")
         if platform_name.lower() != "telegram":
             return None
-        chat_id = str(getattr(source, "chat_id", "") or "")
-        if chat_id != GABRIEL_TELEGRAM_CHAT_ID:
+        if str(getattr(source, "chat_id", "") or "") != GABRIEL_TELEGRAM_CHAT_ID:
             return None
-        text = getattr(event, "text", None) or ""
-        if not text:
+        verdict = _classify_reply(getattr(event, "text", None) or "")
+        if verdict is None:
             return None
-        _record_inbound(text)
+        _pending.resolve(verdict)
+        return {"action": "skip", "reason": "geo_destructive_confirmation"}
     except Exception:
         return None
-    return None
 
 
 async def _send_telegram_sync(message: str) -> None:
     """Dispatch via the in-process send_message tool registry entry."""
     from tools.registry import registry
+
     entry = registry.get_entry("send_message")
     if entry is None:
         raise RuntimeError("send_message tool not registered")
@@ -92,43 +132,11 @@ async def _send_telegram_sync(message: str) -> None:
         await asyncio.to_thread(entry.handler, args)
 
 
-def _classify_reply(text: str) -> Optional[str]:
-    norm = text.strip().lower()
-    if norm in ("y", "yes", "yeah", "yep", "confirm", "ok", "okay"):
-        return "yes"
-    if norm in ("n", "no", "nope", "deny", "cancel", "abort"):
-        return "no"
-    return None
-
-
-async def _await_confirmation(since_ts: float) -> str:
-    """Poll the inbound queue for up to 30 s. Returns 'yes' | 'no' | 'timeout'.
-
-    A matched reply is consumed via _consumed_ts so it can authorize at most one
-    operation; callers must hold _confirm_gate so only one flow polls at a time.
-    """
-    global _consumed_ts
-    deadline = since_ts + CONFIRM_TIMEOUT_S
-    reminder_sent = False
-    while True:
-        now = time.time()
-        if now >= deadline:
-            return "timeout"
-        if not reminder_sent and (now - since_ts) >= REMINDER_AT_S:
-            reminder_sent = True
-            try:
-                await _send_telegram_sync("still waiting — 5 s left to confirm")
-            except Exception:
-                pass
-        messages = list(_inbound_queue)
-        for ts, text in messages:
-            if ts < since_ts or ts <= _consumed_ts:
-                continue
-            verdict = _classify_reply(text)
-            if verdict is not None:
-                _consumed_ts = ts
-                return verdict
-        await asyncio.sleep(POLL_INTERVAL_S)
+def _confirm_message(target_label: str) -> str:
+    return (
+        f"🗑️ Delete {target_label}?\n"
+        f"Reply Y to confirm — N or no reply cancels (30s)."
+    )
 
 
 async def _two_phase_delete(
@@ -137,13 +145,13 @@ async def _two_phase_delete(
     target_label: str,
     args: dict,
 ) -> str:
+    global _pending
     try:
         client = await GeoAPIClient.get_instance()
     except GeoError as e:
         return _err(str(e))
 
     block_version = args.get("block_version")
-
     try:
         prepared = await client.prepare_destructive(
             operation, target_id, block_version=block_version,
@@ -152,36 +160,35 @@ async def _two_phase_delete(
         return _err(f"prepare failed: {e}")
 
     transaction_id = prepared["transaction_id"]
-    diff_preview = prepared.get("diff_preview", "(no preview)")
     server_version = prepared.get("block_version")
 
-    warn = (
-        f"⚠️ Agent wants to {operation.replace('_', ' ')} "
-        f"{target_label} (id {target_id}).\n"
-        f"Diff preview:\n{diff_preview}\n"
-        f"Reply Y within 30 s to confirm, N or no reply to deny."
-    )
     async with _confirm_gate:
-        since = time.time()
+        pending = _PendingConfirm()
+        _pending = pending
         try:
-            await _send_telegram_sync(warn)
-        except Exception as e:
-            return _result(False, reason="telegram_send_failed", detail=str(e))
+            try:
+                await _send_telegram_sync(_confirm_message(target_label))
+            except Exception as e:
+                return _result(False, reason="telegram_send_failed", detail=str(e))
 
-        verdict = await _await_confirmation(since)
-        if verdict == "no":
-            return _result(False, reason="user_denied", transaction_id=transaction_id)
-        if verdict == "timeout":
-            return _result(False, reason="timeout", transaction_id=transaction_id)
+            verdict = await pending.wait()
+            if verdict != "yes":
+                return _result(
+                    False,
+                    reason="user_denied" if verdict == "no" else "timeout",
+                    transaction_id=transaction_id,
+                )
 
-        try:
-            commit_result = await client.commit_destructive(
-                transaction_id, block_version=server_version,
-            )
-        except GeoConflict as e:
-            return _result(False, reason="stale_version", detail=str(e.body))
-        except GeoError as e:
-            return _result(False, reason="commit_failed", detail=str(e))
+            try:
+                commit_result = await client.commit_destructive(
+                    transaction_id, block_version=server_version,
+                )
+            except GeoConflict as e:
+                return _result(False, reason="stale_version", detail=str(e.body))
+            except GeoError as e:
+                return _result(False, reason="commit_failed", detail=str(e))
+        finally:
+            _pending = None
 
     return _result(True, transaction_id=transaction_id, result=commit_result)
 
@@ -208,13 +215,14 @@ DESTRUCTIVE_TOOLS: list[dict] = [
         "description": (
             "DESTRUCTIVE: delete a block. Requires Gabriel's Telegram Y confirm "
             "within 30 s. Two-phase: prepare → DM → commit. On stale frontmatter "
-            "version, returns {ok: false, reason: 'stale_version'} — re-fetch and retry."
+            "version, returns {ok: false, reason: 'stale_version'} — re-fetch and retry. "
+            "Always pass `title` so the confirm DM is readable."
         ),
         "parameters": {
             "type": "object",
             "properties": {
                 "id": {"type": "string"},
-                "title": {"type": "string", "description": "Optional, shown in confirm DM."},
+                "title": {"type": "string", "description": "Shown in the confirm DM. Always pass it."},
                 "block_version": {
                     "type": "integer",
                     "description": "Optional optimistic-concurrency token from a prior fetch.",
@@ -228,13 +236,14 @@ DESTRUCTIVE_TOOLS: list[dict] = [
         "name": "geo_delete_task",
         "description": (
             "DESTRUCTIVE: delete a task. Requires Gabriel's Telegram Y confirm "
-            "within 30 s. Two-phase prepare → DM → commit."
+            "within 30 s. Two-phase: prepare → DM → commit. Always pass `title` so "
+            "the confirm DM is readable."
         ),
         "parameters": {
             "type": "object",
             "properties": {
                 "id": {"type": "string"},
-                "title": {"type": "string"},
+                "title": {"type": "string", "description": "Shown in the confirm DM. Always pass it."},
                 "block_version": {"type": "integer"},
             },
             "required": ["id"],
