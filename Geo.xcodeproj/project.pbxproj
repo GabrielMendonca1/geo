@@ -1858,6 +1858,7 @@
 				B1C2D3E4F5061728394B0041 /* Phase0FrontmatterReinjectionMigration.swift in Sources */,
 				P1H1A1S1E1B1L1D0001 /* Phase1LayerBackfillMigration.swift in Sources */,
 				P2H2A2S2E2B2L2D0002 /* Phase2TagBackfillMigration.swift in Sources */,
+				P3H3A3S3E3B3L3D0003 /* Phase3DayLinkBackfillMigration.swift in Sources */,
 				B1C2D3E4F5061728394B0042 /* FrontmatterBlockBuilder.swift in Sources */,
 				B1C2D3E4F5061728394B0005 /* MarkdownIndexingService.swift in Sources */,
 				B1C2D3E4F5061728394B0007 /* MarkdownConverter.swift in Sources */,
