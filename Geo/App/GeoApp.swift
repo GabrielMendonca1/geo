@@ -336,17 +336,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             await MainActor.run {
                 container.blocksStore.metadataService.hydrateFromIndex(hydrated)
             }
-            let sidecarURL = fileService.blocksDirectory.appendingPathComponent(".blocks-metadata.json")
-            let bakURL = sidecarURL.appendingPathExtension("bak")
-            if FileManager.default.fileExists(atPath: sidecarURL.path)
-                && !FileManager.default.fileExists(atPath: bakURL.path) {
-                do {
-                    try FileManager.default.moveItem(at: sidecarURL, to: bakURL)
-                    logger.info("metadata-sidecar: renamed to .bak (SQLite is now authoritative)")
-                } catch {
-                    logger.error("metadata-sidecar: failed to rename to .bak: \(error.localizedDescription)")
-                }
-            }
             let reconciler = await MainActor.run { container.blocksStore.changeReconciler }
             await Phase0FrontmatterReinjectionMigration.shared.runIfEnabled(
                 fileService: fileService,
