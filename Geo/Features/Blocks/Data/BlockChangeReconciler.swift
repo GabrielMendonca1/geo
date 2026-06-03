@@ -123,7 +123,6 @@ final class BlockChangeReconciler {
                     updatedBlocks.remove(at: index)
                 }
                 metadataService.removeMetadata(for: blockId)
-                metadataDirty = true
                 removedIds.append(blockId)
             }
         }
@@ -131,9 +130,6 @@ final class BlockChangeReconciler {
         if updatedBlocks != latestBlocks {
             updatedBlocks.sort { $0.date > $1.date }
             onBlocksChanged?(updatedBlocks)
-        }
-        if metadataDirty {
-            metadataService.saveMetadata()
         }
         for block in blocksToIndex {
             Task {
