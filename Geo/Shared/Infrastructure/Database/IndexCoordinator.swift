@@ -352,37 +352,4 @@ final class IndexCoordinator {
         )
     }
 
-    func migrateSidecarMetadataToSQLite(
-        sidecar: [String: BlocksStore.BlockMetadata],
-        fileService: BlockFileService
-    ) async {
-        let sqliteMetadata = await fetchAllMetadata()
-        let diskIds = enumerateDiskIds(in: fileService)
-        var synced = 0
-        var orphaned = 0
-        for (blockId, sidecarMeta) in sidecar {
-            guard diskIds.contains(blockId) else {
-                orphaned += 1
-                continue
-            }
-            if sqliteMetadata[blockId] == sidecarMeta { continue }
-            do {
-                try await database.upsertMetadata(
-                    blockId: blockId,
-                    tagId: sidecarMeta.tagId,
-                    dayId: sidecarMeta.dayId,
-                    type: sidecarMeta.type.rawValue,
-                    status: sidecarMeta.status,
-                    layer: sidecarMeta.layer.rawValue,
-                    isFullWidth: sidecarMeta.isFullWidth
-                )
-                synced += 1
-            } catch {
-                logger.error("metadata-migration: upsert failed for \(blockId): \(error.localizedDescription)")
-            }
-        }
-        if synced > 0 || orphaned > 0 {
-            logger.info("metadata-migration: synced \(synced) records from sidecar → SQLite (orphaned=\(orphaned))")
-        }
-    }
 }
