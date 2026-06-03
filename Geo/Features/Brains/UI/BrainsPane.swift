@@ -1,6 +1,8 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
+extension BlockIndexEntry: Identifiable {}
+
 struct BrainsPane: View {
     @State private var brains: [BrainManifest] = []
     @State private var showCreate = false
