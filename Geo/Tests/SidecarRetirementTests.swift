@@ -75,7 +75,7 @@ final class SidecarRetirementTests: XCTestCase {
         }
         defer { NotificationCenter.default.removeObserver(token) }
 
-        let edited = "---\ntype: permanent\n---\n# Body edited externally\n"
+        let edited = "---\ntype: permanent\nfrontmatter_version: 99\n---\n# Body edited externally\n"
         try edited.write(to: block.url, atomically: true, encoding: .utf8)
         // Wait past the reconciler's own-write grace period so the edit is treated as external.
         try await Task.sleep(nanoseconds: 1_600_000_000)
