@@ -279,3 +279,4 @@ ONE: a brain can hold 100k+ nodes — the node list MUST page through `BrainInde
 5. **Concept-merge threshold** — `cos>0.86` is a guess; tune on a real corpus. False-merge (two distinct concepts collapsed) is the dangerous direction.
 6. **Cross-brain query** — v1 is single-brain-per-call by design (agent loops if it wants several). Confirm no federated rerank is wanted.
 7. **Delete/regenerate** — domain brains are regenerable; expose a "rebuild from sources" action and a clean delete.
+8. **Batch vs concurrent-sync (Phase 0 decision)** — build the Anthropic Batch API client (cheaper, but minutes–24h latency vs the "next window" model) or ship v1 on bounded concurrent synchronous Haiku calls? Either needs a new generic `AnthropicClient` method first.
