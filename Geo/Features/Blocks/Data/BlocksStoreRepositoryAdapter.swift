@@ -212,6 +212,12 @@ final class LiveBlocksStoreAccess: BlocksStoreAccess, @unchecked Sendable {
         }).value
     }
 
+    func linkToDay(blockId: String, dayId: String) async -> Bool {
+        await Task(operation: { @MainActor in
+            await blocksStore.linkBlockToDay(blockId: blockId, dayId: dayId)
+        }).value
+    }
+
     @MainActor
     func updateBlockAndFlush(id: String, markdown: String) -> Bool {
         blocksStore.updateBlockAndFlush(id: id, newMarkdown: markdown)
