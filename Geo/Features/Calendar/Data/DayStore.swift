@@ -14,29 +14,21 @@ class DayStore: ObservableObject {
 
     private var daysById: [String: Int] = [:]
 
-    private let fileManager = FileManager.default
-    private let daysURL: URL
-    private let queue = DispatchQueue(label: "com.geo.daystore", qos: .userInitiated)
     private var reloadObserver: NSObjectProtocol?
     private let indexCoordinator: IndexCoordinator
 
     init(baseURL: URL? = nil, indexCoordinator: IndexCoordinator = .shared) {
-        let resolvedBase = baseURL
-            ?? fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-            ?? fileManager.homeDirectoryForCurrentUser
-        daysURL = resolvedBase.appendingPathComponent("Geo/days.json")
         self.indexCoordinator = indexCoordinator
 
-        try? fileManager.createDirectory(at: daysURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-
-        loadDays()
+        // Day membership derives EXCLUSIVELY from the derived block_days table (inline
+        // [[YYYY-MM-DD]] backlinks). The legacy days.json file is no longer read or written;
+        // it survives on disk as an inert artifact.
         refreshFromDerive()
         reloadObserver = NotificationCenter.default.addObserver(
             forName: dayStoreNeedsReloadNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.loadDays()
             self?.refreshFromDerive()
         }
     }
