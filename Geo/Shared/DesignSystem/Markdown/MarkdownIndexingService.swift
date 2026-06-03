@@ -25,6 +25,7 @@ final class MarkdownIndexingService {
     private let completedTaskRegex: NSRegularExpression
     private let fencedCodeRegex: NSRegularExpression
     private let inlineCodeRegex: NSRegularExpression
+    private let dayLinkRegex: NSRegularExpression
 
     private let markdownConverter: MarkdownConverter
 
@@ -35,6 +36,7 @@ final class MarkdownIndexingService {
         completedTaskRegex = try! NSRegularExpression(pattern: "(?m)^\\s*(?:[-*+]\\s+|\\d+\\.\\s+)\\[(x|X)\\]\\s+")
         fencedCodeRegex = try! NSRegularExpression(pattern: "```[^\\n]*\\n[\\s\\S]*?```", options: [])
         inlineCodeRegex = try! NSRegularExpression(pattern: "`[^`\\n]+`", options: [])
+        dayLinkRegex = try! NSRegularExpression(pattern: "\\[\\[(\\d{4}-\\d{2}-\\d{2})(?:\\|[^\\]]*)?\\]\\]")
     }
 
     func extract(from markdown: String) -> MarkdownIndexResult {
