@@ -131,6 +131,7 @@
 		BKP000000000000000001BLD /* BackupService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BKP000000000000000001REF /* BackupService.swift */; };
 		BKP000000000000000002BLD /* BackupServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BKP000000000000000002REF /* BackupServiceTests.swift */; };
 		BLKIDXSCHEMA0000BLD /* BlockIndexSchemaTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BLKIDXSCHEMA0000REF /* BlockIndexSchemaTests.swift */; };
+		BLKLAYERFOLD0000BLD /* BlockLayerFolderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BLKLAYERFOLD0000REF /* BlockLayerFolderTests.swift */; };
 		C11A00000000000000000021 /* DayRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = C11A00000000000000000011 /* DayRepository.swift */; };
 		C11A00000000000000000022 /* DayStoreRepositoryAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C11A00000000000000000012 /* DayStoreRepositoryAdapter.swift */; };
 		C11A00000000000000000023 /* CalendarViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C11A00000000000000000013 /* CalendarViewModel.swift */; };
