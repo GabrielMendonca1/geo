@@ -74,7 +74,7 @@ final class DatabaseService: @unchecked Sendable {
             ?? baseURL.appendingPathComponent("Geo/Index/blocks.sqlite")
         try? fileManager.createDirectory(at: resolvedURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         dbQueue = Self.openOrRecreate(at: resolvedURL, fileManager: fileManager)
-        let m = Self.buildMigrator()
+        let m = Self.buildMigrator(schema: schema)
         if (try? m.migrate(dbQueue)) == nil {
             logger.fault("Database migration failed — backing up before recreating")
             Self.backupDatabase(at: resolvedURL, fileManager: fileManager)
