@@ -39,6 +39,7 @@ extension BlocksStoreAccess {
     func moveBlock(id: String, toFolder folder: String?) async -> BlocksStore.Block? { nil }
     func createFolder(_ folder: String) async {}
     func folderPaths() async -> [String] { [] }
+    func linkToDay(blockId: String, dayId: String) async -> Bool { false }
 }
 
 private final class BlocksObservationBox: @unchecked Sendable {
