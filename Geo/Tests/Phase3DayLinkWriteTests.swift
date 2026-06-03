@@ -75,7 +75,8 @@ final class Phase3DayLinkWriteTests: XCTestCase {
         let parsed = MarkdownConverter.shared.parse(live?.markdown ?? "")
         XCTAssertEqual(parsed.frontmatter["type"], "fleeting", "frontmatter preserved")
 
-        XCTAssertTrue(await waitForDay(dayId, contains: block.id), "block_days indexed after reindex")
+        let indexed = await waitForDay(dayId, contains: block.id)
+        XCTAssertTrue(indexed, "block_days indexed after reindex")
 
         let second = await store.linkBlockToDay(blockId: block.id, dayId: dayId)
         XCTAssertTrue(second, "idempotent success")
