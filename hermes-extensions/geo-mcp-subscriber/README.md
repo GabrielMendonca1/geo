@@ -25,9 +25,20 @@ keepalive ~3x on a no-work op in the transport benchmark).
 ## Design
 
 - **Single transport.** The socket carries both the change *signal*
-  (`geo/changed`) and the *fetch* (`tools/call get_block_by_title` / `get_today`).
-  No token, keychain, httpx, or ephemeral HTTP port — the unix transport has no
-  auth (0600, owner-only).
+  (`geo/changed`) and the *fetch* (`tools/call get_block_by_title` / `get_today`
+  / `list_tasks`). No token, keychain, httpx, or ephemeral HTTP port — the unix
+  transport has no auth (0600, owner-only).
+- **Render-ready snapshot (schema v2).** The daemon does the parsing once, at
+  write time: blocks are unwrapped + frontmatter-stripped, today and open tasks
+  are pre-formatted to their final lines. The hook just concatenates — no
+  per-turn re-parse. Shape:
+  ```json
+  {"v": 2, "fetched_at": 1733250000.0,
+   "profile_md": "...", "memory_md": "...", "protocol_md": "...",
+   "today_line": "date: ... · ...", "tasks_md": "- task (date · priority)\n..."}
+  ```
+  Any pre-v2 snapshot is treated as a cache miss by the hook, so the daemon and
+  hook can ship in either order.
 - **Pure accelerator.** If the daemon is down or Geo is closed, the cache goes
   stale and the hook falls back to live HTTP — identical to the old behavior.
   Nothing breaks; it only gets slower.
