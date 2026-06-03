@@ -472,7 +472,7 @@ private extension BlockEditorView {
                             .padding(.vertical, 4)
 
                         ForEach(availableTags) { tag in
-                            tagMenuItem(tag: tag, isSelected: currentTag?.id == tag.id)
+                            tagMenuItem(tag: tag, isSelected: isCurrentTag(tag))
                         }
                     }
                 }
