@@ -82,7 +82,7 @@ enum DayTools {
         ).registered
     }
 
-    private static func getDay(_ days: any DayRepository, _ indexCoordinator: IndexCoordinator) -> MCPRegisteredTool {
+    private static func getDay(_ captures: (any CaptureRepository)?, _ indexCoordinator: IndexCoordinator) -> MCPRegisteredTool {
         MCPToolBuilder(
             name: "get_day",
             description: "Get a specific day's record. Blocks are derived from inline [[date]] backlinks, unioned with captures.",
