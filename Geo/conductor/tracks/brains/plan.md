@@ -122,7 +122,7 @@ is correct and simple; ANN is a documented escape hatch, not v1.
 
 ## 2. Ingest Pipeline
 
-Pipeline: `source → extract → chunk → Pass-1 batch → Pass-2 reconcile → embed → index → ready`. A per-brain `DatabaseService` reuses the same migrator, `upsertBlock`/`BlockIndexEntry` (`:234`, `:442`) and FTS5 (`:133`) verbatim — plus the `vec0`/`edges` tables owned by the schema layer.
+Pipeline: `source → extract → chunk → Pass-1 batch → Pass-2 reconcile → embed → index → ready`. A per-brain `DatabaseService` reuses the same migrator, `upsertBlock`/`BlockIndexEntry` (`:234`, `:442`) and FTS5 (`:133`) verbatim — plus the `node_vec`(BLOB)/`edges` tables owned by the schema layer.
 
 ### 2.1 Source intake + extraction (exists vs new)
 - **PDF** — NEW. `PDFKit.PDFDocument` per-page `.string`; page index = chunk boundary.
