@@ -114,6 +114,9 @@ final class BlockFileService {
                     blockMetadata.status = MarkdownConverter.normalizedStatus(document.frontmatter["status"])
                     blockMetadata.type = MarkdownConverter.normalizedType(document.frontmatter["type"])
                     blockMetadata.frontmatter_version = MarkdownConverter.frontmatterVersion(document.frontmatter["frontmatter_version"])
+                    if let fmLayer = MarkdownConverter.normalizedLayer(document.frontmatter["layer"]) {
+                        blockMetadata.layer = fmLayer
+                    }
 
                     let resourceValues = try? url.resourceValues(forKeys: resourceKeys)
                     let date = resourceValues?.creationDate ?? resourceValues?.contentModificationDate ?? .distantPast
