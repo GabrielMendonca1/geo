@@ -240,8 +240,8 @@ def cmd_ingest(args) -> None:
                 md = summarize(piece, meta.get("title", name), src.name, key, args.model)
             write_note(name, title_of(md, src.stem), md, src.name, chash)
             written += 1
-    count = reindex(name)
     save_meta(name, meta)
+    count = reindex(name)
     print(f"Ingested {written} new notes into '{name}' ({count} total). Vault: {vault(name)}")
 
 
