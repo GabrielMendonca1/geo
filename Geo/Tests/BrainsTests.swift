@@ -185,8 +185,11 @@ final class BrainsTests: XCTestCase {
         let loaded = try await database.loadAllVectors()
         XCTAssertEqual(loaded.count, 1)
         XCTAssertEqual(loaded.first?.id, "b.md")
-        XCTAssertEqual(loaded.first?.vector.count, 3)
-        XCTAssertEqual(loaded.first?.vector ?? [], [0.1, 0.2, 0.3], accuracy: 1e-6)
+        let roundTripped = loaded.first?.vector ?? []
+        XCTAssertEqual(roundTripped.count, 3)
+        for (lhs, rhs) in zip(roundTripped, [Float(0.1), 0.2, 0.3]) {
+            XCTAssertEqual(lhs, rhs, accuracy: 1e-6)
+        }
         try await database.upsertVector(blockId: "b.md", embedding: [0.4, 0.5, 0.6])
         XCTAssertEqual(try await database.loadAllVectors().count, 1)
     }
