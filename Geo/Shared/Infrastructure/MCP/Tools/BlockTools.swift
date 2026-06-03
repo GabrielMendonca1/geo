@@ -244,7 +244,7 @@ enum BlockTools {
     private static func createBlock(_ blocks: any BlocksRepository, _ tags: any TagsRepository, _ days: any DayRepository) -> MCPRegisteredTool {
         MCPToolBuilder(
             name: "create_block",
-            description: "Create a new markdown block (note). Auto-prepends '# title' if missing and links to today's day record. Optionally classify by Zettelkasten type and lifecycle status — these go into the typed sidecar, NOT into the markdown body. Returns the new block's ID.",
+            description: "Create a new markdown block (note). Auto-prepends '# title' if missing and inserts an inline [[YYYY-MM-DD]] day-link (today by default) into the body. Optionally classify by Zettelkasten type and lifecycle status — these go into the typed sidecar, NOT into the markdown body. Returns the new block's ID.",
             schema: JSONSchemaObject(properties: [
                 "title": .string("Block title"),
                 "content": .string("Markdown content (title will be prepended as # heading if not present)"),
