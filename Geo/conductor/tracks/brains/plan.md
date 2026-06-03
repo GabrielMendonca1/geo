@@ -251,7 +251,7 @@ ONE: a brain can hold 100k+ nodes — the node list MUST page through `BrainInde
 |---|---|---|
 | Pass-2 concept reconcile | O(N²) all-pairs over 100k+ mentions | canonical-key hash bucket (O(N)) → embed only unique keys U → ANN+union-find among U (O(U·log U)) |
 | Per-brain neighbor/graph queries | `buildGraph` O(N) rebuild per call | persist `edges` table, indexed → O(deg) |
-| Semantic top-k | brute-force O(N·D) at N→1M | brute-force vec0 for v1; ANN gate at nodeCount>250k |
+| Semantic top-k | brute-force O(N·D) at N→1M | Accelerate brute-force over float[D] BLOBs for v1 (NOT sqlite-vec — unloadable); ANN gate at >250k |
 | Brain node-list UI | loading 100k nodes to render a list | `limit/offset` paging into `LazyVStack` |
 | Batch round-trips | 1 API call per chunk | `ceil(chunks/maxPerBatch)` submissions; Pass-2 ≤1 batch |
 
