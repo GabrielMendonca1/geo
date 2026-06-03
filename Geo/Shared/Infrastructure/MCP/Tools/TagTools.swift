@@ -21,10 +21,6 @@ enum TagTools {
             description: "List all tags with their IDs and colors.",
             schema: JSONSchemaObject(),
             handler: { _ in
-                switch AgentAuthorization.authorize(.read, on: nil, layer: nil) {
-                case .allow: break
-                case .deny(let reason): return .error(reason)
-                }
                 let allTags = try await tags.list()
                 let result = allTags.map { tag -> [String: AnyCodableValue] in
                     [
