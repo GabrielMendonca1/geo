@@ -262,11 +262,12 @@ final class BrainRegistry: @unchecked Sendable {
     }
 
     func index(for id: String) -> BrainIndex? {
-        guard manifestsById[id] != nil else { return nil }
         cacheLock.lock()
-        defer { cacheLock.unlock() }
-        if let cached = indexCache[id] { return cached }
+        if let cached = indexCache[id] { cacheLock.unlock(); return cached }
+        cacheLock.unlock()
         guard let database = database(for: id) else { return nil }
+        cacheLock.lock(); defer { cacheLock.unlock() }
+        if let cached = indexCache[id] { return cached }
         let index: BrainIndex = DatabaseBrainIndex(id: id, database: database)
         indexCache[id] = index
         return index
