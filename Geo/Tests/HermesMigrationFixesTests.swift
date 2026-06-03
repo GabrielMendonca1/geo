@@ -222,7 +222,7 @@ final class HermesMigrationFixesTests: XCTestCase {
             XCTFail("Block not found after mutate")
             return
         }
-        let versionAfterMutate = refreshed.metadata.frontmatter_version
+        let versionAfterMutate = store.blocks.first(where: { $0.id == block.id })!.metadata.frontmatter_version
         let bodyWithReport = refreshed.markdown + "\n\n## Agent Report - pi - \(timestamp)\nReport text body."
         try await repo.update(id: block.id, markdown: bodyWithReport)
         await store.flushAll()
