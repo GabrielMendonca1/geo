@@ -4,6 +4,7 @@ struct BlockEntity: Identifiable, Hashable, Sendable {
     struct Metadata: Codable, Hashable, Sendable {
         var dayId: String?
         var tagId: String?
+        var tagName: String?
         var isFullWidth: Bool
         var status: String?
         var type: BlockType
@@ -12,6 +13,7 @@ struct BlockEntity: Identifiable, Hashable, Sendable {
         init(
             dayId: String? = nil,
             tagId: String? = nil,
+            tagName: String? = nil,
             isFullWidth: Bool = false,
             status: String? = nil,
             type: BlockType = .fleeting,
@@ -19,6 +21,7 @@ struct BlockEntity: Identifiable, Hashable, Sendable {
         ) {
             self.dayId = dayId
             self.tagId = tagId
+            self.tagName = tagName
             self.isFullWidth = isFullWidth
             self.status = status
             self.type = type
@@ -34,6 +37,8 @@ struct BlockEntity: Identifiable, Hashable, Sendable {
     let url: URL
     let tagId: String?
     let metadata: Metadata
+
+    var tagName: String? { metadata.tagName }
 
     init(
         id: String,
