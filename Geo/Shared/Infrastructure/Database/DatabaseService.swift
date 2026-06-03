@@ -470,6 +470,81 @@ final class DatabaseService: @unchecked Sendable {
         }
     }
 
+    struct BrainEdge: Sendable, Equatable {
+        let sourceId: String
+        let targetTitle: String
+        let targetId: String?
+    }
+
+    func setEdges(forSource sourceId: String, edges: [BrainEdge]) async throws {
+        try await performWrite { db in
+            guard try db.tableExists("edges") else { return }
+            try db.execute(sql: "DELETE FROM edges WHERE sourceId = ?", arguments: [sourceId])
+            for edge in edges {
+                try db.execute(
+                    sql: "INSERT INTO edges (sourceId, targetTitle, targetId) VALUES (?, ?, ?)",
+                    arguments: [edge.sourceId, edge.targetTitle, edge.targetId]
+                )
+            }
+        }
+    }
+
+    func outgoingEdges(from sourceId: String) async throws -> [BrainEdge] {
+        try await performRead { db in
+            guard try db.tableExists("edges") else { return [] }
+            let rows = try Row.fetchAll(db, sql: "SELECT sourceId, targetTitle, targetId FROM edges WHERE sourceId = ?", arguments: [sourceId])
+            return rows.map { BrainEdge(sourceId: $0["sourceId"], targetTitle: $0["targetTitle"], targetId: $0["targetId"]) }
+        }
+    }
+
+    func incomingEdges(to targetId: String) async throws -> [BrainEdge] {
+        try await performRead { db in
+            guard try db.tableExists("edges") else { return [] }
+            let rows = try Row.fetchAll(db, sql: "SELECT sourceId, targetTitle, targetId FROM edges WHERE targetId = ?", arguments: [targetId])
+            return rows.map { BrainEdge(sourceId: $0["sourceId"], targetTitle: $0["targetTitle"], targetId: $0["targetId"]) }
+        }
+    }
+
+    func resolveEdgeTargets(title: String, toBlockId blockId: String) async throws {
+        try await performWrite { db in
+            guard try db.tableExists("edges") else { return }
+            try db.execute(sql: "UPDATE edges SET targetId = ? WHERE targetId IS NULL AND targetTitle = ?", arguments: [blockId, title])
+        }
+    }
+
+    private static func encodeVector(_ vector: [Float]) -> Data {
+        vector.withUnsafeBytes { Data($0) }
+    }
+
+    private static func decodeVector(_ data: Data) -> [Float] {
+        guard data.count % MemoryLayout<Float>.size == 0 else { return [] }
+        return data.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
+    }
+
+    func upsertVector(blockId: String, embedding: [Float]) async throws {
+        let data = Self.encodeVector(embedding)
+        let dims = embedding.count
+        try await performWrite { db in
+            guard try db.tableExists("node_vec") else { return }
+            try db.execute(
+                sql: "INSERT INTO node_vec (blockId, dims, embedding) VALUES (?, ?, ?) ON CONFLICT(blockId) DO UPDATE SET dims = excluded.dims, embedding = excluded.embedding",
+                arguments: [blockId, dims, data]
+            )
+        }
+    }
+
+    func loadAllVectors() async throws -> [(id: String, vector: [Float])] {
+        try await performRead { db in
+            guard try db.tableExists("node_vec") else { return [] }
+            let rows = try Row.fetchAll(db, sql: "SELECT blockId, embedding FROM node_vec")
+            return rows.map { row in
+                let id: String = row["blockId"]
+                let data: Data = row["embedding"]
+                return (id, Self.decodeVector(data))
+            }
+        }
+    }
+
     private func upsertBlock(_ entry: BlockIndexEntry, in db: Database) throws {
         try db.execute(
             sql: """
