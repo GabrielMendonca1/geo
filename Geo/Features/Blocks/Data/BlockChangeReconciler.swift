@@ -118,6 +118,10 @@ final class BlockChangeReconciler {
                 if let fmLayer = MarkdownConverter.shared.layer(in: content) {
                     blockMetadata.layer = fmLayer
                 }
+                let fmDocument = MarkdownConverter.shared.parse(content)
+                if fmDocument.frontmatter["full_width"] != nil {
+                    blockMetadata.isFullWidth = MarkdownConverter.normalizedFullWidth(fmDocument.frontmatter["full_width"])
+                }
                 let diskFrontmatterVersion = MarkdownConverter.shared.frontmatterVersion(in: content)
                 let memBlock = blocks.first(where: { $0.id == blockId })
                 if memBlock?.markdown == content {
