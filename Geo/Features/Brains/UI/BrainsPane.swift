@@ -104,8 +104,58 @@ private struct BrainDetailView: View {
     @State private var nodes: [BlockIndexEntry] = []
     @State private var showImporter = false
     @State private var ingesting = false
+    @State private var mode: DetailMode = .notes
+    @State private var graphSelection: BlockIndexEntry?
+    @StateObject private var brainGraph = BrainGraphStore()
+
+    private enum DetailMode: String, CaseIterable, Identifiable {
+        case notes = "Notes"
+        case graph = "Graph"
+        var id: String { rawValue }
+    }
 
     var body: some View {
+        VStack(spacing: 0) {
+            Picker("View", selection: $mode) {
+                ForEach(DetailMode.allCases) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .padding(8)
+
+            Group {
+                switch mode {
+                case .notes: notesList
+                case .graph: graphArea
+                }
+            }
+        }
+        .navigationTitle(manifest?.title ?? brainId)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button { showImporter = true } label: { Label("Attach Sources", systemImage: "paperclip") }
+                    .disabled(ingesting)
+            }
+        }
+        .fileImporter(isPresented: $showImporter, allowedContentTypes: [.pdf, .plainText, .text, .html], allowsMultipleSelection: true) { result in
+            handleImport(result)
+        }
+        .overlay {
+            if ingesting {
+                ProgressView("Ingesting…").padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+            }
+        }
+        .sheet(item: $graphSelection) { node in
+            NavigationStack { BrainNodeView(node: node) }
+                .frame(minWidth: 480, minHeight: 360)
+        }
+        .task {
+            reload()
+            await brainGraph.load(brainId: brainId)
+        }
+    }
+
+    private var notesList: some View {
         List {
             if let manifest {
                 Section("Status") {
@@ -125,22 +175,24 @@ private struct BrainDetailView: View {
                 }
             }
         }
-        .navigationTitle(manifest?.title ?? brainId)
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button { showImporter = true } label: { Label("Attach Sources", systemImage: "paperclip") }
-                    .disabled(ingesting)
+    }
+
+    private var graphArea: some View {
+        GraphView(
+            graph: brainGraph.graph,
+            seedPositions: brainGraph.cachedPositions,
+            wasSettled: brainGraph.simulationSettled,
+            sidebarHidden: true,
+            onLayoutChange: { positions, settled in
+                brainGraph.updateLayoutCache(positions: positions, settled: settled)
+            },
+            isActive: { true }
+        ) { id in
+            if let blockId = brainGraph.idLookup[id], let node = nodes.first(where: { $0.id == blockId }) {
+                graphSelection = node
             }
         }
-        .fileImporter(isPresented: $showImporter, allowedContentTypes: [.pdf, .plainText, .text, .html], allowsMultipleSelection: true) { result in
-            handleImport(result)
-        }
-        .overlay {
-            if ingesting {
-                ProgressView("Ingesting…").padding(24).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-            }
-        }
-        .task { reload() }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func reload() {
