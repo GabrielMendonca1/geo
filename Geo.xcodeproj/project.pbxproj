@@ -1557,6 +1557,8 @@
 				BB8F6CA6E512384139322DC58ABB4DA0 /* DayMigrationService.swift */,
 				A1B2C3D4E5F60718293A0004 /* StorageMigrationService.swift */,
 				A1B2C3D4E5F60718293A0040 /* FrontmatterStripMigrationService.swift */,
+				A1B2C3D4E5F60718293A0041 /* Phase0FrontmatterReinjectionMigration.swift */,
+				A1B2C3D4E5F60718293A0042 /* FrontmatterBlockBuilder.swift */,
 			);
 			path = Migrations;
 			sourceTree = "<group>";
