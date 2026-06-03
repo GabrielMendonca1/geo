@@ -222,6 +222,42 @@ final class BlocksStoreFrontmatterMutatorTests: XCTestCase {
             XCTFail("Unexpected error: \(error)")
         }
     }
+
+    func testSetLayerWritesFrontmatterAndRoundtrips() async throws {
+        let block = try await makeBlock(markdown: "---\ntype: fleeting\n---\n# Layered\n")
+        let originalURL = block.url
+
+        let ok = await store.setLayer(.shared, for: block.id)
+        XCTAssertTrue(ok)
+
+        let live = store.blocks.first(where: { $0.id == block.id })
+        XCTAssertEqual(live?.metadata.layer, .shared, "In-memory layer updates synchronously (read-after-write)")
+        XCTAssertEqual(live?.url, originalURL, "No file move")
+
+        await store.flushAll()
+        for _ in 0..<40 {
+            if let disk = try? String(contentsOf: originalURL, encoding: .utf8),
+               MarkdownConverter.shared.layer(in: disk) == .shared {
+                break
+            }
+            try? await Task.sleep(nanoseconds: 50_000_000)
+        }
+        let disk = try String(contentsOf: originalURL, encoding: .utf8)
+        XCTAssertEqual(MarkdownConverter.shared.layer(in: disk), .shared, "Frontmatter layer written to disk")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: originalURL.path), "File not moved")
+    }
+
+    func testReconcilerExternalLayerFlipUpdatesMemory() async throws {
+        let block = try await makeBlock(markdown: "---\ntype: fleeting\nlayer: agent\n---\n# Ext\n")
+        XCTAssertEqual(store.blocks.first(where: { $0.id == block.id })?.metadata.layer, .agent)
+
+        let flipped = "---\ntype: fleeting\nlayer: shared\n---\n# Ext\n"
+        try flipped.write(to: block.url, atomically: true, encoding: .utf8)
+        store.changeReconciler.handleExternalChanges([block.url], currentBlocks: store.blocks)
+
+        let live = store.blocks.first(where: { $0.id == block.id })
+        XCTAssertEqual(live?.metadata.layer, .shared, "External frontmatter layer flip propagates")
+    }
 }
 
 private final class StubDayRepositoryFM: DayRepository, @unchecked Sendable {
