@@ -718,6 +718,7 @@ class BlocksStore: ObservableObject {
         meta.frontmatter_version = newVersion
         meta.status = self.markdownConverter.status(in: newMarkdown)
         meta.type = self.markdownConverter.type(in: newMarkdown)
+        meta.layer = self.markdownConverter.layer(in: newMarkdown) ?? meta.layer
         let updated = Block(
             id: live.id,
             title: live.title,
