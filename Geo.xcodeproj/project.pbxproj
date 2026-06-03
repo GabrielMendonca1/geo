@@ -2090,6 +2090,7 @@
 				STR05B /* AutoFormatAndOverlaysStressTests.swift in Sources */,
 				HTTP000000000000007B /* GeoHTTPServerTests.swift in Sources */,
 				BLKIDXSCHEMA0000BLD /* BlockIndexSchemaTests.swift in Sources */,
+				BLKLAYERFOLD0000BLD /* BlockLayerFolderTests.swift in Sources */,
 				BKP000000000000000002BLD /* BackupServiceTests.swift in Sources */,
 				77446AC211E5914F06B9682B /* BrainsTests.swift in Sources */,
 				21E8D9E95B212230DEE4AD40 /* IngestPipelineTests.swift in Sources */,
