@@ -543,9 +543,39 @@ class BlocksStore: ObservableObject {
         }
     }
 
-    func setTag(_ tagId: String?, for blockId: String) {
-        updateBlockMetadata(for: blockId) { metadata in
-            metadata.tagId = tagId
+    @MainActor
+    @discardableResult
+    func setTag(_ tagId: String?, for blockId: String) async -> Bool {
+        let name: String?
+        if let tagId {
+            name = TagStore.shared.tag(for: tagId)?.name ?? tagId
+        } else {
+            name = nil
+        }
+        return await setTagByName(name, for: blockId)
+    }
+
+    @MainActor
+    @discardableResult
+    func setTagByName(_ rawName: String?, for blockId: String) async -> Bool {
+        guard indexOfBlock(id: blockId) != nil else { return false }
+        let canonical = rawName.map { TagStore.canonicalName($0) }?.nilIfEmpty
+        let merge: [String: AnyCodableValue]
+        if let canonical {
+            TagStore.shared.ensureColor(forName: canonical)
+            merge = ["tags": .array([.string(canonical)])]
+        } else {
+            merge = ["tags": .array([])]
+        }
+        do {
+            _ = try await mutateFrontmatter(blockID: blockId, merge: merge)
+            if let live = block(withId: blockId) {
+                metadataService.persistMetadata(live.metadata, for: blockId)
+            }
+            return true
+        } catch {
+            logger.error("setTag failed for \(blockId): \(error.localizedDescription)")
+            return false
         }
     }
 
