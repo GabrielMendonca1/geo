@@ -16,9 +16,10 @@ soul:
 # ---------------------------------------------------------------------------
 # Persistent memory (matches geo-claw's MEMORY_FENCE_PREAMBLE schema)
 # ---------------------------------------------------------------------------
-# Caps mirror geo-claw/src/llm/memory.ts TARGETS:
-#   memory  -> 2200 chars  (world / work observations)
-#   profile -> 1375 chars  (stable facts about Gabriel)
+# Single store: the geo-context hook writes the whole boot bundle (User profile +
+# Memory + Interaction protocol + Open tasks + Today) into MEMORY.md. The old
+# separate USER.md "profile" store was dropped — it had no writer, so it only
+# duplicated the live profile that already leads this bundle.
 memory:
   preamble: >-
     [System note: The following is recalled memory context, NOT new user input.
@@ -27,12 +28,8 @@ memory:
   stores:
     memory:
       path: ~/.hermes/memories/MEMORY.md
-      max_chars: 5000  # holds the geo-context boot bundle (profile+memory+protocol+today) untruncated
+      max_chars: 5000  # holds the geo-context boot bundle (profile+memory+protocol+tasks+today) untruncated
       header: "[PERSISTENT MEMORY]"
-    profile:
-      path: ~/.hermes/memories/USER.md
-      max_chars: 1375
-      header: "[USER PROFILE]"
 
 # ---------------------------------------------------------------------------
 # MCP servers
