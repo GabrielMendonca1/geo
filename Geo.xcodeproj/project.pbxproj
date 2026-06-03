@@ -639,6 +639,8 @@
 		TBU000113REF /* FrontmatterStripRetirementTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrontmatterStripRetirementTests.swift; sourceTree = "<group>"; };
 		TBU000112REF /* FrontmatterBlockBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrontmatterBlockBuilderTests.swift; sourceTree = "<group>"; };
 		TBU000111REF /* Phase0FrontmatterReinjectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phase0FrontmatterReinjectionTests.swift; sourceTree = "<group>"; };
+		P1H1A1S1E1B1L1T0001 /* Phase1LayerBackfillTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phase1LayerBackfillTests.swift; sourceTree = "<group>"; };
+		P1H1A1S1E1R1D1T0001 /* Phase1LayerReadTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phase1LayerReadTests.swift; sourceTree = "<group>"; };
 		THEME00020000002 /* ThemePalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemePalette.swift; sourceTree = "<group>"; };
 		TYPO00010000002 /* EditorTypographyPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorTypographyPreferences.swift; sourceTree = "<group>"; };
 		V0PHMCPFRAM0001R /* MCPFramer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MCPFramer.swift; sourceTree = "<group>"; };
