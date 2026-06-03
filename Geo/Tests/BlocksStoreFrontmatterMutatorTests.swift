@@ -251,8 +251,10 @@ final class BlocksStoreFrontmatterMutatorTests: XCTestCase {
         let block = try await makeBlock(markdown: "---\ntype: fleeting\nlayer: agent\n---\n# Ext\n")
         XCTAssertEqual(store.blocks.first(where: { $0.id == block.id })?.metadata.layer, .agent)
 
-        let flipped = "---\ntype: fleeting\nlayer: shared\n---\n# Ext\n"
+        let flipped = "---\ntype: fleeting\nlayer: shared\nfrontmatter_version: 99\n---\n# Ext edited\n"
         try flipped.write(to: block.url, atomically: true, encoding: .utf8)
+
+        try await Task.sleep(nanoseconds: 1_100_000_000)
         store.changeReconciler.handleExternalChanges([block.url], currentBlocks: store.blocks)
 
         let live = store.blocks.first(where: { $0.id == block.id })
