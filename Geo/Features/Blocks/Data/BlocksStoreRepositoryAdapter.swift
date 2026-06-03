@@ -168,13 +168,9 @@ final class LiveBlocksStoreAccess: BlocksStoreAccess, @unchecked Sendable {
     }
 
     func setLayer(_ layer: BlockLayer, for blockId: String) async -> Bool {
-        await MainActor.run {
-            guard blocksStore.blocks.contains(where: { $0.id == blockId }) else {
-                return false
-            }
-            blocksStore.setLayer(layer, for: blockId)
-            return true
-        }
+        await Task(operation: { @MainActor in
+            await blocksStore.setLayer(layer, for: blockId)
+        }).value
     }
 
     func setType(_ type: BlockType, for blockId: String) async -> Bool {
