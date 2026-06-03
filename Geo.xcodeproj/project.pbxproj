@@ -304,6 +304,7 @@
 		TBU000107BLD /* BlocksStoreFrontmatterMutatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBU000107REF /* BlocksStoreFrontmatterMutatorTests.swift */; };
 		TBU000108BLD /* HermesMigrationFixesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBU000108REF /* HermesMigrationFixesTests.swift */; };
 		TBU000109BLD /* FrontmatterEditorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBU000109REF /* FrontmatterEditorTests.swift */; };
+		TBU000110BLD /* FrontmatterYAMLRoundTripTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBU000110REF /* FrontmatterYAMLRoundTripTests.swift */; };
 		THEME00020000001 /* ThemePalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = THEME00020000002 /* ThemePalette.swift */; };
 		TYPO00010000001 /* EditorTypographyPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = TYPO00010000002 /* EditorTypographyPreferences.swift */; };
 		V0PHMCPFRAM0001B /* MCPFramer.swift in Sources */ = {isa = PBXBuildFile; fileRef = V0PHMCPFRAM0001R /* MCPFramer.swift */; };
