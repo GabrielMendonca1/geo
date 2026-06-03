@@ -185,7 +185,28 @@ async def _safe_get(client: httpx.AsyncClient, path: str, token_ref: dict) -> Op
     return None
 
 
+def _read_cache_bundle():
+    """Return (profile, memory, protocol, today) from the geo-mcp-subscriber
+    push cache when it exists and is fresh, else None. Values are the raw
+    tool-result text strings (same shape as the HTTP responses), so the
+    _unwrap_block / _format_today parsers below handle them unchanged."""
+    try:
+        obj = json.loads(GEO_CACHE_SNAPSHOT.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    fetched = float(obj.get("fetched_at") or 0)
+    if not fetched or (time.time() - fetched) > CACHE_FRESH_SECS:
+        return None
+    bundle = (obj.get("profile"), obj.get("memory"),
+              obj.get("protocol"), obj.get("today"))
+    return bundle if any(bundle) else None
+
+
 async def _fetch_geo_blocks():
+    cached = _read_cache_bundle()
+    if cached is not None:
+        _log("boot bundle served from geo-mcp-subscriber cache")
+        return cached
     info = _read_api_json()
     if not info:
         return None, None, None, None
