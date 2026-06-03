@@ -46,3 +46,22 @@ enum AgentAuthorization {
         return decision
     }
 }
+
+enum AuthorizedBlock {
+    case ok(BlockEntity)
+    case denied(MCPToolResult)
+}
+
+extension AgentAuthorization {
+    static func authorizeWrite(_ operation: AgentOperation, id: String, in blocks: any BlocksRepository) async throws -> AuthorizedBlock {
+        guard let block = try await blocks.get(id: id) else {
+            return .denied(.error("Block not found: \(id)"))
+        }
+        switch authorize(operation, on: id, layer: block.metadata.layer) {
+        case .allow:
+            return .ok(block)
+        case .deny(let reason):
+            return .denied(.error(reason))
+        }
+    }
+}
