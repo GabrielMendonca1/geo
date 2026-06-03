@@ -1819,6 +1819,8 @@
 				B1C2D3E4F5061728394B0003 /* FileWatcherService.swift in Sources */,
 				B1C2D3E4F5061728394B0004 /* StorageMigrationService.swift in Sources */,
 				B1C2D3E4F5061728394B0040 /* FrontmatterStripMigrationService.swift in Sources */,
+				B1C2D3E4F5061728394B0041 /* Phase0FrontmatterReinjectionMigration.swift in Sources */,
+				B1C2D3E4F5061728394B0042 /* FrontmatterBlockBuilder.swift in Sources */,
 				B1C2D3E4F5061728394B0005 /* MarkdownIndexingService.swift in Sources */,
 				B1C2D3E4F5061728394B0007 /* MarkdownConverter.swift in Sources */,
 				B1C2D3E4F5061728394B0009 /* MarkdownStyler.swift in Sources */,
