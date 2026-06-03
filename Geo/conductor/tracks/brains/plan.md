@@ -156,7 +156,7 @@ CP1 Logic/BigO:
         specific — tune; false-merge (two distinct concepts) is the danger.
 CP2 Data structures:
   mentionsByKey: [CanonicalKey: [MentionRef]]   // O(1) group
-  canonicalTitle: [CanonicalKey: String]        // first/longest wins
+  canonicalTitle: [CanonicalKey: String]        // deterministic: longest, then lexicographically smallest (resumable)
   DSU parent[]                                   // union-find near-dup clusters
   vec0 keyed by canonical key (ANN)
 CP3 Architecture/I/O:
