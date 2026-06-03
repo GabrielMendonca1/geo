@@ -340,14 +340,18 @@ async def search_context(query: str, with_summary: bool = False) -> dict:
             if not raw:
                 return {"ok": True, "query": query, "answer": None, "sources": [],
                         "results": None, "error": None}
-            for hit in _parse_hits(raw)[:EXTRACT_TOPK]:
-                bid = hit.get("id")
-                title = hit.get("title") or bid or "?"
-                body = None
-                if bid:
-                    body = _unwrap_block(await asyncio.wait_for(
-                        _safe_get(client, "/v1/blocks/" + urllib.parse.quote(str(bid)), token_ref),
-                        timeout=10.0))
+            hits = _parse_hits(raw)[:EXTRACT_TOPK]
+
+            async def _body(bid):
+                if not bid:
+                    return None
+                return _unwrap_block(await asyncio.wait_for(
+                    _safe_get(client, "/v1/blocks/" + urllib.parse.quote(str(bid)), token_ref),
+                    timeout=10.0))
+
+            bodies = await asyncio.gather(*(_body(h.get("id")) for h in hits))
+            for hit, body in zip(hits, bodies):
+                title = hit.get("title") or hit.get("id") or "?"
                 if not body:
                     body = hit.get("snippet") or ""
                 sources.append(title)
