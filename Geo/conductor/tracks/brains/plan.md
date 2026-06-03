@@ -259,7 +259,7 @@ ONE: a brain can hold 100k+ nodes — the node list MUST page through `BrainInde
 
 ## Phasing & sequencing
 
-- **Phase 0 — Prereqs.** Add **sqlite-vec** to the build (SPM/loadable extension — confirm GRDB load path). Spike `NLEmbedding` dims + quality on a sample corpus. Decide the concrete **"next interaction window"** trigger (app activation? a specific user action?). Tests: sqlite-vec KNN round-trip; embedding determinism.
+- **Phase 0 — Prereqs.** (1) Vectors: implement **Accelerate brute-force cosine** over `float[D]` BLOBs (sqlite-vec dropped — unloadable, BLOCKER 1). (2) Decide **batch vs bounded concurrent-sync** for Haiku and extract a generic `AnthropicClient` call path (BLOCKER 2). (3) Spike `NLEmbedding` dims + retrieval quality on a sample corpus. (4) Decide the concrete **"next interaction window"** trigger. Tests: Accelerate KNN round-trip; embedding determinism.
 - **Phase 1 — Spine (unblocks all).** `BrainRegistry` + `BrainManifest`/`brain.json`; `BrainIndex` protocol; per-brain `DatabaseService` clone + `edges` + `node_vec`/`vec_map`; personal brain registered as default `"essence"`. Tests: registry resolve/list, edges persistence, get/neighbors parity vs `buildGraph`.
 - **Phase 2 (parallel after Phase 1):**
   - **2a API** — `brain` param threading + boundary guard + `list_brains`/`get_brain_manifest` + `search_blocks` semantic mode. Tests: default-path regression (no `brain` = identical), write-with-brain → 400, semantic mode.
