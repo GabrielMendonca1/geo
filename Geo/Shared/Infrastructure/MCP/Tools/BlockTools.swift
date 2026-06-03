@@ -362,7 +362,7 @@ enum BlockTools {
         var out = "---\n"
         for key in frontmatter.keys.sorted() {
             guard let value = frontmatter[key] else { continue }
-            out += "\(key): \(value)\n"
+            out += "\(key): \(FrontmatterYAML.emitScalar(value))\n"
         }
         out += "---\n"
         let trimmedBody = body.hasPrefix("\n") ? String(body.dropFirst()) : body
