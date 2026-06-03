@@ -24,28 +24,13 @@ class DayManager: ObservableObject {
         updateCurrentDayId()
     }
 
-    func recordBlockCreation(id: String) {
-        let snapshotDayId = currentDayId
-        let snapshotDate = snapshotDayId.flatMap(Self.date(from:)) ?? Date()
-        Task {
-            do {
-                try await dayRepository.addBlockToDay(date: snapshotDate, blockId: id)
-            } catch {
-                logger.error("Failed to add block \(id) to day: \(error.localizedDescription)")
-            }
-        }
-    }
-
     func recordCaptureCreation(id: UUID, date: Date = Date(), dayId: String? = nil) {
         Task {
             let targetDate = dayId.flatMap(Self.date(from:)) ?? date
             let normalizedDate = Calendar.current.startOfDay(for: targetDate)
             let resolvedDayId = Day.idFromDate(normalizedDate)
-            do {
-                try await dayRepository.addCaptureToDay(date: normalizedDate, captureId: id)
-            } catch {
-                logger.error("Failed to add capture \(id) to day: \(error.localizedDescription)")
-            }
+            // Capture-day membership is owned by CaptureItem.dayId (the capture repository),
+            // not days.json — DayStore no longer persists capture links.
             do {
                 try await captureRepository.linkToDay(captureId: id, dayId: resolvedDayId)
             } catch {
