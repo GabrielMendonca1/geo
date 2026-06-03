@@ -32,7 +32,9 @@ final class BlockIndexSchemaTests: XCTestCase {
         modifiedAt: Date = Date(),
         type: String = "fleeting",
         status: String? = nil,
-        layer: String = "user"
+        layer: String = "user",
+        dayIds: [String] = [],
+        altId: String? = nil
     ) -> BlockIndexEntry {
         BlockIndexEntry(
             id: id,
@@ -48,7 +50,9 @@ final class BlockIndexSchemaTests: XCTestCase {
             tags: [],
             type: type,
             status: status,
-            layer: layer
+            layer: layer,
+            dayIds: dayIds,
+            altId: altId
         )
     }
 
