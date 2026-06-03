@@ -171,12 +171,15 @@ final class BrainsTests: XCTestCase {
             DatabaseService.BrainEdge(sourceId: "n1.md", targetTitle: "Concept A", targetId: nil),
         ])
         try await database.resolveEdgeTargets(title: "Concept A", toBlockId: "a.md")
-        XCTAssertEqual(try await database.incomingEdges(to: "a.md").count, 1)
+        let resolved = try await database.incomingEdges(to: "a.md")
+        XCTAssertEqual(resolved.count, 1)
         try await database.setEdges(forSource: "n1.md", edges: [
             DatabaseService.BrainEdge(sourceId: "n1.md", targetTitle: "Concept C", targetId: "c.md"),
         ])
-        XCTAssertEqual(try await database.outgoingEdges(from: "n1.md").count, 1)
-        XCTAssertEqual(try await database.incomingEdges(to: "a.md").count, 0)
+        let outgoingAfter = try await database.outgoingEdges(from: "n1.md")
+        XCTAssertEqual(outgoingAfter.count, 1)
+        let incomingAfter = try await database.incomingEdges(to: "a.md")
+        XCTAssertEqual(incomingAfter.count, 0)
     }
 
     func testVectorBlobRoundTrip() async throws {
