@@ -274,6 +274,44 @@ private struct PillButtonStyle: ButtonStyle {
     }
 }
 
+// A kind glyph inside a soft tinted chip — shared by source rows and add tiles.
+private struct SourceBadge: View {
+    let kind: BrainSourceKind
+    var size: CGFloat = 40
+    var corner: CGFloat = 10
+    var glyph: CGFloat = 18
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: corner).fill(kind.tint.opacity(0.14))
+            Image(systemName: kind.icon).font(.system(size: glyph, weight: .regular)).foregroundStyle(kind.tint)
+        }
+        .frame(width: size, height: size)
+    }
+}
+
+private struct RebuildButton: View {
+    var spinning: Bool
+    let action: () -> Void
+    @State private var hover = false
+    @State private var angle: Double = 0
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "arrow.clockwise").font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(hover ? Palette.foreground : Palette.tertiaryForeground)
+                .rotationEffect(.degrees(angle))
+                .frame(width: 26, height: 26)
+                .background(RoundedRectangle(cornerRadius: 7).fill(hover ? Palette.foreground.opacity(0.08) : .clear))
+        }
+        .buttonStyle(.plain).help("Rebuild notes from sources").onHover { hover = $0 }
+        .onChange(of: spinning) { _, on in
+            if on { withAnimation(.linear(duration: 0.9).repeatForever(autoreverses: false)) { angle = 360 } }
+            else { withAnimation(.easeOut(duration: 0.2)) { angle = 0 } }
+        }
+    }
+}
+
 // MARK: - Graph cell (an Obsidian-style graph tile; the graph IS the card)
 
 private struct BrainGraphCell: View {
