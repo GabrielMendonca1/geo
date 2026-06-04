@@ -116,6 +116,31 @@ def _format_today(raw: Optional[str]) -> Optional[str]:
         return raw
 
 
+def _format_tasks(raw: Optional[str]) -> Optional[str]:
+    """Render GET /v1/tasks (pending) as a scannable '- title (anchor · prio)' list."""
+    if not raw:
+        return None
+    try:
+        tasks = json.loads(raw)
+    except (json.JSONDecodeError, AttributeError):
+        return None
+    if not isinstance(tasks, list):
+        return None
+    rows = [t for t in tasks if isinstance(t, dict)
+            and t.get("status") == "pending"
+            and t.get("kind") in ("task", "event")]
+    rows.sort(key=lambda t: t.get("anchor") or "9999")
+    lines = []
+    for t in rows[:TASKS_MAX]:
+        title = t.get("title") or "?"
+        meta = [m for m in ((t.get("anchor") or "")[:10],
+                            t.get("priority") if t.get("priority") not in (None, "unset") else None)
+                if m]
+        suffix = f" ({' · '.join(meta)})" if meta else ""
+        lines.append(f"- {title}{suffix}")
+    return "\n".join(lines) if lines else None
+
+
 def _read_keychain_token() -> Optional[str]:
     env_token = os.environ.get("GEO_API_TOKEN")
     if env_token and env_token.strip():
