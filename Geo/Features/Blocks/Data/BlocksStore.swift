@@ -539,14 +539,10 @@ class BlocksStore: ObservableObject {
 
     @MainActor
     @discardableResult
-    func setTag(_ tagId: String?, for blockId: String) async -> Bool {
-        let name: String?
-        if let tagId {
-            name = TagStore.shared.tag(for: tagId)?.name ?? tagId
-        } else {
-            name = nil
-        }
-        return await setTagByName(name, for: blockId)
+    func setTag(_ tagName: String?, for blockId: String) async -> Bool {
+        // Tags are identified solely by canonical name (block_tags); the legacy UUID->name
+        // resolution is gone. Callers pass the tag's canonical name (Tag.id is the name).
+        return await setTagByName(tagName, for: blockId)
     }
 
     @MainActor
