@@ -54,35 +54,4 @@ enum TagTools {
             }
         ).registered
     }
-
-    private static func setBlockTag(_ tags: any TagsRepository, _ blocks: any BlocksRepository) -> MCPRegisteredTool {
-        MCPToolBuilder(
-            name: "set_block_tag",
-            description: "Set or change a block's tag by tag name.",
-            schema: JSONSchemaObject(properties: [
-                "block_id": .string("Block ID (filename)"),
-                "tag_name": .string("Tag name to assign (use empty string to clear)"),
-            ], required: ["block_id", "tag_name"]),
-            handler: { args in
-                guard let blockId = args["block_id"]?.stringValue,
-                      let tagName = args["tag_name"]?.stringValue else {
-                    return .error("Missing required parameters: block_id, tag_name")
-                }
-                guard validateBlockId(blockId) else {
-                    return .error("invalid block id")
-                }
-                switch try await AgentAuthorization.authorizeWrite(.setTag, id: blockId, in: blocks) {
-                case .ok: break
-                case .denied(let result): return result
-                }
-
-                if tagName.isEmpty {
-                    try await blocks.setTagByName(blockId: blockId, name: nil)
-                } else {
-                    try await blocks.setTagByName(blockId: blockId, name: tagName)
-                }
-                return .json(["success": true])
-            }
-        ).registered
-    }
 }
