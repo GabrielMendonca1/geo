@@ -73,12 +73,9 @@ enum BlockTools {
                 var filtered = allBlocks
                 if let tagName = args["tag_name"]?.stringValue {
                     let matchKey = TagStore.canonicalName(tagName)
-                    let matchId = allTags.first { $0.name.caseInsensitiveCompare(tagName) == .orderedSame }?.id
                     filtered = filtered.filter { block in
-                        if let name = block.metadata.tagName {
-                            return TagStore.canonicalName(name) == matchKey
-                        }
-                        return block.tagId == matchId
+                        guard let name = block.metadata.tagName else { return false }
+                        return TagStore.canonicalName(name) == matchKey
                     }
                 }
                 if let limit = args["limit"]?.intValue {
@@ -91,8 +88,6 @@ enum BlockTools {
                         "title": .string(block.displayTitle),
                     ]
                     if let name = block.metadata.tagName {
-                        entry["tag_name"] = .string(name)
-                    } else if let tagId = block.tagId, let name = tagMap[tagId] {
                         entry["tag_name"] = .string(name)
                     }
                 if let dayId = block.metadata.dayId {
