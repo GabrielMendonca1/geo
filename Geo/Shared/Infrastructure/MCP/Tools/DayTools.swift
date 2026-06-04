@@ -3,21 +3,6 @@ import os.log
 
 enum DayTools {
     private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "geo", category: "MCPDayTools")
-    private static let validIdCharacters = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-")
-
-    private static func validateBlockId(_ id: String) -> Bool {
-        guard !id.isEmpty, id.count <= 256 else { return false }
-        if id.contains("\\") || id.contains("\0") || id.hasPrefix("/") {
-            return false
-        }
-        let segments = id.split(separator: "/", omittingEmptySubsequences: false)
-        for segment in segments {
-            if segment.isEmpty || segment == "." || segment == ".." { return false }
-            if !segment.unicodeScalars.allSatisfy({ validIdCharacters.contains($0) }) { return false }
-        }
-        return true
-    }
-
     private static var dailyDirectory: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? FileManager.default.homeDirectoryForCurrentUser
