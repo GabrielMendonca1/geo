@@ -71,7 +71,7 @@ final class DatabaseService: @unchecked Sendable {
     private var dbQueue: DatabaseQueue
     private let queue = DispatchQueue(label: "com.geo.database", qos: .userInitiated)
 
-    init(databaseURL: URL? = nil, fileManager: FileManager = .default, schema: DatabaseSchemaProfile = .personal) {
+    init(databaseURL: URL? = nil, fileManager: FileManager = .default) {
         let baseURL = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? fileManager.homeDirectoryForCurrentUser
         // Index/blocks.sqlite is the SOLE live, rebuildable cache (FTS + graph + tag/day maps),
