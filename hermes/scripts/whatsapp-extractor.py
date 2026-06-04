@@ -419,9 +419,17 @@ def _track_usage(resp) -> None:
     _usage_totals["calls"] += 1
 
 
-async def _call_model(client: AsyncAnthropic, model: str, prompt: str, max_tokens: int, timeout_s: float) -> str | None:
+async def _call_model(
+    client: AsyncAnthropic,
+    model: str,
+    prompt: str,
+    max_tokens: int,
+    timeout_s: float,
+    attempts: int = RETRY_ATTEMPTS + 1,
+) -> str | None:
     last_err: str | None = None
-    for attempt in range(RETRY_ATTEMPTS + 1):
+    for attempt in range(attempts):
+        delay = RETRY_BACKOFF_S * (attempt + 1)
         try:
             resp = await asyncio.wait_for(
                 client.messages.create(
@@ -436,10 +444,18 @@ async def _call_model(client: AsyncAnthropic, model: str, prompt: str, max_token
             return "".join(parts)
         except asyncio.TimeoutError:
             last_err = f"timeout (attempt {attempt + 1})"
+        except RateLimitError as e:
+            last_err = f"RateLimit: {str(e)[:120]} (attempt {attempt + 1})"
+            delay = min(RATE_LIMIT_BACKOFF_S * (2 ** attempt), RATE_LIMIT_BACKOFF_MAX_S)
+            headers = getattr(getattr(e, "response", None), "headers", None) or {}
+            try:
+                delay = max(delay, float(headers.get("retry-after", 0)))
+            except Exception:
+                pass
         except Exception as e:
             last_err = f"{type(e).__name__}: {str(e)[:160]} (attempt {attempt + 1})"
-        if attempt < RETRY_ATTEMPTS:
-            await asyncio.sleep(RETRY_BACKOFF_S * (attempt + 1))
+        if attempt < attempts - 1:
+            await asyncio.sleep(delay)
     log(f"model call failed ({model}): {last_err}")
     return None
 
