@@ -116,31 +116,42 @@ private func titleOf(_ body: String, fallback: String) -> String {
     return fallback
 }
 
-// MARK: - In-app ingest (writes .md notes into the ~/Geo/Brains vault; same files the CLI/agent use)
+// MARK: - In-app ingest (delegates to the brain.py CLI → Claude Code account, no API key)
+
+enum VaultIngestError: LocalizedError {
+    case cliMissing
+    case failed(String)
+    var errorDescription: String? {
+        switch self {
+        case .cliMissing: return "brain.py isn't bundled. Set the UserDefaults key 'BrainCLIPath' to the script path."
+        case .failed(let message): return message.isEmpty ? "Ingest failed." : message
+        }
+    }
+}
 
 enum VaultIngest {
     @discardableResult
-    static func ingest(folder: URL, title: String, summarizer: ChunkSummarizer = AnthropicHaikuSummarizer()) async throws -> Int {
-        let sources = BrainVaultStore.sourceFiles(in: folder)
-        let existingHashes = Set(BrainVaultStore.noteFiles(in: folder).compactMap { frontmatterValue("chunk", in: $0) })
-        var usedSlugs = Set(BrainVaultStore.noteFiles(in: folder).map { $0.deletingPathExtension().lastPathComponent })
-        var written = 0
-        for src in sources where SourceExtractor.supportedExtensions.contains(src.pathExtension.lowercased()) {
-            let text = try SourceExtractor.extractText(from: src)
-            for chunk in Chunker.chunk(text, sourceLabel: src.lastPathComponent) where !existingHashes.contains(chunk.hash) {
-                let md = try await summarizer.summarize(chunk.text, context: SummarizeContext(brainTitle: title, brainGist: "", sourceLabel: src.lastPathComponent))
-                let noteTitle = titleOf(md, fallback: src.deletingPathExtension().lastPathComponent)
-                var slug = BrainVaultStore.slug(noteTitle); let base = slug; var n = 1
-                while usedSlugs.contains(slug) || slug.isEmpty { slug = "\(base.isEmpty ? "note" : base)-\(n)"; n += 1 }
-                usedSlugs.insert(slug)
-                let front = "---\ntype: literature\nsource: \(src.lastPathComponent)\nchunk: \(chunk.hash)\ncreated: \(ISO8601DateFormatter().string(from: Date()))\n---\n"
-                try (front + md.trimmingCharacters(in: .whitespacesAndNewlines) + "\n").write(to: folder.appendingPathComponent("\(slug).md"), atomically: true, encoding: .utf8)
-                written += 1
-            }
+    static func ingest(folder: URL) async throws -> Int {
+        guard let script = scriptURL() else { throw VaultIngestError.cliMissing }
+        let before = BrainVaultStore.noteFiles(in: folder).count
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.arguments = ["python3", script.path, "ingest", folder.lastPathComponent]
+        var env = ProcessInfo.processInfo.environment
+        env["GEO_BRAINS_ROOT"] = folder.deletingLastPathComponent().path
+        process.environment = env
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = pipe
+        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
+            process.terminationHandler = { _ in cont.resume() }
+            do { try process.run() } catch { cont.resume(throwing: error) }
         }
-        let meta = BrainVaultStore.meta(in: folder)
-        rebuildIndex(in: folder, title: meta?.title ?? title, gist: meta?.gist ?? "")
-        return written
+        let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        if process.terminationStatus != 0 {
+            throw VaultIngestError.failed(output.split(separator: "\n").last.map(String.init) ?? output)
+        }
+        return max(0, BrainVaultStore.noteFiles(in: folder).count - before)
     }
 
     static func rebuildIndex(in folder: URL, title: String, gist: String) {
