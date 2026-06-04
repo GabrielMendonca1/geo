@@ -326,7 +326,6 @@ class BlocksStore: ObservableObject {
             let newTitle = fileService.titleFromDocument(document, fallback: interimTitle, allowTodoTitle: false)
             let status = MarkdownConverter.normalizedStatus(document.frontmatter["status"])
             let type = MarkdownConverter.normalizedType(document.frontmatter["type"])
-            let fmVersion = MarkdownConverter.frontmatterVersion(document.frontmatter["frontmatter_version"])
 
             await indexCoordinator.index(block: snapshotForIndex, document: document)
 
@@ -338,7 +337,6 @@ class BlocksStore: ObservableObject {
                 var meta = self.metadataService.currentMetadata(for: blockId) ?? live.metadata
                 meta.status = status
                 meta.type = type
-                meta.frontmatter_version = fmVersion
                 self.blocks[liveIndex] = Block(
                     id: live.id,
                     title: newTitle,
@@ -346,7 +344,6 @@ class BlocksStore: ObservableObject {
                     lastEdited: live.lastEdited,
                     markdown: live.markdown,
                     url: live.url,
-                    tagId: meta.tagId,
                     metadata: meta
                 )
             }
