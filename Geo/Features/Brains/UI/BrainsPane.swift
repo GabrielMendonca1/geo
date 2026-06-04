@@ -793,55 +793,6 @@ private struct AddTile: View {
     }
 }
 
-// MARK: - Reader (lightweight Markdown, [[wikilinks]] highlighted)
-
-private struct NoteReader: View {
-    let note: BrainNote
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                ForEach(Array(lines.enumerated()), id: \.offset) { _, line in MarkdownLine(line).view }
-                Label("Read-only · \(note.url.lastPathComponent)", systemImage: "lock").font(.system(size: 10)).foregroundStyle(Palette.tertiaryForeground).padding(.top, 16)
-            }
-            .frame(maxWidth: 720, alignment: .leading).padding(.horizontal, 44).padding(.vertical, 36).frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .background(Palette.background)
-    }
-    private var lines: [String] { note.body.components(separatedBy: "\n") }
-}
-
-private struct MarkdownLine {
-    let raw: String
-    init(_ raw: String) { self.raw = raw }
-
-    @ViewBuilder var view: some View {
-        let t = raw.trimmingCharacters(in: .whitespaces)
-        if t.hasPrefix("# ") { inline(String(t.dropFirst(2))).font(.system(size: 24, weight: .bold)).foregroundStyle(Palette.foreground) }
-        else if t.hasPrefix("## ") { inline(String(t.dropFirst(3))).font(.system(size: 17, weight: .semibold)).foregroundStyle(Palette.foreground).padding(.top, 6) }
-        else if t.hasPrefix("### ") { inline(String(t.dropFirst(4))).font(.system(size: 14, weight: .semibold)).foregroundStyle(Palette.foreground) }
-        else if t.hasPrefix("- ") || t.hasPrefix("* ") {
-            HStack(alignment: .top, spacing: 8) { Circle().fill(Palette.tertiaryForeground).frame(width: 4, height: 4).padding(.top, 8); inline(String(t.dropFirst(2))).font(.system(size: 14)).foregroundStyle(Palette.foreground.opacity(0.92)) }
-        }
-        else if t.isEmpty { Spacer().frame(height: 2) }
-        else { inline(t).font(.system(size: 14)).foregroundStyle(Palette.foreground.opacity(0.92)).lineSpacing(4) }
-    }
-
-    private func inline(_ s: String) -> Text {
-        guard let re = try? NSRegularExpression(pattern: #"\[\[([^\[\]|]+)(?:\|([^\[\]]+))?\]\]"#) else { return Text(s) }
-        let ns = s as NSString
-        var result = Text("")
-        var last = 0
-        for m in re.matches(in: s, range: NSRange(location: 0, length: ns.length)) {
-            if m.range.location > last { result = result + Text(ns.substring(with: NSRange(location: last, length: m.range.location - last))) }
-            let labelRange = m.range(at: 2).location != NSNotFound ? m.range(at: 2) : m.range(at: 1)
-            result = result + Text(ns.substring(with: labelRange)).foregroundColor(Palette.foreground).underline().fontWeight(.medium)
-            last = m.range.location + m.range.length
-        }
-        if last < ns.length { result = result + Text(ns.substring(from: last)) }
-        return result
-    }
-}
-
 // MARK: - Create
 
 private struct CreateBrainSheet: View {
