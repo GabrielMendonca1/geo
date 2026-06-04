@@ -572,3 +572,126 @@ private struct CreateBrainSheet: View {
         } catch { errorText = error.localizedDescription }
     }
 }
+
+// MARK: - Source kinds (NotebookLM-style: pdf/doc/slides/ebook/web/image/audio/data/code/text)
+
+enum BrainSourceKind {
+    case pdf, document, presentation, ebook, web, image, audio, data, code, text
+
+    static let geoBlue = Color(red: 0, green: 85.0 / 255.0, blue: 1.0)
+
+    static func of(_ ext: String) -> BrainSourceKind {
+        switch ext.lowercased() {
+        case "pdf": return .pdf
+        case "docx", "doc", "rtf", "rtfd", "odt", "pages", "webarchive": return .document
+        case "pptx", "key": return .presentation
+        case "epub": return .ebook
+        case "png", "jpg", "jpeg", "heic", "tiff", "tif", "gif", "bmp": return .image
+        case "mp3", "m4a", "wav", "aac", "flac", "aiff", "aif", "caf": return .audio
+        case "csv", "tsv", "json", "xml", "numbers": return .data
+        case "py", "js", "ts", "tsx", "jsx", "swift", "go", "rs", "rb", "java", "c", "h", "cpp", "sh", "yaml", "yml", "sql": return .code
+        case "html", "htm", "url": return .web
+        default: return .text
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .pdf: return "doc.richtext"
+        case .document: return "doc.text"
+        case .presentation: return "rectangle.on.rectangle.angled"
+        case .ebook: return "book"
+        case .web: return "globe"
+        case .image: return "photo"
+        case .audio: return "waveform"
+        case .data: return "tablecells"
+        case .code: return "chevron.left.forwardslash.chevron.right"
+        case .text: return "doc.plaintext"
+        }
+    }
+
+    var tint: Color {
+        switch self {
+        case .pdf, .ebook: return Color(nsColor: Palette.agentDanger)
+        case .image, .audio, .presentation: return Color(nsColor: Palette.agentWarning)
+        case .data, .code: return Color(nsColor: Palette.agentSuccess)
+        case .web: return Self.geoBlue
+        case .document, .text: return Palette.tertiaryForeground
+        }
+    }
+
+    static let importerTypes: [UTType] = {
+        var types: [UTType] = [.pdf, .plainText, .text, .html, .rtf, .epub, .image, .audio, .json, .commaSeparatedText]
+        types += ["org.openxmlformats.wordprocessingml.document",
+                  "org.openxmlformats.presentationml.presentation",
+                  "com.microsoft.word.doc"].compactMap { UTType($0) }
+        return types
+    }()
+}
+
+private struct SupportedTypesStrip: View {
+    private let kinds: [BrainSourceKind] = [.pdf, .document, .presentation, .ebook, .web, .image, .audio, .data, .code, .text]
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(Array(kinds.enumerated()), id: \.offset) { _, kind in
+                Image(systemName: kind.icon).font(.system(size: 11))
+                    .foregroundStyle(kind.tint.opacity(0.85))
+                    .frame(width: 26, height: 26)
+                    .background(RoundedRectangle(cornerRadius: 7).fill(Color(nsColor: Palette.agentCard)))
+            }
+        }
+    }
+}
+
+private struct AddSourceSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let onChooseFiles: () -> Void
+    let onAddURL: (String) -> Void
+    @State private var url = ""
+
+    private var trimmedURL: String { url.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var isLikelyURL: Bool { trimmedURL.hasPrefix("http://") || trimmedURL.hasPrefix("https://") }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("Add a source").font(.system(size: 17, weight: .bold)).foregroundStyle(Palette.foreground)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Label("From the web", systemImage: "globe").font(.system(size: 11, weight: .medium)).foregroundStyle(Palette.tertiaryForeground)
+                HStack(spacing: 8) {
+                    TextField("https://…  or a YouTube link", text: $url)
+                        .textFieldStyle(.plain).font(.system(size: 13)).foregroundStyle(Palette.foreground)
+                        .padding(.horizontal, 10).padding(.vertical, 8)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: Palette.agentCard)))
+                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Palette.border, lineWidth: 1))
+                        .onSubmit { if isLikelyURL { onAddURL(trimmedURL) } }
+                    Button("Add") { onAddURL(trimmedURL) }.buttonStyle(PillButtonStyle()).disabled(!isLikelyURL)
+                }
+            }
+
+            HStack(spacing: 8) {
+                Rectangle().fill(Palette.border).frame(height: 1)
+                Text("or").font(.system(size: 10)).foregroundStyle(Palette.tertiaryForeground)
+                Rectangle().fill(Palette.border).frame(height: 1)
+            }
+
+            Button(action: onChooseFiles) {
+                VStack(spacing: 6) {
+                    Image(systemName: "tray.and.arrow.down").font(.system(size: 20)).foregroundStyle(Palette.tertiaryForeground)
+                    Text("Choose files…").font(.system(size: 13, weight: .medium)).foregroundStyle(Palette.foreground)
+                }
+                .frame(maxWidth: .infinity).padding(.vertical, 20)
+                .background(RoundedRectangle(cornerRadius: 10).fill(Color(nsColor: Palette.agentCard)))
+                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [4])).foregroundStyle(Palette.border))
+            }.buttonStyle(.plain)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Supported").font(.system(size: 10, weight: .medium)).foregroundStyle(Palette.tertiaryForeground)
+                SupportedTypesStrip()
+            }
+
+            HStack { Spacer(); Button("Cancel") { dismiss() }.buttonStyle(.plain).foregroundStyle(Palette.tertiaryForeground) }
+        }
+        .padding(24).frame(width: 460).background(Palette.background)
+    }
+}
