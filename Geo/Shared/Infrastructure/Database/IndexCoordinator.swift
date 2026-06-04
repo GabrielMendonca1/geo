@@ -217,21 +217,31 @@ final class IndexCoordinator {
     ) async {
         let metadataIds = Set(metadata.keys)
         let report = await verifyIntegrity(fileService: fileService, metadataIds: metadataIds)
-        if !report.isClean {
-            var upserts: [BlockIndexEntry] = []
-            if !report.missingFromIndex.isEmpty {
-                let missingSet = Set(report.missingFromIndex)
-                let allBlocks = await fileService.loadBlocksFromFiles(metadata: metadata, converter: converter)
-                upserts = allBlocks.filter { missingSet.contains($0.id) }.map { entry(for: $0) }
-            }
-            do {
-                try await database.repairIndex(upserts: upserts, removals: report.orphanedInIndex)
-                logger.info("repairIntegrity: reinserted=\(upserts.count) removed=\(report.orphanedInIndex.count) metadataDrift=\(report.metadataDrift.count)")
-            } catch {
-                logger.error("repairIntegrity batch failed: \(error.localizedDescription)")
-            }
-        } else {
+
+        // Re-derive block_days/block_tags COMPLETELY from file content on launch: any block whose
+        // file content differs from the cached `blocks.content` is re-extracted, not just blocks
+        // that are wholly missing. This closes the "stale until per-file re-edit" gap where a bulk
+        // migration inlines [[date]]/tags into files but the index keeps pre-edit derived rows.
+        let cachedById = Dictionary(
+            (await fetchAllBlocks()).map { ($0.id, $0.content) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        let missingSet = Set(report.missingFromIndex)
+        let allBlocks = await fileService.loadBlocksFromFiles(metadata: metadata, converter: converter)
+        let drifted = allBlocks.filter { block in
+            missingSet.contains(block.id) || cachedById[block.id] != block.markdown
+        }
+        let upserts = drifted.map { entry(for: $0) }
+
+        guard !upserts.isEmpty || !report.orphanedInIndex.isEmpty else {
             logger.info("repairIntegrity: index in sync with disk")
+            return
+        }
+        do {
+            try await database.repairIndex(upserts: upserts, removals: report.orphanedInIndex)
+            logger.info("repairIntegrity: reupserted=\(upserts.count) removed=\(report.orphanedInIndex.count) metadataDrift=\(report.metadataDrift.count)")
+        } catch {
+            logger.error("repairIntegrity batch failed: \(error.localizedDescription)")
         }
     }
 
