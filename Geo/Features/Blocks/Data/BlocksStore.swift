@@ -743,22 +743,20 @@ class BlocksStore: ObservableObject {
         }
     }
 
+    @discardableResult
     private func performFrontmatterMutation(blockID: String, merge: [String: AnyCodableValue]) async throws -> Int {
         guard let current = self.block(withId: blockID) else {
             throw FrontmatterMutationError.blockNotFound(blockID)
         }
-        let currentVersion = current.metadata.frontmatter_version
-        let newVersion = currentVersion + 1
-        var mergeWithVersion = merge
-        mergeWithVersion["frontmatter_version"] = .int(newVersion)
-        let newMarkdown = FrontmatterEditor.upsert(in: current.markdown, values: mergeWithVersion)
+        // frontmatter_version coordination is retired: writes no longer stamp a counter.
+        // The FrontmatterMutatorActor still serializes same-block writes (correctness).
+        let newMarkdown = FrontmatterEditor.upsert(in: current.markdown, values: merge)
 
         try await fileService.writeMarkdownToDisk(newMarkdown, url: current.url)
 
-        guard let idx = self.indexOfBlock(id: blockID) else { return newVersion }
+        guard let idx = self.indexOfBlock(id: blockID) else { return 0 }
         let live = self.blocks[idx]
         var meta = live.metadata
-        meta.frontmatter_version = newVersion
         meta.status = self.markdownConverter.status(in: newMarkdown)
         meta.type = self.markdownConverter.type(in: newMarkdown)
         meta.layer = self.markdownConverter.layer(in: newMarkdown) ?? meta.layer
@@ -771,7 +769,6 @@ class BlocksStore: ObservableObject {
             lastEdited: Date(),
             markdown: newMarkdown,
             url: live.url,
-            tagId: meta.tagId,
             metadata: meta
         )
         self.blocks[idx] = updated
@@ -780,7 +777,7 @@ class BlocksStore: ObservableObject {
             await indexCoordinator.index(block: updated)
         }
 
-        return newVersion
+        return 0
     }
 
     private func loadBlocksFromFiles() {
