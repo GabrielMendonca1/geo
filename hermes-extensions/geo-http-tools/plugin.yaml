@@ -1,6 +1,6 @@
 name: geo-http-tools
 version: 0.1.0
-description: "Authenticated HTTP API client for Gabriel's Geo macOS app (no MCP, no `mcp_` prefix). Bearer auth via macOS Keychain; two-phase destructive flow with Telegram confirm."
+description: "Geo tools for Gabriel's macOS app (no MCP, no `mcp_` prefix). Block writers are native filesystem ops on the vault (files are truth); task/read/ai/search/graph tools use the localhost HTTP API (bearer auth via macOS Keychain). Destructive ops gate on a Telegram confirm."
 author: ARC/Geo
 kind: standalone
 provides_tools:
