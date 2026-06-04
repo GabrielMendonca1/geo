@@ -501,9 +501,10 @@ private enum MiniGraphLayout {
         var points: [UUID: CGPoint] = [:], radii: [UUID: CGFloat] = [:]
         for id in ids {
             guard let p = pos[id] else { continue }
-            // 0.12 inset keeps nodes off the thumbnail's edge
-            points[id] = CGPoint(x: (p.x - cx) / scale * 0.76 + 0.5, y: (p.y - cy) / scale * 0.76 + 0.5)
-            radii[id] = 2.4 + sqrt(CGFloat(degree[id] ?? 0)) * 1.7
+            // 0.80 fill keeps nodes off the panel's edge while letting the graph sprawl
+            // across the big cell; the cell adds its own 10pt Canvas padding on top.
+            points[id] = CGPoint(x: (p.x - cx) / scale * 0.80 + 0.5, y: (p.y - cy) / scale * 0.80 + 0.5)
+            radii[id] = 2.8 + sqrt(CGFloat(degree[id] ?? 0)) * 1.9
         }
         return Result(points: points, radii: radii)
     }
