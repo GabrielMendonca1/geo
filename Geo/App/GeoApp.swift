@@ -127,10 +127,7 @@ final class AppContainer {
                 + AITools.register()
                 + BrainTools.register()
         }
-        let mcpAuthGuard = MCPAuthGuard()
         let registry = MCPToolRegistry(tools: mcpTools)
-        let mcpServer = MCPServer(registry: registry, authGuard: mcpAuthGuard)
-        mcpServer.subscriptionManager = SubscriptionManager(blocks: blocksAdapter, tasks: tasksAdapter)
 
         let apiRouter = GeoAPIRouter(registry: registry, blocks: blocksAdapter)
         let httpServer = GeoHTTPServer(router: apiRouter)
