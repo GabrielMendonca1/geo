@@ -335,12 +335,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         container.watcher.startWatching()
         Task { @MainActor in container.nanoHermesService.start() }
 
-        do {
-            try container.mcpServer.start()
-        } catch {
-            logger.error("Failed to start MCP server: \(error.localizedDescription)")
-        }
-
         APITokenStore.shared.ensureBootstrapTokens()
         do {
             try container.httpServer.start()
