@@ -274,18 +274,6 @@ private struct PillButtonStyle: ButtonStyle {
     }
 }
 
-private struct StateBadge: View {
-    let ready: Bool
-    var body: some View {
-        let color = ready ? Color(nsColor: Palette.agentSuccess) : Palette.tertiaryForeground
-        HStack(spacing: 5) {
-            Circle().fill(color).frame(width: 6, height: 6)
-            Text(ready ? "ready" : "empty").font(.system(size: 10, weight: .medium))
-        }
-        .foregroundStyle(color).padding(.horizontal, 8).padding(.vertical, 3).background(Capsule().fill(color.opacity(0.12)))
-    }
-}
-
 // MARK: - Graph cell (an Obsidian-style graph tile; the graph IS the card)
 
 private struct BrainGraphCell: View {
