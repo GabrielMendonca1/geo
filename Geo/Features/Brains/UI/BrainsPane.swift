@@ -391,8 +391,8 @@ private struct BrainDetailView: View {
             VStack(spacing: 12) {
                 Image(systemName: "tray").font(.system(size: 34, weight: .thin)).foregroundStyle(Palette.tertiaryForeground.opacity(0.5))
                 Text("Empty vault").font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.foreground)
-                Text("Attach a PDF / .md / .txt and it'll be distilled into linked notes.").font(.system(size: 12)).foregroundStyle(Palette.tertiaryForeground).multilineTextAlignment(.center)
-                Button { showImporter = true } label: { Label("Attach sources", systemImage: "paperclip") }.buttonStyle(PillButtonStyle()).padding(.top, 4)
+                Text("Add a PDF, doc, slide deck, e-book, image, audio file, or a web URL —\nit'll be distilled into linked notes.").font(.system(size: 12)).foregroundStyle(Palette.tertiaryForeground).multilineTextAlignment(.center)
+                Button { showAddSource = true } label: { Label("Add a source", systemImage: "plus") }.buttonStyle(PillButtonStyle()).padding(.top, 4)
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             Text("Select a note").font(.system(size: 13)).foregroundStyle(Palette.tertiaryForeground).frame(maxWidth: .infinity, maxHeight: .infinity)
