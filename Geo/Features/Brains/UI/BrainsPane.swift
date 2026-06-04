@@ -225,7 +225,7 @@ struct BrainsPane: View {
                 ScrollView {
                     LazyVGrid(columns: columns, spacing: 20) {
                         ForEach(store.vaults) { vault in
-                            Button { BrainGraphBuilder.sanitizeSharedGraphSettings(); openVaultId = vault.id } label: { BrainGraphCell(vault: vault) }.buttonStyle(.plain)
+                            Button { openVaultId = vault.id } label: { BrainGraphCell(vault: vault) }.buttonStyle(.plain)
                         }
                     }
                     .padding(24)
