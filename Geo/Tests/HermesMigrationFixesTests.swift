@@ -150,7 +150,7 @@ final class HermesMigrationFixesTests: XCTestCase {
         XCTAssertEqual(result.isError ?? false, false)
         await store.flushAll()
         let live = store.blocks.first(where: { $0.id == block.id })
-        XCTAssertEqual(live?.metadata.status, "Todo")
+        XCTAssertEqual(live?.metadata.status, "todo")
         XCTAssertTrue(live?.markdown.contains("Body only edit") ?? false)
     }
 
