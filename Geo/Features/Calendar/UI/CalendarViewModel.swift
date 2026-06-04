@@ -280,7 +280,12 @@ final class CalendarViewModel: ObservableObject {
 
     private func tagIdForTask(_ task: TaskItem, blocksById: [String: BlockEntity]) -> String? {
         guard let blockId = task.linkedBlockId, let block = blocksById[blockId] else { return nil }
-        return block.tagId ?? block.metadata.tagId
+        return blockTagKey(block)
+    }
+
+    private func blockTagKey(_ block: BlockEntity) -> String? {
+        guard let name = block.metadata.tagName else { return nil }
+        return TagStore.canonicalName(name)
     }
 
     private func passesTagFilter(tagId: String?) -> Bool {
