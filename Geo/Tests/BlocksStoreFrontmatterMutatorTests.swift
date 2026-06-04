@@ -123,9 +123,9 @@ final class BlocksStoreFrontmatterMutatorTests: XCTestCase {
     func testConcurrentMutationsOnSameBlockSerializeWithoutLostUpdates() async throws {
         let block = try await makeBlock(markdown: "---\nsymphony: true\n---\n# Hello\n")
 
-        async let r1: () = store.mutateFrontmatter(blockID: block.id, merge: ["a": .string("1")])
-        async let r2: () = store.mutateFrontmatter(blockID: block.id, merge: ["b": .string("2")])
-        async let r3: () = store.mutateFrontmatter(blockID: block.id, merge: ["c": .string("3")])
+        async let r1 = store.mutateFrontmatter(blockID: block.id, merge: ["a": .string("1")])
+        async let r2 = store.mutateFrontmatter(blockID: block.id, merge: ["b": .string("2")])
+        async let r3 = store.mutateFrontmatter(blockID: block.id, merge: ["c": .string("3")])
         _ = try await (r1, r2, r3)
 
         let live = store.blocks.first(where: { $0.id == block.id })
