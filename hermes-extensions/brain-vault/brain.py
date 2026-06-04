@@ -382,11 +382,15 @@ def cmd_ingest(args) -> None:
         for chash, source, text in pending:
             write_note(name, "# " + " ".join(text.split()[:6]), "# " + " ".join(text.split()[:6]) + "\n\n" + text, source, chash)
     else:
-        token = load_oauth_token()
-        if not token:
-            raise SystemExit("No Claude Code credential in Keychain. Log in with `claude` first, or use --dry-run.")
         labels = {chash: source for chash, source, _ in pending}
-        results = run_batch(pending, meta.get("title", name), args.model, token)
+        key = os.environ.get("ANTHROPIC_API_KEY")
+        if key:
+            results = run_batch(pending, meta.get("title", name), args.model, key)
+        else:
+            token = load_oauth_token()
+            if not token:
+                raise SystemExit("No Claude Code credential in Keychain (run `claude` to log in), no ANTHROPIC_API_KEY, and not --dry-run.")
+            results = run_concurrent(pending, meta.get("title", name), args.model, _headers_oauth(token))
         for chash, md in results.items():
             write_note(name, title_of(md, "Untitled"), md, labels.get(chash, "source"), chash)
 
