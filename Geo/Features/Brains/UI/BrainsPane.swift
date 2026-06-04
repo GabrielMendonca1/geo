@@ -573,15 +573,11 @@ private struct BrainDetailView: View {
                 if !vault.gist.isEmpty { Text(vault.gist).font(.system(size: 11)).foregroundStyle(Palette.tertiaryForeground).lineLimit(1) }
             }
             Spacer()
-            Picker("", selection: $mode) {
-                ForEach(DetailMode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-            }
-            .pickerStyle(.segmented).labelsHidden().fixedSize().controlSize(.small)
             if status == .ingesting {
                 HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Building…").font(.system(size: 11)).foregroundStyle(Palette.tertiaryForeground) }
             }
             IconButton(system: "folder", help: "Open vault in Finder / Obsidian") { NSWorkspace.shared.open(vault.folder) }
-            Button { openSources() } label: { Label("Add source", systemImage: "plus") }.buttonStyle(PillButtonStyle())
+            Button { showImporter = true } label: { Label("Add source", systemImage: "plus") }.buttonStyle(PillButtonStyle()).disabled(status == .ingesting)
         }
         .padding(.horizontal, 18).padding(.vertical, 12)
     }
