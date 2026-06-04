@@ -323,6 +323,7 @@ private struct BrainDetailView: View {
     @State private var notes: [BrainNote] = []
     @State private var selected: BrainNote?
     @State private var showImporter = false
+    @State private var showAddSource = false
     @State private var status: IngestStatus = .idle
     @State private var banner: String?
 
