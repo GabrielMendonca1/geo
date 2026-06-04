@@ -526,13 +526,15 @@ private enum MiniGraphLayout {
         let scale = max(maxX - minX, maxY - minY, 1)
         var degree: [UUID: Int] = [:]
         for (s, t) in edges { degree[s, default: 0] += 1; degree[t, default: 0] += 1 }
+        // Small brains (a couple of notes) need bigger nodes + a tighter, more centered
+        // spread so they read as a graph rather than two stray dots near the corners.
+        let fill: CGFloat = n <= 4 ? 0.58 : 0.80
+        let base: CGFloat = n <= 4 ? 6.5 : 2.8
         var points: [UUID: CGPoint] = [:], radii: [UUID: CGFloat] = [:]
         for id in ids {
             guard let p = pos[id] else { continue }
-            // 0.80 fill keeps nodes off the panel's edge while letting the graph sprawl
-            // across the big cell; the cell adds its own 10pt Canvas padding on top.
-            points[id] = CGPoint(x: (p.x - cx) / scale * 0.80 + 0.5, y: (p.y - cy) / scale * 0.80 + 0.5)
-            radii[id] = 2.8 + sqrt(CGFloat(degree[id] ?? 0)) * 1.9
+            points[id] = CGPoint(x: (p.x - cx) / scale * fill + 0.5, y: (p.y - cy) / scale * fill + 0.5)
+            radii[id] = base + sqrt(CGFloat(degree[id] ?? 0)) * 1.9
         }
         return Result(points: points, radii: radii)
     }
