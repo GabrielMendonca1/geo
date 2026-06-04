@@ -4,7 +4,7 @@ import XCTest
 @MainActor
 final class Phase2TagInlineReadTests: XCTestCase {
 
-    private func entity(id: String, tagId: String?, tagName: String?) -> BlockEntity {
+    private func entity(id: String, tagName: String?) -> BlockEntity {
         BlockEntity(
             id: id,
             title: id,
@@ -12,8 +12,7 @@ final class Phase2TagInlineReadTests: XCTestCase {
             lastEdited: Date(),
             markdown: "# \(id)\n",
             url: URL(fileURLWithPath: "/tmp/\(id).md"),
-            tagId: tagId,
-            metadata: BlockEntity.Metadata(tagId: tagId, tagName: tagName)
+            metadata: BlockEntity.Metadata(tagName: tagName)
         )
     }
 
