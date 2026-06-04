@@ -23,9 +23,17 @@ logger = logging.getLogger("plugin.geo-http-tools")
 
 TOOLSET = "geo_http"
 
+_DISABLED = frozenset({
+    "geo_list_by_status", "geo_list_by_type", "geo_get_day", "geo_list_tags",
+    "geo_move_block", "geo_link_block_to_day", "geo_update_task",
+    "geo_add_reminder", "geo_ai_parse_task", "geo_create_tag",
+    "geo_record_habit_occurrence",
+})
+
 
 def _register_all(ctx) -> None:
-    all_tools = READ_TOOLS + WRITE_TOOLS + DESTRUCTIVE_TOOLS
+    all_tools = [t for t in (READ_TOOLS + WRITE_TOOLS + DESTRUCTIVE_TOOLS)
+                 if t["name"] not in _DISABLED]
     for tool in all_tools:
         name = tool["name"]
         ctx.register_tool(
@@ -41,7 +49,8 @@ def _register_all(ctx) -> None:
             description=tool["description"],
             emoji="",
         )
-    logger.info("geo-http-tools: registered %d tools", len(all_tools))
+    logger.info("geo-http-tools: registered %d tools (%d disabled)",
+                len(all_tools), len(_DISABLED))
 
 
 def register(ctx) -> None:
