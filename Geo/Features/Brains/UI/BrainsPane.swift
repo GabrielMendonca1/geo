@@ -69,7 +69,7 @@ final class BrainVaultStore: ObservableObject {
             .filter { !$0.hasDirectoryPath && !$0.lastPathComponent.hasPrefix(".") }
     }
 
-    static func notes(in vault: BrainVault) -> [BrainNote] {
+    nonisolated static func notes(in vault: BrainVault) -> [BrainNote] {
         noteFiles(in: vault.folder).compactMap { url in
             guard let raw = try? String(contentsOf: url, encoding: .utf8) else { return nil }
             let body = stripFrontmatter(raw)
