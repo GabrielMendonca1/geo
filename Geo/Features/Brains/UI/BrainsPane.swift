@@ -335,7 +335,7 @@ private struct BrainGraphCell: View {
         .background(Color(nsColor: hover ? Palette.agentCardElevated : Palette.agentCard))
         .overlay(alignment: .bottom) { labelOverlay }
         .clipShape(RoundedRectangle(cornerRadius: corner))
-        .overlay(RoundedRectangle(cornerRadius: corner).strokeBorder(hover ? Palette.foreground.opacity(0.28) : Palette.border, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: corner).strokeBorder(hover ? Palette.foreground.opacity(0.28) : Palette.foreground.opacity(0.12), lineWidth: 1))
         .shadow(color: .black.opacity(hover ? 0.16 : 0), radius: hover ? 14 : 0, y: hover ? 6 : 0)
         .scaleEffect(hover ? 1.01 : 1)
         .animation(.easeOut(duration: 0.14), value: hover)
