@@ -162,29 +162,33 @@ def load_oauth_token() -> str | None:
     return oauth["accessToken"]
 
 
-def _auth_headers(token: str) -> dict:
+def _headers_oauth(token: str) -> dict:
     return {
         "content-type": "application/json",
         "authorization": f"Bearer {token}",
         "anthropic-version": "2023-06-01",
-        "anthropic-beta": f"{OAUTH_BETA},{BATCH_BETA}",
+        "anthropic-beta": OAUTH_BETA,
         "user-agent": USER_AGENT,
         "x-app": "cli",
     }
 
 
-def _api(method: str, url: str, token: str, body: dict | None = None, timeout: int = 60):
+def _headers_apikey(key: str, *, batch: bool = False) -> dict:
+    h = {"content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01"}
+    if batch:
+        h["anthropic-beta"] = BATCH_BETA
+    return h
+
+
+def _post(url: str, headers: dict, body: dict | None = None, timeout: int = 60, method: str = "POST"):
     data = json.dumps(body).encode() if body is not None else None
-    req = urllib.request.Request(url, data=data, headers=_auth_headers(token), method=method)
+    req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read())
     except urllib.error.HTTPError as e:
-        detail = e.read().decode(errors="ignore")[:400]
-        raise SystemExit(f"Anthropic {method} {url} -> HTTP {e.code}: {detail}")
+        raise SystemExit(f"Anthropic {method} {url} -> HTTP {e.code}: {e.read().decode(errors='ignore')[:300]}")
 
-
-# ---------------------------------------------------------------- Batch ingestion
 
 def _system_prompt(brain_title: str, source: str) -> str:
     return (
@@ -196,54 +200,63 @@ def _system_prompt(brain_title: str, source: str) -> str:
     )
 
 
-def run_batch(items: list[tuple[str, str, str]], brain_title: str, model: str, token: str) -> dict[str, str]:
-    """items: list of (custom_id, source_label, chunk_text). Returns {custom_id: markdown}."""
-    requests = [
-        {
-            "custom_id": cid,
-            "params": {
-                "model": model,
-                "max_tokens": 1024,
-                "system": [{"type": "text", "text": _system_prompt(brain_title, src)}],
-                "messages": [{"role": "user", "content": text}],
-            },
-        }
-        for cid, src, text in items
-    ]
-    log(f"submitting batch of {len(requests)} chunks to {model} (Claude Code account)…")
-    created = _api("POST", f"{ANTHROPIC}/v1/messages/batches", token, {"requests": requests})
-    batch_id = created["id"]
-    log(f"batch {batch_id} submitted; polling…")
-    waited, interval, max_wait = 0, 5, 3600
-    results_url = None
-    while True:
-        status = _api("GET", f"{ANTHROPIC}/v1/messages/batches/{batch_id}", token)
-        st = status.get("processing_status")
-        counts = status.get("request_counts", {})
-        if st == "ended":
-            results_url = status.get("results_url")
-            break
-        if waited >= max_wait:
-            raise SystemExit(f"batch {batch_id} timed out (status={st})")
-        log(f"  …{st} {counts}")
-        time.sleep(interval)
-        waited += interval
+def _summarize_one(headers: dict, brain_title: str, source: str, text: str, model: str) -> str:
+    body = {"model": model, "max_tokens": 1024,
+            "system": [{"type": "text", "text": _system_prompt(brain_title, source)}],
+            "messages": [{"role": "user", "content": text}]}
+    resp = _post(f"{ANTHROPIC}/v1/messages", headers, body, timeout=90)
+    return "".join(b.get("text", "") for b in resp.get("content", []) if b.get("type") == "text").strip()
+
+
+def run_concurrent(items, brain_title, model, headers, workers: int = 8) -> dict[str, str]:
+    """Claude Code account path: bounded-concurrent /v1/messages calls. items: (cid, source, text)."""
+    from concurrent.futures import ThreadPoolExecutor
+    log(f"summarizing {len(items)} chunks via {model} (Claude Code account, {workers}-way concurrent)…")
+    def work(item):
+        cid, source, text = item
+        try:
+            return cid, _summarize_one(headers, brain_title, source, text, model)
+        except SystemExit as e:
+            log(f"  chunk {cid[:8]} failed: {e}")
+            return cid, ""
     out: dict[str, str] = {}
-    req = urllib.request.Request(results_url, headers=_auth_headers(token), method="GET")
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        for cid, md in ex.map(work, items):
+            if md:
+                out[cid] = md
+    return out
+
+
+def run_batch(items, brain_title, model, key) -> dict[str, str]:
+    """Batch API path — needs a developer ANTHROPIC_API_KEY (OAuth lacks user:batch scope). items: (cid, source, text)."""
+    headers = _headers_apikey(key, batch=True)
+    requests = [{"custom_id": cid,
+                 "params": {"model": model, "max_tokens": 1024,
+                            "system": [{"type": "text", "text": _system_prompt(brain_title, src)}],
+                            "messages": [{"role": "user", "content": text}]}}
+                for cid, src, text in items]
+    log(f"submitting batch of {len(requests)} chunks to {model}…")
+    batch_id = _post(f"{ANTHROPIC}/v1/messages/batches", headers, {"requests": requests})["id"]
+    waited, results_url = 0, None
+    while True:
+        status = _post(f"{ANTHROPIC}/v1/messages/batches/{batch_id}", headers, method="GET")
+        if status.get("processing_status") == "ended":
+            results_url = status.get("results_url"); break
+        if waited >= 3600:
+            raise SystemExit(f"batch {batch_id} timed out")
+        log(f"  …{status.get('processing_status')} {status.get('request_counts', {})}")
+        time.sleep(5); waited += 5
+    out: dict[str, str] = {}
+    req = urllib.request.Request(results_url, headers=headers, method="GET")
     with urllib.request.urlopen(req, timeout=180) as resp:
         for line in resp.read().decode().splitlines():
             if not line.strip():
                 continue
-            obj = json.loads(line)
-            res = obj.get("result", {})
+            obj = json.loads(line); res = obj.get("result", {})
             if res.get("type") == "succeeded":
-                content = res.get("message", {}).get("content", [])
-                text = "".join(b.get("text", "") for b in content if b.get("type") == "text").strip()
+                text = "".join(b.get("text", "") for b in res.get("message", {}).get("content", []) if b.get("type") == "text").strip()
                 if text:
                     out[obj.get("custom_id")] = text
-            else:
-                log(f"  chunk {obj.get('custom_id')} {res.get('type')}: {str(res)[:120]}")
-    log(f"batch done: {len(out)}/{len(requests)} notes returned")
     return out
 
 
