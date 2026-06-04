@@ -493,7 +493,7 @@ async def classify_bucket(http: httpx.AsyncClient, headers: dict, bucket: dict) 
         "is_group": bucket["is_group"],
         "proposals": empty_proposals,
     }
-    raw = await _call_model(client, HAIKU_MODEL, prompt, MAX_TOKENS_OUT, PER_CALL_TIMEOUT_S)
+    raw = await _call_model(http, headers, HAIKU_MODEL, prompt, MAX_TOKENS_OUT, PER_CALL_TIMEOUT_S)
     if raw is None:
         fallback["error"] = "model call failed"
         return fallback
