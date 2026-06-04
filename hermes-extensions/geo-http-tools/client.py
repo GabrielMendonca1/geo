@@ -190,8 +190,6 @@ class GeoAPIClient:
                 raise GeoAuthRotated(
                     "Bearer rotated but Keychain still serving old token"
                 )
-        if resp.status_code == 409:
-            raise GeoConflict(409, _safe_json(resp))
         if 200 <= resp.status_code < 300:
             if not resp.content:
                 return None
