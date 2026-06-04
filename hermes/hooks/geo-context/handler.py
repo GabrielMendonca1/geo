@@ -206,41 +206,16 @@ async def _safe_get(client: httpx.AsyncClient, path: str, token_ref: dict) -> Op
     return None
 
 
-def _read_cache_bundle():
-    """Return the render-ready boot bundle from the geo-mcp-subscriber push
-    cache (schema v2) when it exists and is fresh, else None. The daemon already
-    unwrapped the blocks and pre-formatted today/tasks, so the values go straight
-    into the body with no re-parsing. A pre-v2 snapshot is treated as a miss so
-    the HTTP path re-derives it (safe either deploy order)."""
-    try:
-        obj = json.loads(GEO_CACHE_SNAPSHOT.read_text(encoding="utf-8"))
-    except Exception:
-        return None
-    if int(obj.get("v") or 1) < 2:
-        return None
-    fetched = float(obj.get("fetched_at") or 0)
-    if not fetched or (time.time() - fetched) > CACHE_FRESH_SECS:
-        return None
-    bundle = {"profile": obj.get("profile_md"), "memory": obj.get("memory_md"),
-              "protocol": obj.get("protocol_md"), "today": obj.get("today_line"),
-              "tasks": obj.get("tasks_md")}
-    return bundle if any(bundle.values()) else None
-
-
 async def _fetch_geo_blocks():
-    """Return (bundle, parsed). On a cache hit parsed=True and the values are
-    already render-ready; on the HTTP fallback parsed=False and the values are
-    raw tool envelopes the caller must run through _unwrap_block/_format_today."""
-    cached = _read_cache_bundle()
-    if cached is not None:
-        _log("boot bundle served from geo-mcp-subscriber cache")
-        return cached, True
+    """Fetch the boot bundle over Geo.app's localhost HTTP API. Returns a dict
+    of raw tool envelopes (profile/memory/protocol/today/tasks) the caller runs
+    through _unwrap_block/_format_today/_format_tasks, or None when Geo is closed."""
     info = _read_api_json()
     if not info:
-        return None, False
+        return None
     token = _read_keychain_token()
     if not token:
-        return None, False
+        return None
     token_ref = {"token": token}
     base = f"http://127.0.0.1:{info['port']}"
     headers = {
@@ -252,17 +227,18 @@ async def _fetch_geo_blocks():
             profile_path = "/v1/blocks/by-title?title=" + urllib.parse.quote("User Profile")
             memory_path = "/v1/blocks/by-title?title=" + urllib.parse.quote("Memory")
             protocol_path = "/v1/blocks/by-title?title=" + urllib.parse.quote("Interaction Protocol")
-            profile, memory, protocol, today = await asyncio.gather(
+            profile, memory, protocol, today, tasks = await asyncio.gather(
                 asyncio.wait_for(_safe_get(client, profile_path, token_ref), timeout=10.0),
                 asyncio.wait_for(_safe_get(client, memory_path, token_ref), timeout=10.0),
                 asyncio.wait_for(_safe_get(client, protocol_path, token_ref), timeout=10.0),
                 asyncio.wait_for(_safe_get(client, "/v1/days/today", token_ref), timeout=10.0),
+                asyncio.wait_for(_safe_get(client, "/v1/tasks?status=pending", token_ref), timeout=10.0),
             )
             return {"profile": profile, "memory": memory, "protocol": protocol,
-                    "today": today, "tasks": None}, False
+                    "today": today, "tasks": tasks}
     except Exception as e:
         _log(f"http unreachable (Geo.app closed?): {e}")
-        return None, False
+        return None
 
 
 async def _summarize_with_haiku(text: str, label: str) -> str:
