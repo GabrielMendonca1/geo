@@ -140,3 +140,16 @@ final class RebuildCompletenessTests: XCTestCase {
         XCTAssertEqual(arcTag, ["Drift.md"], "frontmatter tag re-derived")
     }
 }
+
+private final class StubDayRepoRC: DayRepository, @unchecked Sendable {
+    func observe() -> AsyncStream<[Day]> { AsyncStream { c in c.yield([]); c.finish() } }
+    func day(for date: Date) async -> Day? { nil }
+}
+
+private final class StubCaptureRepoRC: CaptureRepository, @unchecked Sendable {
+    func observe() -> AsyncStream<[CaptureItem]> { AsyncStream { c in c.yield([]); c.finish() } }
+    func list() async throws -> [CaptureItem] { [] }
+    func append(_ item: CaptureItem) async throws {}
+    func linkToDay(captureId: UUID, dayId: String) async throws {}
+    func delete(ids: Set<UUID>) async throws {}
+}
