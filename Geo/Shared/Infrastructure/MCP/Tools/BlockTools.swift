@@ -41,18 +41,12 @@ enum BlockTools {
             getBlock(blocks, tags),
             getBlockByTitle(blocks),
             searchBlocks(blocks),
-            createBlock(blocks, tags, days),
-            updateBlock(blocks),
-            deleteBlock(blocks),
-            setBlockLayer(blocks),
             findBacklinks(blocks, indexCoordinator),
             findOrphans(graphService),
             findUnresolvedLinks(graphService),
             listNeighbors(graphService),
             listByType(indexCoordinator),
             listByStatus(indexCoordinator),
-            promoteToPermanent(blocks),
-            extractPermanentFrom(blocks),
             getGraphSnapshot(graphService),
         ]
     }
