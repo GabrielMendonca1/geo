@@ -423,10 +423,10 @@ private struct BrainDetailView: View {
         Task { await ingest() }
     }
 
-    private func ingest() async {
+    private func ingest(sources: [String] = []) async {
         status = .ingesting
         do {
-            let written = try await VaultIngest.ingest(folder: vault.folder)
+            let written = try await VaultIngest.ingest(folder: vault.folder, sources: sources)
             reload()
             showBanner(written > 0 ? "Built \(written) note\(written == 1 ? "" : "s") via Claude Code" : "No new notes (already up to date)")
         } catch {
