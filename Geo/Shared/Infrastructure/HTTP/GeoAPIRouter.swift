@@ -4,8 +4,6 @@ import os.log
 private let apiLogger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "geo", category: "GeoAPIRouter")
 
 final class GeoAPIRouter: @unchecked Sendable {
-    @TaskLocal static var requestBrain: String?
-
     private let registry: MCPToolRegistry
     private let tokens: APITokenStore
     private let pending: PendingTransactionStore
