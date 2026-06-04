@@ -765,6 +765,23 @@ enum BrainSourceKind {
         }
     }
 
+    var displayName: String {
+        switch self {
+        case .pdf: return "PDF"
+        case .document: return "Document"
+        case .presentation: return "Slides"
+        case .ebook: return "E-book"
+        case .web: return "Web"
+        case .image: return "Image"
+        case .audio: return "Audio"
+        case .data: return "Data"
+        case .code: return "Code"
+        case .text: return "Text"
+        }
+    }
+
+    static let allAddable: [BrainSourceKind] = [.pdf, .document, .presentation, .ebook, .web, .image, .audio, .data, .code, .text]
+
     static let importerTypes: [UTType] = {
         var types: [UTType] = [.pdf, .plainText, .text, .html, .rtf, .epub, .image, .audio, .json, .commaSeparatedText]
         types += ["org.openxmlformats.wordprocessingml.document",
