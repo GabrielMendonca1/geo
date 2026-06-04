@@ -311,7 +311,7 @@ final class RepositoryAdapterTests: XCTestCase {
 
         try await repository.setTag(blockId: created.id, tagId: "tag-1")
         let afterSetTag = await iterator.next()
-        XCTAssertEqual(afterSetTag?.first?.tagId, "tag-1")
+        XCTAssertEqual(afterSetTag?.first?.tagName, "tag-1")
 
         try await repository.delete(id: created.id)
         let afterDelete = await iterator.next()
