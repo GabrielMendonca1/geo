@@ -702,12 +702,6 @@ private struct BrainDetailView: View {
         }
     }
 
-    private func reload() {
-        notes = BrainVaultStore.notes(in: vault)
-        brainGraph = BrainGraphBuilder.build(notes: notes)
-        if let sel = selectedNote, !notes.contains(where: { $0.id == sel.id }) { selectedNote = nil }
-    }
-
     private func handleAttach(_ result: Result<[URL], Error>) {
         guard case .success(let urls) = result, !urls.isEmpty else { return }
         let sources = vault.folder.appendingPathComponent("sources")
