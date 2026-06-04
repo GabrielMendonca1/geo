@@ -311,9 +311,15 @@ private struct BrainCard: View {
                 Text(vault.gist.isEmpty ? "No description" : vault.gist).font(.system(size: 12)).foregroundStyle(Palette.tertiaryForeground).lineLimit(2).frame(height: 32, alignment: .top)
             }
             Spacer(minLength: 0)
-            HStack(spacing: 10) {
+            HStack(spacing: 7) {
                 Label("\(vault.noteCount)", systemImage: "doc.text")
-                Label("\(vault.sourceCount)", systemImage: "paperclip")
+                if !sourceKinds.isEmpty {
+                    Text("·").foregroundStyle(Palette.tertiaryForeground.opacity(0.5))
+                    ForEach(Array(sourceKinds.prefix(4).enumerated()), id: \.offset) { _, kind in
+                        Image(systemName: kind.icon).foregroundStyle(kind.tint.opacity(0.85))
+                    }
+                    if sourceKinds.count > 4 { Text("+\(sourceKinds.count - 4)") }
+                }
                 Spacer()
                 Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold)).foregroundStyle(Palette.tertiaryForeground.opacity(hover ? 0.9 : 0.4))
             }.font(.system(size: 11)).foregroundStyle(Palette.tertiaryForeground)
