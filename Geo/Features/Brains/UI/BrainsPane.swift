@@ -498,19 +498,21 @@ private struct BrainDetailView: View {
     }
 
     private var addGrid: some View {
-        ScrollView {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 104, maximum: 140), spacing: 14)], alignment: .leading, spacing: 14) {
-                ForEach(Array(BrainSourceKind.allAddable.enumerated()), id: \.offset) { _, kind in
-                    AddTile(kind: kind) {
-                        if kind == .web { inlineURL = ""; withAnimation(.easeOut(duration: 0.15)) { showInlineURL = true } }
-                        else { showImporter = true }
+        VStack(spacing: 0) {
+            inlineURLBar
+            ScrollView {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 110, maximum: 150), spacing: 14)], alignment: .leading, spacing: 14) {
+                    ForEach(Array(BrainSourceKind.allAddable.enumerated()), id: \.offset) { _, kind in
+                        AddTile(kind: kind) {
+                            if kind == .web { inlineURL = ""; withAnimation(.easeOut(duration: 0.15)) { showInlineURL = true } }
+                            else { showImporter = true }
+                        }
                     }
                 }
+                .padding(20)
             }
-            .padding(20)
         }
         .background(Palette.background)
-        .overlay(alignment: .top) { inlineURLBar }
     }
 
     @ViewBuilder private var inlineURLBar: some View {
