@@ -21,6 +21,8 @@ Usage:
 --dry-run skips the model entirely (writes raw chunks) — for structure testing.
 Vault root override: $GEO_BRAINS_ROOT (default ~/Geo/Brains).
 """
+from __future__ import annotations
+
 import argparse
 import getpass
 import hashlib
