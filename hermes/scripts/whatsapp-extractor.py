@@ -37,7 +37,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from anthropic import AsyncAnthropic
+from anthropic import AsyncAnthropic, RateLimitError
 
 HERMES_HOME = Path(os.path.expanduser("~/.hermes"))
 JSONL_PATH = HERMES_HOME / "wa_ingest.jsonl"
