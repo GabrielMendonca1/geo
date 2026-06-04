@@ -214,17 +214,15 @@ final class HermesMigrationFixesTests: XCTestCase {
             XCTFail("Block not found after mutate")
             return
         }
-        let versionAfterMutate = store.blocks.first(where: { $0.id == block.id })!.metadata.frontmatter_version
         let bodyWithReport = refreshed.markdown + "\n\n## Agent Report - pi - \(timestamp)\nReport text body."
         try await repo.update(id: block.id, markdown: bodyWithReport)
         await store.flushAll()
 
         let live = store.blocks.first(where: { $0.id == block.id })
         XCTAssertNotNil(live)
-        XCTAssertEqual(live?.metadata.frontmatter_version, versionAfterMutate)
         let fm = MarkdownConverter.shared.parse(live?.markdown ?? "").frontmatter
         XCTAssertEqual(fm["state"], "In Progress")
-        XCTAssertEqual(fm["frontmatter_version"], String(versionAfterMutate))
+        XCTAssertNil(fm["frontmatter_version"], "version counter retired")
         XCTAssertTrue(live?.markdown.contains("Body description here.") ?? false)
         XCTAssertTrue(live?.markdown.contains("Report text body.") ?? false)
         let frontmatterDelimiterCount = live?.markdown.components(separatedBy: "\n---\n").count ?? 0
