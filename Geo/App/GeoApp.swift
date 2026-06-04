@@ -316,9 +316,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         guard !ProcessInfo.processInfo.isRunningTests else { return }
 
-        DayMigrationService.shared.migrateIfNeeded()
         Task { [container] in
-            FrontmatterStripMigrationService.shared.markRetired()
             let fileService = await MainActor.run { container.blocksStore.fileService }
             let metadata = await MainActor.run { container.blocksStore.metadataService.blocksMetadata }
             await IndexCoordinator.shared.repairIntegrity(fileService: fileService, metadata: metadata)
@@ -329,28 +327,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             await MainActor.run {
                 container.blocksStore.metadataService.hydrateFromIndex(hydrated)
             }
-            let reconciler = await MainActor.run { container.blocksStore.changeReconciler }
-            // The files-are-truth migration is the single deliberate completion path.
-            // Default OFF: nothing below runs unless geo.migration.filesAreTruth.enabled is flipped.
-            let backupDir = fileService.blocksDirectory.deletingLastPathComponent()
-                .appendingPathComponent("Backups", isDirectory: true)
-            let hooks = FilesAreTruthMigrationRunner.Hooks(
-                reloadAndRebuild: { [container] in
-                    // Files-first: re-parse every .md and rebuild the index from disk content so
-                    // block_days/block_tags re-derive completely (not from the stale DB cache).
-                    await container.blocksStore.forceReloadFromFiles()
-                },
-                refreshDays: { [container] in
-                    await MainActor.run { container.dayStore.refreshFromDerive() }
-                }
-            )
-            await FilesAreTruthMigrationRunner.shared.runIfEnabled(
-                fileService: fileService,
-                database: DatabaseService.shared,
-                recordWrite: { id in reconciler.recordWrite(for: id) },
-                backupDirectory: backupDir,
-                hooks: hooks
-            )
         }
         container.templateService.loadTemplates()
         container.notchWindowController.show()
