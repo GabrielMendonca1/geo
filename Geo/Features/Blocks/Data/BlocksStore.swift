@@ -473,7 +473,6 @@ class BlocksStore: ObservableObject {
             lastEdited: block.lastEdited,
             markdown: block.markdown,
             url: destURL,
-            tagId: block.tagId,
             metadata: block.metadata
         )
         blocks[index] = moved
