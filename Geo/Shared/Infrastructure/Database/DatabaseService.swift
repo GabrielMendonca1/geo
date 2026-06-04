@@ -660,7 +660,7 @@ final class DatabaseService: @unchecked Sendable {
         }
         let rows = try Row.fetchAll(
             db,
-            sql: "SELECT id, path, title, content, createdAt, modifiedAt, tagId, dayId, openTaskCount, completedTaskCount, type, status, layer, isFullWidth, altId FROM blocks \(clause)",
+            sql: "SELECT id, path, title, content, createdAt, modifiedAt, dayId, openTaskCount, completedTaskCount, type, status, layer, isFullWidth, altId FROM blocks \(clause)",
             arguments: arguments
         )
         let tagRows = try Row.fetchAll(
