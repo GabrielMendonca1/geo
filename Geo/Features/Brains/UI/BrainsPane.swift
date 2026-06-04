@@ -620,7 +620,7 @@ private struct AddTile: View {
             .background(RoundedRectangle(cornerRadius: 14).fill(Color(nsColor: hover ? Palette.agentCardElevated : Palette.agentCard)))
             .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(hover ? Palette.foreground.opacity(0.22) : Palette.border, lineWidth: 1))
             .overlay(alignment: .topTrailing) {
-                Image(systemName: "plus").font(.system(size: 9, weight: .bold)).foregroundStyle(Palette.tertiaryForeground.opacity(hover ? 0.9 : 0.35)).padding(8)
+                Image(systemName: "plus").font(.system(size: 9, weight: .bold)).foregroundStyle(Palette.foreground.opacity(0.9)).padding(8).opacity(hover ? 1 : 0)
             }
         }
         .buttonStyle(.plain)
