@@ -31,10 +31,6 @@ final class BlockMetadataService {
         return blocksMetadata[blockId]?.dayId
     }
 
-    func tagId(for blockId: String) -> String? {
-        return blocksMetadata[blockId]?.tagId
-    }
-
     func persistMetadata(_ metadata: BlocksStore.BlockMetadata, for blockId: String) {
         if metadata.isPersisted {
             blocksMetadata[blockId] = metadata
