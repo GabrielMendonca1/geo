@@ -138,7 +138,6 @@ class BlocksStore: ObservableObject {
         enableWatcher: Bool = true,
         indexCoordinator: IndexCoordinator = .shared,
         dayManager: DayManager,
-        storageMigration: StorageMigrationService = .shared,
         markdownConverter: MarkdownConverter = .shared
     ) {
         self.indexCoordinator = indexCoordinator
