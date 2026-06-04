@@ -50,10 +50,6 @@ class GeoAPIError(GeoError):
         super().__init__(f"Geo API {status_code}: {body}")
 
 
-class GeoConflict(GeoAPIError):
-    """409 — destructive commit raced a frontmatter write; client must re-prepare."""
-
-
 def _read_api_json() -> tuple[int, int]:
     if not GEO_API_JSON.exists():
         raise GeoUnreachable(f"{GEO_API_JSON} missing — Geo.app likely closed")
