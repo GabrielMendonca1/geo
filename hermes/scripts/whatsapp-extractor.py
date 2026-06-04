@@ -510,6 +510,9 @@ async def decide(client: AsyncAnthropic, kept: list[dict]) -> dict:
         proposals_json=json.dumps(payload, ensure_ascii=False, indent=2),
     )
     raw = await _call_model(client, _full_model(), prompt, DECIDE_MAX_TOKENS_OUT, DECIDE_TIMEOUT_S, attempts=DECIDE_ATTEMPTS)
+    if raw is None:
+        log(f"Opus decide unavailable (rate-limited) — falling back to {HAIKU_MODEL} this run")
+        raw = await _call_model(client, HAIKU_MODEL, prompt, DECIDE_MAX_TOKENS_OUT, DECIDE_TIMEOUT_S)
     empty = {"blocks": [], "tasks": [], "urgent": []}
     if raw is None:
         return empty
