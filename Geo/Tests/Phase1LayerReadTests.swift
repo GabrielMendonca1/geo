@@ -54,7 +54,6 @@ final class Phase1LayerReadTests: XCTestCase {
             lastEdited: Date(),
             markdown: markdown,
             url: URL(fileURLWithPath: "/tmp/\(id).md"),
-            tagId: nil,
             metadata: BlockEntity.Metadata(layer: resolved)
         )
     }
