@@ -107,8 +107,8 @@ final class BlocksStoreFrontmatterMutatorTests: XCTestCase {
         let blockA = try await makeBlock(markdown: "---\nsymphony: true\n---\n# A\n", title: "A")
         let blockB = try await makeBlock(markdown: "---\nsymphony: true\n---\n# B\n", title: "B")
 
-        async let aOk: () = store.mutateFrontmatter(blockID: blockA.id, merge: ["state": .string("Todo")])
-        async let bOk: () = store.mutateFrontmatter(blockID: blockB.id, merge: ["state": .string("Done")])
+        async let aOk = store.mutateFrontmatter(blockID: blockA.id, merge: ["state": .string("Todo")])
+        async let bOk = store.mutateFrontmatter(blockID: blockB.id, merge: ["state": .string("Done")])
         _ = try await (aOk, bOk)
 
         let liveA = store.blocks.first(where: { $0.id == blockA.id })
