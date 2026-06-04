@@ -137,7 +137,7 @@ final class Phase3DayLinkWriteTests: XCTestCase {
             .appendingPathComponent("Geo/Blocks/Daily/\(dayId).md")
         try? FileManager.default.removeItem(at: dailyURL)
 
-        let tools = DayTools.register(days: StubDayRepoP3(), blocks: blocksAdapter, indexCoordinator: indexCoordinator)
+        let tools = DayTools.register(blocks: blocksAdapter, indexCoordinator: indexCoordinator)
         let getDay = tools.first(where: { $0.definition.name == "get_day" })!
         _ = try await getDay.handler(["date": .string(dayId)])
 
