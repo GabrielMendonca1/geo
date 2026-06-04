@@ -64,7 +64,7 @@ final class BrainVaultStore: ObservableObject {
             .filter { $0.pathExtension == "md" && $0.lastPathComponent != "index.md" }
     }
 
-    static func sourceFiles(in folder: URL) -> [URL] {
+    nonisolated static func sourceFiles(in folder: URL) -> [URL] {
         ((try? FileManager.default.contentsOfDirectory(at: folder.appendingPathComponent("sources"), includingPropertiesForKeys: nil)) ?? [])
             .filter { !$0.hasDirectoryPath && !$0.lastPathComponent.hasPrefix(".") }
     }
