@@ -63,7 +63,7 @@ final class GeoAPIRouter: @unchecked Sendable {
         return .read
     }
 
-    private func dispatch(request: HTTPRequest, token: ValidatedToken) async -> HTTPResponse {
+    private func dispatch(request: HTTPRequest) async -> HTTPResponse {
         let path = request.path
         let method = request.method
 
