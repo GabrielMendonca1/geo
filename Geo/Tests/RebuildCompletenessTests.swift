@@ -102,7 +102,7 @@ final class RebuildCompletenessTests: XCTestCase {
         let store = BlocksStore(
             baseURL: tempRoot, loadAsync: false, enableWatcher: false,
             indexCoordinator: coordinator, dayManager: dayManager,
-            storageMigration: StorageMigrationService.shared, markdownConverter: .shared
+            markdownConverter: .shared
         )
         for _ in 0..<60 {
             if store.blocks.contains(where: { $0.id == "L.md" }) { break }
