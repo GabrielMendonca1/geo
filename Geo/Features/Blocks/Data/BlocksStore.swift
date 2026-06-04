@@ -157,10 +157,6 @@ class BlocksStore: ObservableObject {
         )
         self.changeReconciler = reconciler
 
-        // Legacy blocks.json -> .md import (gated, done-flagged). It owns its own sidecar URL.
-        let legacyMetadataURL = fileService.blocksDirectory.appendingPathComponent(".blocks-metadata.json")
-        storageMigration.migrateIfNeeded(blocksDirectory: fileService.blocksDirectory, metadataURL: legacyMetadataURL)
-
         reconciler.onBlocksChanged = { [weak self] updatedBlocks in
             self?.blocks = updatedBlocks
         }
