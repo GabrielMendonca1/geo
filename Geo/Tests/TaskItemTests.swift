@@ -767,12 +767,8 @@ private final class InMemoryBlocksStoreAccess: BlocksStoreAccess, @unchecked Sen
             throw FrontmatterMutationError.blockNotFound(blockId)
         }
         let existing = blocks[index]
-        let newVersion = existing.metadata.frontmatter_version + 1
-        var mergeWithVersion = merge
-        mergeWithVersion["frontmatter_version"] = .int(newVersion)
-        let newMarkdown = FrontmatterEditor.upsert(in: existing.markdown, values: mergeWithVersion)
-        var metadata = existing.metadata
-        metadata.frontmatter_version = newVersion
+        let newMarkdown = FrontmatterEditor.upsert(in: existing.markdown, values: merge)
+        let metadata = existing.metadata
         blocks[index] = BlocksStore.Block(
             id: existing.id,
             title: existing.title,
@@ -783,7 +779,7 @@ private final class InMemoryBlocksStoreAccess: BlocksStoreAccess, @unchecked Sen
             metadata: metadata
         )
         publishSnapshot()
-        return newVersion
+        return 0
     }
 
     @MainActor
