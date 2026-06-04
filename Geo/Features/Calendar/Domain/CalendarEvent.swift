@@ -85,9 +85,10 @@ struct CalendarEvent: Identifiable, Hashable {
     }
 
     private static func resolvedTagColor(for block: BlockEntity, tagsById: [String: Tag]) -> Color? {
-        let tagId = block.tagId ?? block.metadata.tagId
-        guard let tagId else { return nil }
-        return tagsById[tagId]?.color.swiftUIColor
+        guard let name = block.metadata.tagName else { return nil }
+        let key = TagStore.canonicalName(name)
+        if let tag = tagsById[key] { return tag.color.swiftUIColor }
+        return TagStore.defaultColor(forName: key).swiftUIColor
     }
 
     private static func stableColor(for id: String) -> Color {
