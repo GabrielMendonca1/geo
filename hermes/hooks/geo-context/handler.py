@@ -365,19 +365,15 @@ async def search_context(query: str, with_summary: bool = False) -> dict:
 
 
 async def _build_body() -> Optional[str]:
-    bundle, parsed = await _fetch_geo_blocks()
+    bundle = await _fetch_geo_blocks()
     if not bundle:
         return None
 
-    if parsed:
-        profile, memory = bundle["profile"], bundle["memory"]
-        protocol, today, tasks = bundle["protocol"], bundle["today"], bundle["tasks"]
-    else:
-        profile = _unwrap_block(bundle["profile"])
-        memory = _unwrap_block(bundle["memory"])
-        protocol = _unwrap_block(bundle["protocol"])
-        today = _format_today(bundle["today"])
-        tasks = None
+    profile = _unwrap_block(bundle["profile"])
+    memory = _unwrap_block(bundle["memory"])
+    protocol = _unwrap_block(bundle["protocol"])
+    today = _format_today(bundle["today"])
+    tasks = _format_tasks(bundle["tasks"])
 
     if not any([profile, memory, protocol, today, tasks]):
         return None
