@@ -1,13 +1,26 @@
-"""Non-destructive write tool handlers for Geo HTTP API.
+"""Write tool handlers for Geo.
 
-Destructive ops (delete_*) live in ``destructive.py`` because they require
-the two-phase prepare → Telegram confirm → commit dance.
+BLOCK writers are native filesystem ops on the Geo vault (files are truth):
+a block IS its ``.md`` file under
+``~/Library/Application Support/Geo/Blocks/`` with YAML frontmatter
+(id/type/status/layer/tags) + an inline ``[[YYYY-MM-DD]]`` day-link. The
+Geo.app FileWatcher reconciles the derived SQLite index — no HTTP call is
+needed for the app to see a native write. TASK writers stay HTTP (KEEP-COMPUTE).
+
+Destructive ops (delete_*) live in ``destructive.py``.
 """
 
 from __future__ import annotations
 
 import json
-from typing import Any, Callable
+import os
+import re
+import shutil
+import unicodedata
+import uuid
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Callable, Optional
 
 from .client import GeoAPIClient, GeoError
 from .matching import rank
@@ -34,43 +47,231 @@ def _wrap(handler: Callable[[GeoAPIClient, dict], Any]) -> Callable:
     return _entry
 
 
+# --- Native filesystem block ops (files are truth) -------------------------
+
+BLOCKS_DIR = (
+    Path.home() / "Library" / "Application Support" / "Geo" / "Blocks"
+)
+_SANITIZE_RE = re.compile(r'[/:\\*?"<>|]')
+_TYPES = ("fleeting", "literature", "permanent", "moc", "project")
+_LAYERS = ("user", "agent", "review", "shared")
+
+
+def _nfc(s: str) -> str:
+    return unicodedata.normalize("NFC", s)
+
+
+def _canonical_tag(name: str) -> str:
+    return _nfc((name or "").strip().lower())
+
+
+def _sanitize_filename(title: str) -> str:
+    name = _SANITIZE_RE.sub("-", title or "")
+    name = name.replace(" ", "-").strip("-")
+    return _nfc(name) or "Block"
+
+
+def _atomic_write(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(text, encoding="utf-8")
+    os.replace(tmp, path)
+
+
+def _emit_inline_list(items: list[str]) -> str:
+    return "[" + ", ".join(items) + "]"
+
+
+def _build_frontmatter(
+    block_id: str,
+    type_: str,
+    status: Optional[str],
+    layer: str,
+    tags: list[str],
+    full_width: bool,
+) -> str:
+    lines = [f"id: {block_id}", f"type: {type_}"]
+    if status:
+        lines.append(f"status: {status}")
+    lines.append(f"layer: {layer}")
+    if tags:
+        lines.append(f"tags: {_emit_inline_list(tags)}")
+    if full_width:
+        lines.append("full_width: true")
+    return "---\n" + "\n".join(lines) + "\n---\n"
+
+
+def _block_path(block_id: str) -> Path:
+    rel = block_id if block_id.endswith(".md") else f"{block_id}.md"
+    return BLOCKS_DIR / rel
+
+
+def _resolve_path(block_id: str) -> Path:
+    p = _block_path(block_id)
+    if not p.exists():
+        raise GeoError(f"block not found: {block_id}")
+    return p
+
+
+def _unique_path(folder: Path, slug: str) -> Path:
+    candidate = folder / f"{slug}.md"
+    n = 1
+    while candidate.exists():
+        candidate = folder / f"{slug}-{n}.md"
+        n += 1
+    return candidate
+
+
+def _rel_id(path: Path) -> str:
+    return _nfc(str(path.relative_to(BLOCKS_DIR)))
+
+
+def _today_token() -> str:
+    return datetime.now().strftime("%Y-%m-%d")
+
+
+def _ensure_day_link(body: str, date: str) -> str:
+    token = f"[[{date}]]"
+    if token in body:
+        return body
+    if body and not body.endswith("\n"):
+        body += "\n"
+    return body + token + "\n"
+
+
+def _split_frontmatter(text: str) -> tuple[str, str]:
+    if text.startswith("---\n"):
+        end = text.find("\n---\n", 4)
+        if end != -1:
+            return text[: end + 5], text[end + 5 :]
+    return "", text
+
+
+def _read_block(path: Path) -> tuple[str, str]:
+    return _split_frontmatter(path.read_text(encoding="utf-8"))
+
+
+def _edit_frontmatter_field(fm: str, key: str, value: Optional[str]) -> str:
+    if not fm:
+        fm = "---\n---\n"
+    body_lines = fm.split("\n")
+    inner = body_lines[1:-2] if len(body_lines) >= 3 else []
+    out: list[str] = []
+    replaced = False
+    for line in inner:
+        if line.startswith(f"{key}:"):
+            if value is not None:
+                out.append(f"{key}: {value}")
+            replaced = True
+        else:
+            out.append(line)
+    if value is not None and not replaced:
+        out.append(f"{key}: {value}")
+    return "---\n" + "\n".join(out) + "\n---\n"
+
+
 async def _create_block(c: GeoAPIClient, a: dict) -> Any:
-    return await c.post("/blocks", json={
-        "title": a["title"],
-        "content": a.get("body", ""),
-        "layer": a.get("layer"),
-        "type": a.get("type"),
-        "status": a.get("status"),
-        "day_id": a.get("day_id"),
-        "tag_name": a.get("tag_name"),
-        "folder": a.get("folder"),
-    })
+    title = a["title"]
+    type_ = a.get("type") or "fleeting"
+    if type_ not in _TYPES:
+        type_ = "fleeting"
+    layer = a.get("layer") or "agent"
+    if layer not in _LAYERS:
+        layer = "agent"
+    status = a.get("status") or None
+    tags: list[str] = []
+    if a.get("tag_name"):
+        tags = [_canonical_tag(a["tag_name"])]
+
+    folder = (a.get("folder") or "").strip("/")
+    dest_dir = BLOCKS_DIR / folder if folder else BLOCKS_DIR
+    slug = _sanitize_filename(title)
+    path = _unique_path(dest_dir, slug)
+
+    fm = _build_frontmatter(
+        str(uuid.uuid4()).upper(), type_, status, layer, tags, False,
+    )
+    body = a.get("body", "") or ""
+    if not body.startswith("#"):
+        body = f"# {title}\n{body}" if body else f"# {title}\n"
+    day = a.get("day_id") or _today_token()
+    body = _ensure_day_link(body, day)
+
+    _atomic_write(path, fm + body)
+    return {"id": _rel_id(path)}
 
 
 async def _move_block(c: GeoAPIClient, a: dict) -> Any:
-    return await c.post(f"/blocks/{a['id']}/move", json={"folder": a.get("folder")})
+    src = _resolve_path(a["id"])
+    folder = (a.get("folder") or "").strip("/")
+    dest_dir = BLOCKS_DIR / folder if folder else BLOCKS_DIR
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest = _unique_path(dest_dir, src.stem) if (dest_dir / src.name).exists() else dest_dir / src.name
+    shutil.move(str(src), str(dest))
+    attach = src.parent / "Attachments" / src.stem
+    if attach.is_dir():
+        new_attach = dest.parent / "Attachments" / dest.stem
+        new_attach.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(attach), str(new_attach))
+    return {"id": _rel_id(dest)}
+
 
 async def _update_block(c: GeoAPIClient, a: dict) -> Any:
-    return await c.patch(f"/blocks/{a['id']}", json={"content": a["body"]})
+    path = _resolve_path(a["id"])
+    fm, _ = _read_block(path)
+    _atomic_write(path, fm + a["body"])
+    return {"id": _rel_id(path)}
+
 
 async def _set_block_tag(c: GeoAPIClient, a: dict) -> Any:
-    return await c.post(f"/blocks/{a['id']}/tag", json={"tag_name": a.get("tag_name", "")})
+    path = _resolve_path(a["id"])
+    fm, body = _read_block(path)
+    name = _canonical_tag(a.get("tag_name", ""))
+    value = _emit_inline_list([name]) if name else None
+    fm = _edit_frontmatter_field(fm, "tags", value)
+    _atomic_write(path, fm + body)
+    return {"id": _rel_id(path), "tags": [name] if name else []}
 
 
 async def _set_layer(c: GeoAPIClient, a: dict) -> Any:
-    return await c.patch(f"/blocks/{a['id']}/layer", json={"layer": a["layer"]})
-
-
-async def _extract_permanent_from(c: GeoAPIClient, a: dict) -> Any:
-    return await c.post(f"/blocks/{a['id']}/extract-permanent", json={})
+    path = _resolve_path(a["id"])
+    layer = a["layer"]
+    if layer not in _LAYERS:
+        raise GeoError(f"invalid layer '{layer}' (user|agent|review|shared)")
+    fm, body = _read_block(path)
+    fm = _edit_frontmatter_field(fm, "layer", layer)
+    _atomic_write(path, fm + body)
+    return {"id": _rel_id(path), "layer": layer}
 
 
 async def _promote_to_permanent(c: GeoAPIClient, a: dict) -> Any:
-    return await c.post(f"/blocks/{a['id']}/promote-permanent", json={})
+    path = _resolve_path(a["id"])
+    fm, body = _read_block(path)
+    fm = _edit_frontmatter_field(fm, "type", "permanent")
+    _atomic_write(path, fm + body)
+    return {"id": _rel_id(path), "type": "permanent"}
+
+
+async def _extract_permanent_from(c: GeoAPIClient, a: dict) -> Any:
+    src = _resolve_path(a["id"])
+    src_title = src.stem.replace("-", " ")
+    slug = _sanitize_filename(f"Extraído de {src.stem}")
+    dest = _unique_path(BLOCKS_DIR, slug)
+    fm = _build_frontmatter(
+        str(uuid.uuid4()).upper(), "permanent", None, "agent", [], False,
+    )
+    body = f"# Extraído de [[{src_title}]]\n"
+    body = _ensure_day_link(body, _today_token())
+    _atomic_write(dest, fm + body)
+    return {"id": _rel_id(dest), "source": _rel_id(src)}
 
 
 async def _link_block_to_day(c: GeoAPIClient, a: dict) -> Any:
-    return await c.post(f"/blocks/{a['block_id']}/link-day", json={"date": a["day"]})
+    path = _resolve_path(a["block_id"])
+    fm, body = _read_block(path)
+    body = _ensure_day_link(body, a["day"])
+    _atomic_write(path, fm + body)
+    return {"id": _rel_id(path), "day": a["day"]}
 
 
 def _build_task_body(a: dict) -> dict:
