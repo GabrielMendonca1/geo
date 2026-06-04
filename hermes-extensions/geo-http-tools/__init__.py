@@ -1,10 +1,12 @@
-"""geo-http-tools — authenticated HTTP client for Gabriel's Geo macOS app.
+"""geo-http-tools — Geo tools for Gabriel's macOS app (`geo_*` prefix, no `mcp_`).
 
-Registers 39 tools (`geo_*` prefix, no `mcp_`) that talk to the localhost
-HTTP API exposed by Geo.app (Slice A). Auth via macOS Keychain bearer.
+BLOCK writers are native filesystem ops on the Geo vault (files are truth);
+TASK/read/ai/search/graph/tag/day tools talk to Geo.app's localhost HTTP API
+(Slice A), auth via macOS Keychain bearer.
 
 Destructive ops (`geo_delete_block`, `geo_delete_task`) gate on a Telegram
-confirm from Gabriel. See ``destructive.py`` for the two-phase flow and the
+confirm from Gabriel: block delete is a native rm, task delete is an HTTP
+DELETE. See ``destructive.py`` for the confirm flow and the
 ``pre_gateway_dispatch`` hook that captures his replies.
 """
 
