@@ -150,7 +150,9 @@ final class HermesMigrationFixesTests: XCTestCase {
         XCTAssertEqual(result.isError ?? false, false)
         await store.flushAll()
         let live = store.blocks.first(where: { $0.id == block.id })
-        XCTAssertEqual(live?.metadata.status, "todo")
+        let fm = MarkdownConverter.shared.parse(live?.markdown ?? "").frontmatter
+        XCTAssertEqual(fm["state"], "Todo", "frontmatter preserved through body-only edit")
+        XCTAssertNil(fm["frontmatter_version"], "no version counter leaks in")
         XCTAssertTrue(live?.markdown.contains("Body only edit") ?? false)
     }
 
