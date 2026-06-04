@@ -73,6 +73,10 @@ def _nano_model() -> str:
     return _config_model("nano", "HERMES_NANO_MODEL", "claude-haiku-4-5")
 
 
+def _full_model() -> str:
+    return _config_model("full", "HERMES_FULL_MODEL", "claude-opus-4-8")
+
+
 WINDOW_HOURS = int(os.environ.get("HERMES_WA_WINDOW_HOURS", "6"))
 HAIKU_MODEL = _nano_model()
 MAX_CONCURRENT = 6
