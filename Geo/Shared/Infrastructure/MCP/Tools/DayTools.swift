@@ -59,7 +59,7 @@ enum DayTools {
         captures: (any CaptureRepository)? = nil,
         indexCoordinator: IndexCoordinator = .shared
     ) -> [MCPRegisteredTool] {
-        [getToday(captures, indexCoordinator), getDay(captures, indexCoordinator), linkBlockToDay(blocks)]
+        [getToday(captures, indexCoordinator), getDay(captures, indexCoordinator)]
     }
 
     private static func getToday(_ captures: (any CaptureRepository)?, _ indexCoordinator: IndexCoordinator) -> MCPRegisteredTool {
