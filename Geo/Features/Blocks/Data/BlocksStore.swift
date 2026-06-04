@@ -396,7 +396,6 @@ class BlocksStore: ObservableObject {
         var meta = metadataService.currentMetadata(for: currentBlock.id) ?? currentBlock.metadata
         meta.status = MarkdownConverter.normalizedStatus(document.frontmatter["status"])
         meta.type = MarkdownConverter.normalizedType(document.frontmatter["type"])
-        meta.frontmatter_version = MarkdownConverter.frontmatterVersion(document.frontmatter["frontmatter_version"])
         let updatedBlock = Block(
             id: currentBlock.id,
             title: newTitle,
@@ -404,7 +403,6 @@ class BlocksStore: ObservableObject {
             lastEdited: Date(),
             markdown: newMarkdown,
             url: currentBlock.url,
-            tagId: meta.tagId,
             metadata: meta
         )
 
