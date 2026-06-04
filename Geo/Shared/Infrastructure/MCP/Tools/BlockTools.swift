@@ -116,7 +116,6 @@ enum BlockTools {
                 guard let block = allBlocks.first(where: { $0.id == id }) else {
                     return .error("Block not found: \(id)")
                 }
-                let allTags = try await tags.list()
                 var result: [String: AnyCodableValue] = [
                     "id": .string(block.id),
                     "title": .string(block.displayTitle),
@@ -124,8 +123,6 @@ enum BlockTools {
                 ]
                 if let name = block.metadata.tagName {
                     result["tag_name"] = .string(name)
-                } else if let tagId = block.tagId, let tag = allTags.first(where: { $0.id == tagId }) {
-                    result["tag_name"] = .string(tag.name)
                 }
                 if let dayId = block.metadata.dayId {
                     result["day_id"] = .string(dayId)
