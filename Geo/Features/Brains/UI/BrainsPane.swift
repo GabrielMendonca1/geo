@@ -738,14 +738,24 @@ private struct SourceFileRow: View {
 
     var body: some View {
         Button { NSWorkspace.shared.activateFileViewerSelecting([url]) } label: {
-            HStack(spacing: 8) {
-                Image(systemName: kind.icon).font(.system(size: 12)).foregroundStyle(kind.tint.opacity(0.9)).frame(width: 16)
-                Text(url.lastPathComponent).font(.system(size: 12.5)).foregroundStyle(Palette.foreground).lineLimit(1)
+            HStack(spacing: 10) {
+                SourceBadge(kind: kind, size: 30, corner: 8, glyph: 13)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(url.lastPathComponent)
+                        .font(.system(size: 12.5, weight: .medium)).foregroundStyle(Palette.foreground)
+                        .lineLimit(1).truncationMode(.middle)
+                    Text(kind.displayName.uppercased())
+                        .font(.system(size: 9, weight: .medium)).tracking(0.4)
+                        .foregroundStyle(Palette.tertiaryForeground)
+                }
                 Spacer(minLength: 0)
-                if hover { Image(systemName: "arrow.up.forward.app").font(.system(size: 10)).foregroundStyle(Palette.tertiaryForeground) }
+                Image(systemName: "arrow.up.forward.app")
+                    .font(.system(size: 11)).foregroundStyle(Palette.tertiaryForeground)
+                    .opacity(hover ? 1 : 0)
             }
-            .padding(.horizontal, 10).padding(.vertical, 7)
-            .background(RoundedRectangle(cornerRadius: 7).fill(hover ? Palette.foreground.opacity(0.04) : .clear))
+            .padding(.horizontal, 10).padding(.vertical, 8)
+            .background(RoundedRectangle(cornerRadius: 9).fill(hover ? Palette.foreground.opacity(0.05) : .clear))
+            .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(hover ? Palette.border : .clear, lineWidth: 1))
         }
         .buttonStyle(.plain).help("Reveal in Finder").onHover { hover = $0 }
     }
@@ -758,19 +768,28 @@ private struct AddTile: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 10) {
-                Image(systemName: kind.icon).font(.system(size: 24, weight: .regular)).foregroundStyle(kind.tint.opacity(hover ? 1 : 0.9))
-                Text(kind.displayName).font(.system(size: 11, weight: .medium)).foregroundStyle(Palette.foreground).lineLimit(1)
+            VStack(spacing: 11) {
+                SourceBadge(kind: kind, size: 46, corner: 12, glyph: 21)
+                    .scaleEffect(hover ? 1.06 : 1)
+                Text(kind.displayName)
+                    .font(.system(size: 12, weight: .medium)).foregroundStyle(Palette.foreground)
+                    .lineLimit(1).minimumScaleFactor(0.85)
             }
-            .frame(maxWidth: .infinity).aspectRatio(1, contentMode: .fit)
+            .frame(maxWidth: .infinity).frame(height: 112)
             .background(RoundedRectangle(cornerRadius: 14).fill(Color(nsColor: hover ? Palette.agentCardElevated : Palette.agentCard)))
-            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(hover ? Palette.foreground.opacity(0.22) : Palette.border, lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(hover ? kind.tint.opacity(0.45) : Palette.border, lineWidth: 1))
             .overlay(alignment: .topTrailing) {
-                Image(systemName: "plus").font(.system(size: 9, weight: .bold)).foregroundStyle(Palette.foreground.opacity(0.9)).padding(8).opacity(hover ? 1 : 0)
+                Image(systemName: "plus")
+                    .font(.system(size: 9, weight: .bold)).foregroundStyle(Palette.background)
+                    .frame(width: 18, height: 18)
+                    .background(Circle().fill(Palette.foreground))
+                    .padding(7).opacity(hover ? 1 : 0).scaleEffect(hover ? 1 : 0.6)
             }
         }
         .buttonStyle(.plain)
-        .scaleEffect(hover ? 1.02 : 1).animation(.easeOut(duration: 0.13), value: hover).onHover { hover = $0 }
+        .scaleEffect(hover ? 1.03 : 1)
+        .animation(.easeOut(duration: 0.14), value: hover)
+        .onHover { hover = $0 }
     }
 }
 
