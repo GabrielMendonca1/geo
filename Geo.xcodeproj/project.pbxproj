@@ -325,6 +325,7 @@
 		P2CPT0001B /* TagColorProvisionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = P2CPT0001F /* TagColorProvisionTests.swift */; };
 		P2WRT0001B /* Phase2TagWriteTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = P2WRT0001F /* Phase2TagWriteTests.swift */; };
 		P3DLWT0001B /* Phase3DayLinkWriteTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = P3DLWT0001F /* Phase3DayLinkWriteTests.swift */; };
+		RBCMP0001B /* RebuildCompletenessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = RBCMP0001F /* RebuildCompletenessTests.swift */; };
 		P3DLBT0001B /* Phase3DayLinkBackfillTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = P3DLBT0001F /* Phase3DayLinkBackfillTests.swift */; };
 		P3DSDT0001B /* Phase3DayStoreDeriveTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = P3DSDT0001F /* Phase3DayStoreDeriveTests.swift */; };
 		THEME00020000001 /* ThemePalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = THEME00020000002 /* ThemePalette.swift */; };
