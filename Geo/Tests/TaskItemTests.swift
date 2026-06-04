@@ -658,7 +658,6 @@ private final class InMemoryBlocksStoreAccess: BlocksStoreAccess, @unchecked Sen
             lastEdited: now,
             markdown: markdown,
             url: URL(fileURLWithPath: "/tmp/\(id)"),
-            tagId: nil,
             metadata: .init()
         )
         blocks.insert(block, at: 0)
@@ -678,7 +677,6 @@ private final class InMemoryBlocksStoreAccess: BlocksStoreAccess, @unchecked Sen
             lastEdited: Date(),
             markdown: markdown,
             url: existing.url,
-            tagId: existing.tagId,
             metadata: existing.metadata
         )
         publishSnapshot()
@@ -694,13 +692,13 @@ private final class InMemoryBlocksStoreAccess: BlocksStoreAccess, @unchecked Sen
         return true
     }
 
-    func setTag(_ tagId: String?, for blockId: String) async -> Bool {
+    func setTag(_ tagName: String?, for blockId: String) async -> Bool {
         guard let index = blocks.firstIndex(where: { $0.id == blockId }) else {
             return false
         }
         let existing = blocks[index]
         var metadata = existing.metadata
-        metadata.tagId = tagId
+        metadata.tagName = tagName
         blocks[index] = BlocksStore.Block(
             id: existing.id,
             title: existing.title,
@@ -708,7 +706,6 @@ private final class InMemoryBlocksStoreAccess: BlocksStoreAccess, @unchecked Sen
             lastEdited: existing.lastEdited,
             markdown: existing.markdown,
             url: existing.url,
-            tagId: tagId,
             metadata: metadata
         )
         publishSnapshot()
@@ -757,7 +754,6 @@ private final class InMemoryBlocksStoreAccess: BlocksStoreAccess, @unchecked Sen
             lastEdited: existing.lastEdited,
             markdown: existing.markdown,
             url: existing.url,
-            tagId: existing.tagId,
             metadata: metadata
         )
         publishSnapshot()
@@ -784,7 +780,6 @@ private final class InMemoryBlocksStoreAccess: BlocksStoreAccess, @unchecked Sen
             lastEdited: Date(),
             markdown: newMarkdown,
             url: existing.url,
-            tagId: existing.tagId,
             metadata: metadata
         )
         publishSnapshot()
@@ -804,7 +799,6 @@ private final class InMemoryBlocksStoreAccess: BlocksStoreAccess, @unchecked Sen
             lastEdited: Date(),
             markdown: markdown,
             url: existing.url,
-            tagId: existing.tagId,
             metadata: existing.metadata
         )
         publishSnapshot()
