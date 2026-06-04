@@ -356,14 +356,21 @@ def cmd_ingest(args) -> None:
     existing = {p.read_text().split("chunk: ", 1)[1].split("\n", 1)[0]
                 for p in vault(name).glob("*.md") if "chunk: " in p.read_text()}
 
+    files = args.files or [str(p) for p in sorted((vault(name) / "sources").glob("*"))
+                           if p.is_file() and not p.name.startswith(".")]
+    if not files:
+        raise SystemExit(f"No sources for '{name}'. Pass files, or drop them in {vault(name) / 'sources'}.")
+
     # collect pending chunks across all sources
     pending: list[tuple[str, str, str]] = []  # (chunk_hash, source_label, text)
-    for raw in args.files:
+    for raw in files:
         src = Path(raw).expanduser()
         if not src.exists():
             print(f"  skip (missing): {src}", file=sys.stderr)
             continue
-        shutil.copy2(src, vault(name) / "sources" / src.name)
+        dest = vault(name) / "sources" / src.name
+        if src.resolve() != dest.resolve():
+            shutil.copy2(src, dest)
         if src.name not in meta.get("sources", []):
             meta.setdefault("sources", []).append(src.name)
         for piece in chunk(extract_text(src)):
