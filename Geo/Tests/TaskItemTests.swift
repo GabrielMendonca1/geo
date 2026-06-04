@@ -278,7 +278,7 @@ final class RepositoryAdapterTests: XCTestCase {
         let listed = try await repository.list()
         XCTAssertEqual(listed.count, 1)
         XCTAssertEqual(listed[0].markdown, "updated")
-        XCTAssertEqual(listed[0].tagId, "tag-1")
+        XCTAssertEqual(listed[0].tagName, "tag-1")
 
         try await repository.delete(id: created.id)
         let blocksAfterDelete = try await repository.list()
