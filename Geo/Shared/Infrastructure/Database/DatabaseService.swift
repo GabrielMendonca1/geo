@@ -11,6 +11,9 @@ struct BlockIndexEntry: Equatable {
     let content: String
     let createdAt: Date
     let modifiedAt: Date
+    // Vestigial: legacy tag-UUID column, now always NULL. Tags derive solely from `tags`
+    // (frontmatter `tags:` + body `#hashtag`) into block_tags. Kept as a nullable cache column
+    // so the schema is stable; never sourced from real data, never read as authority.
     let tagId: String?
     let dayId: String?
     let openTaskCount: Int
