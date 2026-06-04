@@ -424,48 +424,51 @@ def parse_json_response(raw: str) -> dict | None:
 _usage_totals = {"input_tokens": 0, "output_tokens": 0, "calls": 0}
 
 
-def _track_usage(resp) -> None:
-    usage = getattr(resp, "usage", None)
-    if usage is None:
+def _track_usage(usage) -> None:
+    if not isinstance(usage, dict):
         return
-    _usage_totals["input_tokens"] += getattr(usage, "input_tokens", 0) or 0
-    _usage_totals["output_tokens"] += getattr(usage, "output_tokens", 0) or 0
+    _usage_totals["input_tokens"] += usage.get("input_tokens", 0) or 0
+    _usage_totals["output_tokens"] += usage.get("output_tokens", 0) or 0
     _usage_totals["calls"] += 1
 
 
 async def _call_model(
-    client: AsyncAnthropic,
+    http: httpx.AsyncClient,
+    headers: dict,
     model: str,
     prompt: str,
     max_tokens: int,
     timeout_s: float,
     attempts: int = RETRY_ATTEMPTS + 1,
 ) -> str | None:
+    body = {
+        "model": model,
+        "max_tokens": max_tokens,
+        "system": [{"type": "text", "text": CLAUDE_CODE_SYSTEM}],
+        "messages": [{"role": "user", "content": prompt}],
+    }
     last_err: str | None = None
     for attempt in range(attempts):
         delay = RETRY_BACKOFF_S * (attempt + 1)
         try:
-            resp = await asyncio.wait_for(
-                client.messages.create(
-                    model=model,
-                    max_tokens=max_tokens,
-                    messages=[{"role": "user", "content": prompt}],
-                ),
-                timeout=timeout_s,
+            resp = await http.post(
+                f"{ANTHROPIC_BASE}/v1/messages", headers=headers, json=body, timeout=timeout_s
             )
-            _track_usage(resp)
-            parts = [b.text for b in resp.content if getattr(b, "type", None) == "text"]
-            return "".join(parts)
-        except asyncio.TimeoutError:
+            if resp.status_code == 429:
+                last_err = f"RateLimit 429 (attempt {attempt + 1})"
+                delay = min(RATE_LIMIT_BACKOFF_S * (2 ** attempt), RATE_LIMIT_BACKOFF_MAX_S)
+                try:
+                    delay = max(delay, float(resp.headers.get("retry-after", 0)))
+                except Exception:
+                    pass
+            elif resp.status_code >= 400:
+                last_err = f"HTTP {resp.status_code}: {resp.text[:160]} (attempt {attempt + 1})"
+            else:
+                data = resp.json()
+                _track_usage(data.get("usage"))
+                return "".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text")
+        except httpx.TimeoutException:
             last_err = f"timeout (attempt {attempt + 1})"
-        except RateLimitError as e:
-            last_err = f"RateLimit: {str(e)[:120]} (attempt {attempt + 1})"
-            delay = min(RATE_LIMIT_BACKOFF_S * (2 ** attempt), RATE_LIMIT_BACKOFF_MAX_S)
-            headers = getattr(getattr(e, "response", None), "headers", None) or {}
-            try:
-                delay = max(delay, float(headers.get("retry-after", 0)))
-            except Exception:
-                pass
         except Exception as e:
             last_err = f"{type(e).__name__}: {str(e)[:160]} (attempt {attempt + 1})"
         if attempt < attempts - 1:
