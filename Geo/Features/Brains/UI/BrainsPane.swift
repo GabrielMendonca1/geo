@@ -223,9 +223,9 @@ struct BrainsPane: View {
             Rectangle().fill(Palette.border).frame(height: 1)
             if store.vaults.isEmpty { emptyState } else {
                 ScrollView {
-                    LazyVGrid(columns: columns, alignment: .leading, spacing: 16) {
+                    LazyVGrid(columns: columns, spacing: 20) {
                         ForEach(store.vaults) { vault in
-                            Button { BrainGraphBuilder.sanitizeSharedGraphSettings(); openVaultId = vault.id } label: { BrainCard(vault: vault) }.buttonStyle(.plain)
+                            Button { BrainGraphBuilder.sanitizeSharedGraphSettings(); openVaultId = vault.id } label: { BrainGraphCell(vault: vault) }.buttonStyle(.plain)
                         }
                     }
                     .padding(24)
