@@ -3,7 +3,6 @@ import Foundation
 struct BlockEntity: Identifiable, Hashable, Sendable {
     struct Metadata: Codable, Hashable, Sendable {
         var dayId: String?
-        var tagId: String?
         var tagName: String?
         var isFullWidth: Bool
         var status: String?
@@ -12,7 +11,6 @@ struct BlockEntity: Identifiable, Hashable, Sendable {
 
         init(
             dayId: String? = nil,
-            tagId: String? = nil,
             tagName: String? = nil,
             isFullWidth: Bool = false,
             status: String? = nil,
@@ -20,7 +18,6 @@ struct BlockEntity: Identifiable, Hashable, Sendable {
             layer: BlockLayer = .default
         ) {
             self.dayId = dayId
-            self.tagId = tagId
             self.tagName = tagName
             self.isFullWidth = isFullWidth
             self.status = status
@@ -35,17 +32,13 @@ struct BlockEntity: Identifiable, Hashable, Sendable {
     let lastEdited: Date
     let markdown: String
     let url: URL
-    let tagId: String?
     let metadata: Metadata
 
     var tagName: String? { metadata.tagName }
 
     func tagKey(using tags: [Tag]) -> String? {
-        if let name = metadata.tagName {
-            return TagStore.canonicalName(name)
-        }
-        guard let tagId, let tag = tags.first(where: { $0.id == tagId }) else { return nil }
-        return TagStore.canonicalName(tag.name)
+        guard let name = metadata.tagName else { return nil }
+        return TagStore.canonicalName(name)
     }
 
     init(
@@ -55,7 +48,6 @@ struct BlockEntity: Identifiable, Hashable, Sendable {
         lastEdited: Date,
         markdown: String,
         url: URL,
-        tagId: String?,
         metadata: Metadata
     ) {
         self.id = id
@@ -64,7 +56,6 @@ struct BlockEntity: Identifiable, Hashable, Sendable {
         self.lastEdited = lastEdited
         self.markdown = markdown
         self.url = url
-        self.tagId = tagId
         self.metadata = metadata
     }
 
