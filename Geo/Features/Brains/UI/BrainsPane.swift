@@ -709,7 +709,9 @@ private struct BrainDetailView: View {
         for url in urls {
             let access = url.startAccessingSecurityScopedResource()
             defer { if access { url.stopAccessingSecurityScopedResource() } }
-            try? FileManager.default.copyItem(at: url, to: sources.appendingPathComponent(url.lastPathComponent))
+            let dest = sources.appendingPathComponent(url.lastPathComponent)
+            try? FileManager.default.removeItem(at: dest)   // re-adding the same name replaces, not silently fails
+            try? FileManager.default.copyItem(at: url, to: dest)
         }
         Task { await ingest() }
     }
