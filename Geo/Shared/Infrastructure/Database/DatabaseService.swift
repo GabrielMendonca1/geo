@@ -482,7 +482,7 @@ final class DatabaseService: @unchecked Sendable {
         try await performRead { db in
             try Row.fetchOne(
                 db,
-                sql: "SELECT tagId, dayId, type, status, layer, isFullWidth FROM blocks WHERE id = ?",
+                sql: "SELECT dayId, type, status, layer, isFullWidth FROM blocks WHERE id = ?",
                 arguments: [blockId]
             )
         }
