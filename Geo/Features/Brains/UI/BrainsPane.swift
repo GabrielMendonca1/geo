@@ -202,7 +202,7 @@ struct BrainsPane: View {
                 }
             }
         }
-        .sheet(isPresented: $showCreate) { CreateBrainSheet(store: store) { openVaultId = $0 } }
+        .sheet(isPresented: $showCreate) { CreateBrainSheet(store: store) { BrainGraphBuilder.sanitizeSharedGraphSettings(); openVaultId = $0 } }
         .task { store.reload() }
     }
 
