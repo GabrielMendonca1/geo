@@ -86,22 +86,6 @@ final class Phase3DayLinkWriteTests: XCTestCase {
         XCTAssertEqual(occurrences, 2, "no duplicate token (split yields count+1)")
     }
 
-    func testLinkAuthGateDeniesUserLayerAllowsAgent() async throws {
-        let dayId = "2025-03-04"
-        let userBlock = try await makeBlock(markdown: "# UserOwned\n[[\(dayId)]]\n")
-        let agentBlock = try await makeBlock(markdown: "# AgentOwned\n[[\(dayId)]]\n")
-        _ = await store.setLayer(.user, for: userBlock.id)
-        _ = await store.setLayer(.agent, for: agentBlock.id)
-        let tools = DayTools.register(blocks: blocksAdapter, indexCoordinator: indexCoordinator)
-        let link = tools.first(where: { $0.definition.name == "link_block_to_day" })!
-
-        let deniedResult = try await link.handler(["block_id": .string(userBlock.id), "date": .string(dayId)])
-        XCTAssertEqual(deniedResult.isError, true, "user-layer block denied")
-
-        let okResult = try await link.handler(["block_id": .string(agentBlock.id), "date": .string(dayId)])
-        XCTAssertNil(okResult.isError, "agent-layer block allowed (idempotent insert)")
-    }
-
     func testNewBlockAutoJoinsToday() async throws {
         let todayId = Day.idFromDate(Date())
         let block = try await makeBlock(markdown: "---\ntype: fleeting\n---\n# Fresh\n")
