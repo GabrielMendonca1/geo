@@ -59,7 +59,7 @@ final class BrainVaultStore: ObservableObject {
         return try? JSONDecoder().decode(BrainMeta.self, from: data)
     }
 
-    static func noteFiles(in folder: URL) -> [URL] {
+    nonisolated static func noteFiles(in folder: URL) -> [URL] {
         ((try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? [])
             .filter { $0.pathExtension == "md" && $0.lastPathComponent != "index.md" }
     }
