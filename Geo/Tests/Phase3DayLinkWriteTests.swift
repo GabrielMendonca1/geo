@@ -167,7 +167,9 @@ private final class CapturesForDayRepo: CaptureRepository, @unchecked Sendable {
     init(dayId: String, count: Int) { self.dayId = dayId; self.count = count }
     func observe() -> AsyncStream<[CaptureItem]> { AsyncStream { c in c.yield([]); c.finish() } }
     func list() async throws -> [CaptureItem] {
-        (0..<count).map { _ in CaptureItem(text: "cap", dayId: dayId) }
+        (0..<count).map { i in
+            CaptureItem(fileName: "cap-\(i).png", extractedText: nil, sourceURL: nil, previewData: nil, imageData: nil, dayId: dayId)
+        }
     }
     func append(_ item: CaptureItem) async throws {}
     func linkToDay(captureId: UUID, dayId: String) async throws {}
