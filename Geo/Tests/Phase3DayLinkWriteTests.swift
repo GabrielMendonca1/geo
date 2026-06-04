@@ -118,15 +118,15 @@ final class Phase3DayLinkWriteTests: XCTestCase {
         let indexed = await waitForDay(dayId, contains: block.id)
         XCTAssertTrue(indexed)
 
-        let captureDay = DayWithTwoCapturesRepo(dayId: dayId)
-        let tools = DayTools.register(days: captureDay, blocks: blocksAdapter, indexCoordinator: indexCoordinator)
+        let captureRepo = CapturesForDayRepo(dayId: dayId, count: 2)
+        let tools = DayTools.register(blocks: blocksAdapter, captures: captureRepo, indexCoordinator: indexCoordinator)
         let getDay = tools.first(where: { $0.definition.name == "get_day" })!
 
         let result = try await getDay.handler(["date": .string(dayId)])
         let json = try decode(result)
         let blockIds = (json["block_ids"] as? [Any])?.compactMap { $0 as? String } ?? []
         XCTAssertTrue(blockIds.contains(block.id), "derived block present")
-        XCTAssertEqual(json["capture_count"] as? Int, 2, "captures unioned via dayId")
+        XCTAssertEqual(json["capture_count"] as? Int, 2, "captures counted via CaptureItem.dayId")
     }
 
     func testDailyNoteCreatedLazilyOnGetDay() async throws {
