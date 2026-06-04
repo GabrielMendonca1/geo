@@ -161,20 +161,17 @@ private final class StubDayRepoP3: DayRepository, @unchecked Sendable {
     func deleteDay(date: Date) async throws {}
 }
 
-private final class DayWithTwoCapturesRepo: DayRepository, @unchecked Sendable {
+private final class CapturesForDayRepo: CaptureRepository, @unchecked Sendable {
     private let dayId: String
-    init(dayId: String) { self.dayId = dayId }
-    func observe() -> AsyncStream<[Day]> { AsyncStream { c in c.yield([]); c.finish() } }
-    func day(for date: Date) async -> Day? {
-        guard Day.idFromDate(date) == dayId else { return nil }
-        var day = Day(date: date)
-        day.captureIds = [UUID(), UUID()]
-        return day
+    private let count: Int
+    init(dayId: String, count: Int) { self.dayId = dayId; self.count = count }
+    func observe() -> AsyncStream<[CaptureItem]> { AsyncStream { c in c.yield([]); c.finish() } }
+    func list() async throws -> [CaptureItem] {
+        (0..<count).map { _ in CaptureItem(text: "cap", dayId: dayId) }
     }
-    func addOrUpdateDay(_ day: Day) async throws {}
-    func addBlockToDay(date: Date, blockId: String) async throws {}
-    func addCaptureToDay(date: Date, captureId: UUID) async throws {}
-    func deleteDay(date: Date) async throws {}
+    func append(_ item: CaptureItem) async throws {}
+    func linkToDay(captureId: UUID, dayId: String) async throws {}
+    func delete(ids: Set<UUID>) async throws {}
 }
 
 private final class StubCaptureRepoP3: CaptureRepository, @unchecked Sendable {
