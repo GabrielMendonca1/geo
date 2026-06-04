@@ -386,19 +386,6 @@ final class GeoAPIRouter: @unchecked Sendable {
 
         switch op.operation {
         case .deleteBlock:
-            if let prepared = op.blockVersion {
-                do {
-                    guard let current = try await blocks.get(id: op.targetId) else {
-                        return .error(404, "block disappeared")
-                    }
-                    let currentVersion = MarkdownConverter.shared.frontmatterVersion(in: current.markdown)
-                    if currentVersion != prepared {
-                        return .error(409, "block_version changed since prepare")
-                    }
-                } catch {
-                    return .error(500, "version recheck failed")
-                }
-            }
             return await call("delete_block", args: ["id": .string(op.targetId)])
         case .deleteTask:
             return await call("delete_task", args: ["id": .string(op.targetId)])
