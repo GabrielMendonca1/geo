@@ -6,18 +6,15 @@ private let apiLogger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "geo",
 final class GeoAPIRouter: @unchecked Sendable {
     private let registry: MCPToolRegistry
     private let tokens: APITokenStore
-    private let pending: PendingTransactionStore
     private let blocks: any BlocksRepository
 
     init(
         registry: MCPToolRegistry,
         tokens: APITokenStore = .shared,
-        pending: PendingTransactionStore = .shared,
         blocks: any BlocksRepository
     ) {
         self.registry = registry
         self.tokens = tokens
-        self.pending = pending
         self.blocks = blocks
     }
 
