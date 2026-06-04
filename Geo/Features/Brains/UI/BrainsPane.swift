@@ -894,18 +894,20 @@ private enum BrainGraphBuilder {
                 if let targetId = idForSlug[key] {
                     if targetId == sourceId { continue }
                     guard seen.insert(EdgeKey(source: sourceId, target: targetId, title: nil)).inserted else { continue }
-                    edges.append(GraphEdge(id: UUID(), sourceId: sourceId, targetId: targetId, targetTitle: raw))
+                    edges.append(GraphEdge(id: stableID(for: "\(sourceId.uuidString)->\(targetId.uuidString)"), sourceId: sourceId, targetId: targetId, targetTitle: raw))
                     degree[sourceId, default: 0] += 1
                     degree[targetId, default: 0] += 1
                 } else {
                     guard seen.insert(EdgeKey(source: sourceId, target: nil, title: key)).inserted else { continue }
-                    edges.append(GraphEdge(id: UUID(), sourceId: sourceId, targetId: nil, targetTitle: raw))
+                    edges.append(GraphEdge(id: stableID(for: "\(sourceId.uuidString)~>\(key)"), sourceId: sourceId, targetId: nil, targetTitle: raw))
                 }
             }
         }
 
+        // Floor the weight so unlinked notes (a brand-new vault) still render as
+        // visible nodes with labels instead of 5pt specks that fade out when zoomed.
         let nodes = order.map { entry in
-            GraphNode(id: entry.id, title: entry.note.title, tagColor: nil, type: .permanent, layer: .agent, weight: degree[entry.id] ?? 0)
+            GraphNode(id: entry.id, title: entry.note.title, tagColor: nil, type: .permanent, layer: .agent, weight: max(1, degree[entry.id] ?? 0))
         }
         return (BlockGraph(nodes: nodes, edges: edges), lookup)
     }
