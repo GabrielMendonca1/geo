@@ -538,16 +538,10 @@ private enum MiniGraphLayout {
 
 // MARK: - Detail (custom back button + in-view actions; no .toolbar)
 
-private enum DetailMode: String, CaseIterable { case graph = "Graph", sources = "Sources" }
-
 private struct BrainDetailView: View {
     let vault: BrainVault
     let onBack: () -> Void
 
-    @State private var mode: DetailMode = .graph
-    @State private var notes: [BrainNote] = []
-    @State private var brainGraph: (graph: BlockGraph, lookup: [UUID: BrainNote]) = (.empty, [:])
-    @State private var selectedNote: BrainNote?
     @State private var showImporter = false
     @State private var showInlineURL = false
     @State private var inlineURL = ""
@@ -560,15 +554,12 @@ private struct BrainDetailView: View {
         VStack(spacing: 0) {
             header
             Rectangle().fill(Palette.border).frame(height: 1)
-            content
+            sourcesView
         }
         .background(Palette.background)
         .fileImporter(isPresented: $showImporter, allowedContentTypes: BrainSourceKind.importerTypes, allowsMultipleSelection: true) { handleAttach($0) }
         .overlay(alignment: .bottom) { bannerView }
-        .task { reload() }
     }
-
-    private func openSources() { withAnimation(.easeOut(duration: 0.15)) { mode = .sources } }
 
     private var header: some View {
         HStack(spacing: 12) {
