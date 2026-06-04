@@ -41,10 +41,14 @@ python3 brain.py reindex <name>
 ```
 
 - **ingest** copies each source into `sources/`, chunks it (~800 words, 80 overlap),
-  summarizes each chunk into one atomic note via Anthropic **Haiku**, and rebuilds
-  `index.md`. Idempotent — re-ingesting skips chunks already noted (SHA-256 of the
-  chunk). `--dry-run` skips the model and writes raw chunks (structure testing / no key).
-- **API key**: `$ANTHROPIC_API_KEY`, else the `ANTHROPIC_API_KEY=` line in `~/.hermes/.env`.
+  distills each chunk into one atomic note, and rebuilds `index.md`. Idempotent —
+  re-ingesting skips chunks already noted (SHA-256 of the chunk). With **no file args**
+  it ingests everything in `sources/`. `--dry-run` writes raw chunks (no model, no auth).
+- **Auth = your Claude Code account.** It reads the Claude Max OAuth token from the macOS
+  Keychain (`Claude Code-credentials`, the store the `claude` CLI owns — run `claude` once
+  to log in) and calls Haiku via `Authorization: Bearer` + `anthropic-beta: oauth-2025-04-20`,
+  bounded-concurrent (8-way). **No API key.** If `$ANTHROPIC_API_KEY` is set it switches to
+  the cheaper async **Batch API** (OAuth lacks the `user:batch` scope, so batch needs a real key).
 - PDF needs `pdftotext` (`brew install poppler`); `.txt`/`.md`/`.html` work natively.
 
 ## How the agent uses a brain (app-closed)
