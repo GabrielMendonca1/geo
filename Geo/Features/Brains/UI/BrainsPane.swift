@@ -168,11 +168,10 @@ enum VaultIngest {
         }
     }
 
-    private static func frontmatterValue(_ key: String, in url: URL) -> String? {
-        guard let raw = try? String(contentsOf: url, encoding: .utf8) else { return nil }
-        for line in raw.components(separatedBy: "\n") {
-            if line.hasPrefix("\(key):") { return String(line.dropFirst(key.count + 1)).trimmingCharacters(in: .whitespaces) }
-            if line.trimmingCharacters(in: .whitespaces) == "---", line != raw.components(separatedBy: "\n").first { break }
+    private static func scriptURL() -> URL? {
+        if let bundled = Bundle.main.url(forResource: "brain", withExtension: "py") { return bundled }
+        if let override = UserDefaults.standard.string(forKey: "BrainCLIPath"), FileManager.default.fileExists(atPath: override) {
+            return URL(fileURLWithPath: override)
         }
         return nil
     }
