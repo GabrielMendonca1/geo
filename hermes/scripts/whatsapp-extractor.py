@@ -1,28 +1,38 @@
 #!/usr/bin/env python3
 """
-whatsapp-extractor.py — Haiku-side phase of the WhatsApp extractor cron.
+whatsapp-extractor.py — self-contained WhatsApp extractor, fully on Gabriel's
+Claude Code account (Claude Max OAuth), like the brain-vault Haiku ingest.
 
-Reads the last 6h from ~/.hermes/wa_ingest.jsonl, buckets by chat (no
-mechanical filtering — Haiku decides), classifies each bucket in parallel
-via the Anthropic SDK using hermes's OAuth credential from auth.json,
-and prints a single aggregated JSON envelope to stdout. Hermes cron
-injects that stdout into the Opus agent's prompt, which decides what
-to actually write to Geo.
+Pipeline (no gateway, no Codex, no agent phase):
+  1. read the last 6h from ~/.hermes/wa_ingest.jsonl, bucket by chat
+  2. CLASSIFY each bucket in parallel with Haiku (model.nano) → proposals
+  3. DECIDE with Opus (model.full) — one call, hermes choosing what is genuinely
+     worth keeping: dedup, drop noise, emit final {blocks, tasks, urgent}
+  4. PERSIST: facts → block .md files written natively (works app-closed);
+     commitments → tasks over Geo's HTTP API (fall back to a review block if
+     Geo is closed); only urgent → a single Telegram DM
 
-Runs under `hermes cron create "0 */6 * * *" --script whatsapp-extractor.py`
-(no --no-agent — we want the Opus phase to consume the JSON).
+All inference uses the Claude Max OAuth token from the macOS Keychain
+("Claude Code-credentials"), refreshed in place. Register with --no-agent so
+the LLM gateway never runs:
+
+    hermes cron edit whatsapp-extractor --no-agent
 """
 
 from __future__ import annotations
 
 import asyncio
 import getpass
+import importlib.util
 import json
 import os
+import re
 import subprocess
 import sys
+import unicodedata
 import urllib.parse
 import urllib.request
+import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -31,35 +41,50 @@ from anthropic import AsyncAnthropic
 HERMES_HOME = Path(os.path.expanduser("~/.hermes"))
 JSONL_PATH = HERMES_HOME / "wa_ingest.jsonl"
 AUTH_PATH = HERMES_HOME / "auth.json"
+ENV_PATH = HERMES_HOME / ".env"
 CONFIG_PATH = Path(__file__).parent.parent / "config.yaml"
 
+CLIENT_CANDIDATES = [
+    HERMES_HOME / "plugins" / "geo-http-tools" / "client.py",
+    Path(__file__).parent.parent.parent / "hermes-extensions" / "geo-http-tools" / "client.py",
+]
 
-def _nano_model() -> str:
-    """Resolve the nano model id: HERMES_NANO_MODEL env > config.yaml model.nano
-    > fallback literal. config.yaml (model.full / model.nano) is the canonical
-    source so a model retirement is a one-line config edit, not a code change."""
-    env = os.environ.get("HERMES_NANO_MODEL")
+GABRIEL_TELEGRAM_CHAT_ID = "5225262193"
+
+
+def _config_model(key: str, env_key: str, fallback: str) -> str:
+    env = os.environ.get(env_key)
     if env:
         return env
     try:
         import yaml
 
         data = yaml.safe_load(CONFIG_PATH.read_text()) or {}
-        nano = (data.get("model") or {}).get("nano")
-        if nano:
-            return str(nano)
+        val = (data.get("model") or {}).get(key)
+        if val:
+            return str(val)
     except Exception:
         pass
-    return "claude-haiku-4-5"
+    return fallback
 
 
-WINDOW_HOURS = 6
+def _nano_model() -> str:
+    return _config_model("nano", "HERMES_NANO_MODEL", "claude-haiku-4-5")
+
+
+def _full_model() -> str:
+    return _config_model("full", "HERMES_FULL_MODEL", "claude-opus-4-8")
+
+
+WINDOW_HOURS = int(os.environ.get("HERMES_WA_WINDOW_HOURS", "6"))
 HAIKU_MODEL = _nano_model()
 MAX_CONCURRENT = 6
 PER_CALL_TIMEOUT_S = 45.0
+DECIDE_TIMEOUT_S = 120.0
 RETRY_ATTEMPTS = 2
 RETRY_BACKOFF_S = 1.5
 MAX_TOKENS_OUT = 2000
+DECIDE_MAX_TOKENS_OUT = 4000
 
 OAUTH_BETA = "oauth-2025-04-20"
 CLAUDE_CODE_USER_AGENT = "claude-cli/2.1.152 (external, cli)"
@@ -92,6 +117,25 @@ Retorne JSON estrito (sem markdown, sem prefácio, sem ```):
 }}
 
 Se nada vale a pena: retorne proposals com todas as listas vazias. Bias: propor MENOS."""
+
+DECIDE_PROMPT_TEMPLATE = """Você é o segundo cérebro do Gabriel (hermes). Abaixo estão propostas extraídas de conversas de WhatsApp das últimas {window}h por um classificador rápido. Você é o filtro inteligente: decida o que REALMENTE vale guardar. Dedup, una propostas relacionadas, descarte ruído. Bias: guardar MENOS, com qualidade.
+
+PROPOSTAS (JSON, uma entrada por chat):
+{proposals_json}
+
+Como decidir:
+- FATO durável sobre pessoa/projeto/decisão/preferência → um bloco. layer "agent" se é fato sólido e auto-evidente; layer "review" se merece o olhar dele antes de virar canônico. Auto-extraído de chat tende a "review".
+- COMPROMISSO/algo a fazer (com ou sem prazo) → uma task. title curto e acionável, notes com o contexto, due em ISO 8601 UTC (ex: 2026-06-10T13:00:00Z) ou null.
+- URGENTE: alguém esperando ele agora, decisão/deadline batendo → urgent (ele recebe no Telegram).
+- Conversa fiada, piada, combinado vago, fofoca, novidade qualquer → descarta.
+- Não invente nada fora das propostas. Dúvida = não guarda.
+
+Para cada bloco: "title" é um título de nota Zettelkasten (substantivo/conceito, não frase), "body" é o fato em markdown curto (1 a 3 frases, português), "type" é fleeting|literature|permanent.
+
+Retorne JSON estrito (sem markdown, sem prefácio, sem ```):
+{{"blocks": [{{"title": "...", "body": "...", "type": "fleeting", "layer": "review"}}], "tasks": [{{"title": "...", "notes": "...", "due": null}}], "urgent": [{{"text": "...", "chat": "..."}}]}}
+
+Se nada vale: retorne as três listas vazias."""
 
 
 def log(msg: str) -> None:
@@ -167,11 +211,6 @@ def _refresh_oauth(refresh_token: str) -> dict | None:
 
 
 def _keychain_oauth_token() -> str | None:
-    """Claude Max OAuth token from the macOS login Keychain — the store the
-    `claude` CLI owns. Refreshes in place via the OAuth refresh token when
-    expired (writing rotated creds back to the Keychain) so a 6-hourly cron
-    never rides a dead token. Independent of hermes's active provider, which
-    empties auth.json's anthropic pool whenever it isn't anthropic."""
     full = _keychain_read()
     if full is None:
         return None
@@ -220,17 +259,41 @@ def load_oauth_token() -> str | None:
     return _keychain_oauth_token() or _authjson_oauth_token()
 
 
+def _read_env_value(key: str) -> str | None:
+    if os.environ.get(key):
+        return os.environ[key]
+    if not ENV_PATH.exists():
+        return None
+    try:
+        for line in ENV_PATH.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, _, v = line.partition("=")
+            if k.strip() == key:
+                return v.strip().strip('"').strip("'")
+    except Exception as e:
+        log(f".env unreadable: {e}")
+    return None
+
+
+def load_geo_client():
+    for path in CLIENT_CANDIDATES:
+        if path.exists():
+            spec = importlib.util.spec_from_file_location("geo_client", str(path))
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            return mod
+    raise RuntimeError("geo client.py not found in any known location")
+
+
 def _is_empty_record(rec: dict) -> bool:
-    """True for records that have literally no content (decrypt failures,
-    empty-bodied media). These aren't messages — they're failed events."""
     if rec.get("type") == "unknown" and not (rec.get("text") or "").strip():
         return True
     return False
 
 
 def _is_one_way_chat(chat: str) -> bool:
-    """True for WhatsApp pseudo-chats Gabriel can't reply to anyway:
-    newsletters (channels) and status broadcasts."""
     return chat.endswith("@newsletter") or chat.endswith("@broadcast")
 
 
@@ -316,7 +379,7 @@ def format_messages(messages: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def parse_haiku_response(raw: str) -> dict | None:
+def parse_json_response(raw: str) -> dict | None:
     text = (raw or "").strip()
     if not text:
         return None
@@ -340,7 +403,41 @@ def parse_haiku_response(raw: str) -> dict | None:
         return None
 
 
-_usage_totals = {"input_tokens": 0, "output_tokens": 0, "cache_read": 0, "cache_creation": 0, "calls": 0}
+_usage_totals = {"input_tokens": 0, "output_tokens": 0, "calls": 0}
+
+
+def _track_usage(resp) -> None:
+    usage = getattr(resp, "usage", None)
+    if usage is None:
+        return
+    _usage_totals["input_tokens"] += getattr(usage, "input_tokens", 0) or 0
+    _usage_totals["output_tokens"] += getattr(usage, "output_tokens", 0) or 0
+    _usage_totals["calls"] += 1
+
+
+async def _call_model(client: AsyncAnthropic, model: str, prompt: str, max_tokens: int, timeout_s: float) -> str | None:
+    last_err: str | None = None
+    for attempt in range(RETRY_ATTEMPTS + 1):
+        try:
+            resp = await asyncio.wait_for(
+                client.messages.create(
+                    model=model,
+                    max_tokens=max_tokens,
+                    messages=[{"role": "user", "content": prompt}],
+                ),
+                timeout=timeout_s,
+            )
+            _track_usage(resp)
+            parts = [b.text for b in resp.content if getattr(b, "type", None) == "text"]
+            return "".join(parts)
+        except asyncio.TimeoutError:
+            last_err = f"timeout (attempt {attempt + 1})"
+        except Exception as e:
+            last_err = f"{type(e).__name__}: {str(e)[:160]} (attempt {attempt + 1})"
+        if attempt < RETRY_ATTEMPTS:
+            await asyncio.sleep(RETRY_BACKOFF_S * (attempt + 1))
+    log(f"model call failed ({model}): {last_err}")
+    return None
 
 
 async def classify_bucket(client: AsyncAnthropic, bucket: dict) -> dict:
@@ -359,39 +456,11 @@ async def classify_bucket(client: AsyncAnthropic, bucket: dict) -> dict:
         "is_group": bucket["is_group"],
         "proposals": empty_proposals,
     }
-    last_err: str | None = None
-    resp = None
-    for attempt in range(RETRY_ATTEMPTS + 1):
-        try:
-            resp = await asyncio.wait_for(
-                client.messages.create(
-                    model=HAIKU_MODEL,
-                    max_tokens=MAX_TOKENS_OUT,
-                    messages=[{"role": "user", "content": prompt}],
-                ),
-                timeout=PER_CALL_TIMEOUT_S,
-            )
-            break
-        except asyncio.TimeoutError:
-            last_err = f"timeout (attempt {attempt + 1})"
-        except Exception as e:
-            last_err = f"{type(e).__name__}: {str(e)[:160]} (attempt {attempt + 1})"
-        if attempt < RETRY_ATTEMPTS:
-            await asyncio.sleep(RETRY_BACKOFF_S * (attempt + 1))
-    if resp is None:
-        fallback["error"] = last_err or "unknown failure"
+    raw = await _call_model(client, HAIKU_MODEL, prompt, MAX_TOKENS_OUT, PER_CALL_TIMEOUT_S)
+    if raw is None:
+        fallback["error"] = "model call failed"
         return fallback
-
-    usage = getattr(resp, "usage", None)
-    if usage is not None:
-        _usage_totals["input_tokens"] += getattr(usage, "input_tokens", 0) or 0
-        _usage_totals["output_tokens"] += getattr(usage, "output_tokens", 0) or 0
-        _usage_totals["cache_read"] += getattr(usage, "cache_read_input_tokens", 0) or 0
-        _usage_totals["cache_creation"] += getattr(usage, "cache_creation_input_tokens", 0) or 0
-        _usage_totals["calls"] += 1
-
-    text_parts = [b.text for b in resp.content if getattr(b, "type", None) == "text"]
-    parsed = parse_haiku_response("".join(text_parts))
+    parsed = parse_json_response(raw)
     if not isinstance(parsed, dict):
         fallback["error"] = "unparseable response"
         return fallback
@@ -411,25 +480,175 @@ def has_proposals(bucket_result: dict) -> bool:
     return any(p.get(k) for k in ("facts", "tasks", "reminders", "urgent"))
 
 
+async def decide(client: AsyncAnthropic, kept: list[dict]) -> dict:
+    payload = [
+        {"chat": k.get("chat"), "is_group": k.get("is_group"), "proposals": k.get("proposals")}
+        for k in kept
+    ]
+    prompt = DECIDE_PROMPT_TEMPLATE.format(
+        window=WINDOW_HOURS,
+        proposals_json=json.dumps(payload, ensure_ascii=False, indent=2),
+    )
+    raw = await _call_model(client, _full_model(), prompt, DECIDE_MAX_TOKENS_OUT, DECIDE_TIMEOUT_S)
+    empty = {"blocks": [], "tasks": [], "urgent": []}
+    if raw is None:
+        return empty
+    parsed = parse_json_response(raw)
+    if not isinstance(parsed, dict):
+        return empty
+    out: dict = {}
+    for key in ("blocks", "tasks", "urgent"):
+        v = parsed.get(key)
+        out[key] = v if isinstance(v, list) else []
+    return out
+
+
+BLOCKS_DIR = Path.home() / "Library" / "Application Support" / "Geo" / "Blocks"
+_SANITIZE_RE = re.compile(r'[/:\\*?"<>|]')
+_TYPES = ("fleeting", "literature", "permanent", "moc", "project")
+_LAYERS = ("user", "agent", "review", "shared")
+
+
+def _nfc(s: str) -> str:
+    return unicodedata.normalize("NFC", s)
+
+
+def _sanitize_filename(title: str) -> str:
+    name = _SANITIZE_RE.sub("-", title or "").replace(" ", "-").strip("-")
+    return _nfc(name) or "Block"
+
+
+def _atomic_write(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(text, encoding="utf-8")
+    os.replace(tmp, path)
+
+
+def _unique_path(folder: Path, slug: str) -> Path:
+    candidate = folder / f"{slug}.md"
+    n = 1
+    while candidate.exists():
+        candidate = folder / f"{slug}-{n}.md"
+        n += 1
+    return candidate
+
+
+def write_block_file(title: str, body: str, type_: str, layer: str) -> str:
+    if type_ not in _TYPES:
+        type_ = "fleeting"
+    if layer not in ("agent", "review", "shared"):
+        layer = "review"
+    block_id = str(uuid.uuid4()).upper()
+    fm = f"---\nid: {block_id}\ntype: {type_}\nlayer: {layer}\n---\n"
+    b = body or ""
+    if not b.startswith("#"):
+        b = f"# {title}\n{b}" if b else f"# {title}\n"
+    token = f"[[{datetime.now().strftime('%Y-%m-%d')}]]"
+    if token not in b:
+        if b and not b.endswith("\n"):
+            b += "\n"
+        b += token + "\n"
+    path = _unique_path(BLOCKS_DIR, _sanitize_filename(title))
+    _atomic_write(path, fm + b)
+    return _nfc(str(path.relative_to(BLOCKS_DIR)))
+
+
+async def send_telegram(text: str) -> bool:
+    token = _read_env_value("TELEGRAM_BOT_TOKEN")
+    if not token:
+        log("no TELEGRAM_BOT_TOKEN — cannot send urgent DM")
+        return False
+    import httpx
+
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {"chat_id": GABRIEL_TELEGRAM_CHAT_ID, "text": text, "disable_web_page_preview": True}
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as c:
+            resp = await c.post(url, json=payload)
+        if resp.status_code != 200:
+            log(f"telegram send {resp.status_code}: {resp.text[:200]}")
+            return False
+        return True
+    except Exception as e:
+        log(f"telegram send error: {e}")
+        return False
+
+
+async def persist(geo_client, decided: dict) -> tuple[int, int, int]:
+    blocks = decided.get("blocks") or []
+    tasks = decided.get("tasks") or []
+    urgent = decided.get("urgent") or []
+    nb = nt = 0
+
+    for b in blocks:
+        title = (b.get("title") or "").strip()
+        if not title:
+            continue
+        try:
+            rid = write_block_file(title, b.get("body", "") or "", b.get("type") or "fleeting", b.get("layer") or "review")
+            nb += 1
+            log(f"block: {rid}")
+        except Exception as e:
+            log(f"block write failed [{title[:40]}]: {e}")
+
+    for t in tasks:
+        title = (t.get("title") or "").strip()
+        if not title:
+            continue
+        body: dict = {"kind": "task"}
+        if t.get("due"):
+            body["due"] = t["due"]
+        payload = {"title": title, "body": body}
+        if t.get("notes"):
+            payload["notes"] = t["notes"]
+        posted = False
+        if geo_client is not None:
+            try:
+                await geo_client.post("/tasks", json=payload)
+                posted = True
+                nt += 1
+                log(f"task: {title[:40]}")
+            except Exception as e:
+                log(f"task post failed [{title[:40]}]: {e}")
+        if not posted:
+            try:
+                fb = f"TODO: {title}"
+                if t.get("notes"):
+                    fb += f"\n{t['notes']}"
+                if t.get("due"):
+                    fb += f"\nVence: {t['due']}"
+                rid = write_block_file(title, fb, "fleeting", "review")
+                nt += 1
+                log(f"task→review block (Geo offline): {rid}")
+            except Exception as e:
+                log(f"task fallback failed [{title[:40]}]: {e}")
+
+    if urgent:
+        lines = [f"WhatsApp — urgente (últimas {WINDOW_HOURS}h):"]
+        for u in urgent[:10]:
+            chat = u.get("chat") or "?"
+            txt = (u.get("text") or "").strip()
+            if txt:
+                lines.append(f"- [{chat}] {txt}")
+        if len(lines) > 1:
+            await send_telegram("\n".join(lines))
+
+    return nb, nt, len(urgent)
+
+
 async def main() -> int:
+    dry = "--dry-run" in sys.argv
     token = load_oauth_token()
     if not token:
-        log("no anthropic OAuth token in auth.json — aborting")
+        log("no anthropic OAuth token (Keychain/auth.json) — aborting")
         return 1
 
     records = read_window()
     buckets = bucket_by_chat(records)
-    log(f"window={WINDOW_HOURS}h records={len(records)} buckets={len(buckets)}")
-
+    log(f"window={WINDOW_HOURS}h records={len(records)} buckets={len(buckets)} dry_run={dry}")
     if not buckets:
-        envelope = {
-            "window_end_utc": datetime.now(timezone.utc).isoformat(),
-            "window_hours": WINDOW_HOURS,
-            "buckets_processed": 0,
-            "buckets_with_proposals": 0,
-            "buckets": [],
-        }
-        print(json.dumps(envelope, ensure_ascii=False))
+        print("[whatsapp-extractor] no messages in window")
         return 0
 
     client = AsyncAnthropic(
@@ -448,37 +667,42 @@ async def main() -> int:
             return await classify_bucket(client, bucket)
 
     results = await asyncio.gather(*(gated(b) for b in buckets))
-
     keep = [r for r in results if has_proposals(r)]
     errored = [r for r in results if r.get("error")]
-    log(f"results: kept={len(keep)} errored={len(errored)}")
-    if errored:
-        for r in errored[:5]:
-            log(f"  err sample [{r.get('chat','?')[:30]}]: {r.get('error','?')[:120]}")
-    u = _usage_totals
-    in_cost = u["input_tokens"] * 1.00 / 1_000_000
-    out_cost = u["output_tokens"] * 5.00 / 1_000_000
+    log(f"classify: with_proposals={len(keep)} errored={len(errored)}")
+    if not keep:
+        print("[whatsapp-extractor] classifier surfaced nothing")
+        return 0
+
+    decided = await decide(client, keep)
     log(
-        f"usage: calls={u['calls']} input={u['input_tokens']} output={u['output_tokens']} "
-        f"cache_read={u['cache_read']} cache_creation={u['cache_creation']} "
-        f"est_api_cost=${in_cost + out_cost:.4f}"
+        f"decided: blocks={len(decided.get('blocks', []))} "
+        f"tasks={len(decided.get('tasks', []))} urgent={len(decided.get('urgent', []))} "
+        f"calls={_usage_totals['calls']} in={_usage_totals['input_tokens']} out={_usage_totals['output_tokens']}"
     )
 
-    now = datetime.now(timezone.utc)
-    envelope = {
-        "window_start_utc": (now - timedelta(hours=WINDOW_HOURS)).isoformat(),
-        "window_end_utc": now.isoformat(),
-        "window_hours": WINDOW_HOURS,
-        "buckets_processed": len(buckets),
-        "buckets_with_proposals": len(keep),
-        "buckets_with_errors": len(errored),
-        "buckets": keep,
-        "errors": [
-            {"chat": r.get("chat"), "chat_id": r.get("chat_id"), "error": r.get("error")}
-            for r in errored
-        ],
-    }
-    print(json.dumps(envelope, ensure_ascii=False))
+    if dry:
+        print(json.dumps(decided, ensure_ascii=False, indent=2))
+        return 0
+
+    geo = None
+    geo_client = None
+    try:
+        geo = load_geo_client()
+        geo_client = await geo.GeoAPIClient.get_instance()
+    except Exception as e:
+        log(f"Geo HTTP unavailable ({e}) — tasks fall back to review blocks")
+
+    try:
+        nb, nt, nu = await persist(geo_client, decided)
+    finally:
+        if geo is not None:
+            try:
+                await geo.GeoAPIClient.reset_instance()
+            except Exception:
+                pass
+
+    print(f"[whatsapp-extractor] persisted blocks={nb} tasks={nt} urgent_dm={nu}")
     return 0
 
 
