@@ -133,7 +133,6 @@ final class BlockFileService {
                         lastEdited: lastEdited,
                         markdown: content,
                         url: url,
-                        tagId: blockMetadata.tagId,
                         metadata: blockMetadata
                     )
                 }
