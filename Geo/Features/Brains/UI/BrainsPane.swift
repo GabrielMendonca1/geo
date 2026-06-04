@@ -415,13 +415,11 @@ private struct BrainDetailView: View {
     private func ingest() async {
         status = .ingesting
         do {
-            let written = try await VaultIngest.ingest(folder: vault.folder, title: vault.title)
+            let written = try await VaultIngest.ingest(folder: vault.folder)
             reload()
-            showBanner(written > 0 ? "Built \(written) note\(written == 1 ? "" : "s")" : "No new notes (already up to date)")
-        } catch let error as AnthropicClientError {
-            showBanner(error.localizedDescription)
+            showBanner(written > 0 ? "Built \(written) note\(written == 1 ? "" : "s") via Claude Code" : "No new notes (already up to date)")
         } catch {
-            showBanner("Ingest failed: \(error.localizedDescription)")
+            showBanner(error.localizedDescription)
         }
         status = .idle
     }
