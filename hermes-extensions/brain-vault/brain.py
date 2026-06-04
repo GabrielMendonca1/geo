@@ -416,7 +416,7 @@ def main(argv=None) -> None:
     sub = p.add_subparsers(dest="cmd", required=True)
     c = sub.add_parser("create"); c.add_argument("name"); c.add_argument("--title"); c.add_argument("--gist"); c.set_defaults(fn=cmd_create)
     sub.add_parser("list").set_defaults(fn=cmd_list)
-    i = sub.add_parser("ingest"); i.add_argument("name"); i.add_argument("files", nargs="+")
+    i = sub.add_parser("ingest"); i.add_argument("name"); i.add_argument("files", nargs="*")
     i.add_argument("--dry-run", action="store_true"); i.add_argument("--model", default=DEFAULT_MODEL); i.set_defaults(fn=cmd_ingest)
     r = sub.add_parser("reindex"); r.add_argument("name"); r.set_defaults(fn=cmd_reindex)
     args = p.parse_args(argv)
