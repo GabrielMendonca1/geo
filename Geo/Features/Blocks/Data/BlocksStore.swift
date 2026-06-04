@@ -48,60 +48,50 @@ class BlocksStore: ObservableObject {
         let lastEdited: Date
         let markdown: String
         let url: URL
-        let tagId: String?
         let metadata: BlockMetadata
     }
 
     struct BlockMetadata: Codable, Hashable {
         var dayId: String?
-        var tagId: String?
         var tagName: String?
         var isFullWidth: Bool
         var status: String?
         var type: BlockType
         var layer: BlockLayer
-        var frontmatter_version: Int
 
         init(
             dayId: String? = nil,
-            tagId: String? = nil,
             tagName: String? = nil,
             isFullWidth: Bool = false,
             status: String? = nil,
             type: BlockType = .fleeting,
-            layer: BlockLayer = .default,
-            frontmatter_version: Int = 0
+            layer: BlockLayer = .default
         ) {
             self.dayId = dayId
-            self.tagId = tagId
             self.tagName = tagName
             self.isFullWidth = isFullWidth
             self.status = status
             self.type = type
             self.layer = layer
-            self.frontmatter_version = frontmatter_version
         }
 
         enum CodingKeys: String, CodingKey {
-            case dayId, tagId, isFullWidth, status, type, layer, frontmatter_version
+            case dayId, isFullWidth, status, type, layer
         }
 
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             dayId = try container.decodeIfPresent(String.self, forKey: .dayId)
-            tagId = try container.decodeIfPresent(String.self, forKey: .tagId)
             tagName = nil
             isFullWidth = try container.decodeIfPresent(Bool.self, forKey: .isFullWidth) ?? false
             status = try container.decodeIfPresent(String.self, forKey: .status)
             type = try container.decodeIfPresent(BlockType.self, forKey: .type) ?? .fleeting
             layer = try container.decodeIfPresent(BlockLayer.self, forKey: .layer) ?? .default
-            frontmatter_version = try container.decodeIfPresent(Int.self, forKey: .frontmatter_version) ?? 0
         }
 
         func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encodeIfPresent(dayId, forKey: .dayId)
-            try container.encodeIfPresent(tagId, forKey: .tagId)
             if isFullWidth {
                 try container.encode(true, forKey: .isFullWidth)
             }
@@ -110,13 +100,10 @@ class BlocksStore: ObservableObject {
             if layer != .default {
                 try container.encode(layer, forKey: .layer)
             }
-            if frontmatter_version != 0 {
-                try container.encode(frontmatter_version, forKey: .frontmatter_version)
-            }
         }
 
         var isPersisted: Bool {
-            dayId != nil || tagId != nil || isFullWidth || status != nil || layer != .default || frontmatter_version != 0
+            dayId != nil || isFullWidth || status != nil || layer != .default
         }
     }
 
