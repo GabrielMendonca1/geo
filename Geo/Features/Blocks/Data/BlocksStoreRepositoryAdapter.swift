@@ -439,8 +439,7 @@ extension BlockEntity {
             lastEdited: block.lastEdited,
             markdown: block.markdown,
             url: block.url,
-            tagId: block.tagId,
-            metadata: Metadata(dayId: block.metadata.dayId, tagId: block.metadata.tagId, tagName: block.metadata.tagName, isFullWidth: block.metadata.isFullWidth, status: block.metadata.status, type: block.metadata.type, layer: block.metadata.layer)
+            metadata: Metadata(dayId: block.metadata.dayId, tagName: block.metadata.tagName, isFullWidth: block.metadata.isFullWidth, status: block.metadata.status, type: block.metadata.type, layer: block.metadata.layer)
         )
     }
 }
