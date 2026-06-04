@@ -396,7 +396,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         container.hotkeyManager.stopMonitoring()
         container.notificationManager.stopMonitoring()
         container.watcher.stopWatching()
-        container.mcpServer.stop()
         container.httpServer.stop()
         MainActor.assumeIsolated { container.nanoHermesService.stop() }
     }
