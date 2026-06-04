@@ -289,45 +289,156 @@ private struct BrainCard: View {
     let vault: BrainVault
     @State private var hover = false
 
-    private var sourceKinds: [BrainSourceKind] {
-        var seen = Set<String>()
-        var out: [BrainSourceKind] = []
-        for file in BrainVaultStore.sourceFiles(in: vault.folder) {
-            let ext = file.pathExtension.lowercased()
-            if seen.insert(ext).inserted { out.append(BrainSourceKind.of(ext)) }
-        }
-        return out
-    }
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top) {
-                ZStack { Circle().fill(Palette.foreground.opacity(0.06)); Image(systemName: "brain.head.profile").font(.system(size: 15)).foregroundStyle(Palette.foreground.opacity(0.85)) }.frame(width: 34, height: 34)
-                Spacer()
-                StateBadge(ready: vault.ready)
-            }
-            VStack(alignment: .leading, spacing: 4) {
-                Text(vault.title).font(.system(size: 16, weight: .semibold)).foregroundStyle(Palette.foreground).lineLimit(1)
-                Text(vault.gist.isEmpty ? "No description" : vault.gist).font(.system(size: 12)).foregroundStyle(Palette.tertiaryForeground).lineLimit(2).frame(height: 32, alignment: .top)
-            }
-            Spacer(minLength: 0)
-            HStack(spacing: 7) {
-                Label("\(vault.noteCount)", systemImage: "doc.text")
-                if !sourceKinds.isEmpty {
-                    Text("·").foregroundStyle(Palette.tertiaryForeground.opacity(0.5))
-                    ForEach(Array(sourceKinds.prefix(4).enumerated()), id: \.offset) { _, kind in
-                        Image(systemName: kind.icon).foregroundStyle(kind.tint.opacity(0.85))
-                    }
-                    if sourceKinds.count > 4 { Text("+\(sourceKinds.count - 4)") }
+        VStack(spacing: 0) {
+            ZStack {
+                if vault.noteCount == 0 {
+                    Image(systemName: "brain.head.profile").font(.system(size: 30, weight: .thin)).foregroundStyle(Palette.tertiaryForeground.opacity(0.3))
+                } else {
+                    BrainMiniGraph(vault: vault)
                 }
-                Spacer()
-                Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold)).foregroundStyle(Palette.tertiaryForeground.opacity(hover ? 0.9 : 0.4))
-            }.font(.system(size: 11)).foregroundStyle(Palette.tertiaryForeground)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .overlay(alignment: .topTrailing) { StateBadge(ready: vault.ready).padding(12) }
+            Rectangle().fill(Palette.border).frame(height: 1)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(vault.title).font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.foreground).lineLimit(1)
+                Text(vault.gist.isEmpty ? "No description" : vault.gist).font(.system(size: 12)).foregroundStyle(Palette.tertiaryForeground).lineLimit(1)
+                HStack(spacing: 7) {
+                    Label("\(vault.noteCount)", systemImage: "doc.text")
+                    if vault.sourceCount > 0 {
+                        Text("·").foregroundStyle(Palette.tertiaryForeground.opacity(0.5))
+                        Label("\(vault.sourceCount)", systemImage: "tray.full")
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold)).foregroundStyle(Palette.tertiaryForeground.opacity(hover ? 0.9 : 0.4))
+                }.font(.system(size: 11)).foregroundStyle(Palette.tertiaryForeground).padding(.top, 2)
+            }
+            .padding(14)
         }
-        .padding(16).frame(height: 152, alignment: .topLeading)
+        .frame(height: 226)
         .background(RoundedRectangle(cornerRadius: 16).fill(Color(nsColor: hover ? Palette.agentCardElevated : Palette.agentCard)))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
         .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(hover ? Palette.foreground.opacity(0.22) : Palette.border, lineWidth: 1))
         .scaleEffect(hover ? 1.012 : 1).animation(.easeOut(duration: 0.13), value: hover).onHover { hover = $0 }
+    }
+}
+
+// MARK: - Mini-graph thumbnail (settled once, non-interactive — ports GraphView's force layout)
+
+private struct BrainMiniGraph: View {
+    let vault: BrainVault
+    @State private var graph: BlockGraph = .empty
+    @State private var layout: MiniGraphLayout.Result = .empty
+
+    var body: some View {
+        Canvas { ctx, size in draw(ctx, size) }
+            .padding(6)
+            .task(id: vault.id) {
+                let g = BrainGraphBuilder.build(notes: BrainVaultStore.notes(in: vault)).graph
+                let l = MiniGraphLayout.compute(g)
+                graph = g
+                layout = l
+            }
+    }
+
+    private func draw(_ ctx: GraphicsContext, _ size: CGSize) {
+        guard !layout.points.isEmpty else { return }
+        let dim = min(size.width, size.height)
+        let ox = (size.width - dim) / 2, oy = (size.height - dim) / 2
+        func project(_ p: CGPoint) -> CGPoint { CGPoint(x: ox + p.x * dim, y: oy + p.y * dim) }
+        var pointFor: [UUID: CGPoint] = [:]
+        for (id, np) in layout.points { pointFor[id] = project(np) }
+
+        for e in graph.edges {
+            guard let t = e.targetId, let a = pointFor[e.sourceId], let b = pointFor[t] else { continue }
+            var path = Path(); path.move(to: a); path.addLine(to: b)
+            ctx.stroke(path, with: .color(Color(white: 0.5).opacity(0.32)), lineWidth: 0.8)
+        }
+        for node in graph.nodes {
+            guard let c = pointFor[node.id] else { continue }
+            let r = layout.radii[node.id] ?? 3
+            ctx.fill(Path(ellipseIn: CGRect(x: c.x - r, y: c.y - r, width: r * 2, height: r * 2)), with: .color(Color(white: 0.64)))
+        }
+    }
+}
+
+private enum MiniGraphLayout {
+    struct Result { var points: [UUID: CGPoint]; var radii: [UUID: CGFloat] }
+    static let empty = Result(points: [:], radii: [:])
+
+    static func compute(_ graph: BlockGraph) -> Result {
+        let nodes = Array(graph.nodes.prefix(120))
+        let n = nodes.count
+        guard n > 0 else { return empty }
+        let ids = nodes.map(\.id)
+        let idSet = Set(ids)
+        var pos: [UUID: CGPoint] = [:]
+        var vel: [UUID: CGVector] = [:]
+        let golden = Double.pi * (3 - 5.0.squareRoot())
+        for (i, node) in nodes.enumerated() {
+            let radius = (Double(i) / Double(max(n, 1))).squareRoot() * 130
+            let theta = Double(i) * golden
+            pos[node.id] = CGPoint(x: CGFloat(cos(theta)) * CGFloat(radius), y: CGFloat(sin(theta)) * CGFloat(radius))
+            vel[node.id] = .zero
+        }
+        let edges: [(UUID, UUID)] = graph.edges.compactMap { e in
+            guard let t = e.targetId, idSet.contains(e.sourceId), idSet.contains(t) else { return nil }
+            return (e.sourceId, t)
+        }
+        let repulsion: CGFloat = 9000, springLen: CGFloat = 58, springK: CGFloat = 0.02, center: CGFloat = 0.004, damping: CGFloat = 0.85
+        let iterations = n <= 2 ? 80 : 280
+        for _ in 0..<iterations {
+            var force: [UUID: CGVector] = [:]
+            for id in ids { force[id] = .zero }
+            for i in 0..<n {
+                guard let pa = pos[ids[i]] else { continue }
+                for j in (i + 1)..<n {
+                    guard let pb = pos[ids[j]] else { continue }
+                    let dx = pa.x - pb.x, dy = pa.y - pb.y
+                    let d2 = max(dx * dx + dy * dy, 0.01), d = sqrt(d2)
+                    let f = repulsion / d2, fx = dx / d * f, fy = dy / d * f
+                    force[ids[i]]?.dx += fx; force[ids[i]]?.dy += fy
+                    force[ids[j]]?.dx -= fx; force[ids[j]]?.dy -= fy
+                }
+            }
+            for (s, t) in edges {
+                guard let ps = pos[s], let pt = pos[t] else { continue }
+                let dx = pt.x - ps.x, dy = pt.y - ps.y
+                let d = max(sqrt(dx * dx + dy * dy), 0.01), disp = d - springLen
+                let fx = dx / d * disp * springK, fy = dy / d * disp * springK
+                force[s]?.dx += fx; force[s]?.dy += fy
+                force[t]?.dx -= fx; force[t]?.dy -= fy
+            }
+            for id in ids {
+                guard let p = pos[id] else { continue }
+                force[id]?.dx -= p.x * center; force[id]?.dy -= p.y * center
+            }
+            for id in ids {
+                guard var v = vel[id], var p = pos[id], let f = force[id] else { continue }
+                v.dx = (v.dx + f.dx) * damping; v.dy = (v.dy + f.dy) * damping
+                p.x += v.dx; p.y += v.dy
+                vel[id] = v; pos[id] = p
+            }
+        }
+        var minX = CGFloat.greatestFiniteMagnitude, minY = minX
+        var maxX = -CGFloat.greatestFiniteMagnitude, maxY = maxX
+        for id in ids {
+            guard let p = pos[id] else { continue }
+            minX = min(minX, p.x); maxX = max(maxX, p.x); minY = min(minY, p.y); maxY = max(maxY, p.y)
+        }
+        let cx = (minX + maxX) / 2, cy = (minY + maxY) / 2
+        let scale = max(maxX - minX, maxY - minY, 1)
+        var degree: [UUID: Int] = [:]
+        for (s, t) in edges { degree[s, default: 0] += 1; degree[t, default: 0] += 1 }
+        var points: [UUID: CGPoint] = [:], radii: [UUID: CGFloat] = [:]
+        for id in ids {
+            guard let p = pos[id] else { continue }
+            // 0.12 inset keeps nodes off the thumbnail's edge
+            points[id] = CGPoint(x: (p.x - cx) / scale * 0.76 + 0.5, y: (p.y - cy) / scale * 0.76 + 0.5)
+            radii[id] = 2.4 + sqrt(CGFloat(degree[id] ?? 0)) * 1.7
+        }
+        return Result(points: points, radii: radii)
     }
 }
 
