@@ -89,7 +89,7 @@ final class BrainVaultStore: ObservableObject {
         return vaults.first { $0.id == id } ?? BrainVault(id: id, title: name, gist: gist, noteCount: 0, sourceCount: 0, folder: dir)
     }
 
-    static func slug(_ s: String) -> String {
+    nonisolated static func slug(_ s: String) -> String {
         let lowered = s.lowercased().folding(options: .diacriticInsensitive, locale: nil)
         return String(lowered.map { $0.isLetter || $0.isNumber ? $0 : "-" }).split(separator: "-").joined(separator: "-")
     }
