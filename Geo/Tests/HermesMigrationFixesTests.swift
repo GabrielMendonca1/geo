@@ -160,18 +160,6 @@ final class HermesMigrationFixesTests: XCTestCase {
         let frontmatterDelimiterCount = live?.markdown.components(separatedBy: "\n---\n").count ?? 0
         XCTAssertLessThanOrEqual(frontmatterDelimiterCount, 2)
     }
-
-    private func registeredTools(repo: any BlocksRepository) -> [MCPRegisteredTool] {
-        let tagsRepo = StubTagsRepoHM()
-        let dayRepo = StubDayRepoHM()
-        return BlockTools.register(
-            blocks: repo,
-            tags: tagsRepo,
-            days: dayRepo,
-            indexCoordinator: indexCoordinator,
-            graphService: BlockGraphService()
-        )
-    }
 }
 
 private final class StubDayRepoHM: DayRepository, @unchecked Sendable {
