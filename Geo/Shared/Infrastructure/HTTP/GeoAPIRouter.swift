@@ -330,7 +330,9 @@ final class GeoAPIRouter: @unchecked Sendable {
                 guard let block = try await blocks.get(id: targetId) else {
                     return .error(404, "block not found")
                 }
-                blockVersion = MarkdownConverter.shared.frontmatterVersion(in: block.markdown)
+                // frontmatter_version optimistic concurrency retired: prepare/commit no longer
+                // gate on a version counter (files are truth; readers tolerate its absence).
+                blockVersion = nil
                 diffPreview = "delete block: \(block.displayTitle) (\(block.id))"
             } catch {
                 return .error(500, "failed to load block")
