@@ -392,7 +392,8 @@ private struct BrainMiniGraph: View {
 
     var body: some View {
         Canvas { ctx, size in draw(ctx, size) }
-            .padding(6)
+            // Fill the cell; layout's own inset (see MiniGraphLayout) keeps nodes off corners.
+            .padding(10)
             .task(id: vault.id) {
                 let g = BrainGraphBuilder.build(notes: BrainVaultStore.notes(in: vault)).graph
                 let l = MiniGraphLayout.compute(g)
@@ -403,21 +404,28 @@ private struct BrainMiniGraph: View {
 
     private func draw(_ ctx: GraphicsContext, _ size: CGSize) {
         guard !layout.points.isEmpty else { return }
-        let dim = min(size.width, size.height)
-        let ox = (size.width - dim) / 2, oy = (size.height - dim) / 2
-        func project(_ p: CGPoint) -> CGPoint { CGPoint(x: ox + p.x * dim, y: oy + p.y * dim) }
+        // Fill the whole (non-square) cell — graphs should sprawl, not sit in a centered box.
+        func project(_ p: CGPoint) -> CGPoint { CGPoint(x: p.x * size.width, y: p.y * size.height) }
         var pointFor: [UUID: CGPoint] = [:]
         for (id, np) in layout.points { pointFor[id] = project(np) }
+
+        // Adaptive colors — must read on white AND black (the bug fix: was Color(white:)).
+        let edgeColor = Palette.foreground.opacity(0.22)
+        let nodeColor = Palette.foreground.opacity(0.72)
+        let haloColor = Palette.foreground.opacity(0.06)
 
         for e in graph.edges {
             guard let t = e.targetId, let a = pointFor[e.sourceId], let b = pointFor[t] else { continue }
             var path = Path(); path.move(to: a); path.addLine(to: b)
-            ctx.stroke(path, with: .color(Color(white: 0.5).opacity(0.32)), lineWidth: 0.8)
+            ctx.stroke(path, with: .color(edgeColor), lineWidth: 0.9)
         }
         for node in graph.nodes {
             guard let c = pointFor[node.id] else { continue }
             let r = layout.radii[node.id] ?? 3
-            ctx.fill(Path(ellipseIn: CGRect(x: c.x - r, y: c.y - r, width: r * 2, height: r * 2)), with: .color(Color(white: 0.64)))
+            // Faint halo for depth, then the solid node.
+            let halo = r + 2.4
+            ctx.fill(Path(ellipseIn: CGRect(x: c.x - halo, y: c.y - halo, width: halo * 2, height: halo * 2)), with: .color(haloColor))
+            ctx.fill(Path(ellipseIn: CGRect(x: c.x - r, y: c.y - r, width: r * 2, height: r * 2)), with: .color(nodeColor))
         }
     }
 }
