@@ -329,7 +329,7 @@ private struct BrainCard: View {
 private struct BrainMiniGraph: View {
     let vault: BrainVault
     @State private var graph: BlockGraph = .empty
-    @State private var layout: MiniGraphLayout.Result = .empty
+    @State private var layout = MiniGraphLayout.empty
 
     var body: some View {
         Canvas { ctx, size in draw(ctx, size) }
