@@ -643,14 +643,12 @@ class BlocksStore: ObservableObject {
     }
 
     @MainActor
-    func clearTagAssignments(for tagId: String) async {
-        let tagName = TagStore.shared.tag(for: tagId)?.name
-        let tagKey = tagName.map { TagStore.canonicalName($0) }
+    func clearTagAssignments(for tag: String) async {
+        // `tag` is a canonical tag name (block_tags identity); no UUID resolution.
+        let tagKey = TagStore.canonicalName(tag)
         let affectedBlockIds = blocks.filter { block in
-            if let name = block.metadata.tagName {
-                return tagKey != nil && TagStore.canonicalName(name) == tagKey
-            }
-            return block.tagId == tagId
+            guard let name = block.metadata.tagName else { return false }
+            return TagStore.canonicalName(name) == tagKey
         }.map(\.id)
 
         for blockId in affectedBlockIds {
