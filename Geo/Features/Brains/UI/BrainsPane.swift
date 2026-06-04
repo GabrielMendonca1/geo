@@ -776,7 +776,8 @@ private struct AddTile: View {
             }
             .frame(maxWidth: .infinity).frame(height: 112)
             .background(RoundedRectangle(cornerRadius: 14).fill(Color(nsColor: hover ? Palette.agentCardElevated : Palette.agentCard)))
-            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(hover ? kind.tint.opacity(0.45) : Palette.border, lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(hover ? kind.tint.opacity(0.45) : Palette.foreground.opacity(0.12), lineWidth: 1))
+            .shadow(color: .black.opacity(hover ? 0.10 : 0.04), radius: hover ? 8 : 3, y: hover ? 3 : 1)
             .overlay(alignment: .topTrailing) {
                 Image(systemName: "plus")
                     .font(.system(size: 9, weight: .bold)).foregroundStyle(Palette.background)
