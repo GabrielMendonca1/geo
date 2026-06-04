@@ -217,12 +217,10 @@ class BlocksStore: ObservableObject {
     /// re-derived completely from disk. Use after a bulk migration / cutover; normal launches keep
     /// the fast DB-cache path for performance.
     func forceReloadFromFiles() async {
-        let metadata = await MainActor.run { self.metadataService.blocksMetadata }
+        let metadata = metadataService.blocksMetadata
         let sorted = await fileService.loadBlocksFromFiles(metadata: metadata, converter: markdownConverter)
         await indexCoordinator.rebuildIndex(blocks: sorted)
-        await MainActor.run {
-            self.blocks = sorted
-        }
+        self.blocks = sorted
     }
 
     @MainActor
