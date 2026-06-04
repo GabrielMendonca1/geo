@@ -122,12 +122,9 @@ final class DatabaseService: @unchecked Sendable {
         return (try? DatabaseQueue()) ?? DatabaseQueue.makeMemoryFallback()
     }
 
-    private static func buildMigrator(schema: DatabaseSchemaProfile = .personal) -> DatabaseMigrator {
+    private static func buildMigrator() -> DatabaseMigrator {
         var migrator = DatabaseMigrator()
         registerPersonalMigrations(&migrator)
-        if case .domain = schema {
-            registerDomainMigrations(&migrator)
-        }
         return migrator
     }
 
