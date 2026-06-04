@@ -360,15 +360,6 @@ final class HermesStatusService: ObservableObject {
         }.value
     }
 
-    static func drain(stream: AsyncThrowingStream<MCPEvent, Error>) async throws {
-        for try await event in stream {
-            if case .error(let message) = event {
-                throw MCPClientError.toolError(message)
-            }
-            if case .result = event { return }
-        }
-    }
-
     private static func daemonRunning() async -> Bool {
         await Task.detached(priority: .utility) {
             let proc = Process()
