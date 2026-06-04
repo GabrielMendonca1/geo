@@ -520,7 +520,6 @@ class BlocksStore: ObservableObject {
                 lastEdited: block.lastEdited,
                 markdown: block.markdown,
                 url: block.url,
-                tagId: meta.tagId,
                 metadata: meta
             )
             blocks[index] = updatedBlock
