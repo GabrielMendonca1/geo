@@ -50,7 +50,6 @@ private struct BlockFingerprint: Equatable {
     let id: String
     let title: String
     let lastEdited: Date
-    let tagId: String?
     let tagName: String?
 }
 
