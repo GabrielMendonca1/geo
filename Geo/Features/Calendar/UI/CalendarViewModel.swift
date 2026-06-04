@@ -250,7 +250,7 @@ final class CalendarViewModel: ObservableObject {
 
         if !filter.hiddenTypes.contains(.blocks) {
             for block in blocks {
-                if !passesTagFilter(tagId: block.tagId ?? block.metadata.tagId) { continue }
+                if !passesTagFilter(tagId: blockTagKey(block)) { continue }
                 events.append(CalendarEvent.from(block: block, tagsById: tagsById))
             }
         }
