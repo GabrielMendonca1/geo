@@ -25,7 +25,6 @@ final class Phase3DayLinkWriteTests: XCTestCase {
             enableWatcher: false,
             indexCoordinator: indexCoordinator,
             dayManager: dayManager,
-            storageMigration: StorageMigrationService.shared,
             markdownConverter: MarkdownConverter.shared
         )
         blocksAdapter = BlocksStoreRepositoryAdapter(blocksStore: store)
