@@ -22,7 +22,6 @@ final class SidecarRetirementTests: XCTestCase {
             enableWatcher: false,
             indexCoordinator: indexCoordinator,
             dayManager: dayManager,
-            storageMigration: StorageMigrationService.shared,
             markdownConverter: MarkdownConverter.shared
         )
     }
