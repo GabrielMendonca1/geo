@@ -342,7 +342,6 @@ final class IndexCoordinator {
     }
 
     private static func metadata(from row: Row) -> BlocksStore.BlockMetadata {
-        let tagId: String? = row["tagId"]
         let dayId: String? = row["dayId"]
         let typeRaw: String? = row["type"]
         let status: String? = row["status"]
@@ -352,7 +351,6 @@ final class IndexCoordinator {
         let layer = BlockLayer(rawValue: layerRaw ?? "") ?? .default
         return BlocksStore.BlockMetadata(
             dayId: dayId,
-            tagId: tagId,
             isFullWidth: (isFullWidthInt ?? 0) != 0,
             status: status,
             type: type,
