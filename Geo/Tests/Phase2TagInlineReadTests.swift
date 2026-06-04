@@ -33,9 +33,9 @@ final class Phase2TagInlineReadTests: XCTestCase {
         Tag(id: id, name: "ARC", color: TagColor(red: 0.2, green: 0.4, blue: 0.8))
     }
 
-    func testFrontmatterNameWinsWhenPresent() async {
+    func testFrontmatterNameResolvesToCentralTag() async {
         let tag = arcTag()
-        let block = entity(id: "A", tagId: "stale-uuid", tagName: "arc")
+        let block = entity(id: "A", tagName: "arc")
         let vm = await boundViewModel(blocks: [block], tags: [tag])
 
         let resolved = vm.resolvedTag(for: block)
@@ -43,28 +43,22 @@ final class Phase2TagInlineReadTests: XCTestCase {
         XCTAssertEqual(vm.resolvedTagKey(for: block), "arc")
     }
 
-    func testFallsBackToTagIdWhenFrontmatterNameAbsent() async {
+    func testNoTagNameResolvesToNoTag() async {
         let tag = arcTag()
-        let block = entity(id: "B", tagId: tag.id, tagName: nil)
+        let block = entity(id: "B", tagName: nil)
         let vm = await boundViewModel(blocks: [block], tags: [tag])
 
-        let resolved = vm.resolvedTag(for: block)
-        XCTAssertEqual(resolved?.id, tag.id, "no frontmatter tag → UUID fallback keeps the tag (never dropped)")
-        XCTAssertEqual(vm.resolvedTagKey(for: block), tag.id)
+        // Files-only: tags derive solely from frontmatter `tags:` / body `#hashtag` (block_tags).
+        // A block with no derived tag name has no tag — the legacy UUID fallback is gone.
+        XCTAssertNil(vm.resolvedTag(for: block))
+        XCTAssertNil(vm.resolvedTagKey(for: block))
     }
 
-    func testTagNeverDroppedForUntouchedBlock() async {
-        let tag = arcTag()
-        let block = entity(id: "C", tagId: tag.id, tagName: nil)
-        let vm = await boundViewModel(blocks: [block], tags: [tag])
-        XCTAssertNotNil(vm.resolvedTag(for: block))
-    }
-
-    func testGroupingCollapsesNameAndUUIDVariantsIntoOneGroupPerCanonicalName() async {
+    func testGroupingCollapsesNameVariantsIntoOneGroupPerCanonicalName() async {
         let tag = arcTag()
         // one block via frontmatter name, one via #arc-body-derived name
-        let viaName = entity(id: "name", tagId: nil, tagName: "arc")
-        let viaBody = entity(id: "body", tagId: nil, tagName: "arc")
+        let viaName = entity(id: "name", tagName: "arc")
+        let viaBody = entity(id: "body", tagName: "arc")
         let vm = await boundViewModel(blocks: [viaName, viaBody], tags: [tag])
 
         let groups = vm.blockGroups(for: vm.blocks, groupingMode: .tag, sortField: .created, sortOrder: .newest)
