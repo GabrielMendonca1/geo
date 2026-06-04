@@ -477,7 +477,7 @@ async def _call_model(
     return None
 
 
-async def classify_bucket(client: AsyncAnthropic, bucket: dict) -> dict:
+async def classify_bucket(http: httpx.AsyncClient, headers: dict, bucket: dict) -> dict:
     prompt = HAIKU_PROMPT_TEMPLATE.format(
         label=bucket["label"],
         chat_id=bucket["chat_id"],
