@@ -86,12 +86,10 @@ final class BlockChangeReconciler {
                 if fmDocument.frontmatter["full_width"] != nil {
                     blockMetadata.isFullWidth = MarkdownConverter.normalizedFullWidth(fmDocument.frontmatter["full_width"])
                 }
-                let diskFrontmatterVersion = MarkdownConverter.shared.frontmatterVersion(in: content)
                 let memBlock = blocks.first(where: { $0.id == blockId })
                 if memBlock?.markdown == content {
                     continue
                 }
-                blockMetadata.frontmatter_version = max(diskFrontmatterVersion, memBlock?.metadata.frontmatter_version ?? 0)
                 let title = fileService.titleFromMarkdown(content, fallback: "", allowTodoTitle: false)
                 let resourceValues = try? url.resourceValues(forKeys: resourceKeys)
                 let date = resourceValues?.creationDate ?? Date()
@@ -103,12 +101,11 @@ final class BlockChangeReconciler {
                     lastEdited: lastEdited,
                     markdown: content,
                     url: url,
-                    tagId: blockMetadata.tagId,
                     metadata: blockMetadata
                 )
                 if let index = updatedBlocks.firstIndex(where: { $0.id == blockId }) {
                     let existing = updatedBlocks[index]
-                    if existing.markdown != content || existing.tagId != blockMetadata.tagId {
+                    if existing.markdown != content {
                         updatedBlocks[index] = block
                         externallyChangedIds.append(blockId)
                     }
