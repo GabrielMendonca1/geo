@@ -243,17 +243,12 @@ final class BlocksViewModel: ObservableObject {
     }
 
     func resolvedTag(for block: BlockEntity) -> Tag? {
-        if let name = block.metadata.tagName {
-            return tag(forName: name)
-        }
-        return tag(for: block.tagId)
+        tag(forName: block.metadata.tagName)
     }
 
     func resolvedTagKey(for block: BlockEntity) -> String? {
-        if let name = block.metadata.tagName {
-            return TagStore.canonicalName(name)
-        }
-        return block.tagId
+        guard let name = block.metadata.tagName else { return nil }
+        return TagStore.canonicalName(name)
     }
 
     func createBlock(title: String, markdown: String) async -> BlockEntity? {
