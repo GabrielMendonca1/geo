@@ -174,11 +174,8 @@ final class GeoAPIRouter: @unchecked Sendable {
                 return await call("record_habit_occurrence", args: args)
             }
         } else if method == "DELETE" {
-            if pathParam(path: path, prefix: "/v1/blocks/", suffix: nil) != nil {
-                return await commitFromBody(request: request, token: token)
-            }
-            if pathParam(path: path, prefix: "/v1/tasks/", suffix: nil) != nil {
-                return await commitFromBody(request: request, token: token)
+            if let id = pathParam(path: path, prefix: "/v1/tasks/", suffix: nil), !id.contains("/") {
+                return await call("delete_task", args: ["id": .string(id)])
             }
         }
 
