@@ -640,31 +640,24 @@ private struct BrainDetailView: View {
         VStack(spacing: 0) {
             inlineURLBar
             ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
-                    addSection(title: "Add a file", kinds: BrainSourceKind.allAddable.filter { $0 != .web })
-                    addSection(title: "From the web", kinds: BrainSourceKind.allAddable.filter { $0 == .web })
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("ADD A SOURCE")
+                        .font(.system(size: 10, weight: .semibold)).tracking(0.6)
+                        .foregroundStyle(Palette.tertiaryForeground)
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 132, maximum: 160), spacing: 12)], alignment: .leading, spacing: 12) {
+                        ForEach(Array(BrainSourceKind.allAddable.enumerated()), id: \.offset) { _, kind in
+                            AddTile(kind: kind) {
+                                if kind == .web { inlineURL = ""; withAnimation(.easeOut(duration: 0.15)) { showInlineURL = true } }
+                                else { showImporter = true }
+                            }
+                        }
+                    }
                 }
                 .padding(20)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .background(Palette.background)
-    }
-
-    private func addSection(title: String, kinds: [BrainSourceKind]) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(title.uppercased())
-                .font(.system(size: 10, weight: .semibold)).tracking(0.6)
-                .foregroundStyle(Palette.tertiaryForeground)
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 132, maximum: 160), spacing: 12)], alignment: .leading, spacing: 12) {
-                ForEach(Array(kinds.enumerated()), id: \.offset) { _, kind in
-                    AddTile(kind: kind) {
-                        if kind == .web { inlineURL = ""; withAnimation(.easeOut(duration: 0.15)) { showInlineURL = true } }
-                        else { showImporter = true }
-                    }
-                }
-            }
-        }
     }
 
     @ViewBuilder private var inlineURLBar: some View {
