@@ -80,8 +80,8 @@ final class GeoHTTPServerTests: XCTestCase {
     }
 
     func testHookTokenCannotPost() async throws {
-        let body = Data(#"{"title":"x","content":"y"}"#.utf8)
-        let (status, _, _) = try await httpRequest(method: "POST", path: "/v1/blocks", token: hookToken, body: body)
+        let body = Data(#"{"title":"x"}"#.utf8)
+        let (status, _, _) = try await httpRequest(method: "POST", path: "/v1/tasks", token: hookToken, body: body)
         XCTAssertEqual(status, 403)
     }
 
