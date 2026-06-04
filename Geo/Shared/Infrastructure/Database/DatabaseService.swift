@@ -692,7 +692,6 @@ final class DatabaseService: @unchecked Sendable {
             let content: String = row["content"]
             let createdAt: Date = row["createdAt"]
             let modifiedAt: Date = row["modifiedAt"]
-            let tagId: String? = row["tagId"]
             let dayId: String? = row["dayId"]
             let openTaskCount: Int = row["openTaskCount"]
             let completedTaskCount: Int = row["completedTaskCount"]
