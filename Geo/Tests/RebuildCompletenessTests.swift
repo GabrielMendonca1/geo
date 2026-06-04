@@ -84,6 +84,34 @@ final class RebuildCompletenessTests: XCTestCase {
         XCTAssertEqual(arc, ["A.md", "C.md"])
     }
 
+    func testLayerIsFrontmatterSoleNotSqliteCache() async throws {
+        let fm = FileManager.default
+        let database = DatabaseService(databaseURL: tempRoot.appendingPathComponent("index.sqlite"), fileManager: fm)
+        let coordinator = IndexCoordinator(database: database, indexer: MarkdownIndexingService())
+
+        // File frontmatter says `shared`; seed the SQLite layer CACHE column to a conflicting
+        // `agent`. The resolved metadata must follow frontmatter (.shared), never the cache.
+        let content = "---\nlayer: shared\n---\n# L\n"
+        try await database.upsertBlock(BlockIndexEntry(
+            id: "L.md", path: blocksDir.appendingPathComponent("L.md").path, title: "L", content: content,
+            createdAt: Date(), modifiedAt: Date(), dayId: nil, openTaskCount: 0, completedTaskCount: 0,
+            tags: [], type: "fleeting", status: nil, layer: "agent"
+        ))
+
+        let dayManager = DayManager(dayRepository: StubDayRepoRC(), captureRepository: StubCaptureRepoRC())
+        let store = BlocksStore(
+            baseURL: tempRoot, loadAsync: false, enableWatcher: false,
+            indexCoordinator: coordinator, dayManager: dayManager,
+            storageMigration: StorageMigrationService.shared, markdownConverter: .shared
+        )
+        for _ in 0..<60 {
+            if store.blocks.contains(where: { $0.id == "L.md" }) { break }
+            try? await Task.sleep(nanoseconds: 30_000_000)
+        }
+        let block = store.blocks.first(where: { $0.id == "L.md" })
+        XCTAssertEqual(block?.metadata.layer, .shared, "layer follows frontmatter, not the stale SQLite cache")
+    }
+
     func testRepairIntegrityReDerivesContentDriftedBlocks() async throws {
         let fm = FileManager.default
         let database = DatabaseService(databaseURL: tempRoot.appendingPathComponent("index.sqlite"), fileManager: fm)
