@@ -209,30 +209,6 @@ class GeoAPIClient:
     async def delete(self, path: str) -> Any:
         return await self._request("DELETE", path)
 
-    async def prepare_destructive(
-        self,
-        operation: str,
-        target_id: str,
-        block_version: Optional[int] = None,
-    ) -> dict:
-        body: dict[str, Any] = {"operation": operation, "target_id": target_id}
-        if block_version is not None:
-            body["block_version"] = block_version
-        result = await self.post("/destructive/prepare", json=body)
-        if not isinstance(result, dict) or "transaction_id" not in result:
-            raise GeoAPIError(0, f"prepare returned unexpected shape: {result!r}")
-        return result
-
-    async def commit_destructive(
-        self,
-        transaction_id: str,
-        block_version: Optional[int] = None,
-    ) -> dict:
-        body: dict[str, Any] = {}
-        if block_version is not None:
-            body["block_version"] = block_version
-        return await self.post(f"/destructive/commit/{transaction_id}", json=body)
-
 
 def _safe_json(resp: httpx.Response) -> Any:
     try:
