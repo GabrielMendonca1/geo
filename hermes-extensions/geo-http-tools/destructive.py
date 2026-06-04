@@ -1,12 +1,11 @@
-"""Two-phase destructive flow with a Telegram Y/N confirm.
+"""Destructive Geo ops gated on a Telegram Y/N confirm.
 
-prepare → DM Gabriel → wait 30 s for Y/N → commit or abort.
+DM Gabriel → wait 30 s for Y/N → commit or abort.
 
-The 300-s server-side backstop on `/destructive/prepare` is the safety net:
-if we crash mid-flow, Geo expires the transaction on its own.
-
-`block_version` is passed through prepare so commit can detect a 409 Conflict
-(someone — the app, another agent — wrote to the file between phases).
+Blocks are files-are-truth, so a block delete is a native ``rm`` of its .md
+under the Geo vault (the app FileWatcher reconciles the derived index). A task
+delete stays KEEP-COMPUTE over HTTP — a plain ``DELETE /tasks/{id}`` (no
+two-phase prepare/commit; the /v1/destructive/* routes are gone).
 
 Confirmation mechanism (why this is self-contained):
 The agent's turn blocks inside the tool call awaiting Gabriel's reply. When his
@@ -24,10 +23,17 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
+import shutil
 import threading
-from typing import Any, Callable, Optional
+from pathlib import Path
+from typing import Any, Awaitable, Callable, Optional
 
-from .client import GeoAPIClient, GeoConflict, GeoError
+from .client import GeoAPIClient, GeoError
+
+BLOCKS_DIR = (
+    Path.home() / "Library" / "Application Support" / "Geo" / "Blocks"
+)
 
 GABRIEL_TELEGRAM_CHAT_ID = "5225262193"
 TELEGRAM_TARGET = f"telegram:{GABRIEL_TELEGRAM_CHAT_ID}"
@@ -138,29 +144,12 @@ def _confirm_message(target_label: str) -> str:
     )
 
 
-async def _two_phase_delete(
-    operation: str,
-    target_id: str,
+async def _confirm_then(
     target_label: str,
-    args: dict,
+    commit: Callable[[], Awaitable[Any]],
 ) -> str:
+    """DM Gabriel, wait for Y/N, then run ``commit`` on a 'yes'."""
     global _pending
-    try:
-        client = await GeoAPIClient.get_instance()
-    except GeoError as e:
-        return _err(str(e))
-
-    block_version = args.get("block_version")
-    try:
-        prepared = await client.prepare_destructive(
-            operation, target_id, block_version=block_version,
-        )
-    except GeoError as e:
-        return _err(f"prepare failed: {e}")
-
-    transaction_id = prepared["transaction_id"]
-    server_version = prepared.get("block_version")
-
     async with _confirm_gate:
         pending = _PendingConfirm()
         _pending = pending
@@ -175,21 +164,30 @@ async def _two_phase_delete(
                 return _result(
                     False,
                     reason="user_denied" if verdict == "no" else "timeout",
-                    transaction_id=transaction_id,
                 )
 
             try:
-                commit_result = await client.commit_destructive(
-                    transaction_id, block_version=server_version,
-                )
-            except GeoConflict as e:
-                return _result(False, reason="stale_version", detail=str(e.body))
+                commit_result = await commit()
             except GeoError as e:
                 return _result(False, reason="commit_failed", detail=str(e))
+            except Exception as e:
+                return _result(False, reason="commit_failed", detail=f"{type(e).__name__}: {e}")
         finally:
             _pending = None
 
-    return _result(True, transaction_id=transaction_id, result=commit_result)
+    return _result(True, result=commit_result)
+
+
+def _rm_block(block_id: str) -> dict:
+    rel = block_id if block_id.endswith(".md") else f"{block_id}.md"
+    path = BLOCKS_DIR / rel
+    if not path.exists():
+        raise GeoError(f"block not found: {block_id}")
+    os.remove(path)
+    attach = path.parent / "Attachments" / path.stem
+    if attach.is_dir():
+        shutil.rmtree(attach, ignore_errors=True)
+    return {"deleted": block_id}
 
 
 async def _delete_block(args: dict, **_kw: Any) -> str:
@@ -197,7 +195,11 @@ async def _delete_block(args: dict, **_kw: Any) -> str:
     if not block_id:
         return _err("id is required")
     label = f"block '{(args or {}).get('title') or block_id}'"
-    return await _two_phase_delete("delete_block", block_id, label, args or {})
+
+    async def commit() -> Any:
+        return await asyncio.to_thread(_rm_block, block_id)
+
+    return await _confirm_then(label, commit)
 
 
 async def _delete_task(args: dict, **_kw: Any) -> str:
@@ -205,16 +207,20 @@ async def _delete_task(args: dict, **_kw: Any) -> str:
     if not task_id:
         return _err("id is required")
     label = f"task '{(args or {}).get('title') or task_id}'"
-    return await _two_phase_delete("delete_task", task_id, label, args or {})
+
+    async def commit() -> Any:
+        client = await GeoAPIClient.get_instance()
+        return await client.delete(f"/tasks/{task_id}")
+
+    return await _confirm_then(label, commit)
 
 
 DESTRUCTIVE_TOOLS: list[dict] = [
     {
         "name": "geo_delete_block",
         "description": (
-            "DESTRUCTIVE: delete a block. Requires Gabriel's Telegram Y confirm "
-            "within 30 s. Two-phase: prepare → DM → commit. On stale frontmatter "
-            "version, returns {ok: false, reason: 'stale_version'} — re-fetch and retry. "
+            "DESTRUCTIVE: delete a block (native rm of its .md file; the app "
+            "reconciles). Requires Gabriel's Telegram Y confirm within 30 s. "
             "Always pass `title` so the confirm DM is readable."
         ),
         "parameters": {
@@ -222,10 +228,6 @@ DESTRUCTIVE_TOOLS: list[dict] = [
             "properties": {
                 "id": {"type": "string"},
                 "title": {"type": "string", "description": "Shown in the confirm DM. Always pass it."},
-                "block_version": {
-                    "type": "integer",
-                    "description": "Optional optimistic-concurrency token from a prior fetch.",
-                },
             },
             "required": ["id"],
         },
@@ -234,16 +236,14 @@ DESTRUCTIVE_TOOLS: list[dict] = [
     {
         "name": "geo_delete_task",
         "description": (
-            "DESTRUCTIVE: delete a task. Requires Gabriel's Telegram Y confirm "
-            "within 30 s. Two-phase: prepare → DM → commit. Always pass `title` so "
-            "the confirm DM is readable."
+            "DESTRUCTIVE: delete a task (HTTP DELETE). Requires Gabriel's Telegram "
+            "Y confirm within 30 s. Always pass `title` so the confirm DM is readable."
         ),
         "parameters": {
             "type": "object",
             "properties": {
                 "id": {"type": "string"},
                 "title": {"type": "string", "description": "Shown in the confirm DM. Always pass it."},
-                "block_version": {"type": "integer"},
             },
             "required": ["id"],
         },
