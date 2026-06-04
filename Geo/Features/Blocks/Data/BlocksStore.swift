@@ -701,20 +701,19 @@ class BlocksStore: ObservableObject {
             lastEdited: entry.modifiedAt,
             markdown: entry.content,
             url: url,
-            tagId: meta.tagId,
             metadata: meta
         )
     }
 
     private func metadataFor(entry: BlockIndexEntry) -> BlockMetadata {
         var meta = metadataService.currentMetadata(for: entry.id) ?? BlockMetadata()
-        meta.tagId = entry.tagId
         meta.tagName = entry.tags.first
         meta.dayId = entry.dayId
         meta.status = markdownConverter.status(in: entry.content)
         meta.type = markdownConverter.type(in: entry.content)
-        meta.layer = markdownConverter.layer(in: entry.content) ?? BlockLayer(rawValue: entry.layer) ?? .default
-        meta.frontmatter_version = markdownConverter.frontmatterVersion(in: entry.content)
+        // Layer derives SOLELY from frontmatter `layer:`. The SQLite layer column is a derived
+        // cache, never an input authority — no `?? entry.layer` fallback.
+        meta.layer = markdownConverter.layer(in: entry.content) ?? .default
         let document = markdownConverter.parse(entry.content)
         meta.isFullWidth = document.frontmatter["full_width"] != nil
             ? MarkdownConverter.normalizedFullWidth(document.frontmatter["full_width"])
