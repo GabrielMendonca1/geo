@@ -517,7 +517,7 @@ def has_proposals(bucket_result: dict) -> bool:
     return any(p.get(k) for k in ("facts", "tasks", "reminders", "urgent"))
 
 
-async def decide(client: AsyncAnthropic, kept: list[dict]) -> dict:
+async def decide(http: httpx.AsyncClient, headers: dict, kept: list[dict]) -> dict:
     payload = [
         {"chat": k.get("chat"), "is_group": k.get("is_group"), "proposals": k.get("proposals")}
         for k in kept
