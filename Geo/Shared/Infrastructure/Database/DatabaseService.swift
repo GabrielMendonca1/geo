@@ -490,9 +490,11 @@ final class DatabaseService: @unchecked Sendable {
 
     func fetchAllMetadataRows() async throws -> [(String, Row)] {
         try await performRead { db in
+            // tagId remains in the SELECT only for the gated Phase0/Phase2 backfills that read the
+            // legacy column directly off the raw Row; the live metadata path no longer consumes it.
             let rows = try Row.fetchAll(
                 db,
-                sql: "SELECT id, dayId, type, status, layer, isFullWidth FROM blocks"
+                sql: "SELECT id, tagId, dayId, type, status, layer, isFullWidth FROM blocks"
             )
             return rows.map { row in
                 let id: String = row["id"]
