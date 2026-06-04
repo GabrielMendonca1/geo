@@ -857,3 +857,82 @@ private struct AddSourceSheet: View {
         .padding(24).frame(width: 460).background(Palette.background)
     }
 }
+
+// MARK: - Graph mapping (notes + [[wikilinks]] → BlockGraph; reuses the app's GraphView)
+
+private enum BrainGraphBuilder {
+    private static let linkRegex = try! NSRegularExpression(pattern: #"\[\[([^\[\]|]+)(?:\|[^\[\]]+)?\]\]"#)
+
+    static func build(notes: [BrainNote]) -> (graph: BlockGraph, lookup: [UUID: BrainNote]) {
+        var idForSlug: [String: UUID] = [:]
+        var lookup: [UUID: BrainNote] = [:]
+        var order: [(note: BrainNote, id: UUID)] = []
+        order.reserveCapacity(notes.count)
+        for note in notes {
+            let id = stableID(for: note.id)
+            idForSlug[note.id.lowercased()] = id
+            lookup[id] = note
+            order.append((note, id))
+        }
+
+        var edges: [GraphEdge] = []
+        var seen = Set<EdgeKey>()
+        var degree: [UUID: Int] = [:]
+        for (note, sourceId) in order {
+            let body = note.body as NSString
+            for m in linkRegex.matches(in: note.body, range: NSRange(location: 0, length: body.length)) {
+                let raw = body.substring(with: m.range(at: 1)).trimmingCharacters(in: .whitespacesAndNewlines)
+                if raw.isEmpty { continue }
+                let key = raw.lowercased()
+                if key == "index" || key == note.id.lowercased() { continue }
+                if let targetId = idForSlug[key] {
+                    if targetId == sourceId { continue }
+                    guard seen.insert(EdgeKey(source: sourceId, target: targetId, title: nil)).inserted else { continue }
+                    edges.append(GraphEdge(id: UUID(), sourceId: sourceId, targetId: targetId, targetTitle: raw))
+                    degree[sourceId, default: 0] += 1
+                    degree[targetId, default: 0] += 1
+                } else {
+                    guard seen.insert(EdgeKey(source: sourceId, target: nil, title: key)).inserted else { continue }
+                    edges.append(GraphEdge(id: UUID(), sourceId: sourceId, targetId: nil, targetTitle: raw))
+                }
+            }
+        }
+
+        let nodes = order.map { entry in
+            GraphNode(id: entry.id, title: entry.note.title, tagColor: nil, type: .permanent, layer: .agent, weight: degree[entry.id] ?? 0)
+        }
+        return (BlockGraph(nodes: nodes, edges: edges), lookup)
+    }
+
+    // GraphView persists settings under a single global key shared with the main graph.
+    // A leftover search term / hidden group there would silently blank the brain graph
+    // (which has no in-pane search box) — clear only those brain-hostile filters on open.
+    static func sanitizeSharedGraphSettings() {
+        let key = "geo.graphSettings.v2"
+        guard var s = UserDefaults.standard.data(forKey: key).flatMap({ try? JSONDecoder().decode(GraphSettings.self, from: $0) }) else { return }
+        guard !s.searchText.isEmpty || !s.hiddenGroups.isEmpty || !s.showOrphans else { return }
+        s.searchText = ""; s.hiddenGroups = []; s.showOrphans = true
+        if let d = try? JSONEncoder().encode(s) { UserDefaults.standard.set(d, forKey: key) }
+    }
+
+    // Deterministic UUID from the note slug (FNV-1a, two seeds → 128 bits) so a rebuild
+    // after ingest keeps existing nodes in place and only animates the new ones in.
+    private static func stableID(for slug: String) -> UUID {
+        func fnv(_ seed: UInt64) -> UInt64 {
+            var h = seed
+            for byte in slug.utf8 { h = (h ^ UInt64(byte)) &* 0x100000001b3 }
+            return h
+        }
+        let hi = fnv(0xcbf29ce484222325).bigEndian
+        let lo = fnv(0x100000001b3).bigEndian
+        let b = withUnsafeBytes(of: (hi, lo)) { Array($0) }
+        return UUID(uuid: (b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7],
+                           b[8], b[9], b[10], b[11], b[12], b[13], b[14], b[15]))
+    }
+
+    private struct EdgeKey: Hashable {
+        let source: UUID
+        let target: UUID?
+        let title: String?
+    }
+}
