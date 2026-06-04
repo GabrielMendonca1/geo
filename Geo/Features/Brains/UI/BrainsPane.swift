@@ -889,7 +889,7 @@ enum BrainSourceKind {
         case .image, .audio, .presentation: return Color(nsColor: Palette.agentWarning)
         case .data, .code: return Color(nsColor: Palette.agentSuccess)
         case .web: return Self.geoBlue
-        case .document, .text: return Palette.tertiaryForeground
+        case .document, .text: return Palette.foreground   // a real neutral (not muted-gray "disabled" look)
         }
     }
 
