@@ -115,7 +115,6 @@ final class BlockFileService {
                     let title = Self.titleFromLines(body, allowTodoTitle: false)
                     blockMetadata.status = MarkdownConverter.normalizedStatus(document.frontmatter["status"])
                     blockMetadata.type = MarkdownConverter.normalizedType(document.frontmatter["type"])
-                    blockMetadata.frontmatter_version = MarkdownConverter.frontmatterVersion(document.frontmatter["frontmatter_version"])
                     if let fmLayer = MarkdownConverter.normalizedLayer(document.frontmatter["layer"]) {
                         blockMetadata.layer = fmLayer
                     }
