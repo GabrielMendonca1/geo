@@ -190,7 +190,7 @@ struct BrainsPane: View {
     @State private var showCreate = false
     @State private var openVaultId: String?
 
-    private let columns = [GridItem(.adaptive(minimum: 300, maximum: 440), spacing: 16)]
+    private let columns = [GridItem(.adaptive(minimum: 280, maximum: 380), spacing: 18)]
 
     var body: some View {
         Pane {
