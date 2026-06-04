@@ -29,13 +29,14 @@ final class Phase3DayStoreDeriveTests: XCTestCase {
         )
     }
 
-    func testDeriveSafeFlipUnionsBlockDaysWithCacheAndKeepsCaptures() async throws {
+    func testDeriveIsFilesOnlyAndIgnoresStaleDaysJsonCache() async throws {
         let database = DatabaseService(databaseURL: tempRoot.appendingPathComponent("index.sqlite"), fileManager: FileManager.default)
         try await database.upsertBlock(entry("A.md", dayIds: ["2026-06-01"]))
         try await database.upsertBlock(entry("B.md", dayIds: ["2026-06-01"]))
         let coordinator = IndexCoordinator(database: database, indexer: MarkdownIndexingService())
 
-        // Seed days.json cache with a NOT-yet-inlined block C (fallback) + a capture.
+        // Seed a STALE days.json with a NOT-inlined block C + a capture. Files-only model must
+        // NOT read this back: membership derives solely from block_days (A.md/B.md).
         let supportDir = tempRoot.appendingPathComponent("Geo")
         try FileManager.default.createDirectory(at: supportDir, withIntermediateDirectories: true)
         var cachedDay = Day(date: DateFormatters.dayId.date(from: "2026-06-01")!)
@@ -46,7 +47,7 @@ final class Phase3DayStoreDeriveTests: XCTestCase {
 
         let store = DayStore(baseURL: tempRoot, indexCoordinator: coordinator)
         for _ in 0..<60 {
-            if let day = store.day(for: "2026-06-01"), day.blockIds.count >= 3 { break }
+            if let day = store.day(for: "2026-06-01"), day.blockIds.count >= 2 { break }
             try? await Task.sleep(nanoseconds: 50_000_000)
         }
 
@@ -55,7 +56,7 @@ final class Phase3DayStoreDeriveTests: XCTestCase {
         let ids = Set(day?.blockIds ?? [])
         XCTAssertTrue(ids.contains("A.md"), "derived block present")
         XCTAssertTrue(ids.contains("B.md"), "derived block present")
-        XCTAssertTrue(ids.contains("C.md"), "safe flip: un-inlined cache block not dropped")
-        XCTAssertEqual(day?.captureIds.count, 1, "captures retained via cache")
+        XCTAssertFalse(ids.contains("C.md"), "files-only: un-inlined days.json-cache block is NOT present")
+        XCTAssertTrue(day?.captureIds.isEmpty ?? true, "captures no longer sourced from days.json cache")
     }
 }
