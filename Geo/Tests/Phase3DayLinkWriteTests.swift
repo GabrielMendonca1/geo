@@ -93,7 +93,7 @@ final class Phase3DayLinkWriteTests: XCTestCase {
         let agentBlock = try await makeBlock(markdown: "# AgentOwned\n[[\(dayId)]]\n")
         _ = await store.setLayer(.user, for: userBlock.id)
         _ = await store.setLayer(.agent, for: agentBlock.id)
-        let tools = DayTools.register(days: StubDayRepoP3(), blocks: blocksAdapter, indexCoordinator: indexCoordinator)
+        let tools = DayTools.register(blocks: blocksAdapter, indexCoordinator: indexCoordinator)
         let link = tools.first(where: { $0.definition.name == "link_block_to_day" })!
 
         let deniedResult = try await link.handler(["block_id": .string(userBlock.id), "date": .string(dayId)])
