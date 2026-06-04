@@ -1,18 +1,8 @@
 import Foundation
 
 enum TagTools {
-    private static let validIdCharacters = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-")
-
-    private static func validateBlockId(_ id: String) -> Bool {
-        guard !id.isEmpty, id.count <= 256 else { return false }
-        if id.contains("/") || id.contains("\\") || id.contains("..") || id.contains("\0") {
-            return false
-        }
-        return id.unicodeScalars.allSatisfy { validIdCharacters.contains($0) }
-    }
-
     static func register(tags: any TagsRepository, blocks: any BlocksRepository) -> [MCPRegisteredTool] {
-        [listTags(tags), createTag(tags), setBlockTag(tags, blocks)]
+        [listTags(tags), createTag(tags)]
     }
 
     private static func listTags(_ tags: any TagsRepository) -> MCPRegisteredTool {
