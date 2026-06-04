@@ -359,7 +359,7 @@ private struct BrainGraphCell: View {
         }
         .padding(.horizontal, 14)
         .padding(.bottom, 12)
-        .padding(.top, 34)
+        .padding(.top, 22)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             // Soft bottom-up scrim so the label stays readable over light OR dark graphs.
