@@ -188,19 +188,3 @@ private final class StubCaptureRepoHM: CaptureRepository, @unchecked Sendable {
     func linkToDay(captureId: UUID, dayId: String) async throws {}
     func delete(ids: Set<UUID>) async throws {}
 }
-
-private final class StubTagsRepoHM: TagsRepository, @unchecked Sendable {
-    func observe() -> AsyncStream<[Tag]> {
-        AsyncStream { continuation in
-            continuation.yield([])
-            continuation.finish()
-        }
-    }
-    func list() async throws -> [Tag] { [] }
-    func tag(for id: String) async throws -> Tag? { nil }
-    func create(name: String, color: TagColor) async throws -> Tag {
-        throw RepositoryError.invalidInput
-    }
-    func update(_ tag: Tag) async throws -> Tag { tag }
-    func delete(id: String) async throws {}
-}
