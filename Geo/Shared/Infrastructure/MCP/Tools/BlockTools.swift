@@ -67,8 +67,6 @@ enum BlockTools {
             ]),
             handler: { args in
                 let allBlocks = try await blocks.list()
-                let allTags = try await tags.list()
-                let tagMap = Dictionary(uniqueKeysWithValues: allTags.map { ($0.id, $0.name) })
 
                 var filtered = allBlocks
                 if let tagName = args["tag_name"]?.stringValue {
