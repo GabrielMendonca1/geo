@@ -92,6 +92,20 @@ DECIDE_MAX_TOKENS_OUT = 4000
 
 OAUTH_BETA = "oauth-2025-04-20"
 CLAUDE_CODE_USER_AGENT = "claude-cli/2.1.152 (external, cli)"
+ANTHROPIC_BASE = "https://api.anthropic.com"
+ANTHROPIC_VERSION = "2023-06-01"
+CLAUDE_CODE_SYSTEM = "You are Claude Code, Anthropic's official CLI for Claude."
+
+
+def _headers_oauth(token: str) -> dict:
+    return {
+        "content-type": "application/json",
+        "authorization": f"Bearer {token}",
+        "anthropic-version": ANTHROPIC_VERSION,
+        "anthropic-beta": OAUTH_BETA,
+        "user-agent": CLAUDE_CODE_USER_AGENT,
+        "x-app": "cli",
+    }
 
 HAIKU_PROMPT_TEMPLATE = """Você é classificador. NÃO resume, NÃO escreve, NÃO cria nada. Sua única tarefa: olhar essa conversa e propor (em JSON) o que pode valer a pena guardar no cérebro do Gabriel. Outro agente mais inteligente vai decidir o que de fato fazer com sua proposta — você só sugere.
 
