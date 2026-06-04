@@ -492,7 +492,7 @@ final class DatabaseService: @unchecked Sendable {
         try await performRead { db in
             let rows = try Row.fetchAll(
                 db,
-                sql: "SELECT id, tagId, dayId, type, status, layer, isFullWidth FROM blocks"
+                sql: "SELECT id, dayId, type, status, layer, isFullWidth FROM blocks"
             )
             return rows.map { row in
                 let id: String = row["id"]
