@@ -788,80 +788,9 @@ enum BrainSourceKind {
 
     static let allAddable: [BrainSourceKind] = [.pdf, .document, .presentation, .ebook, .web, .image, .audio, .data, .code, .text]
 
-    static let importerTypes: [UTType] = {
-        var types: [UTType] = [.pdf, .plainText, .text, .html, .rtf, .epub, .image, .audio, .json, .commaSeparatedText]
-        types += ["org.openxmlformats.wordprocessingml.document",
-                  "org.openxmlformats.presentationml.presentation",
-                  "com.microsoft.word.doc"].compactMap { UTType($0) }
-        return types
-    }()
-}
-
-private struct SupportedTypesStrip: View {
-    private let kinds: [BrainSourceKind] = [.pdf, .document, .presentation, .ebook, .web, .image, .audio, .data, .code, .text]
-    var body: some View {
-        HStack(spacing: 6) {
-            ForEach(Array(kinds.enumerated()), id: \.offset) { _, kind in
-                Image(systemName: kind.icon).font(.system(size: 11))
-                    .foregroundStyle(kind.tint.opacity(0.85))
-                    .frame(width: 26, height: 26)
-                    .background(RoundedRectangle(cornerRadius: 7).fill(Color(nsColor: Palette.agentCard)))
-            }
-        }
-    }
-}
-
-private struct AddSourceSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    let onChooseFiles: () -> Void
-    let onAddURL: (String) -> Void
-    @State private var url = ""
-
-    private var trimmedURL: String { url.trimmingCharacters(in: .whitespacesAndNewlines) }
-    private var isLikelyURL: Bool { trimmedURL.hasPrefix("http://") || trimmedURL.hasPrefix("https://") }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Text("Add a source").font(.system(size: 17, weight: .bold)).foregroundStyle(Palette.foreground)
-
-            VStack(alignment: .leading, spacing: 6) {
-                Label("From the web", systemImage: "globe").font(.system(size: 11, weight: .medium)).foregroundStyle(Palette.tertiaryForeground)
-                HStack(spacing: 8) {
-                    TextField("https://…  or a YouTube link", text: $url)
-                        .textFieldStyle(.plain).font(.system(size: 13)).foregroundStyle(Palette.foreground)
-                        .padding(.horizontal, 10).padding(.vertical, 8)
-                        .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: Palette.agentCard)))
-                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Palette.border, lineWidth: 1))
-                        .onSubmit { if isLikelyURL { onAddURL(trimmedURL) } }
-                    Button("Add") { onAddURL(trimmedURL) }.buttonStyle(PillButtonStyle()).disabled(!isLikelyURL)
-                }
-            }
-
-            HStack(spacing: 8) {
-                Rectangle().fill(Palette.border).frame(height: 1)
-                Text("or").font(.system(size: 10)).foregroundStyle(Palette.tertiaryForeground)
-                Rectangle().fill(Palette.border).frame(height: 1)
-            }
-
-            Button(action: onChooseFiles) {
-                VStack(spacing: 6) {
-                    Image(systemName: "tray.and.arrow.down").font(.system(size: 20)).foregroundStyle(Palette.tertiaryForeground)
-                    Text("Choose files…").font(.system(size: 13, weight: .medium)).foregroundStyle(Palette.foreground)
-                }
-                .frame(maxWidth: .infinity).padding(.vertical, 20)
-                .background(RoundedRectangle(cornerRadius: 10).fill(Color(nsColor: Palette.agentCard)))
-                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [4])).foregroundStyle(Palette.border))
-            }.buttonStyle(.plain)
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Supported").font(.system(size: 10, weight: .medium)).foregroundStyle(Palette.tertiaryForeground)
-                SupportedTypesStrip()
-            }
-
-            HStack { Spacer(); Button("Cancel") { dismiss() }.buttonStyle(.plain).foregroundStyle(Palette.tertiaryForeground) }
-        }
-        .padding(24).frame(width: 460).background(Palette.background)
-    }
+    // Broad on purpose: the grid advertises every kind, so the importer must be able
+    // to select any of them; brain.py decides per-source what it can actually distill.
+    static let importerTypes: [UTType] = [.data]
 }
 
 // MARK: - Graph mapping (notes + [[wikilinks]] → BlockGraph; reuses the app's GraphView)
