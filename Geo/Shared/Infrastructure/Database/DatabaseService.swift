@@ -707,7 +707,6 @@ final class DatabaseService: @unchecked Sendable {
                 content: content,
                 createdAt: createdAt,
                 modifiedAt: modifiedAt,
-                tagId: tagId,
                 dayId: dayId,
                 openTaskCount: openTaskCount,
                 completedTaskCount: completedTaskCount,
