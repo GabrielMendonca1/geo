@@ -58,9 +58,7 @@ final class GeoAPIRouter: @unchecked Sendable {
 
     private func requiredScope(for request: HTTPRequest) -> TokenScope {
         let method = request.method
-        let path = request.path
         if method == "DELETE" { return .readWriteDestructive }
-        if path.hasPrefix("/v1/destructive/") { return .readWriteDestructive }
         if method == "POST" || method == "PATCH" || method == "PUT" { return .readWrite }
         return .read
     }
