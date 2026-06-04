@@ -54,7 +54,7 @@ final class BrainVaultStore: ObservableObject {
         vaults = found.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
     }
 
-    static func meta(in folder: URL) -> BrainMeta? {
+    nonisolated static func meta(in folder: URL) -> BrainMeta? {
         guard let data = try? Data(contentsOf: folder.appendingPathComponent(".brain.json")) else { return nil }
         return try? JSONDecoder().decode(BrainMeta.self, from: data)
     }
