@@ -25,10 +25,6 @@ enum BlockTools {
         return .error("operation failed")
     }
 
-    private static func loadBlock(_ blocks: any BlocksRepository, id: String) async throws -> BlockEntity? {
-        try await blocks.get(id: id)
-    }
-
     static func register(
         blocks: any BlocksRepository,
         tags: any TagsRepository,
