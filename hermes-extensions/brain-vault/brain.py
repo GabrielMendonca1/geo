@@ -7,14 +7,15 @@ ingests these files directly on the filesystem, so brains work with the Geo app
 closed. The Swift app is an optional viewer/indexer over the same folders.
 
 Ingestion uses the **Claude Code account** (the Claude Max OAuth credential the
-`claude` CLI stores in the macOS Keychain — no separate API key) and the
-**Anthropic Message Batches API** to distill every source chunk into one atomic
-note cheaply and asynchronously.
+`claude` CLI stores in the macOS Keychain — no separate API key), distilling each
+source chunk into one atomic note via bounded-concurrent Messages calls. If a
+developer $ANTHROPIC_API_KEY is set, it uses the cheaper async **Batch API**
+instead — the OAuth token lacks the `user:batch` scope, so batch needs a real key.
 
 Usage:
   brain create <name> [--title "…"] [--gist "…"]
   brain list
-  brain ingest <name> <file…> [--dry-run] [--model <id>]
+  brain ingest <name> [file…] [--dry-run] [--model <id>]   # no files → ingest sources/
   brain reindex <name>
 
 --dry-run skips the model entirely (writes raw chunks) — for structure testing.
