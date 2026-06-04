@@ -344,7 +344,6 @@ private struct BrainDetailView: View {
     @State private var brainGraph: (graph: BlockGraph, lookup: [UUID: BrainNote]) = (.empty, [:])
     @State private var selectedNote: BrainNote?
     @State private var showImporter = false
-    @State private var showAddSource = false
     @State private var showInlineURL = false
     @State private var inlineURL = ""
     @State private var status: IngestStatus = .idle
