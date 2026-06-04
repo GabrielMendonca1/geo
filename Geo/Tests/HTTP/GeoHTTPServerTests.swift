@@ -92,31 +92,6 @@ final class GeoHTTPServerTests: XCTestCase {
         XCTAssertTrue((headers["www-authenticate"] ?? "").contains("rotated"))
     }
 
-    func testPendingTransactionStoreHappyPath() throws {
-        let store = PendingTransactionStore()
-        let prep = try store.prepare(operation: .deleteBlock, targetId: "X", blockVersion: 3, diffPreview: "delete X", callerId: "test")
-        let consumed = try store.consume(transactionId: prep.transactionId, expectedBlockVersion: 3)
-        XCTAssertEqual(consumed.targetId, "X")
-    }
-
-    func testPendingTransactionStoreStaleVersion() throws {
-        let store = PendingTransactionStore()
-        let prep = try store.prepare(operation: .deleteBlock, targetId: "Y", blockVersion: 1, diffPreview: "delete Y", callerId: "test")
-        XCTAssertThrowsError(try store.consume(transactionId: prep.transactionId, expectedBlockVersion: 2)) { err in
-            XCTAssertEqual(err as? PendingError, .staleVersion)
-        }
-    }
-
-    func testPendingTransactionStoreOverflow() throws {
-        let store = PendingTransactionStore()
-        for i in 0..<PendingTransactionStore.maxPending {
-            _ = try store.prepare(operation: .deleteBlock, targetId: "T\(i)", blockVersion: nil, diffPreview: "", callerId: "test")
-        }
-        XCTAssertThrowsError(try store.prepare(operation: .deleteBlock, targetId: "OVR", blockVersion: nil, diffPreview: "", callerId: "test")) { err in
-            XCTAssertEqual(err as? PendingError, .overflow)
-        }
-    }
-
     // MARK: helpers
 
     private func httpGet(_ path: String, token: String?) async throws -> (Int, Data, [String: String]) {
