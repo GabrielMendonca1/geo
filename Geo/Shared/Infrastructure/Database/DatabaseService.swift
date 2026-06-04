@@ -65,11 +65,6 @@ struct BlockIndexEntry: Equatable {
     }
 }
 
-enum DatabaseSchemaProfile: Sendable {
-    case personal
-    case domain
-}
-
 final class DatabaseService: @unchecked Sendable {
     static let shared = DatabaseService()
 
