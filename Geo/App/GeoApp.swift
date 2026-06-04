@@ -86,7 +86,6 @@ final class AppContainer {
             BlocksStore(
                 indexCoordinator: indexCoordinator,
                 dayManager: dayManager,
-                storageMigration: storageMigration,
                 markdownConverter: markdownConverter
             )
         }
