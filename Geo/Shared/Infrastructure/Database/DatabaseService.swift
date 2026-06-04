@@ -33,7 +33,7 @@ struct BlockIndexEntry: Equatable {
         content: String,
         createdAt: Date,
         modifiedAt: Date,
-        tagId: String?,
+        tagId: String? = nil,
         dayId: String?,
         openTaskCount: Int,
         completedTaskCount: Int,
