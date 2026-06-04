@@ -190,7 +190,8 @@ struct BrainsPane: View {
     @State private var showCreate = false
     @State private var openVaultId: String?
 
-    private let columns = [GridItem(.adaptive(minimum: 280, maximum: 380), spacing: 18)]
+    // Big cells so each graph reads as a graph, not a thumbnail — a wall of graphs.
+    private let columns = [GridItem(.adaptive(minimum: 340, maximum: 460), spacing: 20)]
 
     var body: some View {
         Pane {
