@@ -390,20 +390,23 @@ private struct BrainDetailView: View {
         .padding(.horizontal, 18).padding(.vertical, 12)
     }
 
+    // Keep GraphView mounted across mode flips so toggling never re-blooms the
+    // physics sim or loses the user's pan/zoom; Sources just covers it opaquely.
     @ViewBuilder private var content: some View {
-        if mode == .sources {
-            sourcesView
-        } else if notes.isEmpty {
-            emptyVaultState
+        if notes.isEmpty {
+            if mode == .sources { sourcesView } else { emptyVaultState }
         } else {
-            graphLayer
+            ZStack {
+                graphLayer
+                if mode == .sources { sourcesView.background(Palette.background) }
+            }
         }
     }
 
     // MARK: Graph mode (reuses the app's GraphView wholesale)
 
     private var graphLayer: some View {
-        ZStack(alignment: .trailing) {
+        HStack(spacing: 0) {
             GraphView(
                 graph: brainGraph.graph,
                 isActive: { mode == .graph && selectedNote == nil },
@@ -414,10 +417,14 @@ private struct BrainDetailView: View {
                 }
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .overlay {
+                if selectedNote != nil {
+                    Color.clear.contentShape(Rectangle())
+                        .onTapGesture { withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) { selectedNote = nil } }
+                }
+            }
             if let note = selectedNote {
-                inspector(note)
-                    .transition(.move(edge: .trailing).combined(with: .opacity))
-                    .zIndex(1)
+                inspector(note).transition(.move(edge: .trailing).combined(with: .opacity))
             }
         }
     }
