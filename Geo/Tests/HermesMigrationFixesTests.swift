@@ -59,38 +59,32 @@ final class HermesMigrationFixesTests: XCTestCase {
         return block
     }
 
-    func testSetTypeBumpsFrontmatterVersion() async throws {
+    func testSetTypeWritesFrontmatter() async throws {
         let block = try await makeBlock()
-        let initialVersion = store.blocks.first(where: { $0.id == block.id })?.metadata.frontmatter_version ?? -1
         let ok = await store.setType(.permanent, for: block.id)
         XCTAssertTrue(ok)
         let live = store.blocks.first(where: { $0.id == block.id })
-        XCTAssertEqual(live?.metadata.frontmatter_version, initialVersion + 1)
         XCTAssertEqual(live?.metadata.type, .permanent)
         XCTAssertTrue(live?.markdown.contains("type: permanent") ?? false)
-        XCTAssertTrue(live?.markdown.contains("frontmatter_version: \(initialVersion + 1)") ?? false)
+        XCTAssertFalse(live?.markdown.contains("frontmatter_version") ?? true, "version counter retired")
     }
 
-    func testSetStatusBumpsFrontmatterVersion() async throws {
+    func testSetStatusWritesFrontmatter() async throws {
         let block = try await makeBlock()
-        let initialVersion = store.blocks.first(where: { $0.id == block.id })?.metadata.frontmatter_version ?? -1
         let ok = await store.setStatus("evergreen", for: block.id)
         XCTAssertTrue(ok)
         let live = store.blocks.first(where: { $0.id == block.id })
-        XCTAssertEqual(live?.metadata.frontmatter_version, initialVersion + 1)
         XCTAssertEqual(live?.metadata.status, "evergreen")
         XCTAssertTrue(live?.markdown.contains("status: evergreen") ?? false)
     }
 
-    func testSetTypeAndSetStatusBumpMonotonically() async throws {
+    func testSetTypeThenSetStatusBothPersist() async throws {
         let block = try await makeBlock()
-        let v0 = store.blocks.first(where: { $0.id == block.id })!.metadata.frontmatter_version
         _ = await store.setType(.project, for: block.id)
-        let v1 = store.blocks.first(where: { $0.id == block.id })!.metadata.frontmatter_version
         _ = await store.setStatus("active", for: block.id)
-        let v2 = store.blocks.first(where: { $0.id == block.id })!.metadata.frontmatter_version
-        XCTAssertEqual(v1, v0 + 1)
-        XCTAssertEqual(v2, v1 + 1)
+        let live = store.blocks.first(where: { $0.id == block.id })
+        XCTAssertEqual(live?.metadata.type, .project)
+        XCTAssertEqual(live?.metadata.status, "active")
     }
 
     func testUpdateBlockMCPHandlerStripsAgentFrontmatterVersion() async throws {
@@ -99,8 +93,6 @@ final class HermesMigrationFixesTests: XCTestCase {
         await store.flushAll()
 
         _ = try await store.mutateFrontmatter(blockID: block.id, merge: ["state": .string("In Progress")])
-        let beforeVersion = store.blocks.first(where: { $0.id == block.id })!.metadata.frontmatter_version
-        XCTAssertGreaterThanOrEqual(beforeVersion, 1)
 
         let repo = BlocksStoreRepositoryAdapter(blocksStore: store)
         let tools = registeredTools(repo: repo)
@@ -126,19 +118,19 @@ final class HermesMigrationFixesTests: XCTestCase {
 
         let live = store.blocks.first(where: { $0.id == block.id })
         XCTAssertNotNil(live)
-        XCTAssertEqual(live?.metadata.frontmatter_version, beforeVersion + 1)
+        // The update_block handler still strips any inbound frontmatter_version key (defense in
+        // depth): even an attacker-supplied counter never lands in the file.
         XCTAssertFalse(live?.markdown.contains("frontmatter_version: 9999") ?? true)
         XCTAssertTrue(live?.markdown.contains("state: Stomped") ?? false)
         XCTAssertTrue(live?.markdown.contains("# Stomped body") ?? false)
     }
 
-    func testUpdateBlockMCPHandlerBodyOnlyDoesNotBumpVersion() async throws {
+    func testUpdateBlockMCPHandlerBodyOnlyEditApplies() async throws {
         let block = try await makeBlock(markdown: "---\nsymphony: true\nstate: Todo\n---\n# Initial\n")
         _ = await store.setLayer(.shared, for: block.id)
         await store.flushAll()
 
         _ = try await store.mutateFrontmatter(blockID: block.id, merge: ["state": .string("Todo")])
-        let beforeVersion = store.blocks.first(where: { $0.id == block.id })!.metadata.frontmatter_version
         let currentMarkdown = store.blocks.first(where: { $0.id == block.id })!.markdown
         let currentDoc = MarkdownConverter.shared.parse(currentMarkdown)
         let fmKeys = currentDoc.frontmatter.keys.sorted()
@@ -158,7 +150,7 @@ final class HermesMigrationFixesTests: XCTestCase {
         XCTAssertEqual(result.isError ?? false, false)
         await store.flushAll()
         let live = store.blocks.first(where: { $0.id == block.id })
-        XCTAssertEqual(live?.metadata.frontmatter_version, beforeVersion)
+        XCTAssertEqual(live?.metadata.status, "Todo")
         XCTAssertTrue(live?.markdown.contains("Body only edit") ?? false)
     }
 
