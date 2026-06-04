@@ -385,7 +385,7 @@ private struct BrainDetailView: View {
                 HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Building…").font(.system(size: 11)).foregroundStyle(Palette.tertiaryForeground) }
             }
             IconButton(system: "folder", help: "Open vault in Finder / Obsidian") { NSWorkspace.shared.open(vault.folder) }
-            Button { showAddSource = true } label: { Label("Add source", systemImage: "plus") }.buttonStyle(PillButtonStyle()).disabled(status == .ingesting)
+            Button { openSources() } label: { Label("Add source", systemImage: "plus") }.buttonStyle(PillButtonStyle())
         }
         .padding(.horizontal, 18).padding(.vertical, 12)
     }
