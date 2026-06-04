@@ -131,12 +131,18 @@ enum VaultIngestError: LocalizedError {
 
 enum VaultIngest {
     @discardableResult
-    static func ingest(folder: URL) async throws -> Int {
+    static func ingest(folder: URL, sources: [String] = []) async throws -> Int {
         guard let script = scriptURL() else { throw VaultIngestError.cliMissing }
         let before = BrainVaultStore.noteFiles(in: folder).count
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        process.arguments = ["python3", script.path, "ingest", folder.lastPathComponent]
+        // Pin to the system interpreter (3.9.6) — `env python3` can resolve to a brew 3.x
+        // with different behavior; the stdlib-only script needs nothing else.
+        let pinned = "/usr/bin/python3"
+        let usePinned = FileManager.default.isExecutableFile(atPath: pinned)
+        process.executableURL = URL(fileURLWithPath: usePinned ? pinned : "/usr/bin/env")
+        var args: [String] = usePinned ? [] : ["python3"]
+        args += [script.path, "ingest", folder.lastPathComponent] + sources
+        process.arguments = args
         var env = ProcessInfo.processInfo.environment
         env["GEO_BRAINS_ROOT"] = folder.deletingLastPathComponent().path
         process.environment = env
