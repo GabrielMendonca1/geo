@@ -144,7 +144,6 @@ final class GraphStore: ObservableObject {
                     content: block.markdown,
                     createdAt: block.date,
                     modifiedAt: block.lastEdited,
-                    tagId: block.tagId,
                     dayId: block.metadata.dayId,
                     openTaskCount: 0,
                     completedTaskCount: 0,
