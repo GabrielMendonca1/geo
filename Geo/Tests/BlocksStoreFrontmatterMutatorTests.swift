@@ -76,71 +76,66 @@ final class BlocksStoreFrontmatterMutatorTests: XCTestCase {
         return block
     }
 
-    func testSingleMutationBumpsVersionZeroToOne() async throws {
+    func testSingleMutationWritesFrontmatterWithoutVersionCounter() async throws {
         let block = try await makeBlock(markdown: "---\nsymphony: true\n---\n# Hello\n")
 
-        let newVersion = try await store.mutateFrontmatter(
+        _ = try await store.mutateFrontmatter(
             blockID: block.id,
             merge: ["state": .string("Todo")]
         )
 
-        XCTAssertEqual(newVersion, 1)
         let live = store.blocks.first(where: { $0.id == block.id })
-        XCTAssertEqual(live?.metadata.frontmatter_version, 1)
-        XCTAssertTrue(live?.markdown.contains("frontmatter_version: 1") ?? false)
         XCTAssertTrue(live?.markdown.contains("state: Todo") ?? false)
+        XCTAssertFalse(live?.markdown.contains("frontmatter_version") ?? true, "version counter retired")
     }
 
-    func testRepeatedMutationsBumpMonotonically() async throws {
+    func testRepeatedMutationsApplyEachMerge() async throws {
         let block = try await makeBlock(markdown: "---\nsymphony: true\n---\n# Hello\n")
 
-        let v1 = try await store.mutateFrontmatter(blockID: block.id, merge: ["state": .string("Todo")])
-        let v2 = try await store.mutateFrontmatter(blockID: block.id, merge: ["state": .string("In Progress")])
-        let v3 = try await store.mutateFrontmatter(blockID: block.id, merge: ["priority": .int(1)])
+        _ = try await store.mutateFrontmatter(blockID: block.id, merge: ["state": .string("Todo")])
+        _ = try await store.mutateFrontmatter(blockID: block.id, merge: ["state": .string("In Progress")])
+        _ = try await store.mutateFrontmatter(blockID: block.id, merge: ["priority": .int(1)])
 
-        XCTAssertEqual(v1, 1)
-        XCTAssertEqual(v2, 2)
-        XCTAssertEqual(v3, 3)
         let live = store.blocks.first(where: { $0.id == block.id })
-        XCTAssertEqual(live?.metadata.frontmatter_version, 3)
+        let parsed = MarkdownConverter.shared.parse(live?.markdown ?? "").frontmatter
+        XCTAssertEqual(parsed["state"], "In Progress")
+        XCTAssertEqual(parsed["priority"], "1")
+        XCTAssertNil(parsed["frontmatter_version"])
     }
 
     func testConcurrentMutationsOnDifferentBlocksProceedInParallel() async throws {
         let blockA = try await makeBlock(markdown: "---\nsymphony: true\n---\n# A\n", title: "A")
         let blockB = try await makeBlock(markdown: "---\nsymphony: true\n---\n# B\n", title: "B")
 
-        async let aVersion = store.mutateFrontmatter(blockID: blockA.id, merge: ["state": .string("Todo")])
-        async let bVersion = store.mutateFrontmatter(blockID: blockB.id, merge: ["state": .string("Done")])
+        async let aOk: () = store.mutateFrontmatter(blockID: blockA.id, merge: ["state": .string("Todo")])
+        async let bOk: () = store.mutateFrontmatter(blockID: blockB.id, merge: ["state": .string("Done")])
+        _ = try await (aOk, bOk)
 
-        let (va, vb) = try await (aVersion, bVersion)
-        XCTAssertEqual(va, 1)
-        XCTAssertEqual(vb, 1)
+        let liveA = store.blocks.first(where: { $0.id == blockA.id })
+        let liveB = store.blocks.first(where: { $0.id == blockB.id })
+        XCTAssertTrue(liveA?.markdown.contains("state: Todo") ?? false)
+        XCTAssertTrue(liveB?.markdown.contains("state: Done") ?? false)
     }
 
-    func testConcurrentMutationsOnSameBlockSerialize() async throws {
+    // The FrontmatterMutatorActor is kept as the same-block in-process write serializer:
+    // three concurrent same-block mutations must not lose updates (the last write wins, and the
+    // final state reflects a serialized application — not a torn frontmatter).
+    func testConcurrentMutationsOnSameBlockSerializeWithoutLostUpdates() async throws {
         let block = try await makeBlock(markdown: "---\nsymphony: true\n---\n# Hello\n")
 
-        async let r1 = store.mutateFrontmatter(blockID: block.id, merge: ["state": .string("Todo")])
-        async let r2 = store.mutateFrontmatter(blockID: block.id, merge: ["state": .string("In Progress")])
-        async let r3 = store.mutateFrontmatter(blockID: block.id, merge: ["state": .string("Done")])
-
-        let results = try await [r1, r2, r3].sorted()
-        XCTAssertEqual(results, [1, 2, 3])
+        async let r1: () = store.mutateFrontmatter(blockID: block.id, merge: ["a": .string("1")])
+        async let r2: () = store.mutateFrontmatter(blockID: block.id, merge: ["b": .string("2")])
+        async let r3: () = store.mutateFrontmatter(blockID: block.id, merge: ["c": .string("3")])
+        _ = try await (r1, r2, r3)
 
         let live = store.blocks.first(where: { $0.id == block.id })
-        XCTAssertEqual(live?.metadata.frontmatter_version, 3)
         let parsed = MarkdownConverter.shared.parse(live?.markdown ?? "").frontmatter
-        XCTAssertEqual(parsed["frontmatter_version"], "3")
+        XCTAssertEqual(parsed["a"], "1", "serialized writes don't drop earlier merges")
+        XCTAssertEqual(parsed["b"], "2")
+        XCTAssertEqual(parsed["c"], "3")
     }
 
-    func testDecodeBlockMissingFrontmatterVersionTreatsAsZero() throws {
-        let json = #"{"type":"fleeting","layer":"user"}"#
-        let data = Data(json.utf8)
-        let meta = try JSONDecoder().decode(BlocksStore.BlockMetadata.self, from: data)
-        XCTAssertEqual(meta.frontmatter_version, 0)
-    }
-
-    func testFileWatcherEqualVersionNoOp() async throws {
+    func testFileWatcherEqualContentNoOp() async throws {
         let block = try await makeBlock(markdown: "---\nsymphony: true\n---\n# Hello\n")
         _ = try await store.mutateFrontmatter(blockID: block.id, merge: ["state": .string("Todo")])
 
@@ -151,10 +146,9 @@ final class BlocksStoreFrontmatterMutatorTests: XCTestCase {
 
         let liveAfter = store.blocks.first(where: { $0.id == block.id })
         XCTAssertEqual(liveAfter?.markdown, snapshotBefore)
-        XCTAssertEqual(liveAfter?.metadata.frontmatter_version, 1)
     }
 
-    func testFileWatcherHigherDiskVersionHydratesMemory() async throws {
+    func testFileWatcherExternalContentChangeHydratesMemory() async throws {
         let block = try await makeBlock(markdown: "---\nsymphony: true\n---\n# Hello\n")
         _ = try await store.mutateFrontmatter(blockID: block.id, merge: ["state": .string("Todo")])
 
@@ -162,7 +156,6 @@ final class BlocksStoreFrontmatterMutatorTests: XCTestCase {
         ---
         symphony: true
         state: External
-        frontmatter_version: 99
         ---
         # Hello (edited externally)
         """
@@ -172,7 +165,6 @@ final class BlocksStoreFrontmatterMutatorTests: XCTestCase {
         store.changeReconciler.handleExternalChanges([block.url], currentBlocks: store.blocks)
 
         let live = store.blocks.first(where: { $0.id == block.id })
-        XCTAssertEqual(live?.metadata.frontmatter_version, 99)
         XCTAssertTrue(live?.markdown.contains("# Hello (edited externally)") ?? false)
     }
 
