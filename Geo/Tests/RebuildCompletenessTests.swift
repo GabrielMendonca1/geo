@@ -122,8 +122,10 @@ final class RebuildCompletenessTests: XCTestCase {
         try writeBlock("Drift", "# Drift\nplain body\n")
         let initial = await fileService.loadBlocksFromFiles(metadata: [:], converter: .shared)
         await coordinator.rebuildIndex(blocks: initial)
-        XCTAssertEqual(try await countRows(database, table: "block_days"), 0)
-        XCTAssertEqual(try await countRows(database, table: "block_tags"), 0)
+        let initialDays = try await countRows(database, table: "block_days")
+        let initialTags = try await countRows(database, table: "block_tags")
+        XCTAssertEqual(initialDays, 0)
+        XCTAssertEqual(initialTags, 0)
 
         // Mutate the FILE out-of-band (not via index(block:)) to add a [[date]] and a #tag.
         try writeBlock("Drift", "---\ntags: [arc]\n---\n# Drift\nplain body #note\n[[2026-06-05]]\n")
