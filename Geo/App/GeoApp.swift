@@ -343,9 +343,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 .appendingPathComponent("Backups", isDirectory: true)
             let hooks = FilesAreTruthMigrationRunner.Hooks(
                 reloadAndRebuild: { [container] in
-                    await MainActor.run { container.blocksStore.reload() }
-                    let blocks = await MainActor.run { container.blocksStore.blocks }
-                    await IndexCoordinator.shared.rebuildIndex(blocks: blocks)
+                    // Files-first: re-parse every .md and rebuild the index from disk content so
+                    // block_days/block_tags re-derive completely (not from the stale DB cache).
+                    await MainActor.run { Task { await container.blocksStore.forceReloadFromFiles() } }
+                    await container.blocksStore.forceReloadFromFiles()
                 },
                 refreshDays: { [container] in
                     await MainActor.run { container.dayStore.refreshFromDerive() }
