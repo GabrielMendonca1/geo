@@ -113,7 +113,6 @@ final class GraphStore: ObservableObject {
             var hasher = Hasher()
             hasher.combine(block.title)
             hasher.combine(block.markdown)
-            hasher.combine(block.tagId)
             hasher.combine(block.metadata.tagName)
             hasher.combine(block.metadata.type)
             hasher.combine(block.metadata.layer)
