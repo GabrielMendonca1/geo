@@ -201,22 +201,10 @@ enum BlockTools {
             description: "Full-text search blocks by query. Returns id+title+snippet. Prefer over list_blocks when looking for content matches.",
             schema: JSONSchemaObject(properties: [
                 "query": .string("Search query"),
-                "brain": .string("Optional brain id to search instead of the personal brain"),
             ], required: ["query"]),
             handler: { args in
                 guard let query = args["query"]?.stringValue else {
                     return .error("Missing required parameter: query")
-                }
-                if let context = BrainCallContext.current {
-                    let entries = try await context.index.lexicalSearch(query, limit: 25)
-                    let items = entries.map { entry -> [String: AnyCodableValue] in
-                        [
-                            "id": .string(entry.id),
-                            "title": .string(entry.title),
-                            "snippet": .string(Self.matchSnippet(entry.content, query: query)),
-                        ]
-                    }
-                    return .json(items)
                 }
                 let results = try await blocks.search(matching: query)
                 let items = results.map { block -> [String: AnyCodableValue] in
