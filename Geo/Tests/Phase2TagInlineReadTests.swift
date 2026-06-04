@@ -68,7 +68,7 @@ final class Phase2TagInlineReadTests: XCTestCase {
     }
 
     func testGroupingUntaggedPreserved() async {
-        let untagged = entity(id: "u", tagId: nil, tagName: nil)
+        let untagged = entity(id: "u", tagName: nil)
         let vm = await boundViewModel(blocks: [untagged], tags: [])
         let groups = vm.blockGroups(for: vm.blocks, groupingMode: .tag, sortField: .created, sortOrder: .newest)
         XCTAssertEqual(groups.count, 1)
@@ -77,8 +77,8 @@ final class Phase2TagInlineReadTests: XCTestCase {
 
     func testFilterByNameMatchesFrontmatterDerivedBlocks() async {
         let tag = arcTag()
-        let viaName = entity(id: "name", tagId: nil, tagName: "arc")
-        let other = entity(id: "other", tagId: nil, tagName: "work")
+        let viaName = entity(id: "name", tagName: "arc")
+        let other = entity(id: "other", tagName: "work")
         let vm = await boundViewModel(blocks: [viaName, other], tags: [tag])
 
         let filtered = vm.filteredBlocks(
@@ -95,8 +95,8 @@ final class Phase2TagInlineReadTests: XCTestCase {
     }
 
     func testFilterUntaggedUsesDerivedKey() async {
-        let withTag = entity(id: "t", tagId: nil, tagName: "arc")
-        let withoutTag = entity(id: "n", tagId: nil, tagName: nil)
+        let withTag = entity(id: "t", tagName: "arc")
+        let withoutTag = entity(id: "n", tagName: nil)
         let vm = await boundViewModel(blocks: [withTag, withoutTag], tags: [])
 
         let filtered = vm.filteredBlocks(

@@ -1,6 +1,0 @@
-name: geo-mcp-subscriber
-version: 0.1.0
-description: "Persistent MCP push subscriber. Holds a Unix-socket subscription to the Geo macOS app (geo/subscribe -> geo/changed) and keeps the geo-context boot bundle cache (~/.hermes/geo-cache/snapshot.json) warm on every block/task change, replacing the hook's session-start HTTP poll. Runs as a LaunchAgent; provides no MCP tools."
-author: ARC/Geo
-kind: daemon
-provides_tools: []
