@@ -288,6 +288,17 @@ private struct StateBadge: View {
 private struct BrainCard: View {
     let vault: BrainVault
     @State private var hover = false
+
+    private var sourceKinds: [BrainSourceKind] {
+        var seen = Set<String>()
+        var out: [BrainSourceKind] = []
+        for file in BrainVaultStore.sourceFiles(in: vault.folder) {
+            let ext = file.pathExtension.lowercased()
+            if seen.insert(ext).inserted { out.append(BrainSourceKind.of(ext)) }
+        }
+        return out
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top) {
