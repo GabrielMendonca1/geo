@@ -151,57 +151,10 @@ final class GeoAPIRouter: @unchecked Sendable {
                 return await call("ai_parse_task", args: body)
             case "/v1/tags":
                 return await call("create_tag", args: body)
-            case "/v1/destructive/prepare":
-                return await prepareDestructive(body: body, token: token)
             default:
                 break
             }
 
-            if path.hasPrefix("/v1/destructive/commit/") {
-                let txId = String(path.dropFirst("/v1/destructive/commit/".count))
-                return await commitDestructive(txId: txId, body: body, token: token)
-            }
-            if let id = pathParam(path: path, prefix: "/v1/blocks/", suffix: "/tag") {
-                var args = body
-                args["block_id"] = .string(id)
-                return await call("set_block_tag", args: args)
-            }
-            if let id = pathParam(path: path, prefix: "/v1/blocks/", suffix: "/layer") {
-                var args = body
-                args["id"] = .string(id)
-                return await call("set_layer", args: args)
-            }
-            if let id = pathParam(path: path, prefix: "/v1/blocks/", suffix: "/extract-permanent") {
-                return await call("extract_permanent_from", args: ["id": .string(id)])
-            }
-            if let id = pathParam(path: path, prefix: "/v1/blocks/", suffix: "/promote-permanent") {
-                return await call("promote_to_permanent", args: ["id": .string(id)])
-            }
-            if let id = pathParam(path: path, prefix: "/v1/blocks/", suffix: "/link-day") {
-                var args = body
-                args["block_id"] = .string(id)
-                return await call("link_block_to_day", args: args)
-            }
-            if let id = pathParam(path: path, prefix: "/v1/blocks/", suffix: "/move") {
-                let folderRaw = body["folder"]?.stringValue
-                let trimmed = folderRaw?.trimmingCharacters(in: CharacterSet(charactersIn: "/ "))
-                let folder = (trimmed?.isEmpty ?? true) ? nil : trimmed
-                do {
-                    let moved = try await blocks.move(id: id, toFolder: folder)
-                    return .json(200, .object([
-                        "id": .string(moved.id),
-                        "title": .string(moved.displayTitle),
-                        "folder": .string(folder ?? ""),
-                    ]))
-                } catch {
-                    return .error(404, "block not found or move failed: \(id)")
-                }
-            }
-            if let id = pathParam(path: path, prefix: "/v1/blocks/", suffix: nil), method == "PATCH" {
-                var args = body
-                args["id"] = .string(id)
-                return await call("update_block", args: args)
-            }
             if let id = pathParam(path: path, prefix: "/v1/tasks/", suffix: "/complete") {
                 return await call("complete_task", args: ["id": .string(id)])
             }
