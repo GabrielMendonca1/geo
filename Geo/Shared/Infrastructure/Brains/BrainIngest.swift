@@ -261,7 +261,7 @@ final class IngestPipeline: @unchecked Sendable {
             let now = Date()
             try await database.upsertBlock(BlockIndexEntry(
                 id: id, path: id, title: title, content: markdown,
-                createdAt: now, modifiedAt: now, tagId: nil, dayId: nil,
+                createdAt: now, modifiedAt: now, dayId: nil,
                 openTaskCount: 0, completedTaskCount: 0, tags: [],
                 type: "literature", status: nil, layer: "shared"
             ))
