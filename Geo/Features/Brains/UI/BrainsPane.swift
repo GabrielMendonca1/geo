@@ -340,7 +340,11 @@ private struct BrainDetailView: View {
             }
         }
         .background(Palette.background)
-        .fileImporter(isPresented: $showImporter, allowedContentTypes: [.pdf, .plainText, .text, .html], allowsMultipleSelection: true) { handleAttach($0) }
+        .fileImporter(isPresented: $showImporter, allowedContentTypes: BrainSourceKind.importerTypes, allowsMultipleSelection: true) { handleAttach($0) }
+        .sheet(isPresented: $showAddSource) {
+            AddSourceSheet(onChooseFiles: { showAddSource = false; showImporter = true },
+                           onAddURL: { link in showAddSource = false; Task { await ingest(sources: [link]) } })
+        }
         .overlay(alignment: .bottom) { bannerView }
         .task { reload() }
     }
