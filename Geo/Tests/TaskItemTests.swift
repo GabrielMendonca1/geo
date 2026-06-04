@@ -462,7 +462,6 @@ final class RepositoryAdapterTests: XCTestCase {
             lastEdited: now,
             markdown: "# Index Me\n#initial",
             url: blockURL,
-            tagId: nil,
             metadata: .init()
         )
 
@@ -470,6 +469,7 @@ final class RepositoryAdapterTests: XCTestCase {
         let indexedEntries = try await database.fetchBlocks(ids: [blockId])
         XCTAssertEqual(indexedEntries.count, 1)
         XCTAssertEqual(indexedEntries.first?.id, blockId)
+        XCTAssertEqual(indexedEntries.first?.tags, ["initial"], "tags derive from body #hashtag")
 
         let edited = BlocksStore.Block(
             id: blockId,
@@ -478,14 +478,13 @@ final class RepositoryAdapterTests: XCTestCase {
             lastEdited: now.addingTimeInterval(1),
             markdown: "# Indexed Renamed Block\n#updated",
             url: blockURL,
-            tagId: "tag-2",
-            metadata: .init(dayId: nil, tagId: "tag-2")
+            metadata: .init()
         )
         await indexCoordinator.index(block: edited)
 
         let updatedEntries = try await database.fetchBlocks(ids: [blockId])
         XCTAssertEqual(updatedEntries.first?.title, "Indexed Renamed Block")
-        XCTAssertEqual(updatedEntries.first?.tagId, "tag-2")
+        XCTAssertEqual(updatedEntries.first?.tags, ["updated"], "block_tags re-derived from new body #hashtag")
 
         await indexCoordinator.remove(blockId: blockId)
         let afterRemove = try await database.fetchBlocks(ids: [blockId])
