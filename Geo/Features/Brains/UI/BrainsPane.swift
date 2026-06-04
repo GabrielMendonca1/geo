@@ -333,14 +333,20 @@ private struct BrainCard: View {
 
 // MARK: - Detail (custom back button + in-view actions; no .toolbar)
 
+private enum DetailMode: String, CaseIterable { case graph = "Graph", sources = "Sources" }
+
 private struct BrainDetailView: View {
     let vault: BrainVault
     let onBack: () -> Void
 
+    @State private var mode: DetailMode = .graph
     @State private var notes: [BrainNote] = []
-    @State private var selected: BrainNote?
+    @State private var brainGraph: (graph: BlockGraph, lookup: [UUID: BrainNote]) = (.empty, [:])
+    @State private var selectedNote: BrainNote?
     @State private var showImporter = false
     @State private var showAddSource = false
+    @State private var showInlineURL = false
+    @State private var inlineURL = ""
     @State private var status: IngestStatus = .idle
     @State private var banner: String?
 
@@ -350,11 +356,7 @@ private struct BrainDetailView: View {
         VStack(spacing: 0) {
             header
             Rectangle().fill(Palette.border).frame(height: 1)
-            HStack(spacing: 0) {
-                sidebar.frame(width: 280)
-                Rectangle().fill(Palette.border).frame(width: 1)
-                reader.frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
+            content
         }
         .background(Palette.background)
         .fileImporter(isPresented: $showImporter, allowedContentTypes: BrainSourceKind.importerTypes, allowsMultipleSelection: true) { handleAttach($0) }
@@ -378,6 +380,10 @@ private struct BrainDetailView: View {
                 if !vault.gist.isEmpty { Text(vault.gist).font(.system(size: 11)).foregroundStyle(Palette.tertiaryForeground).lineLimit(1) }
             }
             Spacer()
+            Picker("", selection: $mode) {
+                ForEach(DetailMode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.segmented).labelsHidden().fixedSize().controlSize(.small)
             if status == .ingesting {
                 HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Building…").font(.system(size: 11)).foregroundStyle(Palette.tertiaryForeground) }
             }
@@ -387,33 +393,147 @@ private struct BrainDetailView: View {
         .padding(.horizontal, 18).padding(.vertical, 12)
     }
 
-    private var sidebar: some View {
-        VStack(spacing: 0) {
+    @ViewBuilder private var content: some View {
+        if mode == .sources {
+            sourcesView
+        } else if notes.isEmpty {
+            emptyVaultState
+        } else {
+            graphLayer
+        }
+    }
+
+    // MARK: Graph mode (reuses the app's GraphView wholesale)
+
+    private var graphLayer: some View {
+        ZStack(alignment: .trailing) {
+            GraphView(
+                graph: brainGraph.graph,
+                isActive: { mode == .graph && selectedNote == nil },
+                onNodeTap: { id in
+                    withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
+                        selectedNote = brainGraph.lookup[id]
+                    }
+                }
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            if let note = selectedNote {
+                inspector(note)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+                    .zIndex(1)
+            }
+        }
+    }
+
+    private func inspector(_ note: BrainNote) -> some View {
+        HStack(spacing: 0) {
+            Rectangle().fill(Palette.border).frame(width: 1)
+            VStack(spacing: 0) {
+                HStack {
+                    Text(note.title).font(.system(size: 13, weight: .semibold)).foregroundStyle(Palette.foreground).lineLimit(1)
+                    Spacer()
+                    IconButton(system: "xmark", help: "Close") {
+                        withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) { selectedNote = nil }
+                    }
+                }
+                .padding(.horizontal, 14).padding(.vertical, 10)
+                Rectangle().fill(Palette.border).frame(height: 1)
+                NoteReader(note: note)
+            }
+            .frame(width: 420)
+            .background(Color(nsColor: Palette.agentSurface))
+        }
+    }
+
+    private var emptyVaultState: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "tray").font(.system(size: 34, weight: .thin)).foregroundStyle(Palette.tertiaryForeground.opacity(0.5))
+            Text("Empty vault").font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.foreground)
+            Text("Add a PDF, doc, slide deck, e-book, image, audio file, or a web URL —\nit'll be distilled into linked notes.").font(.system(size: 12)).foregroundStyle(Palette.tertiaryForeground).multilineTextAlignment(.center)
+            Button { showAddSource = true } label: { Label("Add a source", systemImage: "plus") }.buttonStyle(PillButtonStyle()).padding(.top, 4)
+        }.frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    // MARK: Sources mode (left: source files · right: a grid of "add" tiles)
+
+    private var sourcesView: some View {
+        HStack(spacing: 0) {
+            sourcesList.frame(width: 300)
+            Rectangle().fill(Palette.border).frame(width: 1)
+            addGrid.frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    private var sourceFiles: [URL] {
+        BrainVaultStore.sourceFiles(in: vault.folder)
+            .sorted { $0.lastPathComponent.localizedCaseInsensitiveCompare($1.lastPathComponent) == .orderedAscending }
+    }
+
+    private var sourcesList: some View {
+        let files = sourceFiles
+        return VStack(spacing: 0) {
             HStack {
-                Text("\(notes.count) note\(notes.count == 1 ? "" : "s")").font(.system(size: 10, weight: .medium)).foregroundStyle(Palette.tertiaryForeground)
+                Text("\(files.count) source\(files.count == 1 ? "" : "s")").font(.system(size: 10, weight: .medium)).foregroundStyle(Palette.tertiaryForeground)
                 Spacer()
-                if !BrainVaultStore.sourceFiles(in: vault.folder).isEmpty {
+                if !files.isEmpty {
                     Button("Rebuild") { Task { await ingest() } }.buttonStyle(.plain).font(.system(size: 10)).foregroundStyle(Palette.tertiaryForeground).disabled(status == .ingesting)
                 }
             }.padding(.horizontal, 12).padding(.vertical, 8)
             Rectangle().fill(Palette.border).frame(height: 1)
-            ScrollView { LazyVStack(spacing: 2) { ForEach(notes) { note in NoteRow(note: note, isSelected: selected?.id == note.id) { selected = note } } }.padding(8) }
+            if files.isEmpty {
+                VStack(spacing: 8) {
+                    Image(systemName: "tray").font(.system(size: 22, weight: .thin)).foregroundStyle(Palette.tertiaryForeground.opacity(0.5))
+                    Text("No sources yet").font(.system(size: 12, weight: .medium)).foregroundStyle(Palette.foreground)
+                    Text("Add one from the grid →").font(.system(size: 11)).foregroundStyle(Palette.tertiaryForeground)
+                }.frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView { LazyVStack(spacing: 2) { ForEach(files, id: \.self) { SourceFileRow(url: $0) } }.padding(8) }
+            }
         }
         .background(Color(nsColor: Palette.agentSurface))
     }
 
-    @ViewBuilder private var reader: some View {
-        if let selected { NoteReader(note: selected) }
-        else if notes.isEmpty {
-            VStack(spacing: 12) {
-                Image(systemName: "tray").font(.system(size: 34, weight: .thin)).foregroundStyle(Palette.tertiaryForeground.opacity(0.5))
-                Text("Empty vault").font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.foreground)
-                Text("Add a PDF, doc, slide deck, e-book, image, audio file, or a web URL —\nit'll be distilled into linked notes.").font(.system(size: 12)).foregroundStyle(Palette.tertiaryForeground).multilineTextAlignment(.center)
-                Button { showAddSource = true } label: { Label("Add a source", systemImage: "plus") }.buttonStyle(PillButtonStyle()).padding(.top, 4)
-            }.frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else {
-            Text("Select a note").font(.system(size: 13)).foregroundStyle(Palette.tertiaryForeground).frame(maxWidth: .infinity, maxHeight: .infinity)
+    private var addGrid: some View {
+        ScrollView {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 104, maximum: 140), spacing: 14)], alignment: .leading, spacing: 14) {
+                ForEach(Array(BrainSourceKind.allAddable.enumerated()), id: \.offset) { _, kind in
+                    AddTile(kind: kind) {
+                        if kind == .web { inlineURL = ""; withAnimation(.easeOut(duration: 0.15)) { showInlineURL = true } }
+                        else { showImporter = true }
+                    }
+                }
+            }
+            .padding(20)
         }
+        .background(Palette.background)
+        .overlay(alignment: .top) { inlineURLBar }
+    }
+
+    @ViewBuilder private var inlineURLBar: some View {
+        if showInlineURL {
+            let trimmed = inlineURL.trimmingCharacters(in: .whitespacesAndNewlines)
+            let valid = trimmed.hasPrefix("http://") || trimmed.hasPrefix("https://")
+            HStack(spacing: 8) {
+                Image(systemName: "globe").font(.system(size: 12)).foregroundStyle(BrainSourceKind.geoBlue)
+                TextField("https://…  or a YouTube link", text: $inlineURL)
+                    .textFieldStyle(.plain).font(.system(size: 13)).foregroundStyle(Palette.foreground)
+                    .onSubmit { if valid { addInlineURL(trimmed) } }
+                Button("Add") { addInlineURL(trimmed) }.buttonStyle(PillButtonStyle()).disabled(!valid)
+                Button { withAnimation(.easeOut(duration: 0.15)) { showInlineURL = false } } label: {
+                    Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)).foregroundStyle(Palette.tertiaryForeground)
+                }.buttonStyle(.plain)
+            }
+            .padding(.horizontal, 12).padding(.vertical, 9)
+            .background(RoundedRectangle(cornerRadius: 10).fill(Color(nsColor: Palette.agentCardElevated)))
+            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Palette.border, lineWidth: 1))
+            .padding(16)
+            .transition(.move(edge: .top).combined(with: .opacity))
+        }
+    }
+
+    private func addInlineURL(_ link: String) {
+        withAnimation(.easeOut(duration: 0.15)) { showInlineURL = false }
+        Task { await ingest(sources: [link]) }
     }
 
     @ViewBuilder private var bannerView: some View {
@@ -425,7 +545,8 @@ private struct BrainDetailView: View {
 
     private func reload() {
         notes = BrainVaultStore.notes(in: vault)
-        if selected == nil || !notes.contains(where: { $0.id == selected?.id }) { selected = notes.first }
+        brainGraph = BrainGraphBuilder.build(notes: notes)
+        if let sel = selectedNote, !notes.contains(where: { $0.id == sel.id }) { selectedNote = nil }
     }
 
     private func handleAttach(_ result: Result<[URL], Error>) {
@@ -458,22 +579,46 @@ private struct BrainDetailView: View {
     }
 }
 
-private struct NoteRow: View {
-    let note: BrainNote
-    let isSelected: Bool
-    let action: () -> Void
+private struct SourceFileRow: View {
+    let url: URL
     @State private var hover = false
+    private var kind: BrainSourceKind { BrainSourceKind.of(url.pathExtension) }
+
     var body: some View {
-        Button(action: action) {
+        Button { NSWorkspace.shared.activateFileViewerSelecting([url]) } label: {
             HStack(spacing: 8) {
-                Image(systemName: "doc.text").font(.system(size: 11)).foregroundStyle(Palette.tertiaryForeground)
-                Text(note.title).font(.system(size: 12.5)).foregroundStyle(Palette.foreground).lineLimit(1)
+                Image(systemName: kind.icon).font(.system(size: 12)).foregroundStyle(kind.tint.opacity(0.9)).frame(width: 16)
+                Text(url.lastPathComponent).font(.system(size: 12.5)).foregroundStyle(Palette.foreground).lineLimit(1)
                 Spacer(minLength: 0)
+                if hover { Image(systemName: "arrow.up.forward.app").font(.system(size: 10)).foregroundStyle(Palette.tertiaryForeground) }
             }
             .padding(.horizontal, 10).padding(.vertical, 7)
-            .background(RoundedRectangle(cornerRadius: 7).fill(isSelected ? Palette.foreground.opacity(0.10) : (hover ? Palette.foreground.opacity(0.04) : .clear)))
+            .background(RoundedRectangle(cornerRadius: 7).fill(hover ? Palette.foreground.opacity(0.04) : .clear))
         }
-        .buttonStyle(.plain).onHover { hover = $0 }
+        .buttonStyle(.plain).help("Reveal in Finder").onHover { hover = $0 }
+    }
+}
+
+private struct AddTile: View {
+    let kind: BrainSourceKind
+    let action: () -> Void
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 10) {
+                Image(systemName: kind.icon).font(.system(size: 24, weight: .regular)).foregroundStyle(kind.tint.opacity(hover ? 1 : 0.9))
+                Text(kind.displayName).font(.system(size: 11, weight: .medium)).foregroundStyle(Palette.foreground).lineLimit(1)
+            }
+            .frame(maxWidth: .infinity).aspectRatio(1, contentMode: .fit)
+            .background(RoundedRectangle(cornerRadius: 14).fill(Color(nsColor: hover ? Palette.agentCardElevated : Palette.agentCard)))
+            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(hover ? Palette.foreground.opacity(0.22) : Palette.border, lineWidth: 1))
+            .overlay(alignment: .topTrailing) {
+                Image(systemName: "plus").font(.system(size: 9, weight: .bold)).foregroundStyle(Palette.tertiaryForeground.opacity(hover ? 0.9 : 0.35)).padding(8)
+            }
+        }
+        .buttonStyle(.plain)
+        .scaleEffect(hover ? 1.02 : 1).animation(.easeOut(duration: 0.13), value: hover).onHover { hover = $0 }
     }
 }
 
