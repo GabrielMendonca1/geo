@@ -237,7 +237,6 @@ class BlocksStore: ObservableObject {
             lastEdited: now,
             markdown: body,
             url: url,
-            tagId: metadata.tagId,
             metadata: metadata
         )
 
