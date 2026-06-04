@@ -498,10 +498,6 @@ class BlocksStore: ObservableObject {
         metadataService.dayId(for: blockId)
     }
 
-    func tagId(for blockId: String) -> String? {
-        metadataService.tagId(for: blockId)
-    }
-
     func metadata(for blockId: String) -> BlockMetadata {
         metadataService.metadata(for: blockId)
     }
