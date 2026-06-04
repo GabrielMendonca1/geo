@@ -2,7 +2,7 @@
 """Dedup Geo pending tasks over the local HTTP API.
 
 Groups pending tasks by (normalized title, kind), keeps the earliest-created
-one in each group, and deletes the rest via the two-phase destructive flow.
+one in each group, and deletes the rest via DELETE /tasks/{id}.
 Milestones are never touched. A task and an event with the same title are
 treated as DIFFERENT (kept) because kind differs.
 
