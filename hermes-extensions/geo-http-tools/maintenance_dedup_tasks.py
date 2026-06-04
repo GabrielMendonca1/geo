@@ -96,13 +96,7 @@ def main():
         return
 
     for d, _ in to_delete:
-        prep = req("POST", f"{b}/destructive/prepare", tok,
-                   {"operation": "delete_task", "target_id": d["id"]})
-        tx = prep.get("transaction_id")
-        if not tx:
-            print(f"  ! no transaction_id for {d['id']}: {prep}")
-            continue
-        req("DELETE", f"{b}/tasks/{d['id']}", tok, {"transaction_id": tx})
+        req("DELETE", f"{b}/tasks/{d['id']}", tok)
         print(f"  deleted {d['id']} '{d.get('title')}'")
     print("Done.")
 
