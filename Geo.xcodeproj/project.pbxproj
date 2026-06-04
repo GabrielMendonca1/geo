@@ -2155,6 +2155,7 @@
 				P2CPT0001B /* TagColorProvisionTests.swift in Sources */,
 				P2WRT0001B /* Phase2TagWriteTests.swift in Sources */,
 				P3DLWT0001B /* Phase3DayLinkWriteTests.swift in Sources */,
+				RBCMP0001B /* RebuildCompletenessTests.swift in Sources */,
 				P3DLBT0001B /* Phase3DayLinkBackfillTests.swift in Sources */,
 				P3DSDT0001B /* Phase3DayStoreDeriveTests.swift in Sources */,
 				MCPUNIX0000000000000BLD /* MCPUnixSocketTransportTests.swift in Sources */,
