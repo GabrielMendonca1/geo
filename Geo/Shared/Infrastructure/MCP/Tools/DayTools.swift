@@ -109,37 +109,4 @@ enum DayTools {
         ).registered
     }
 
-    private static func linkBlockToDay(_ blocks: any BlocksRepository) -> MCPRegisteredTool {
-        MCPToolBuilder(
-            name: "link_block_to_day",
-            description: "Link a block to a specific day by inserting an inline [[YYYY-MM-DD]] backlink into its body (Obsidian Daily Notes convention).",
-            schema: JSONSchemaObject(properties: [
-                "block_id": .string("Block ID (filename or relative path)"),
-                "date": .string("Date in YYYY-MM-DD format"),
-            ], required: ["block_id", "date"]),
-            handler: { args in
-                guard let blockId = args["block_id"]?.stringValue,
-                      let dateStr = args["date"]?.stringValue else {
-                    return .error("Missing required parameters: block_id, date")
-                }
-                guard validateBlockId(blockId) else {
-                    return .error("invalid block id")
-                }
-                guard let date = DateFormatters.dayId.date(from: dateStr) else {
-                    return .error("Invalid date format. Use YYYY-MM-DD")
-                }
-                switch try await AgentAuthorization.authorizeWrite(.linkToDay, id: blockId, in: blocks) {
-                case .ok: break
-                case .denied(let result): return result
-                }
-                let dayId = DateFormatters.dayId.string(from: date)
-                do {
-                    try await blocks.linkToDay(blockId: blockId, dayId: dayId)
-                } catch {
-                    return .error("failed to link block to day")
-                }
-                return .json(["success": true])
-            }
-        ).registered
-    }
 }
