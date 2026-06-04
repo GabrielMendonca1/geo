@@ -286,42 +286,100 @@ private struct StateBadge: View {
     }
 }
 
-private struct BrainCard: View {
+// MARK: - Graph cell (an Obsidian-style graph tile; the graph IS the card)
+
+private struct BrainGraphCell: View {
     let vault: BrainVault
     @State private var hover = false
 
+    private let corner: CGFloat = 18
+
     var body: some View {
-        VStack(spacing: 0) {
-            ZStack {
-                if vault.noteCount == 0 {
-                    Image(systemName: "brain.head.profile").font(.system(size: 30, weight: .thin)).foregroundStyle(Palette.tertiaryForeground.opacity(0.3))
-                } else {
-                    BrainMiniGraph(vault: vault)
-                }
+        ZStack {
+            // The graph fills the cell edge-to-edge (its own internal inset keeps
+            // nodes off the corners), so the tile reads as a panel of pure graph.
+            if vault.noteCount == 0 {
+                EmptyGraphMotif()
+            } else {
+                BrainMiniGraph(vault: vault)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .overlay(alignment: .topTrailing) { StateBadge(ready: vault.ready).padding(12) }
-            Rectangle().fill(Palette.border).frame(height: 1)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 240)
+        .background(Color(nsColor: hover ? Palette.agentCardElevated : Palette.agentCard))
+        .overlay(alignment: .bottom) { labelOverlay }
+        .clipShape(RoundedRectangle(cornerRadius: corner))
+        .overlay(RoundedRectangle(cornerRadius: corner).strokeBorder(hover ? Palette.foreground.opacity(0.28) : Palette.border, lineWidth: 1))
+        .shadow(color: .black.opacity(hover ? 0.16 : 0), radius: hover ? 14 : 0, y: hover ? 6 : 0)
+        .scaleEffect(hover ? 1.01 : 1)
+        .animation(.easeOut(duration: 0.14), value: hover)
+        .onHover { hover = $0 }
+    }
+
+    // Subtle scrim + minimal chrome: name, a state dot, and counts — legible on any graph.
+    private var labelOverlay: some View {
+        HStack(alignment: .bottom, spacing: 8) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(vault.title).font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.foreground).lineLimit(1)
-                Text(vault.gist.isEmpty ? "No description" : vault.gist).font(.system(size: 12)).foregroundStyle(Palette.tertiaryForeground).lineLimit(1)
-                HStack(spacing: 7) {
-                    Label("\(vault.noteCount)", systemImage: "doc.text")
-                    if vault.sourceCount > 0 {
-                        Text("·").foregroundStyle(Palette.tertiaryForeground.opacity(0.5))
-                        Label("\(vault.sourceCount)", systemImage: "tray.full")
-                    }
-                    Spacer()
-                    Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold)).foregroundStyle(Palette.tertiaryForeground.opacity(hover ? 0.9 : 0.4))
-                }.font(.system(size: 11)).foregroundStyle(Palette.tertiaryForeground).padding(.top, 2)
+                HStack(spacing: 6) {
+                    Circle().fill(vault.ready ? Color(nsColor: Palette.agentSuccess) : Palette.tertiaryForeground).frame(width: 6, height: 6)
+                    Text(countLabel).font(.system(size: 11)).foregroundStyle(Palette.tertiaryForeground).lineLimit(1)
+                }
             }
-            .padding(14)
+            Spacer(minLength: 0)
+            Image(systemName: "chevron.right")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Palette.foreground.opacity(hover ? 0.85 : 0.4))
         }
-        .frame(height: 226)
-        .background(RoundedRectangle(cornerRadius: 16).fill(Color(nsColor: hover ? Palette.agentCardElevated : Palette.agentCard)))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(hover ? Palette.foreground.opacity(0.22) : Palette.border, lineWidth: 1))
-        .scaleEffect(hover ? 1.012 : 1).animation(.easeOut(duration: 0.13), value: hover).onHover { hover = $0 }
+        .padding(.horizontal, 14)
+        .padding(.bottom, 12)
+        .padding(.top, 34)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            // Soft bottom-up scrim so the label stays readable over light OR dark graphs.
+            LinearGradient(
+                colors: [Palette.background.opacity(0), Palette.background.opacity(0.72), Palette.background.opacity(0.94)],
+                startPoint: .top, endPoint: .bottom
+            )
+            .allowsHitTesting(false)
+        )
+    }
+
+    private var countLabel: String {
+        let notes = "\(vault.noteCount) note\(vault.noteCount == 1 ? "" : "s")"
+        guard vault.sourceCount > 0 else { return notes }
+        return "\(notes) · \(vault.sourceCount) source\(vault.sourceCount == 1 ? "" : "s")"
+    }
+}
+
+// Tasteful empty-brain state — a faint constellation of dim nodes, not a placeholder glyph.
+private struct EmptyGraphMotif: View {
+    var body: some View {
+        Canvas { ctx, size in
+            let golden = Double.pi * (3 - 5.0.squareRoot())
+            let cx = size.width / 2, cy = size.height / 2
+            let span = min(size.width, size.height) * 0.34
+            var pts: [CGPoint] = []
+            for i in 0..<7 {
+                let radius = (Double(i) / 7).squareRoot() * span
+                let theta = Double(i) * golden
+                pts.append(CGPoint(x: cx + CGFloat(cos(theta)) * CGFloat(radius), y: cy + CGFloat(sin(theta)) * CGFloat(radius)))
+            }
+            for i in 1..<pts.count {
+                var p = Path(); p.move(to: pts[0]); p.addLine(to: pts[i])
+                ctx.stroke(p, with: .color(Palette.foreground.opacity(0.08)), lineWidth: 0.8)
+            }
+            for (i, c) in pts.enumerated() {
+                let r: CGFloat = i == 0 ? 4 : 2.6
+                ctx.fill(Path(ellipseIn: CGRect(x: c.x - r, y: c.y - r, width: r * 2, height: r * 2)), with: .color(Palette.foreground.opacity(0.16)))
+            }
+        }
+        .overlay(alignment: .center) {
+            Text("empty")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(Palette.tertiaryForeground.opacity(0.7))
+                .offset(y: 30)
+        }
     }
 }
 
