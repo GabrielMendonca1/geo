@@ -957,17 +957,6 @@ private enum BrainGraphBuilder {
         return (BlockGraph(nodes: nodes, edges: edges), lookup)
     }
 
-    // GraphView persists settings under a single global key shared with the main graph.
-    // A leftover search term / hidden group there would silently blank the brain graph
-    // (which has no in-pane search box) — clear only those brain-hostile filters on open.
-    static func sanitizeSharedGraphSettings() {
-        let key = "geo.graphSettings.v2"
-        guard var s = UserDefaults.standard.data(forKey: key).flatMap({ try? JSONDecoder().decode(GraphSettings.self, from: $0) }) else { return }
-        guard !s.searchText.isEmpty || !s.hiddenGroups.isEmpty || !s.showOrphans else { return }
-        s.searchText = ""; s.hiddenGroups = []; s.showOrphans = true
-        if let d = try? JSONEncoder().encode(s) { UserDefaults.standard.set(d, forKey: key) }
-    }
-
     // Deterministic UUID from the note slug (FNV-1a, two seeds → 128 bits) so a rebuild
     // after ingest keeps existing nodes in place and only animates the new ones in.
     private static func stableID(for slug: String) -> UUID {
