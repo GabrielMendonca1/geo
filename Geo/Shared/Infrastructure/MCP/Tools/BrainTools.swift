@@ -17,7 +17,7 @@ enum BrainTools {
                         "title": .string(manifest.title),
                         "gist": .string(manifest.gist),
                         "kind": .string(manifest.kind.rawValue),
-                        "state": .string(manifest.ingestState.rawValue),
+                        "state": .string(manifest.state),
                         "node_count": .int(manifest.nodeCount),
                     ]
                 }
