@@ -6,7 +6,7 @@ Claude Code account (Claude Max OAuth), like the brain-vault Haiku ingest.
 Pipeline (no gateway, no Codex, no agent phase):
   1. read the last 6h from ~/.hermes/wa_ingest.jsonl, bucket by chat
   2. CLASSIFY each bucket in parallel with Haiku (model.nano) → proposals
-  3. DECIDE with Opus (model.full) — one call, hermes choosing what is genuinely
+  3. DECIDE with Haiku (model.nano) — one call, hermes choosing what is genuinely
      worth keeping: dedup, drop noise, emit final {blocks, tasks, urgent}
   4. PERSIST: facts → block .md files written natively (works app-closed);
      commitments → tasks over Geo's HTTP API (fall back to a review block if
