@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 
 // MARK: - File-native model (~/Geo/Brains/<name>/ vaults are the source of truth)
 
-private struct BrainMeta: Codable {
+struct BrainMeta: Codable {
     var id: String
     var title: String
     var gist: String
