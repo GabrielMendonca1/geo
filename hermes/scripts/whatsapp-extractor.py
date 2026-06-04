@@ -691,30 +691,23 @@ async def main() -> int:
         print("[whatsapp-extractor] no messages in window")
         return 0
 
-    client = AsyncAnthropic(
-        auth_token=token,
-        default_headers={
-            "anthropic-beta": OAUTH_BETA,
-            "user-agent": CLAUDE_CODE_USER_AGENT,
-            "x-app": "cli",
-        },
-    )
-
+    headers = _headers_oauth(token)
     sem = asyncio.Semaphore(MAX_CONCURRENT)
 
-    async def gated(bucket: dict) -> dict:
-        async with sem:
-            return await classify_bucket(client, bucket)
+    async with httpx.AsyncClient() as http:
+        async def gated(bucket: dict) -> dict:
+            async with sem:
+                return await classify_bucket(http, headers, bucket)
 
-    results = await asyncio.gather(*(gated(b) for b in buckets))
-    keep = [r for r in results if has_proposals(r)]
-    errored = [r for r in results if r.get("error")]
-    log(f"classify: with_proposals={len(keep)} errored={len(errored)}")
-    if not keep:
-        print("[whatsapp-extractor] classifier surfaced nothing")
-        return 0
+        results = await asyncio.gather(*(gated(b) for b in buckets))
+        keep = [r for r in results if has_proposals(r)]
+        errored = [r for r in results if r.get("error")]
+        log(f"classify: with_proposals={len(keep)} errored={len(errored)}")
+        if not keep:
+            print("[whatsapp-extractor] classifier surfaced nothing")
+            return 0
 
-    decided = await decide(client, keep)
+        decided = await decide(http, headers, keep)
     log(
         f"decided: blocks={len(decided.get('blocks', []))} "
         f"tasks={len(decided.get('tasks', []))} urgent={len(decided.get('urgent', []))} "
