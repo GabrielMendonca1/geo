@@ -528,21 +528,25 @@ WRITE_TOOLS: list[dict] = [
     {
         "name": "geo_create_block",
         "description": (
-            "Create a new block. Returns the new block id + frontmatter_version. "
-            "Pass `folder` (e.g. 'Projects/ARC') to file it inside that folder — the "
-            "folder is created if missing and the returned id is folder-prefixed "
-            "(e.g. 'Projects/ARC/My-Block.md'). Omit `folder` for the vault root."
+            "Create a new block by writing a .md file directly into the Geo vault "
+            "(files are truth — the app reconciles it). Returns the new block id "
+            "(its relative path, e.g. 'My-Block.md' or 'Projects/ARC/My-Block.md'). "
+            "`type` is the Zettelkasten type (fleeting|literature|permanent|moc|"
+            "project, default fleeting); `layer` is user|agent|review|shared "
+            "(default agent). A '# <title>' H1 and today's [[YYYY-MM-DD]] day-link "
+            "are added automatically unless you supply them. Pass `folder` (e.g. "
+            "'Projects/ARC') to file it in a subfolder (created if missing)."
         ),
         "parameters": {
             "type": "object",
             "properties": {
                 "title": {"type": "string"},
                 "body": {"type": "string"},
-                "layer": {"type": "string", "description": "'fleeting' | 'literature' | 'permanent'."},
-                "type": {"type": "string"},
-                "status": {"type": "string"},
-                "day_id": {"type": "string", "description": "Optional day record to attach to."},
-                "tag_name": {"type": "string", "description": "Single tag to apply (server takes one tag, not an array)."},
+                "type": {"type": "string", "description": "fleeting|literature|permanent|moc|project (default fleeting)."},
+                "layer": {"type": "string", "description": "user|agent|review|shared (default agent)."},
+                "status": {"type": "string", "description": "Optional, e.g. 'active' | 'evergreen'."},
+                "day_id": {"type": "string", "description": "Day to link as YYYY-MM-DD (default today)."},
+                "tag_name": {"type": "string", "description": "Single tag to apply (lowercased)."},
                 "folder": {"type": "string", "description": "Folder path to file the block under, e.g. 'Projects/ARC'. Created if missing."},
             },
             "required": ["title"],
@@ -552,11 +556,12 @@ WRITE_TOOLS: list[dict] = [
     {
         "name": "geo_move_block",
         "description": (
-            "Move a block into a folder (or to the vault root). A block's id IS its path "
-            "under the vault, so moving changes the id — the returned id is the new "
-            "folder-prefixed path. Pass `folder` like 'Areas/Health'; the folder is "
-            "created if missing. Pass folder='' or omit it to move the block to the root. "
-            "Wikilinks ([[Title]]) keep resolving after a move since they match by title."
+            "Move a block into a folder (or to the vault root) via a filesystem move. "
+            "A block's id IS its path under the vault, so moving changes the id — the "
+            "returned id is the new folder-prefixed path. Pass `folder` like "
+            "'Areas/Health' (created if missing); pass folder='' or omit it to move to "
+            "the root. Wikilinks ([[Title]]) keep resolving after a move since they "
+            "match by title."
         ),
         "parameters": {
             "type": "object",
@@ -571,10 +576,11 @@ WRITE_TOOLS: list[dict] = [
     {
         "name": "geo_update_block",
         "description": (
-            "Replace a block's full markdown body. `body` becomes the entire block content "
-            "(not a partial patch). The server only reads id + content; title/type/status "
-            "are NOT editable here. To change the layer use geo_set_layer; to change the tag "
-            "use geo_set_block_tag."
+            "Replace a block's full markdown body in place (preserving its frontmatter). "
+            "`body` becomes the entire block content below the frontmatter (not a partial "
+            "patch) — include the '# <title>' H1 and any [[date]] day-links you want to "
+            "keep. To change the layer use geo_set_layer; to change the tag use "
+            "geo_set_block_tag."
         ),
         "parameters": {
             "type": "object",
@@ -588,7 +594,7 @@ WRITE_TOOLS: list[dict] = [
     },
     {
         "name": "geo_set_block_tag",
-        "description": "Set a block's tag. A block carries a single tag; pass an empty tag_name to clear it.",
+        "description": "Set a block's tag in its frontmatter (lowercased). A block carries a single tag; pass an empty tag_name to clear it.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -601,12 +607,12 @@ WRITE_TOOLS: list[dict] = [
     },
     {
         "name": "geo_set_layer",
-        "description": "Change a block's Zettelkasten layer (fleeting/literature/permanent).",
+        "description": "Change a block's layer in its frontmatter (user|agent|review|shared).",
         "parameters": {
             "type": "object",
             "properties": {
                 "id": {"type": "string"},
-                "layer": {"type": "string"},
+                "layer": {"type": "string", "description": "user|agent|review|shared."},
             },
             "required": ["id", "layer"],
         },
@@ -615,9 +621,9 @@ WRITE_TOOLS: list[dict] = [
     {
         "name": "geo_extract_permanent_from",
         "description": (
-            "Extract a permanent block from a source block. The server archives the source "
-            "and creates a stub titled 'Extraído de [[<source title>]]'. Takes only the "
-            "source `id` — you do not supply a title or body."
+            "Create a new permanent stub block referencing a source block. Writes a new "
+            ".md titled 'Extraído de [[<source title>]]' (the source is left intact). "
+            "Takes only the source `id`."
         ),
         "parameters": {
             "type": "object",
@@ -630,7 +636,7 @@ WRITE_TOOLS: list[dict] = [
     },
     {
         "name": "geo_promote_to_permanent",
-        "description": "Promote a fleeting/literature block to permanent in place.",
+        "description": "Promote a block to type=permanent in place (frontmatter edit).",
         "parameters": {
             "type": "object",
             "properties": {"id": {"type": "string"}},
@@ -640,7 +646,7 @@ WRITE_TOOLS: list[dict] = [
     },
     {
         "name": "geo_link_block_to_day",
-        "description": "Attach a block to a day record (YYYY-MM-DD).",
+        "description": "Append an inline [[YYYY-MM-DD]] day-link to a block's body (idempotent).",
         "parameters": {
             "type": "object",
             "properties": {
