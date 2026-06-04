@@ -439,14 +439,14 @@ private struct BrainMiniGraph: View {
         let edgeColor = Palette.foreground.opacity(0.22)
         let nodeColor = Palette.foreground.opacity(0.72)
         let haloColor = Palette.foreground.opacity(0.06)
+        // Thicker edges for small graphs so a 2–3 node brain reads as a graph, not specks.
+        let edgeWidth: CGFloat = graph.nodes.count <= 6 ? 1.5 : 0.9
 
         for e in graph.edges {
             guard let t = e.targetId, let a = pointFor[e.sourceId], let b = pointFor[t] else { continue }
             var path = Path(); path.move(to: a); path.addLine(to: b)
-            ctx.stroke(path, with: .color(edgeColor), lineWidth: 0.9)
+            ctx.stroke(path, with: .color(edgeColor), lineWidth: edgeWidth)
         }
-        // Thicker edges for small graphs so a 2–3 node brain reads as a graph, not specks.
-        let edgeWidth: CGFloat = graph.nodes.count <= 6 ? 1.5 : 0.9
         for node in graph.nodes {
             guard let c = pointFor[node.id] else { continue }
             let r = layout.radii[node.id] ?? 3
@@ -455,7 +455,6 @@ private struct BrainMiniGraph: View {
             ctx.fill(Path(ellipseIn: CGRect(x: c.x - halo, y: c.y - halo, width: halo * 2, height: halo * 2)), with: .color(haloColor))
             ctx.fill(Path(ellipseIn: CGRect(x: c.x - r, y: c.y - r, width: r * 2, height: r * 2)), with: .color(nodeColor))
         }
-        _ = edgeWidth
     }
 }
 
