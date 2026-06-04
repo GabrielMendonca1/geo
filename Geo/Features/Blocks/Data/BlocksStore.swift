@@ -284,7 +284,6 @@ class BlocksStore: ObservableObject {
             lastEdited: Date(),
             markdown: newMarkdown,
             url: currentBlock.url,
-            tagId: currentBlock.tagId,
             metadata: currentBlock.metadata
         )
         if let liveIndex = self.indexOfBlock(id: currentBlock.id) {
