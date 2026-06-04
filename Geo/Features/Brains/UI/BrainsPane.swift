@@ -582,75 +582,7 @@ private struct BrainDetailView: View {
         .padding(.horizontal, 18).padding(.vertical, 12)
     }
 
-    // Keep GraphView mounted across mode flips so toggling never re-blooms the
-    // physics sim or loses the user's pan/zoom; Sources just covers it opaquely.
-    @ViewBuilder private var content: some View {
-        if notes.isEmpty {
-            if mode == .sources { sourcesView } else { emptyVaultState }
-        } else {
-            ZStack {
-                graphLayer
-                if mode == .sources { sourcesView.background(Palette.background) }
-            }
-        }
-    }
-
-    // MARK: Graph mode (reuses the app's GraphView wholesale)
-
-    private var graphLayer: some View {
-        HStack(spacing: 0) {
-            GraphView(
-                graph: brainGraph.graph,
-                isActive: { mode == .graph && selectedNote == nil },
-                onNodeTap: { id in
-                    withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
-                        selectedNote = brainGraph.lookup[id]
-                    }
-                }
-            )
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .overlay {
-                if selectedNote != nil {
-                    Color.clear.contentShape(Rectangle())
-                        .onTapGesture { withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) { selectedNote = nil } }
-                }
-            }
-            if let note = selectedNote {
-                inspector(note).transition(.move(edge: .trailing).combined(with: .opacity))
-            }
-        }
-    }
-
-    private func inspector(_ note: BrainNote) -> some View {
-        HStack(spacing: 0) {
-            Rectangle().fill(Palette.border).frame(width: 1)
-            VStack(spacing: 0) {
-                HStack {
-                    Text(note.title).font(.system(size: 13, weight: .semibold)).foregroundStyle(Palette.foreground).lineLimit(1)
-                    Spacer()
-                    IconButton(system: "xmark", help: "Close") {
-                        withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) { selectedNote = nil }
-                    }
-                }
-                .padding(.horizontal, 14).padding(.vertical, 10)
-                Rectangle().fill(Palette.border).frame(height: 1)
-                NoteReader(note: note)
-            }
-            .frame(width: 420)
-            .background(Color(nsColor: Palette.agentSurface))
-        }
-    }
-
-    private var emptyVaultState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "tray").font(.system(size: 34, weight: .thin)).foregroundStyle(Palette.tertiaryForeground.opacity(0.5))
-            Text("Empty vault").font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.foreground)
-            Text("Add a PDF, doc, slide deck, e-book, image, audio file, or a web URL —\nit'll be distilled into linked notes.").font(.system(size: 12)).foregroundStyle(Palette.tertiaryForeground).multilineTextAlignment(.center)
-            Button { openSources() } label: { Label("Add a source", systemImage: "plus") }.buttonStyle(PillButtonStyle()).padding(.top, 4)
-        }.frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    // MARK: Sources mode (left: source files · right: a grid of "add" tiles)
+    // MARK: Sources (left: source files · right: a grid of "add" tiles)
 
     private var sourcesView: some View {
         HStack(spacing: 0) {
