@@ -62,7 +62,7 @@ struct WorkersCard: View {
     }
 
     private var emptyState: some View {
-        Text("No workers active. Dispatch one with `claude_code_run(directory:, prompt:)` from hermes, or `hermes kanban create --assignee claude-code …`.")
+        Text("No workers active. Hermes dispatches one with `cc-dispatch '<brief>' --dir <abs>` — runs appear here from ~/.hermes/dispatches/.")
             .font(.caption)
             .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
