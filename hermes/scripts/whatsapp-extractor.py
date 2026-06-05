@@ -670,22 +670,22 @@ async def persist(decided: dict) -> tuple[int, int, int]:
     nb = nt = 0
 
     for b in blocks:
-        title = (b.get("title") or "").strip()
+        title = _as_text(b.get("title")).strip()
         if not title:
             continue
         try:
-            rid = write_block_file(title, b.get("body", "") or "", b.get("type") or "fleeting", b.get("layer") or "review")
+            rid = write_block_file(title, _as_text(b.get("body")), b.get("type") or "fleeting", b.get("layer") or "review")
             nb += 1
             log(f"block: {rid}")
         except Exception as e:
             log(f"block write failed [{title[:40]}]: {e}")
 
     for t in tasks:
-        title = (t.get("title") or "").strip()
+        title = _as_text(t.get("title")).strip()
         if not title:
             continue
         try:
-            rid = write_task_file(title, t.get("notes") or "", t.get("due"))
+            rid = write_task_file(title, _as_text(t.get("notes")), t.get("due"))
             nt += 1
             log(f"task: {rid} [{title[:40]}]")
         except Exception as e:
