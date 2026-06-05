@@ -46,9 +46,8 @@ template_config() {
         cp "$dest" "${dest}.bak.${TS}"
         echo "  backed up existing $(basename "$dest") -> $(basename "$dest").bak.${TS}"
     fi
-    local bin_escaped="${GEO_MCP_BRIDGE_BIN//\//\\/}"
-    sed "s/__GEO_MCP_BRIDGE_BIN__/${bin_escaped}/g" "$src" > "$dest"
-    echo "  wrote $dest (GEO_MCP_BRIDGE_BIN=$GEO_MCP_BRIDGE_BIN)"
+    cp "$src" "$dest"
+    echo "  wrote $dest"
 }
 
 sync_daemon_dir() {
