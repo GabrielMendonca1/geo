@@ -98,6 +98,15 @@ final class BrainVaultStore: ObservableObject {
     }
 }
 
+enum BrainVaultError: LocalizedError {
+    case exists(String)
+    var errorDescription: String? {
+        switch self {
+        case .exists(let id): return "A brain named \u{201C}\(id)\u{201D} already exists. Pick a different name."
+        }
+    }
+}
+
 private func writeMeta(_ meta: BrainMeta, to folder: URL) throws {
     let enc = JSONEncoder(); enc.outputFormatting = [.prettyPrinted, .sortedKeys]
     try enc.encode(meta).write(to: folder.appendingPathComponent(".brain.json"))
