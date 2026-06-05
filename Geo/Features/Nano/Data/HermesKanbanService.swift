@@ -80,7 +80,7 @@ final class HermesKanbanService: ObservableObject {
         let started_at: Double?
     }
 
-    private static func task(in dir: URL) -> KanbanTask? {
+    private nonisolated static func task(in dir: URL) -> KanbanTask? {
         guard let metaData = try? Data(contentsOf: dir.appendingPathComponent("meta.json")),
               let meta = try? JSONDecoder().decode(Meta.self, from: metaData)
         else { return nil }
