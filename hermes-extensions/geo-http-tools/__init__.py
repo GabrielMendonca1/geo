@@ -1,4 +1,4 @@
-"""geo-http-tools — Geo tools for Gabriel's macOS app (`geo_*` prefix, no `mcp_`).
+"""geo-tools — Geo tools for Gabriel's macOS app (`geo_*` prefix, no `mcp_`).
 
 Fully file-native (the vault is truth): block writers are native FS ops guarded
 by ``guard`` (agents may only write agent/review/shared, never user/Você); block/
