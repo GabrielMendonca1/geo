@@ -234,7 +234,7 @@ final class IndexCoordinator {
         let upserts = drifted.map { entry(for: $0) }
 
         guard !upserts.isEmpty || !report.orphanedInIndex.isEmpty else {
-            logger.info("repairIntegrity: index in sync with disk")
+            logger.debug("repairIntegrity: index in sync with disk")
             return
         }
         do {
