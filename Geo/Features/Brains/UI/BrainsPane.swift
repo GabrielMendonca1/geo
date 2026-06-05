@@ -503,12 +503,15 @@ private struct BrainBoardCard: View {
     let onCommit: () -> Void
 
     @State private var hover = false
+    @State private var liveFrame: CGRect?
     @State private var dragStartFrame: CGRect?
     @State private var moveStartOrigin: CGPoint?
     @State private var didDrag = false
 
     private let corner: CGFloat = 18
     private let tapSlop: CGFloat = 4
+
+    private var frame: CGRect { liveFrame ?? layout.frame }
 
     var body: some View {
         cardSurface
