@@ -37,8 +37,8 @@ memory:
 # ---------------------------------------------------------------------------
 # MCP servers
 # ---------------------------------------------------------------------------
-# Geo is reached over its HTTP API (see hermes-extensions/geo-http-tools), not
-# MCP. claw's own MCP went away with claw — its memory_* tools are now served
+# Geo is reached file-natively (see hermes-extensions/geo-tools), not over MCP or
+# HTTP. claw's own MCP went away with claw — its memory_* tools are now served
 # by hermes's built-in memory store above.
 mcp_servers: {}
 
