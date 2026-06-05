@@ -239,26 +239,29 @@ async def _set_block_tag(a: dict) -> Any:
     return {"id": _rel_id(path), "tags": [name] if name else []}
 
 
-async def _set_layer(c: GeoAPIClient, a: dict) -> Any:
+async def _set_layer(a: dict) -> Any:
     path = _resolve_path(a["id"])
     layer = a["layer"]
     if layer not in _LAYERS:
         raise GeoError(f"invalid layer '{layer}' (user|agent|review|shared)")
+    guard.assert_writable(path)
+    guard.assert_set_layer(layer)
     fm, body = _read_block(path)
     fm = _edit_frontmatter_field(fm, "layer", layer)
     _atomic_write(path, fm + body)
     return {"id": _rel_id(path), "layer": layer}
 
 
-async def _promote_to_permanent(c: GeoAPIClient, a: dict) -> Any:
+async def _promote_to_permanent(a: dict) -> Any:
     path = _resolve_path(a["id"])
+    guard.assert_writable(path)
     fm, body = _read_block(path)
     fm = _edit_frontmatter_field(fm, "type", "permanent")
     _atomic_write(path, fm + body)
     return {"id": _rel_id(path), "type": "permanent"}
 
 
-async def _extract_permanent_from(c: GeoAPIClient, a: dict) -> Any:
+async def _extract_permanent_from(a: dict) -> Any:
     src = _resolve_path(a["id"])
     src_title = src.stem.replace("-", " ")
     slug = _sanitize_filename(f"Extraído de {src.stem}")
