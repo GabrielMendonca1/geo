@@ -555,6 +555,8 @@ private struct BrainDetailView: View {
                     Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)).foregroundStyle(Palette.tertiaryForeground)
                         .frame(width: 24, height: 24)
                         .background(Circle().fill(Palette.foreground.opacity(0.06)))
+                        .frame(width: 32, height: 32)
+                        .contentShape(Rectangle())
                 }.buttonStyle(.plain)
             }
             .padding(.horizontal, 12).padding(.vertical, 10)
