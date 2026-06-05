@@ -806,8 +806,8 @@ private enum BrainGraphBuilder {
             for m in linkRegex.matches(in: note.body, range: NSRange(location: 0, length: body.length)) {
                 let raw = body.substring(with: m.range(at: 1)).trimmingCharacters(in: .whitespacesAndNewlines)
                 if raw.isEmpty { continue }
-                let key = raw.lowercased()
-                if key == "index" || key == note.id.lowercased() { continue }
+                let key = Self.linkSlug(raw)
+                if key.isEmpty || key == "index" || key == note.id.lowercased() { continue }
                 if let targetId = idForSlug[key] {
                     if targetId == sourceId { continue }
                     guard seen.insert(EdgeKey(source: sourceId, target: targetId, title: nil)).inserted else { continue }
