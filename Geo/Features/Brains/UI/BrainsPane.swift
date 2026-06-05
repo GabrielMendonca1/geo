@@ -214,6 +214,7 @@ struct BrainsPane: View {
             }
         }
         .task { store.reload() }
+        .onChange(of: tabRouter.selectedTab) { _, tab in if tab == .brains { store.reload() } }
         .onChange(of: store.vaults.map(\.id)) { _, ids in syncSelection(ids) }
         .task(id: selectedVaultId) { await rebuildGraph() }
         .sheet(isPresented: $showCreate) {
