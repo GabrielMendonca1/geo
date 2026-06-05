@@ -313,14 +313,15 @@ struct BrainsPane: View {
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(Palette.tertiaryForeground)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
+            .padding(.horizontal, 13)
+            .padding(.vertical, 8)
             .background(
                 Capsule().fill(selected ? Palette.foreground.opacity(0.12) : Color.clear)
             )
             .overlay(
                 Capsule().stroke(Palette.border, lineWidth: selected ? 0 : 1)
             )
+            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
     }
