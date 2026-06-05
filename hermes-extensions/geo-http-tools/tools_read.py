@@ -37,94 +37,80 @@ def _wrap(handler: Callable[[dict], Any]) -> Callable:
     return _entry
 
 
-async def _get_block(c: GeoAPIClient, a: dict) -> Any:
-    return await c.get(f"/blocks/{a['id']}")
+async def _get_block(a: dict) -> Any:
+    return await asyncio.to_thread(reads.get_block, a["id"])
 
 
-async def _get_block_by_title(c: GeoAPIClient, a: dict) -> Any:
-    return await c.get("/blocks/by-title", title=a["title"])
+async def _get_block_by_title(a: dict) -> Any:
+    return await asyncio.to_thread(reads.get_block_by_title, a["title"])
 
 
-async def _list_blocks(c: GeoAPIClient, a: dict) -> Any:
-    return await c.get(
-        "/blocks",
-        limit=a.get("limit"),
-        tag_name=a.get("tag_name"),
-    )
+async def _list_blocks(a: dict) -> Any:
+    return await asyncio.to_thread(reads.list_blocks, a.get("limit"), a.get("tag_name"))
 
 
-async def _list_by_status(c: GeoAPIClient, a: dict) -> Any:
-    return await c.get("/blocks/by-status", status=a["status"])
+async def _list_by_status(a: dict) -> Any:
+    return await asyncio.to_thread(reads.list_by_status, a["status"])
 
 
-async def _list_by_type(c: GeoAPIClient, a: dict) -> Any:
-    return await c.get("/blocks/by-type", type=a["type"])
+async def _list_by_type(a: dict) -> Any:
+    return await asyncio.to_thread(reads.list_by_type, a["type"])
 
 
-async def _list_neighbors(c: GeoAPIClient, a: dict) -> Any:
-    return await c.get(f"/blocks/{a['id']}/neighbors")
+async def _list_neighbors(a: dict) -> Any:
+    return await asyncio.to_thread(reads.list_neighbors, a["id"])
 
 
-async def _search_blocks(c: GeoAPIClient, a: dict) -> Any:
-    return await c.get("/blocks/search", q=a["query"])
+async def _search_blocks(a: dict) -> Any:
+    return await asyncio.to_thread(reads.search_blocks, a["query"])
 
 
-async def _find_backlinks(c: GeoAPIClient, a: dict) -> Any:
-    return await c.get(f"/blocks/{a['id']}/backlinks")
+async def _find_backlinks(a: dict) -> Any:
+    return await asyncio.to_thread(reads.find_backlinks, a["id"])
 
 
-async def _find_orphans(c: GeoAPIClient, a: dict) -> Any:
-    return await c.get("/blocks/orphans")
+async def _find_orphans(a: dict) -> Any:
+    return await asyncio.to_thread(reads.find_orphans)
 
 
-async def _find_unresolved_links(c: GeoAPIClient, a: dict) -> Any:
-    return await c.get("/blocks/unresolved-links")
+async def _find_unresolved_links(a: dict) -> Any:
+    return await asyncio.to_thread(reads.find_unresolved_links)
 
 
-async def _get_graph_snapshot(c: GeoAPIClient, a: dict) -> Any:
-    return await c.get("/graph/snapshot", limit=a.get("limit"))
+async def _get_graph_snapshot(a: dict) -> Any:
+    return await asyncio.to_thread(reads.graph_snapshot, a.get("limit"))
 
 
-async def _list_folders(c: GeoAPIClient, a: dict) -> Any:
-    return await c.get("/folders")
+async def _list_folders(a: dict) -> Any:
+    return await asyncio.to_thread(reads.list_folders)
 
 
-async def _get_task(c: GeoAPIClient, a: dict) -> Any:
-    return await c.get(f"/tasks/{a['id']}")
+async def _get_task(a: dict) -> Any:
+    return await asyncio.to_thread(tasks_fs.get_task, a["id"])
 
 
-async def _list_tasks(c: GeoAPIClient, a: dict) -> Any:
-    return await c.get(
-        "/tasks",
-        status=a.get("status"),
-        kind=a.get("kind"),
-        priority=a.get("priority"),
-        linked_block_id=a.get("linked_block_id"),
-    )
+async def _list_tasks(a: dict) -> Any:
+    return await asyncio.to_thread(tasks_fs.list_tasks, a)
 
 
-async def _list_tasks_for_day(c: GeoAPIClient, a: dict) -> Any:
-    return await c.get(f"/tasks/for-day/{a['day']}")
+async def _list_tasks_for_day(a: dict) -> Any:
+    return await asyncio.to_thread(tasks_fs.list_tasks_for_day, a["day"])
 
 
-async def _list_upcoming(c: GeoAPIClient, a: dict) -> Any:
-    return await c.get(
-        "/tasks/upcoming",
-        window=a.get("window"),
-        limit=a.get("limit"),
-    )
+async def _list_upcoming(a: dict) -> Any:
+    return await asyncio.to_thread(tasks_fs.list_upcoming, a)
 
 
-async def _list_tags(c: GeoAPIClient, a: dict) -> Any:
-    return await c.get("/tags")
+async def _list_tags(a: dict) -> Any:
+    return await asyncio.to_thread(reads.list_tags)
 
 
-async def _get_today(c: GeoAPIClient, a: dict) -> Any:
-    return await c.get("/days/today")
+async def _get_today(a: dict) -> Any:
+    return await asyncio.to_thread(reads.get_today)
 
 
-async def _get_day(c: GeoAPIClient, a: dict) -> Any:
-    return await c.get(f"/days/{a['day']}")
+async def _get_day(a: dict) -> Any:
+    return await asyncio.to_thread(reads.get_day, a["day"])
 
 
 READ_TOOLS: list[dict] = [
