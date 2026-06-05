@@ -1,0 +1,110 @@
+#!/usr/bin/env python3
+"""cc-dispatch — spawn a detached Claude Code worker and track it as files.
+
+Each run gets a folder under ``~/.hermes/dispatches/<id>/``:
+  meta.json    title, dir, model, prompt, started_at
+  status       running | done | failed
+  log.jsonl    live stream of claude events (tail -f while running)
+  result.json  final result event (response + cost + session_id)
+  ended_at     unix ts when it finished
+
+Returns immediately, printing the dispatch id and its folder. The worker is
+double-forked so it survives the caller's shell turn.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+HERMES = Path(os.environ.get("HERMES_HOME", str(Path.home() / ".hermes")))
+ROOT = HERMES / "dispatches"
+CLAUDE = os.environ.get("CLAUDE_CODE_BIN", str(Path.home() / ".local/bin/claude"))
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(prog="cc-dispatch")
+    ap.add_argument("prompt", help="self-contained brief passed to `claude -p`")
+    ap.add_argument("--dir", default=os.getcwd(), help="absolute workspace dir (default: cwd)")
+    ap.add_argument("--model", default="", help="optional model id, e.g. claude-opus-4-8")
+    ap.add_argument("--title", default="", help="optional short label (default: first line of prompt)")
+    a = ap.parse_args()
+
+    workdir = Path(a.dir).expanduser()
+    if not workdir.is_absolute():
+        sys.exit(f"cc-dispatch: --dir must be absolute, got {a.dir!r}")
+    workdir.mkdir(parents=True, exist_ok=True)
+
+    ts = int(time.time())
+    title = a.title or (a.prompt.strip().splitlines() or ["run"])[0][:80]
+    slug = re.sub(r"-+", "-", re.sub(r"[^a-z0-9]+", "-", title.lower())).strip("-")[:40] or "run"
+    did = f"{ts}-{slug}"
+    d = ROOT / did
+    d.mkdir(parents=True, exist_ok=True)
+
+    (d / "meta.json").write_text(json.dumps({
+        "id": did, "title": title, "dir": str(workdir),
+        "model": a.model or None, "prompt": a.prompt, "started_at": ts,
+    }, indent=2))
+    (d / "status").write_text("running")
+
+    print(did)
+    print(str(d))
+    sys.stdout.flush()
+
+    if os.fork() != 0:
+        return
+    os.setsid()
+    if os.fork() != 0:
+        os._exit(0)
+    devnull = os.open(os.devnull, os.O_RDWR)
+    os.dup2(devnull, 0)
+    os.dup2(devnull, 1)
+    os.dup2(devnull, 2)
+
+    argv = [CLAUDE, "-p", a.prompt, "--output-format", "stream-json",
+            "--verbose", "--dangerously-skip-permissions"]
+    if a.model:
+        argv += ["--model", a.model]
+
+    code = 1
+    try:
+        with open(d / "log.jsonl", "w") as log:
+            proc = subprocess.Popen(
+                argv, cwd=str(workdir), stdin=subprocess.DEVNULL,
+                stdout=log, stderr=subprocess.STDOUT, text=True,
+            )
+            (d / "pid").write_text(str(proc.pid))
+            code = proc.wait()
+    except Exception as e:  # noqa: BLE001
+        (d / "error").write_text(repr(e))
+
+    res = None
+    try:
+        for line in (d / "log.jsonl").read_text().splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                evt = json.loads(line)
+            except ValueError:
+                continue
+            if evt.get("type") == "result":
+                res = evt
+    except FileNotFoundError:
+        pass
+
+    (d / "result.json").write_text(json.dumps(res or {"error": "no result event", "exit_code": code}, indent=2))
+    (d / "ended_at").write_text(str(int(time.time())))
+    ok = code == 0 and res is not None and not res.get("is_error")
+    (d / "status").write_text("done" if ok else "failed")
+    os._exit(0)
+
+
+if __name__ == "__main__":
+    main()
