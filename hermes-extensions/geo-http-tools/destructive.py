@@ -211,8 +211,7 @@ async def _delete_task(args: dict, **_kw: Any) -> str:
     label = f"task '{(args or {}).get('title') or task_id}'"
 
     async def commit() -> Any:
-        client = await GeoAPIClient.get_instance()
-        return await client.delete(f"/tasks/{task_id}")
+        return await asyncio.to_thread(tasks_fs.delete_task, task_id)
 
     return await _confirm_then(label, commit)
 
