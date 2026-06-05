@@ -206,39 +206,91 @@ async def _safe_get(client: httpx.AsyncClient, path: str, token_ref: dict) -> Op
     return None
 
 
+GEO_BLOCKS_DIR = Path(os.path.expanduser("~/Library/Application Support/Geo/Blocks"))
+GEO_TASKS_DIR = Path(os.path.expanduser("~/Library/Application Support/Geo/Tasks"))
+
+
+def _iter_block_files():
+    if not GEO_BLOCKS_DIR.exists():
+        return
+    for root, dirs, files in os.walk(GEO_BLOCKS_DIR):
+        dirs[:] = [d for d in dirs if d != "Attachments"]
+        for fn in files:
+            if fn.endswith(".md"):
+                yield Path(root) / fn
+
+
+def _block_h1(text: str) -> Optional[str]:
+    for line in text.splitlines():
+        s = line.strip()
+        if s.startswith("# "):
+            return s[2:].strip()
+    return None
+
+
+def _find_block_by_title(title: str) -> Optional[str]:
+    want = (title or "").strip()
+    for p in _iter_block_files():
+        try:
+            text = p.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        name = p.stem
+        if _block_h1(text) == want or name == want or name.replace("-", " ") == want:
+            return text
+    return None
+
+
+def _today_envelope() -> str:
+    from datetime import datetime
+
+    date = datetime.now().strftime("%Y-%m-%d")
+    token = f"[[{date}]]"
+    block_ids = []
+    for p in _iter_block_files():
+        try:
+            if token in p.read_text(encoding="utf-8"):
+                block_ids.append(str(p.relative_to(GEO_BLOCKS_DIR)))
+        except OSError:
+            continue
+    return json.dumps({"id": date, "block_ids": block_ids, "capture_count": 0})
+
+
+def _pending_tasks_envelope() -> str:
+    rows = []
+    if GEO_TASKS_DIR.exists():
+        for p in sorted(GEO_TASKS_DIR.glob("*.json")):
+            try:
+                t = json.loads(p.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if t.get("status") != "pending":
+                continue
+            body = t.get("body") or {}
+            rows.append({
+                "title": t.get("title"),
+                "status": "pending",
+                "kind": body.get("kind"),
+                "anchor": body.get("due") or body.get("start") or body.get("target"),
+                "priority": t.get("priority"),
+            })
+    return json.dumps(rows)
+
+
 async def _fetch_geo_blocks():
-    """Fetch the boot bundle over Geo.app's localhost HTTP API. Returns a dict
-    of raw tool envelopes (profile/memory/protocol/today/tasks) the caller runs
-    through _unwrap_block/_format_today/_format_tasks, or None when Geo is closed."""
-    info = _read_api_json()
-    if not info:
+    """Read the boot bundle straight from the vault files (truth) — works even
+    with Geo.app closed. Returns the same envelope shapes the formatters expect
+    (profile/memory/protocol raw .md; today/tasks JSON), or None when the vault
+    is absent."""
+    if not GEO_BLOCKS_DIR.exists():
         return None
-    token = _read_keychain_token()
-    if not token:
-        return None
-    token_ref = {"token": token}
-    base = f"http://127.0.0.1:{info['port']}"
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "X-Caller-Id": "hermes-hook",
+    return {
+        "profile": _find_block_by_title("User Profile"),
+        "memory": _find_block_by_title("Memory"),
+        "protocol": _find_block_by_title("Interaction Protocol"),
+        "today": _today_envelope(),
+        "tasks": _pending_tasks_envelope(),
     }
-    try:
-        async with httpx.AsyncClient(base_url=base, headers=headers, timeout=8.0) as client:
-            profile_path = "/v1/blocks/by-title?title=" + urllib.parse.quote("User Profile")
-            memory_path = "/v1/blocks/by-title?title=" + urllib.parse.quote("Memory")
-            protocol_path = "/v1/blocks/by-title?title=" + urllib.parse.quote("Interaction Protocol")
-            profile, memory, protocol, today, tasks = await asyncio.gather(
-                asyncio.wait_for(_safe_get(client, profile_path, token_ref), timeout=10.0),
-                asyncio.wait_for(_safe_get(client, memory_path, token_ref), timeout=10.0),
-                asyncio.wait_for(_safe_get(client, protocol_path, token_ref), timeout=10.0),
-                asyncio.wait_for(_safe_get(client, "/v1/days/today", token_ref), timeout=10.0),
-                asyncio.wait_for(_safe_get(client, "/v1/tasks?status=pending", token_ref), timeout=10.0),
-            )
-            return {"profile": profile, "memory": memory, "protocol": protocol,
-                    "today": today, "tasks": tasks}
-    except Exception as e:
-        _log(f"http unreachable (Geo.app closed?): {e}")
-        return None
 
 
 async def _summarize_with_haiku(text: str, label: str) -> str:
