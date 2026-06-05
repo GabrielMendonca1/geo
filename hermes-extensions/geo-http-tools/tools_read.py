@@ -1,16 +1,20 @@
-"""Read tool handlers for Geo HTTP API.
+"""Read tool handlers for Geo — file-native (the vault is truth).
 
-Each handler is a thin async wrapper over ``GeoAPIClient`` that returns
-the raw JSON dict from the API. Schemas are co-located with handlers so
-``__init__.py`` can iterate one table to register them all.
+Each handler delegates to the sync ``reads``/``tasks_fs`` engines off the event
+loop via ``asyncio.to_thread``. No HTTP: block/day/tag reads come from the
+read-only ``Index/blocks.sqlite`` cache (with a glob+parse fallback), task reads
+from ``Tasks/*.json``. Schemas are co-located so ``__init__.py`` registers them
+from one table.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any, Callable
 
-from .client import GeoAPIClient, GeoError
+from . import reads, tasks_fs
+from .client import GeoError
 
 
 def _err(msg: str) -> str:
@@ -21,11 +25,10 @@ def _ok(payload: Any) -> str:
     return json.dumps({"ok": True, "data": payload}, default=str)
 
 
-def _wrap(handler: Callable[[GeoAPIClient, dict], Any]) -> Callable:
+def _wrap(handler: Callable[[dict], Any]) -> Callable:
     async def _entry(args: dict, **_kw: Any) -> str:
         try:
-            client = await GeoAPIClient.get_instance()
-            result = await handler(client, args or {})
+            result = await handler(args or {})
             return _ok(result)
         except GeoError as e:
             return _err(str(e))
