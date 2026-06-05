@@ -326,12 +326,41 @@ struct BrainsPane: View {
         .buttonStyle(.plain)
     }
 
-    private var graphBody: some View {
-        GraphView(graph: graph, isActive: { [tabRouter] in tabRouter.selectedTab == .brains }, persistsSettings: false) { nodeId in
-            guard let url = lookup[nodeId]?.url else { return }
-            NSWorkspace.shared.activateFileViewerSelecting([url])
+    @ViewBuilder private var graphBody: some View {
+        if let vault = selectedVault, vault.noteCount == 0 {
+            vaultEmptyState(vault)
+        } else {
+            GraphView(graph: graph, isActive: { [tabRouter] in tabRouter.selectedTab == .brains }, persistsSettings: false) { nodeId in
+                guard let url = lookup[nodeId]?.url else { return }
+                NSWorkspace.shared.activateFileViewerSelecting([url])
+            }
+            .id(selectedVaultId)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .id(selectedVaultId)
+    }
+
+    private func vaultEmptyState(_ vault: BrainVault) -> some View {
+        let hasSources = vault.sourceCount > 0
+        return VStack(spacing: 14) {
+            Image(systemName: "point.3.connected.trianglepath.dotted")
+                .font(.system(size: 46, weight: .thin))
+                .foregroundStyle(Palette.tertiaryForeground.opacity(0.5))
+            Text(hasSources ? "No notes yet" : "This brain is empty")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(Palette.foreground)
+            Text(hasSources
+                 ? "\(vault.sourceCount) source\(vault.sourceCount == 1 ? "" : "s") attached — curate them into linked notes to grow the graph."
+                 : "Add sources — PDFs, links, docs — and Geo distills them into linked notes.")
+                .font(.system(size: 12))
+                .foregroundStyle(Palette.tertiaryForeground)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 360)
+            Button { showSources = true } label: {
+                Label(hasSources ? "Open sources" : "Add sources", systemImage: hasSources ? "tray.full" : "plus")
+            }
+            .buttonStyle(PillButtonStyle())
+            .padding(.top, 4)
+        }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
