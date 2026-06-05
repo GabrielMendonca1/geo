@@ -302,16 +302,10 @@ async def main() -> int:
         return 1
 
     try:
-        geo = load_geo_client()
+        geo_data = await fetch_geo()
     except Exception as e:
-        log(f"cannot load geo client: {e}")
-        return 1
-
-    try:
-        geo_data = await fetch_geo(geo)
-    except Exception as e:
-        log(f"geo fetch failed (is Geo.app open?): {e}")
-        await deliver("/day: não consegui ler o Geo agora. Abre o app e tenta de novo.")
+        log(f"geo read failed: {e}")
+        await deliver("/day: não consegui ler o Geo agora. Tenta de novo daqui a pouco.")
         return 1
 
     model = _nano_model()
