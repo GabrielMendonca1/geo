@@ -525,6 +525,7 @@ struct GraphView: View {
     var onToggleSidebar: (() -> Void)? = nil
     var onLayoutChange: (([UUID: CGPoint], Bool) -> Void)? = nil
     var isActive: (() -> Bool)? = nil
+    var persistsSettings: Bool = true
     var onNodeTap: (UUID) -> Void
 
     @Environment(\.colorScheme) private var colorScheme
