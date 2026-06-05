@@ -307,7 +307,7 @@ Pure additive; app still reads SQLite/sidecar as truth, ships immediately.
 
 ### 8.2 The safety boundary — KEEP WRITES SERVER-AUTHORIZED (revised from original §6)
 
-Original plan claimed "OS perms make `Voce/` unwritable by hermes." **This is false (§9 BLOCKER):** hermes runs as a LaunchAgent under the same uid (`biel`) that owns `Blocks/`, so file-mode perms cannot distinguish Geo.app from hermes; prompt-injection or any other writer (Claude Code's `Write`/`Edit`, claude-code-lane workers) bypasses a self-policed path check.
+Original plan claimed "OS perms make `Voce/` unwritable by hermes." **This is false (§9 BLOCKER):** hermes runs as a LaunchAgent under the same uid (`biel`) that owns `Blocks/`, so file-mode perms cannot distinguish Geo.app from hermes; prompt-injection or any other writer (Claude Code's `Write`/`Edit`, cc-dispatch workers) bypasses a self-policed path check.
 
 **Decision:** layer-changing / block-creation writes go **through Geo.app's authorized HTTP endpoint** (`create_block`/`move_block`), which still runs `AgentAuthorization` server-side resolving the destination folder. The agent reads files freely (including `Voce/`) and may raw-FS-write **only** layers it already owns (`Agente/`/`Revisao/`/`Compartilhado/`). Defense-in-depth: the FileWatcher reconciler **quarantines** (moves back) any externally-created file landing under `Voce/`/`Daily/` lacking a Geo.app self-write grace marker. True raw-FS writes everywhere would require real privilege separation (separate user/role, sandbox profile) — out of scope and contradicting the current LaunchAgent model.
 
