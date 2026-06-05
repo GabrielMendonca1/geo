@@ -122,7 +122,7 @@ cat ~/.hermes/dispatches/<id>/result.json     # final response + cost + session_
 tail -f ~/.hermes/dispatches/<id>/log.jsonl   # live event stream while running
 ```
 
-`--dir` defaults to the current directory; point it at an existing repo to work there (its CLAUDE.md + project context load automatically). **Single-writer rule still applies**: a spawned claude touching Geo data must use the Geo app HTTP tools (`geo_*` via `geo-http-tools`), not direct file writes.
+`--dir` defaults to the current directory; point it at an existing repo to work there (its CLAUDE.md + project context load automatically). **Single-writer rule still applies**: a spawned claude touching Geo data must go through the `geo_*` tools (`geo-tools`, which write the vault under the layer guard), not ad-hoc raw writes that bypass them.
 
 ### Long-term parallel agents — hermes cron
 
