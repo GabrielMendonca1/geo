@@ -152,7 +152,6 @@ final class AppContainer {
         self.notchStateStore = notchStateStore
         self.notchWindowController = notchWindowController
         self.dayManager = dayManager
-        self.httpServer = httpServer
         self.templateService = templateService
         self.nanoHermesService = nanoHermesService
         self.environment = appEnvironment
