@@ -360,6 +360,8 @@ private struct IconButton: View {
                 .foregroundStyle(hover ? Palette.foreground : Palette.tertiaryForeground)
                 .frame(width: 28, height: 28)
                 .background(RoundedRectangle(cornerRadius: 7).fill(hover ? Palette.foreground.opacity(0.08) : .clear))
+                .frame(width: 36, height: 36)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain).help(help).onHover { hover = $0 }
     }
