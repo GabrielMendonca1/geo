@@ -93,7 +93,6 @@
 		AIAC00000000000000001B /* AnthropicClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = AIAC00000000000000001A /* AnthropicClient.swift */; };
 		AIKC00000000000000001B /* AIKeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AIKC00000000000000001A /* AIKeychainService.swift */; };
 		AIKS00000000000000001B /* AIKeySettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AIKS00000000000000001A /* AIKeySettingsView.swift */; };
-		AITL00000000000000001B /* AITools.swift in Sources */ = {isa = PBXBuildFile; fileRef = AITL00000000000000001A /* AITools.swift */; };
 		AITP00000000000000001B /* AITaskParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = AITP00000000000000001A /* AITaskParser.swift */; };
 		AOTCMD0001BFIL /* AlwaysOnTopCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = AOTCMD0001FREF /* AlwaysOnTopCommand.swift */; };
 		ATTACH0001BFIL0001 /* AttachmentHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = ATTACH0001FREF0002 /* AttachmentHandler.swift */; };
@@ -147,7 +146,6 @@
 		D1E2F3A4B5C6D1E2F3A4B5C6 /* GeistMono-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C1D2E3F4A5B6C1D2E3F4A5B6 /* GeistMono-Medium.ttf */; };
 		D8AA16F46AAE9B8645168397 /* TasksPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5C5116E16B8C749E689BD22 /* TasksPane.swift */; };
 		DF4243497589DCE9D4E1D84A /* NavigationSegmentedControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58AE379798B38A5A3ECAA419 /* NavigationSegmentedControl.swift */; };
-		E84CE9B4E33F8E78468E252F /* BrainTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D65B2D218156CD6D9F3444D /* BrainTools.swift */; };
 		EDITOR0009BFIL0001 /* BlockTextEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDITOR0009FREF0002 /* BlockTextEditor.swift */; };
 		EDITOR0010BFIL0001 /* BlockListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDITOR0010FREF0002 /* BlockListView.swift */; };
 		EDITOR0011BFIL0001 /* FloatingToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDITOR0011FREF0002 /* FloatingToolbar.swift */; };
@@ -174,12 +172,6 @@
 		HRMSBLD0000000005 /* HermesEnv.swift in Sources */ = {isa = PBXBuildFile; fileRef = HRMSREF0000000005 /* HermesEnv.swift */; };
 		HRMSSETT0000000001 /* NanoHermesSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = HRMSSETT0000000002 /* NanoHermesSettingsView.swift */; };
 		HRMSSTAT0000000001 /* HermesStatusService.swift in Sources */ = {isa = PBXBuildFile; fileRef = HRMSSTAT0000000002 /* HermesStatusService.swift */; };
-		HTTP000000000000001B /* GeoHTTPServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = HTTP000000000000001R /* GeoHTTPServer.swift */; };
-		HTTP000000000000002B /* GeoAPIRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = HTTP000000000000002R /* GeoAPIRouter.swift */; };
-		HTTP000000000000003B /* APITokenStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = HTTP000000000000003R /* APITokenStore.swift */; };
-		HTTP000000000000005B /* APIAuditLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = HTTP000000000000005R /* APIAuditLogger.swift */; };
-		HTTP000000000000006B /* APIAccessSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = HTTP000000000000006R /* APIAccessSettingsView.swift */; };
-		HTTP000000000000007B /* GeoHTTPServerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = HTTP000000000000007R /* GeoHTTPServerTests.swift */; };
 		KANBSVC00000000001 /* HermesKanbanService.swift in Sources */ = {isa = PBXBuildFile; fileRef = KANBSVC00000000002 /* HermesKanbanService.swift */; };
 		MACT000000000000000B /* MenuActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = MACT000000000000000R /* MenuActions.swift */; };
 		MATH0001BFIL0001 /* MathRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = MATH0001FREF0001 /* MathRenderer.swift */; };
@@ -220,12 +212,7 @@
 		NEWF00000000000000000026B /* ConvertBlockCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEWF00000000000000000026A /* ConvertBlockCommand.swift */; };
 		NEWF00000000000000000027B /* MergeBlockCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEWF00000000000000000027A /* MergeBlockCommand.swift */; };
 		NEWF00000000000000000030B /* DeleteBlockCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEWF00000000000000000030A /* DeleteBlockCommand.swift */; };
-		NEWF00000000000000000032B /* BlockTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEWF00000000000000000032A /* BlockTools.swift */; };
-		NEWF00000000000000000033B /* DayTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEWF00000000000000000033A /* DayTools.swift */; };
-		NEWF00000000000000000034B /* TaskTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEWF00000000000000000034A /* TaskTools.swift */; };
-		NEWF00000000000000000035B /* TagTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEWF00000000000000000035A /* TagTools.swift */; };
-		NEWF00000000000000000038B /* MCPToolRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEWF00000000000000000038A /* MCPToolRegistry.swift */; };
-		NEWF00000000000000000039B /* MCPTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEWF00000000000000000039A /* MCPTypes.swift */; };
+		NEWF00000000000000000039B /* AnyCodableValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = NEWF00000000000000000039A /* AnyCodableValue.swift */; };
 		NTCH00000000000001B /* NSScreen+Notch.swift in Sources */ = {isa = PBXBuildFile; fileRef = NTCH00000000000001R /* NSScreen+Notch.swift */; };
 		NTCH00000000000002B /* NotchPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = NTCH00000000000002R /* NotchPanel.swift */; };
 		NTCH00000000000003B /* NotchWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = NTCH00000000000003R /* NotchWindowController.swift */; };
@@ -321,7 +308,6 @@
 		07C169CCA397394AAAC487B6 /* UnifiedNavigationContainer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = UnifiedNavigationContainer.swift; sourceTree = "<group>"; };
 		143896D35F25EAC6E5ACD0F6 /* AccessibilityPermission.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccessibilityPermission.swift; sourceTree = "<group>"; };
 		17EC2E069A6DCF2DF7E7CF7E /* GeistMono-Regular.ttf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; name = "GeistMono-Regular.ttf"; path = "Geo/Resources/Fonts/GeistMono-Regular.ttf"; sourceTree = SOURCE_ROOT; };
-		1D65B2D218156CD6D9F3444D /* BrainTools.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BrainTools.swift; path = Geo/Shared/Infrastructure/MCP/Tools/BrainTools.swift; sourceTree = "<group>"; };
 		2354A93AB8D6437E9D307C6E /* ResponsiveLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResponsiveLayout.swift; sourceTree = "<group>"; };
 		2A78971EF5DCC3C31B9593FF /* BrainsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BrainsTests.swift; path = Geo/Tests/BrainsTests.swift; sourceTree = "<group>"; };
 		3853647B6F294A63B46B70FC /* FontManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FontManager.swift; sourceTree = "<group>"; };
@@ -410,7 +396,6 @@
 		AIAC00000000000000001A /* AnthropicClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnthropicClient.swift; sourceTree = "<group>"; };
 		AIKC00000000000000001A /* AIKeychainService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIKeychainService.swift; sourceTree = "<group>"; };
 		AIKS00000000000000001A /* AIKeySettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIKeySettingsView.swift; sourceTree = "<group>"; };
-		AITL00000000000000001A /* AITools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AITools.swift; sourceTree = "<group>"; };
 		AITP00000000000000001A /* AITaskParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AITaskParser.swift; sourceTree = "<group>"; };
 		AOTCMD0001FREF /* AlwaysOnTopCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlwaysOnTopCommand.swift; sourceTree = "<group>"; };
 		ATTACH0001FREF0002 /* AttachmentHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentHandler.swift; sourceTree = "<group>"; };
@@ -482,12 +467,6 @@
 		HRMSREF0000000005 /* HermesEnv.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HermesEnv.swift; sourceTree = "<group>"; };
 		HRMSSETT0000000002 /* NanoHermesSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NanoHermesSettingsView.swift; sourceTree = "<group>"; };
 		HRMSSTAT0000000002 /* HermesStatusService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Geo/Features/Nano/Data/HermesStatusService.swift; sourceTree = SOURCE_ROOT; };
-		HTTP000000000000001R /* GeoHTTPServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeoHTTPServer.swift; sourceTree = "<group>"; };
-		HTTP000000000000002R /* GeoAPIRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeoAPIRouter.swift; sourceTree = "<group>"; };
-		HTTP000000000000003R /* APITokenStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APITokenStore.swift; sourceTree = "<group>"; };
-		HTTP000000000000005R /* APIAuditLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIAuditLogger.swift; sourceTree = "<group>"; };
-		HTTP000000000000006R /* APIAccessSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIAccessSettingsView.swift; sourceTree = "<group>"; };
-		HTTP000000000000007R /* GeoHTTPServerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GeoHTTPServerTests.swift; sourceTree = "<group>"; };
 		KANBSVC00000000002 /* HermesKanbanService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HermesKanbanService.swift; sourceTree = "<group>"; };
 		MACT000000000000000R /* MenuActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuActions.swift; sourceTree = "<group>"; };
 		MATH0001FREF0001 /* MathRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MathRenderer.swift; sourceTree = "<group>"; };
@@ -528,12 +507,7 @@
 		NEWF00000000000000000026A /* ConvertBlockCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConvertBlockCommand.swift; sourceTree = "<group>"; };
 		NEWF00000000000000000027A /* MergeBlockCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MergeBlockCommand.swift; sourceTree = "<group>"; };
 		NEWF00000000000000000030A /* DeleteBlockCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteBlockCommand.swift; sourceTree = "<group>"; };
-		NEWF00000000000000000032A /* BlockTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockTools.swift; sourceTree = "<group>"; };
-		NEWF00000000000000000033A /* DayTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayTools.swift; sourceTree = "<group>"; };
-		NEWF00000000000000000034A /* TaskTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskTools.swift; sourceTree = "<group>"; };
-		NEWF00000000000000000035A /* TagTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagTools.swift; sourceTree = "<group>"; };
-		NEWF00000000000000000038A /* MCPToolRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPToolRegistry.swift; sourceTree = "<group>"; };
-		NEWF00000000000000000039A /* MCPTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPTypes.swift; sourceTree = "<group>"; };
+		NEWF00000000000000000039A /* AnyCodableValue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnyCodableValue.swift; sourceTree = "<group>"; };
 		NTCH00000000000001R /* NSScreen+Notch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSScreen+Notch.swift"; sourceTree = "<group>"; };
 		NTCH00000000000002R /* NotchPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchPanel.swift; sourceTree = "<group>"; };
 		NTCH00000000000003R /* NotchWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchWindowController.swift; sourceTree = "<group>"; };
@@ -669,7 +643,6 @@
 				958371A12F1D1E6F00FB7A7C /* Recovered References */,
 				5D84ED1022631CB47574BEC6 /* Brains.swift */,
 				2A78971EF5DCC3C31B9593FF /* BrainsTests.swift */,
-				1D65B2D218156CD6D9F3444D /* BrainTools.swift */,
 				E4809C353DD1223F3F3BFD9D /* BrainsPane.swift */,
 				D67B597AD7299E41781494C9 /* brain.py */,
 			);
@@ -832,7 +805,6 @@
 				STR03A /* BlockEditOpsStressTests.swift */,
 				STR04A /* AttachmentStressTests.swift */,
 				STR05A /* AutoFormatAndOverlaysStressTests.swift */,
-				HTTP000000000000011G /* HTTP */,
 				BLKIDXSCHEMA0000REF /* BlockIndexSchemaTests.swift */,
 				BLKLAYERFOLD0000REF /* BlockLayerFolderTests.swift */,
 				BKP000000000000000002REF /* BackupServiceTests.swift */,
@@ -1192,25 +1164,6 @@
 			path = UI;
 			sourceTree = "<group>";
 		};
-		HTTP000000000000010G /* HTTP */ = {
-			isa = PBXGroup;
-			children = (
-				HTTP000000000000001R /* GeoHTTPServer.swift */,
-				HTTP000000000000002R /* GeoAPIRouter.swift */,
-				HTTP000000000000003R /* APITokenStore.swift */,
-				HTTP000000000000005R /* APIAuditLogger.swift */,
-			);
-			path = HTTP;
-			sourceTree = "<group>";
-		};
-		HTTP000000000000011G /* HTTP */ = {
-			isa = PBXGroup;
-			children = (
-				HTTP000000000000007R /* GeoHTTPServerTests.swift */,
-			);
-			path = HTTP;
-			sourceTree = "<group>";
-		};
 		INFRADB0000GRP00001 /* Database */ = {
 			isa = PBXGroup;
 			children = (
@@ -1274,28 +1227,6 @@
 				NEWF00000000000000000030A /* DeleteBlockCommand.swift */,
 			);
 			path = Commands;
-			sourceTree = "<group>";
-		};
-		NEWF000000000000000200 /* MCP */ = {
-			isa = PBXGroup;
-			children = (
-				NEWF00000000000000000038A /* MCPToolRegistry.swift */,
-				NEWF00000000000000000039A /* MCPTypes.swift */,
-				NEWF000000000000000300 /* Tools */,
-			);
-			path = MCP;
-			sourceTree = "<group>";
-		};
-		NEWF000000000000000300 /* Tools */ = {
-			isa = PBXGroup;
-			children = (
-				NEWF00000000000000000032A /* BlockTools.swift */,
-				NEWF00000000000000000033A /* DayTools.swift */,
-				NEWF00000000000000000034A /* TaskTools.swift */,
-				NEWF00000000000000000035A /* TagTools.swift */,
-				AITL00000000000000001A /* AITools.swift */,
-			);
-			path = Tools;
 			sourceTree = "<group>";
 		};
 		NEWGROUP0001 /* App */ = {
@@ -1476,7 +1407,6 @@
 				SETT00000000000000000015 /* SettingsPane.swift */,
 				AIKS00000000000000001A /* AIKeySettingsView.swift */,
 				HRMSSETT0000000002 /* NanoHermesSettingsView.swift */,
-				HTTP000000000000006R /* APIAccessSettingsView.swift */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -1508,13 +1438,12 @@
 		SHAREDGROUP0002 /* Infrastructure */ = {
 			isa = PBXGroup;
 			children = (
+				NEWF00000000000000000039A /* AnyCodableValue.swift */,
 				INFRADB0000GRP00001 /* Database */,
 				BKP00000000000000GRP0001 /* Backup */,
 				INFRAFW0000GRP00001 /* FileWatcher */,
 				SHAREDGROUP0003 /* Migrations */,
 				PERF0TRACK0002 /* PerformanceTracker.swift */,
-				NEWF000000000000000200 /* MCP */,
-				HTTP000000000000010G /* HTTP */,
 				AIGRP0000000000000001 /* AI */,
 			);
 			path = Infrastructure;
@@ -1961,17 +1890,11 @@
 				NEWF00000000000000000026B /* ConvertBlockCommand.swift in Sources */,
 				NEWF00000000000000000027B /* MergeBlockCommand.swift in Sources */,
 				NEWF00000000000000000030B /* DeleteBlockCommand.swift in Sources */,
-				NEWF00000000000000000032B /* BlockTools.swift in Sources */,
-				NEWF00000000000000000033B /* DayTools.swift in Sources */,
-				NEWF00000000000000000034B /* TaskTools.swift in Sources */,
 				AIKC00000000000000001B /* AIKeychainService.swift in Sources */,
 				AIAC00000000000000001B /* AnthropicClient.swift in Sources */,
-				AITL00000000000000001B /* AITools.swift in Sources */,
 				AITP00000000000000001B /* AITaskParser.swift in Sources */,
 				AIKS00000000000000001B /* AIKeySettingsView.swift in Sources */,
-				NEWF00000000000000000035B /* TagTools.swift in Sources */,
-				NEWF00000000000000000038B /* MCPToolRegistry.swift in Sources */,
-				NEWF00000000000000000039B /* MCPTypes.swift in Sources */,
+				NEWF00000000000000000039B /* AnyCodableValue.swift in Sources */,
 				958EBC1B2F9DB45100F435DA /* NodesPane.swift in Sources */,
 				958EBC142F9DA76C00F435DA /* BlockGraph.swift in Sources */,
 				958EBC152F9DA76C00F435DA /* GraphView.swift in Sources */,
@@ -1992,13 +1915,7 @@
 				KANBSVC00000000001 /* HermesKanbanService.swift in Sources */,
 				F647E355467B97D72E413A2C /* NotificationPermission.swift in Sources */,
 				23F5C9A0056F7F524AE8C75D /* OnboardingPermissionsView.swift in Sources */,
-				HTTP000000000000001B /* GeoHTTPServer.swift in Sources */,
-				HTTP000000000000002B /* GeoAPIRouter.swift in Sources */,
-				HTTP000000000000003B /* APITokenStore.swift in Sources */,
-				HTTP000000000000005B /* APIAuditLogger.swift in Sources */,
-				HTTP000000000000006B /* APIAccessSettingsView.swift in Sources */,
 				1E7415C5CEDD8E811827E493 /* Brains.swift in Sources */,
-				E84CE9B4E33F8E78468E252F /* BrainTools.swift in Sources */,
 				096BC358C743CB0D2A5C6A85 /* BrainsPane.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -2038,7 +1955,6 @@
 				STR03B /* BlockEditOpsStressTests.swift in Sources */,
 				STR04B /* AttachmentStressTests.swift in Sources */,
 				STR05B /* AutoFormatAndOverlaysStressTests.swift in Sources */,
-				HTTP000000000000007B /* GeoHTTPServerTests.swift in Sources */,
 				BLKIDXSCHEMA0000BLD /* BlockIndexSchemaTests.swift in Sources */,
 				BLKLAYERFOLD0000BLD /* BlockLayerFolderTests.swift in Sources */,
 				BKP000000000000000002BLD /* BackupServiceTests.swift in Sources */,

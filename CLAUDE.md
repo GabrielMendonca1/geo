@@ -1,6 +1,6 @@
 # Geo
 
-macOS productivity hub (Swift/SwiftUI, local-first) + the hermes LaunchAgent that reads/writes Geo's data over HTTP / native filesystem on the same Mac (MCP retired as the data contract). Captures, organizes, transcribes; bridges WhatsApp / Gmail / Telegram and dispatches subagents.
+macOS productivity hub (Swift/SwiftUI, local-first) + the hermes LaunchAgent that reads/writes Geo's data over the native filesystem on the same Mac (MCP and the localhost HTTP API both retired as the data contract). Captures, organizes, transcribes; bridges WhatsApp / Gmail / Telegram and dispatches subagents.
 
 ## Architecture
 
@@ -23,7 +23,7 @@ macOS productivity hub (Swift/SwiftUI, local-first) + the hermes LaunchAgent tha
 │  │       │                                                  │  │
 │  │       ▼                                                  │  │
 │  │  Infra: GRDB (SQLite) · Vision OCR · CGEventTap ·        │  │
-│  │         FileWatcher · AI · MCP server (TCP + stdio)      │  │
+│  │         FileWatcher · AI                                 │  │
 │  │       │                                                  │  │
 │  │       ▼                                                  │  │
 │  │  ~/Library/Application Support/Geo/   (files are truth)  │  │
@@ -31,19 +31,15 @@ macOS productivity hub (Swift/SwiftUI, local-first) + the hermes LaunchAgent tha
 │  │     inline [[wikilinks]] & [[YYYY-MM-DD]] day-links)     │  │
 │  │   Tasks/*.md · tags.json (colors) · days.json            │  │
 │  │   Index/blocks.sqlite (rebuildable cache, derived)       │  │
-│  └────┬──────────────────────────┬──────────────────────────┘  │
-│       │ HTTP API (127.0.0.1)     │ native FS                   │
-│       ▼ + native FS reads        ▼ (~/Library/.../Geo/)        │
-│  ┌──────────────────┐   ┌──────────────────────────────────┐   │
-│  │ geo-mcp-bridge   │   │  hermes  (LaunchAgent, ~/.hermes)│   │
-│  │ Swift binary     │   │  • WhatsApp/Gmail/Telegram bridge│   │
-│  │ legacy MCP bridge│   │  • cron prompts                  │   │
-│  └──────────────────┘   │  • cc-dispatch (CC workers)      │   │
-│                         │  • api_server HTTP+SSE @ 8642    │   │
-│                         └──────────────────────────────────┘   │
-│                                  ▲                             │
-│                          Nano in-app pane talks to it          │
-│                          via HermesHTTPTransport (SSE)         │
+│  └──────────────────────────┬─────────────────────────────┘      │
+│                              │ native FS only: reads via RO      │
+│                              ▼ Index/blocks.sqlite, FS writes    │
+│                       ┌──────────────────────────────────┐       │
+│                       │  hermes  (LaunchAgent, ~/.hermes) │      │
+│                       │  • WhatsApp/Gmail/Telegram bridge │      │
+│                       │  • cron prompts                   │      │
+│                       │  • cc-dispatch (CC workers)       │      │
+│                       └──────────────────────────────────┘       │
 └────────────────────────────────────────────────────────────────┘
 ```
 
@@ -52,10 +48,9 @@ macOS productivity hub (Swift/SwiftUI, local-first) + the hermes LaunchAgent tha
 ```
 Geo/                          macOS app source (Swift/SwiftUI) — see "Geo app" below
 Geo.xcodeproj/                Xcode project
-geo-mcp-bridge/               Swift binary, thin MCP bridge for the macOS app
 hermes/                       hermes daemon config (config.yaml, SOUL.md, bin/cc-dispatch, install.sh)
-hermes-extensions/            custom MCP plugins + worker daemons that ship with hermes
-  brain-vault/                file-native brain vault tools (see Brains track) · geo-http-tools/ · …
+hermes-extensions/            custom plugins + worker daemons that ship with hermes
+  brain-vault/                file-native brain vault tools (see Brains track) · geo-tools/ · …
 LICENSE
 ```
 
@@ -100,7 +95,7 @@ hermes/
   memories/        long-term memory blocks
   install.sh       drops the LaunchAgent plist into ~/Library/LaunchAgents and starts it
 hermes-extensions/
-  geo-http-tools/  Hermes plugin exposing Geo's localhost HTTP API as `geo_*` tools
+  geo-tools/       Hermes plugin exposing Geo as file-native `geo_*` tools (vault FS + RO sqlite index)
   brain-vault/     file-native brain vault tools (see Brains track)
 ```
 
@@ -128,14 +123,6 @@ In-app surface:
 
 Hermes hands off bounded coding work to Claude Code with `~/.hermes/bin/cc-dispatch "<brief>" --dir <abs> [--model <id>] [--title <t>]`. It spawns `claude -p <prompt> --output-format stream-json --dangerously-skip-permissions` detached in the workspace dir and tracks each run as files under `~/.hermes/dispatches/<id>/` (`status` = running|done|failed · `log.jsonl` live stream · `result.json` final response+cost+session_id). The agent reads those files to see what its workers are doing — there is no kanban lane and no `claude_code_run` MCP tool (both retired 2026-06-05). Run several at once by calling it repeatedly with different `--dir`. Documented in `hermes/SOUL.md`; deployed by `hermes/install.sh` (synced from `hermes/bin/`).
 
-## geo-mcp-bridge
-
-Swift binary (`main.swift` + `build.sh`) — thin MCP bridge for the macOS app. Build:
-
-```bash
-cd geo-mcp-bridge && ./build.sh
-```
-
 ## Storage model (files are truth)
 
 A block **is** its `.md` file. The file holds the whole truth: frontmatter Properties (`id`, `type`, `status`, `layer`, `tags`, `full_width` — omitted when false) plus inline `[[wikilinks]]` and `[[YYYY-MM-DD]]` day-links in the body. The app **derives** everything else — FTS, the graph, the tag-map (`block_tags`), and the day-map (`block_days`) — into `Index/blocks.sqlite`, which is a **rebuildable cache, never authoritative**: corruption is fixed by re-deriving from the files (FileWatcher → `BlockChangeReconciler` → `rebuildIndex`). See `Geo/docs/adr/ADR-0002-files-are-truth-vault-native-storage.md` for the full model, the folder→layer map (`Voce`/`Agente`/`Revisao`/`Compartilhado` ASCII slugs), and the phased (default-OFF gated) migration.
@@ -155,7 +142,7 @@ Zero-data-loss: `days.json`, `tags.json` (full schema incl. colors/membership), 
 
 ## Cross-cutting
 
-- The macOS app **owns deriving the indexes** (FTS/graph/tag-map/day-map → `Index/blocks.sqlite`); the `.md` files are the truth both the app and hermes share. MCP is retired as the data contract (ADR-0002 §1.2/§8).
-- Hermes runs side-by-side on the same Mac. It reaches Geo via the app's authorized **HTTP endpoint** (`127.0.0.1`) for layer-changing / creation writes, and may **read files directly + raw-FS-write the layers it owns** (`Agente`/`Revisao`/`Compartilhado`) — never `Voce/` (enforced server-side by `AgentAuthorization` + FileWatcher quarantine; agents 400 on user/`Você` writes).
-- The ~39-tool transaction surface is collapsing to **native FS ops + KEEP-COMPUTE** (tasks / AI / dedup / bm25 / graph stay as compute tools; raw block CRUD becomes file ops). `geo-mcp-bridge` is a legacy bridge, no longer the sole path.
-- Extending hermes capabilities = adding a tool under `hermes-extensions/` or a native FS op, not re-centralizing on the MCP bridge.
+- The macOS app **owns deriving the indexes** (FTS/graph/tag-map/day-map → `Index/blocks.sqlite`); the `.md` files are the truth both the app and hermes share. MCP **and** the localhost HTTP API are both retired as the data contract (ADR-0002 §1.2/§8) — Geo serves nothing over a socket anymore.
+- Hermes runs side-by-side on the same Mac and reaches Geo **purely through the filesystem**: it reads the RO `Index/blocks.sqlite` (falling back to a file scan) and raw-FS-writes the layers it owns (`Agente`/`Revisao`/`Compartilhado`) — never `Voce/` (enforced by the plugin's `guard.py` + FileWatcher quarantine).
+- The tool surface is **native FS ops + KEEP-COMPUTE**: block/task writers mutate `.md`/`Tasks` files directly; read / search / dedup / bm25 / graph tools query the RO sqlite index.
+- Extending hermes capabilities = adding a tool under `hermes-extensions/` or a native FS op, not re-centralizing on any in-app server.

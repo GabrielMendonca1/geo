@@ -1,7 +1,0 @@
-name: claude-code-lane
-version: 0.1.0
-description: "Spawn and manage Claude Code (`claude` CLI) instances as Hermes kanban workers. `claude_code_run(directory, prompt)` enqueues a kanban task; the lane daemon claims it and runs `claude -p ...` in that directory. Multiple parallel runs supported."
-author: ARC/Geo
-kind: standalone
-provides_tools:
-  - claude_code_run
