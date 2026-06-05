@@ -418,6 +418,7 @@ def find_unresolved_links() -> list[dict]:
             {"id": r["id"], "title": r["title"], "content": r["content"]}
             for r in _scan_files()
         ]
+    rows = [r for r in rows if not r["id"].startswith("Daily/")]
     known = {nfc(r["title"]) for r in rows}
     out = []
     for r in rows:
