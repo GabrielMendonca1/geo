@@ -515,13 +515,14 @@ def has_proposals(bucket_result: dict) -> bool:
     return any(p.get(k) for k in ("facts", "tasks", "reminders", "urgent"))
 
 
-async def decide(http: httpx.AsyncClient, headers: dict, kept: list[dict]) -> dict:
+async def decide(http: httpx.AsyncClient, headers: dict, kept: list[dict], brain_context: str) -> dict:
     payload = [
         {"chat": k.get("chat"), "is_group": k.get("is_group"), "proposals": k.get("proposals")}
         for k in kept
     ]
     prompt = DECIDE_PROMPT_TEMPLATE.format(
         window=WINDOW_HOURS,
+        brain_context=brain_context,
         proposals_json=json.dumps(payload, ensure_ascii=False, indent=2),
     )
     raw = await _call_model(http, headers, _full_model(), prompt, DECIDE_MAX_TOKENS_OUT, DECIDE_TIMEOUT_S, attempts=DECIDE_ATTEMPTS)
