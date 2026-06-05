@@ -405,6 +405,8 @@ private struct RebuildButton: View {
                 .rotationEffect(.degrees(angle))
                 .frame(width: 26, height: 26)
                 .background(RoundedRectangle(cornerRadius: 7).fill(hover ? Palette.foreground.opacity(0.08) : .clear))
+                .frame(width: 34, height: 34)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain).help("Rebuild notes from sources").onHover { hover = $0 }
         .onChange(of: spinning) { _, on in
