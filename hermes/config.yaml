@@ -90,28 +90,25 @@ platforms:
 # Models
 # ---------------------------------------------------------------------------
 model:
-  # GATEWAY primary = Claude Opus on Gabriel's Claude Max sub (first-party OAuth,
-  # Keychain "Claude Code-credentials"). REQUIRES the HERMES-GEO fork in
-  # agent/anthropic_adapter.py (~line 752: capital "User-Agent" so the SDK doesn't
-  # double-stamp the UA into "Anthropic/Python ..., claude-cli/..." — a polluted UA
-  # makes Anthropic bill it as API/extra-usage instead of the sub). Re-apply that
-  # one-liner after every `hermes update`. default MUST be present (agent-mode crons
-  # resolve job.model -> model.default; empty default 400s the codex path).
-  provider: anthropic
-  default: claude-opus-4-8
+  # GATEWAY runs on gpt-5.5 via the openai-codex provider (sub-backed). default MUST
+  # be present: agent-mode crons resolve job.model -> model.default, and an empty
+  # default 400s the codex path ("model must be a non-empty string"). provider is
+  # set explicitly so the gateway never auto-resolves to anything else.
+  #
+  # NOT Claude: running the gateway on the Claude Max sub via OAuth was tried and
+  # abandoned. Anthropic meters ANY tool-bearing request on a subscription OAuth
+  # token to the (empty) extra-usage bucket -> 400 "out of extra usage" — by design,
+  # confirmed by the hermes maintainer (issue #28849) and others (#15080, #10575).
+  # The gateway always carries tools, so it can't run free on the sub. See memory
+  # hermes-model-provider for the full investigation.
+  provider: openai-codex
+  default: gpt-5.5
   # full / nano = CLAUDE slugs the standalone scripts use directly (whatsapp-extractor
-  # Opus decide, day/close briefings, geo-context Haiku hook) via the same Max-OAuth
-  # Keychain token. Independent of the gateway provider.
+  # Opus decide, day/close briefings, geo-context Haiku hook). Those calls are
+  # TOOL-FREE, so they DO bill against the included sub quota via the Max-OAuth
+  # Keychain token — independent of the gateway provider.
   full: claude-opus-4-8
   nano: claude-haiku-4-5
-
-# Fallback chain: when the Max allowance is hit (rare, only on heavy-dev-day
-# collisions), the gateway auto-drops to codex instead of hard-failing. Verified:
-# opus 400 out-of-extra-usage -> fallback=True -> gpt-5.5 answers. `hermes fallback list`.
-fallback_providers:
-  - provider: openai-codex
-    model: gpt-5.5
-    base_url: https://chatgpt.com/backend-api/codex
 
 # ---------------------------------------------------------------------------
 # Timezone (mirrors GEO_CLAW_TZ default in geo-claw)
