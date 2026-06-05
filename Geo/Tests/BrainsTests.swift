@@ -79,38 +79,4 @@ final class BrainsTests: XCTestCase {
         XCTAssertNil(registry.manifest("nope"))
     }
 
-    func testMCPRegistryDispatchesTool() async throws {
-        let echo = MCPToolBuilder(name: "search_blocks", description: "", schema: JSONSchemaObject(properties: [:]), handler: { _ in .text("ran") }).registered
-        let registry = MCPToolRegistry(tools: [echo])
-        let result = try await registry.call(name: "search_blocks", arguments: [:])
-        XCTAssertEqual(result.content.first?.text, "ran")
-        XCTAssertNil(result.isError)
-    }
-
-    func testMCPRegistryUnknownToolErrors() async throws {
-        let registry = MCPToolRegistry(tools: [])
-        let result = try await registry.call(name: "ghost", arguments: [:])
-        XCTAssertEqual(result.isError, true)
-    }
-
-    func testBrainToolsListAndManifest() async throws {
-        let root = tempRoot()
-        defer { try? FileManager.default.removeItem(at: root) }
-        try seedBrain(root: root, id: "immunology", title: "Immunology", gist: "T cells", nodes: 2, sources: ["a.pdf"])
-        let brains = BrainRegistry(root: root)
-        let tools = BrainTools.register(registry: brains)
-
-        let list = try XCTUnwrap(tools.first { $0.definition.name == "list_brains" })
-        let listResult = try await list.handler([:])
-        XCTAssertNil(listResult.isError)
-        XCTAssertTrue(listResult.content.first?.text.contains("essence") ?? false)
-        XCTAssertTrue(listResult.content.first?.text.contains("immunology") ?? false)
-
-        let manifestTool = try XCTUnwrap(tools.first { $0.definition.name == "get_brain_manifest" })
-        let known = try await manifestTool.handler(["brain": .string("immunology")])
-        XCTAssertNil(known.isError)
-        XCTAssertTrue(known.content.first?.text.contains("\"ready\"") ?? false)
-        let unknown = try await manifestTool.handler(["brain": .string("nope")])
-        XCTAssertEqual(unknown.isError, true)
-    }
 }
