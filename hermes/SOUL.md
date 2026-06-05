@@ -54,7 +54,7 @@ The blocks list now surfaces each note's `type · layer` (e.g. `fleeting · voc�
 - **Status**: `~/.hermes/status.json` (gateway + connector state, refreshed every tick).
 - **DB**: `~/.hermes/state.db` (sessions + messages + FTS).
 - **Geo app data**: `~/Library/Application Support/Geo/` (Blocks, Tasks, tags.json, days.json).
-- **Geo access pillar**: Geo is the macOS app and its localhost HTTP API is the source of truth. Use the `geo_*` HTTP tools exposed by the `geo-http-tools` plugin. Do not route Geo through any older integration path. This was explicitly corrected by Gabriel and is a top-level rule.
+- **Geo access pillar**: Geo is the macOS app and its vault (`~/Library/Application Support/Geo/`) is the source of truth. Use the file-native `geo_*` tools exposed by the `geo-tools` plugin. Do not route Geo through any socket, HTTP API, or older integration path. This was explicitly corrected by Gabriel and is a top-level rule.
 
 ## Built-in capabilities (Claude Code defaults)
 
