@@ -288,11 +288,11 @@ struct BrainsPane: View {
                     emptyState
                 } else {
                     ForEach(store.vaults) { vault in
-                        if let layout = board.layouts[vault.id] {
+                        if board.layouts[vault.id] != nil {
                             BrainBoardCard(
                                 vault: vault,
                                 layout: Binding(
-                                    get: { board.layouts[vault.id] ?? layout },
+                                    get: { board.layouts[vault.id]! },
                                     set: { board.update(vault.id, $0) }
                                 ),
                                 paneSize: geo.size,
