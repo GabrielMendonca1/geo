@@ -593,6 +593,46 @@ def write_block_file(title: str, body: str, type_: str, layer: str) -> str:
     return _nfc(str(path.relative_to(BLOCKS_DIR)))
 
 
+TASKS_DIR = Path.home() / "Library" / "Application Support" / "Geo" / "Tasks"
+
+
+def _now_z() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _normalize_due(due) -> str | None:
+    if not due or not isinstance(due, str):
+        return None
+    try:
+        dt = datetime.fromisoformat(due.strip().replace("Z", "+00:00"))
+    except Exception:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def write_task_file(title: str, notes: str, due) -> str:
+    task_id = str(uuid.uuid4()).upper()
+    now = _now_z()
+    due_z = _normalize_due(due) or datetime.now(timezone.utc).strftime("%Y-%m-%dT23:59:00Z")
+    task = {
+        "id": task_id,
+        "title": title,
+        "notes": notes or "",
+        "body": {"kind": "task", "due": due_z},
+        "status": "pending",
+        "priority": "unset",
+        "tagIds": [],
+        "orderIndex": 0,
+        "reminders": [],
+        "createdAt": now,
+        "modifiedAt": now,
+    }
+    _atomic_write(TASKS_DIR / f"{task_id}.json", json.dumps(task, ensure_ascii=False))
+    return f"{task_id}.json"
+
+
 async def send_telegram(text: str) -> bool:
     token = _read_env_value("TELEGRAM_BOT_TOKEN")
     if not token:
