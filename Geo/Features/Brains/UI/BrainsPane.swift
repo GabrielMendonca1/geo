@@ -81,6 +81,9 @@ final class BrainVaultStore: ObservableObject {
     func create(name: String, gist: String) throws -> BrainVault {
         let id = Self.slug(name)
         let dir = Self.root.appendingPathComponent(id, isDirectory: true)
+        if vaults.contains(where: { $0.id == id }) || FileManager.default.fileExists(atPath: dir.path) {
+            throw BrainVaultError.exists(id)
+        }
         try FileManager.default.createDirectory(at: dir.appendingPathComponent("sources"), withIntermediateDirectories: true)
         let iso = ISO8601DateFormatter().string(from: Date())
         try writeMeta(BrainMeta(id: id, title: name, gist: gist, created: iso, updated: iso, nodes: 0, sources: []), to: dir)
