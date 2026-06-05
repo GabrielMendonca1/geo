@@ -9,9 +9,10 @@ Pipeline (no gateway, no Codex, no agent phase):
   3. DECIDE with Opus (model.full) — one call, hermes choosing what is genuinely
      worth keeping: dedup, drop noise, emit final {blocks, tasks, urgent}.
      Patient rate-limit-aware retry (Claude Max OAuth throttles Opus).
-  4. PERSIST: facts → block .md files written natively (works app-closed);
-     commitments → tasks over Geo's HTTP API (fall back to a review block if
-     Geo is closed); only urgent → a single Telegram DM
+  4. PERSIST (all file-native, works app-closed): facts → block .md files,
+     commitments → Tasks/<UUID>.json task files; only urgent → a Telegram DM.
+     Each block weaves [[wikilinks]] + a `Parte de [[MOC — X]]` home from the
+     live vault context (geo_context.py) so captures land in the graph.
 
 All inference uses the Claude Max OAuth token from the macOS Keychain
 ("Claude Code-credentials"), refreshed in place. Register with --no-agent so
