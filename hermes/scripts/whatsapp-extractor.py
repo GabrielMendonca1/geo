@@ -654,7 +654,7 @@ async def send_telegram(text: str) -> bool:
         return False
 
 
-async def persist(geo_client, decided: dict) -> tuple[int, int, int]:
+async def persist(decided: dict) -> tuple[int, int, int]:
     blocks = decided.get("blocks") or []
     tasks = decided.get("tasks") or []
     urgent = decided.get("urgent") or []
@@ -675,33 +675,12 @@ async def persist(geo_client, decided: dict) -> tuple[int, int, int]:
         title = (t.get("title") or "").strip()
         if not title:
             continue
-        body: dict = {"kind": "task"}
-        if t.get("due"):
-            body["due"] = t["due"]
-        payload = {"title": title, "body": body}
-        if t.get("notes"):
-            payload["notes"] = t["notes"]
-        posted = False
-        if geo_client is not None:
-            try:
-                await geo_client.post("/tasks", json=payload)
-                posted = True
-                nt += 1
-                log(f"task: {title[:40]}")
-            except Exception as e:
-                log(f"task post failed [{title[:40]}]: {e}")
-        if not posted:
-            try:
-                fb = f"TODO: {title}"
-                if t.get("notes"):
-                    fb += f"\n{t['notes']}"
-                if t.get("due"):
-                    fb += f"\nVence: {t['due']}"
-                rid = write_block_file(title, fb, "fleeting", "review")
-                nt += 1
-                log(f"task→review block (Geo offline): {rid}")
-            except Exception as e:
-                log(f"task fallback failed [{title[:40]}]: {e}")
+        try:
+            rid = write_task_file(title, t.get("notes") or "", t.get("due"))
+            nt += 1
+            log(f"task: {rid} [{title[:40]}]")
+        except Exception as e:
+            log(f"task write failed [{title[:40]}]: {e}")
 
     if urgent:
         lines = [f"WhatsApp — urgente (últimas {WINDOW_HOURS}h):"]
