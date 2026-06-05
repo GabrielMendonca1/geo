@@ -725,7 +725,8 @@ async def main() -> int:
             print("[whatsapp-extractor] classifier surfaced nothing")
             return 0
 
-        decided = await decide(http, headers, keep)
+        brain_context = render_brain_context()
+        decided = await decide(http, headers, keep, brain_context)
     log(
         f"decided: blocks={len(decided.get('blocks', []))} "
         f"tasks={len(decided.get('tasks', []))} urgent={len(decided.get('urgent', []))} "
