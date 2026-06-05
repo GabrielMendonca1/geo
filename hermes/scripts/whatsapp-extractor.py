@@ -694,8 +694,8 @@ async def persist(decided: dict) -> tuple[int, int, int]:
     if urgent:
         lines = [f"WhatsApp — urgente (últimas {WINDOW_HOURS}h):"]
         for u in urgent[:10]:
-            chat = u.get("chat") or "?"
-            txt = (u.get("text") or "").strip()
+            chat = _as_text(u.get("chat")) or "?"
+            txt = _as_text(u.get("text")).strip()
             if txt:
                 lines.append(f"- [{chat}] {txt}")
         if len(lines) > 1:
