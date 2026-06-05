@@ -635,6 +635,7 @@ private struct SourceFileRow: View {
             .padding(.horizontal, 10).padding(.vertical, 8)
             .background(RoundedRectangle(cornerRadius: 9).fill(hover ? Palette.foreground.opacity(0.05) : .clear))
             .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(hover ? Palette.border : .clear, lineWidth: 1))
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain).help("Reveal in Finder").onHover { hover = $0 }
     }
