@@ -195,58 +195,19 @@ def _fmt_tasks(tasks: list[dict], tz: ZoneInfo) -> str:
     return "\n".join(lines)
 
 
-async def fetch_geo(geo) -> dict:
-    client = await geo.GeoAPIClient.get_instance()
+async def fetch_geo() -> dict:
     tz = _timezone()
-    today_str = datetime.now(tz).date().isoformat()
+    today = datetime.now(tz).date().isoformat()
 
-    day = None
-    day_context = ""
-    try:
-        day = await client.get("/days/today")
-    except Exception as e:
-        log(f"days/today failed: {e}")
+    day_context = geo_context.day_context_today(today)
+    day_tasks = geo_context.tasks_for_day(today)
+    done_tasks = [t for t in day_tasks if t.get("status") == "completed"]
+    open_tasks = [t for t in day_tasks if t.get("status") != "completed"]
 
-    if isinstance(day, dict) and day.get("block_ids"):
-        try:
-            blocks = await client.get("/blocks")
-            by_id = {b["id"]: b.get("title") for b in blocks if isinstance(b, dict)}
-        except Exception as e:
-            log(f"blocks list failed: {e}")
-            by_id = {}
-        parts = []
-        for bid in day.get("block_ids", []):
-            title = by_id.get(bid)
-            if not title:
-                continue
-            try:
-                body = await client.get("/blocks/by-title", title=title)
-                parts.append(_strip_frontmatter(body.get("markdown", "")))
-            except Exception as e:
-                log(f"block fetch failed ({title}): {e}")
-        day_context = "\n\n".join(p for p in parts if p)
-
-    day_tasks: list[dict] = []
-    try:
-        day_tasks = await client.get(f"/tasks/for-day/{today_str}") or []
-        if not isinstance(day_tasks, list):
-            day_tasks = []
-    except Exception as e:
-        log(f"tasks/for-day failed: {e}")
-    done_tasks = [
-        t for t in day_tasks
-        if isinstance(t, dict) and t.get("status") == "completed"
-    ]
-    open_tasks = [
-        t for t in day_tasks
-        if isinstance(t, dict) and t.get("status") != "completed"
-    ]
-
-    await geo.GeoAPIClient.reset_instance()
     return {
         "tz": tz,
-        "today_str": today_str,
-        "day": day,
+        "today_str": today,
+        "day": None,
         "day_context": day_context,
         "done_tasks": done_tasks,
         "open_tasks": open_tasks,
