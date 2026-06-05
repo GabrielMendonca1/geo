@@ -220,15 +220,17 @@ async def _move_block(a: dict) -> Any:
     return {"id": _rel_id(dest)}
 
 
-async def _update_block(c: GeoAPIClient, a: dict) -> Any:
+async def _update_block(a: dict) -> Any:
     path = _resolve_path(a["id"])
+    guard.assert_writable(path)
     fm, _ = _read_block(path)
     _atomic_write(path, fm + a["body"])
     return {"id": _rel_id(path)}
 
 
-async def _set_block_tag(c: GeoAPIClient, a: dict) -> Any:
+async def _set_block_tag(a: dict) -> Any:
     path = _resolve_path(a["id"])
+    guard.assert_writable(path)
     fm, body = _read_block(path)
     name = _canonical_tag(a.get("tag_name", ""))
     value = _emit_inline_list([name]) if name else None
