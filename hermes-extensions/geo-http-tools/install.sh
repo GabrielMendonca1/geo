@@ -10,11 +10,10 @@ set -euo pipefail
 
 SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HERMES_HOME="${HERMES_HOME:-$HOME/.hermes}"
-PLUGIN_DEST="$HERMES_HOME/plugins/geo-http-tools"
+PLUGIN_DEST="$HERMES_HOME/plugins/geo-tools"
 
-HERMES_PYTHON="$HERMES_HOME/hermes-agent/venv/bin/python3"
-if [[ ! -x "$HERMES_PYTHON" ]]; then
-    echo "ERROR: hermes venv python not found at $HERMES_PYTHON" >&2
+if [[ ! -d "$HERMES_HOME" ]]; then
+    echo "ERROR: hermes home not found at $HERMES_HOME" >&2
     echo "       Install hermes first (see hermes/install.sh in the repo root)." >&2
     exit 1
 fi
