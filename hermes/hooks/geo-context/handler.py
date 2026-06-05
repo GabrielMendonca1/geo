@@ -23,13 +23,9 @@ import hashlib
 import json
 import os
 import shutil
-import subprocess
 import time
-import urllib.parse
 from pathlib import Path
 from typing import Optional
-
-import httpx
 
 import sys as _sys
 _HOOK_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -139,71 +135,6 @@ def _format_tasks(raw: Optional[str]) -> Optional[str]:
         suffix = f" ({' · '.join(meta)})" if meta else ""
         lines.append(f"- {title}{suffix}")
     return "\n".join(lines) if lines else None
-
-
-def _read_keychain_token() -> Optional[str]:
-    env_token = os.environ.get("GEO_API_TOKEN")
-    if env_token and env_token.strip():
-        return env_token.strip()
-    try:
-        result = subprocess.run(
-            ["security", "find-generic-password",
-             "-s", KEYCHAIN_SERVICE, "-a", KEYCHAIN_ACCOUNT, "-w"],
-            capture_output=True, text=True, timeout=2.0,
-        )
-    except Exception as e:
-        _log(f"keychain read failed: {e}")
-        return None
-    if result.returncode != 0:
-        _log(f"keychain entry missing (service={KEYCHAIN_SERVICE} account={KEYCHAIN_ACCOUNT})")
-        return None
-    tok = (result.stdout or "").strip()
-    return tok or None
-
-
-def _read_api_json() -> Optional[dict]:
-    if not GEO_API_JSON.exists():
-        return None
-    try:
-        obj = json.loads(GEO_API_JSON.read_text(encoding="utf-8"))
-        port = int(obj.get("port") or 0)
-        pid = int(obj.get("pid") or 0)
-        if not port or not pid:
-            return None
-        try:
-            os.kill(pid, 0)
-        except OSError:
-            return None
-        return {"port": port, "pid": pid}
-    except Exception:
-        return None
-
-
-async def _safe_get(client: httpx.AsyncClient, path: str, token_ref: dict) -> Optional[str]:
-    try:
-        r = await client.get(path)
-    except httpx.RequestError as e:
-        _log(f"GET {path} failed: {e}")
-        return None
-    if r.status_code == 401:
-        new_tok = _read_keychain_token()
-        if new_tok and new_tok != token_ref.get("token"):
-            token_ref["token"] = new_tok
-            client.headers["Authorization"] = f"Bearer {new_tok}"
-            try:
-                r = await client.get(path)
-            except httpx.RequestError as e:
-                _log(f"GET {path} retry failed: {e}")
-                return None
-        if r.status_code == 401:
-            _log(f"GET {path} unauthorized after token refresh")
-            return None
-    if r.status_code == 200:
-        return r.text
-    if r.status_code == 404:
-        return None
-    _log(f"GET {path} -> {r.status_code}")
-    return None
 
 
 GEO_BLOCKS_DIR = Path(os.path.expanduser("~/Library/Application Support/Geo/Blocks"))
