@@ -186,7 +186,7 @@ final class BlockFileService {
         attachmentService.deleteAttachmentsDirectory(for: blockURL)
     }
 
-    nonisolated(unsafe) private static let attachmentRegex = try! NSRegularExpression(pattern: #"!\[.*?\]\((.+?)\)"#)
+    private static let attachmentRegex = try! NSRegularExpression(pattern: #"!\[.*?\]\((.+?)\)"#)
 
     static func extractAttachmentPaths(from markdown: String) -> Set<String> {
         let nsString = markdown as NSString
