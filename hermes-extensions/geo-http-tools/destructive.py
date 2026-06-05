@@ -29,7 +29,8 @@ import threading
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Optional
 
-from .client import GeoAPIClient, GeoError
+from . import guard, tasks_fs
+from .client import GeoError
 
 BLOCKS_DIR = (
     Path.home() / "Library" / "Application Support" / "Geo" / "Blocks"
