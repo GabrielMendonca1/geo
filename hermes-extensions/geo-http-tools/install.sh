@@ -28,18 +28,10 @@ rsync -a --delete \
     --exclude '.state.json' \
     "$SRC_DIR/" "$PLUGIN_DEST/"
 
-echo "==> Ensuring httpx is in the hermes venv"
-if ! "$HERMES_PYTHON" -c "import httpx" 2>/dev/null; then
-    "$HERMES_PYTHON" -m pip install --quiet httpx
-fi
-
 echo "==> Enabling plugin in hermes config"
-hermes plugins enable geo-http-tools || true
+hermes plugins enable geo-tools || true
 
 echo
 echo "==> Done."
 echo "  Plugin:  $PLUGIN_DEST"
-echo "  Verify:  hermes plugins list | grep geo-http-tools"
-echo
-echo "  Token rotation: Geo.app → Settings → API Access → Rotate."
-echo "  Plugin lazy-refreshes from Keychain on the next 401."
+echo "  Verify:  hermes plugins list | grep geo-tools"
