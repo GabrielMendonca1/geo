@@ -40,16 +40,14 @@ from pathlib import Path
 
 import httpx
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from geo_context import render_brain_context
+
 HERMES_HOME = Path(os.path.expanduser("~/.hermes"))
 JSONL_PATH = HERMES_HOME / "wa_ingest.jsonl"
 AUTH_PATH = HERMES_HOME / "auth.json"
 ENV_PATH = HERMES_HOME / ".env"
 CONFIG_PATH = Path(__file__).parent.parent / "config.yaml"
-
-CLIENT_CANDIDATES = [
-    HERMES_HOME / "plugins" / "geo-http-tools" / "client.py",
-    Path(__file__).parent.parent.parent / "hermes-extensions" / "geo-http-tools" / "client.py",
-]
 
 GABRIEL_TELEGRAM_CHAT_ID = "5225262193"
 
