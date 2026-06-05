@@ -5,6 +5,14 @@ import os.log
 
 private let httpLogger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "geo", category: "GeoHTTPServer")
 
+enum FeatureFlags {
+    static let httpServerKey = "geo.http.server.enabled"
+
+    static var httpServerEnabled: Bool {
+        UserDefaults.standard.bool(forKey: httpServerKey)
+    }
+}
+
 struct HTTPRequest: Sendable {
     let method: String
     let path: String
