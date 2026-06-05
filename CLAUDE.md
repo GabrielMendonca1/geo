@@ -144,7 +144,7 @@ Zero-data-loss: `days.json`, `tags.json` (full schema incl. colors/membership), 
 
 `frontmatter_version` is **demoted**: it is still written (harmlessly, monotonic) but is no longer treated as cross-process coordination — concurrency is a non-issue (single-user serial app), and all readers tolerate its absence (→ 0). `FrontmatterMutatorActor` only serializes same-block writes in-process; it is not a multi-writer lock.
 
-> Historical: an in-app AI/Agent pane (`Geo/Features/Agent/`) used to drive its own kanban with `symphony: true` frontmatter and `~/.symphony/workspaces/`. Removed in favor of `claude-code-lane`, which owns the worker-spawning role entirely outside the app. Inert `symphony: true` keys in existing blocks and the `~/.symphony/workspaces/` tree on disk are leftover user data — code stops reading them but they survive until cleaned manually.
+> Historical: an in-app AI/Agent pane (`Geo/Features/Agent/`) used to drive its own kanban with `symphony: true` frontmatter and `~/.symphony/workspaces/`. Removed in favor of out-of-app `claude` dispatch (`hermes/bin/cc-dispatch`), which owns the worker-spawning role entirely outside the app. Inert `symphony: true` keys in existing blocks and the `~/.symphony/workspaces/` tree on disk are leftover user data — code stops reading them but they survive until cleaned manually.
 
 ## The hard rules (app)
 
