@@ -1,19 +1,18 @@
 """
-geo-context — fetches User Profile, Memory, Interaction Protocol and Today
-blocks (and arbitrary search results) from Gabriel's Geo app via its HTTP API
-at 127.0.0.1:<port>, token from Keychain.
+geo-context — reads User Profile, Memory, Interaction Protocol and Today
+blocks (and arbitrary search results) directly from Gabriel's Geo vault files
+(``~/Library/Application Support/Geo/``). File-native: no HTTP, no Keychain —
+works even with Geo.app closed (the .md/.json files are truth).
 
 Auto-injection is RE-ENABLED (HOOK.yaml events: [session:start,
 session:reset]): handle() rewrites MEMORY.md with the fixed identity bundle —
 profile + memory + interaction protocol + today, in that order — which
-config.yaml injects into every turn. The bundle now includes the Interaction
-Protocol block. The search+summarize logic below is also reused on demand by
-the geo_search_context tool (hermes-extensions/geo-search-tool) via
-search_context() for arbitrary lookups beyond this fixed bundle.
+config.yaml injects into every turn. The search+summarize logic below is also
+reused on demand by the geo_search_context tool (hermes-extensions/
+geo-search-tool) via search_context() for arbitrary lookups beyond this bundle.
 
-handle() is TTL+hash gated: it skips HTTP if last fetch was <TTL_SECONDS ago
-and skips the MEMORY.md rewrite when the body hash is unchanged. Silently
-bails when Geo.app is closed (api.json stale / pid dead / connect fail).
+handle() is TTL+hash gated: it skips the vault re-scan if the last fetch was
+<TTL_SECONDS ago and skips the MEMORY.md rewrite when the body hash is unchanged.
 """
 
 from __future__ import annotations
