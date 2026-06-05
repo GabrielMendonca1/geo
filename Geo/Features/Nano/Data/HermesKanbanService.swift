@@ -118,7 +118,7 @@ final class HermesKanbanService: ObservableObject {
         )
     }
 
-    private static func readTrimmed(_ url: URL) -> String? {
+    private nonisolated static func readTrimmed(_ url: URL) -> String? {
         guard let s = try? String(contentsOf: url, encoding: .utf8) else { return nil }
         let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
         return t.isEmpty ? nil : t
