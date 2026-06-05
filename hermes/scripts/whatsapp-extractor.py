@@ -737,23 +737,7 @@ async def main() -> int:
         print(json.dumps(decided, ensure_ascii=False, indent=2))
         return 0
 
-    geo = None
-    geo_client = None
-    try:
-        geo = load_geo_client()
-        geo_client = await geo.GeoAPIClient.get_instance()
-    except Exception as e:
-        log(f"Geo HTTP unavailable ({e}) — tasks fall back to review blocks")
-
-    try:
-        nb, nt, nu = await persist(geo_client, decided)
-    finally:
-        if geo is not None:
-            try:
-                await geo.GeoAPIClient.reset_instance()
-            except Exception:
-                pass
-
+    nb, nt, nu = await persist(decided)
     print(f"[whatsapp-extractor] persisted blocks={nb} tasks={nt} urgent_dm={nu}")
     return 0
 
