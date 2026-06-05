@@ -370,9 +370,10 @@ private struct IconButton: View {
 private struct PillButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label.font(.system(size: 12, weight: .semibold))
-            .padding(.horizontal, 13).padding(.vertical, 7)
+            .padding(.horizontal, 14).padding(.vertical, 8)
             .background(Capsule().fill(Palette.foreground.opacity(configuration.isPressed ? 0.82 : 1)))
             .foregroundStyle(Palette.background)
+            .contentShape(Capsule())
     }
 }
 
