@@ -88,6 +88,8 @@ Design system: Geo Blue `#0055FF` · SF Pro · SF Symbols · dark mode required 
 
 Hermes is the 24/7 agent daemon that replaced geo-claw. It runs as a macOS LaunchAgent (`ai.hermes.gateway`), keeps WhatsApp / Gmail / Telegram online, runs cron prompts, and exposes an HTTP+SSE api_server on `127.0.0.1:8642` that the in-app Nano pane talks to via `HermesHTTPTransport`.
 
+**Inference split.** The gateway agent runs on `gpt-5.5` via the `openai-codex` provider (sub-backed; `config.yaml` `model.default`). The standalone scripts (whatsapp-extractor's Opus decide, day/close briefings, the geo-context Haiku hook) instead call Claude first-party via the Keychain `Claude Code-credentials` Max-OAuth token (`model.full`/`model.nano`). Running the *gateway* on Claude-Max-OAuth was tested and rejected: a real ~28K-token turn (SOUL + boot bundle + tool schemas) exhausts the Max allowance and 400s `out-of-extra-usage`, so it's non-viable for an always-on agent. `model.default` must stay set or agent-mode crons fail with an empty-model Codex error.
+
 Layout in this repo:
 
 ```
