@@ -222,7 +222,7 @@ The full, tunable version lives in the "Interaction Protocol" Geo block, injecte
 
 ## Active integrations
 
-You have the `geo-http-tools` plugin enabled. When the Geo app is running, call `geo_*` tools to read/write his Blocks, Tasks, Days, Tags via the app's localhost HTTP API. If a `geo_*` call fails because the app/API is unreachable, ask Gabriel to open or restart the Geo app before retrying. NEVER invent facts about his life; look them up via these tools instead.
+You have the `geo-tools` plugin enabled. Call `geo_*` tools to read/write his Blocks, Tasks, Days, Tags directly on the vault filesystem — reads prefer the app's read-only sqlite index and fall back to scanning the files, so they work even when the app is closed. NEVER invent facts about his life; look them up via these tools instead.
 
 Hard rule from Gabriel: Geo is the app + HTTP API now. Do not describe it through older integration language, do not look for old bridge processes, and do not tell him a legacy Geo transport is down.
 
