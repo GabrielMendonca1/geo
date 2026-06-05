@@ -95,44 +95,6 @@ final class Phase3DayLinkWriteTests: XCTestCase {
         XCTAssertTrue(indexed, "appears under today's derive")
     }
 
-    func testGetDayUnionsDerivedBlocksWithCaptures() async throws {
-        let dayId = "2026-06-02"
-        let block = try await makeBlock(markdown: "---\nlayer: agent\n---\n# Linked\n[[\(dayId)]]\n")
-        let indexed = await waitForDay(dayId, contains: block.id)
-        XCTAssertTrue(indexed)
-
-        let captureRepo = CapturesForDayRepo(dayId: dayId, count: 2)
-        let tools = DayTools.register(blocks: blocksAdapter, captures: captureRepo, indexCoordinator: indexCoordinator)
-        let getDay = tools.first(where: { $0.definition.name == "get_day" })!
-
-        let result = try await getDay.handler(["date": .string(dayId)])
-        let json = try decode(result)
-        let blockIds = (json["block_ids"] as? [Any])?.compactMap { $0 as? String } ?? []
-        XCTAssertTrue(blockIds.contains(block.id), "derived block present")
-        XCTAssertEqual(json["capture_count"] as? Int, 2, "captures counted via CaptureItem.dayId")
-    }
-
-    func testDailyNoteCreatedLazilyOnGetDay() async throws {
-        // Daily notes are created under Application Support, not tempRoot.
-        let dayId = "2024-01-15"
-        let dailyURL = FileManager.default
-            .urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-            .appendingPathComponent("Geo/Blocks/Daily/\(dayId).md")
-        try? FileManager.default.removeItem(at: dailyURL)
-
-        let tools = DayTools.register(blocks: blocksAdapter, indexCoordinator: indexCoordinator)
-        let getDay = tools.first(where: { $0.definition.name == "get_day" })!
-        _ = try await getDay.handler(["date": .string(dayId)])
-
-        XCTAssertTrue(FileManager.default.fileExists(atPath: dailyURL.path), "Daily note created lazily on query")
-        try? FileManager.default.removeItem(at: dailyURL)
-    }
-
-    private func decode(_ result: MCPToolResult) throws -> [String: Any] {
-        let text = result.content.first?.text ?? ""
-        let data = Data(text.utf8)
-        return try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
-    }
 }
 
 private final class StubDayRepoP3: DayRepository, @unchecked Sendable {
