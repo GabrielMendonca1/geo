@@ -171,7 +171,7 @@ def _edit_frontmatter_field(fm: str, key: str, value: Optional[str]) -> str:
     return "---\n" + "\n".join(out) + "\n---\n"
 
 
-async def _create_block(c: GeoAPIClient, a: dict) -> Any:
+async def _create_block(a: dict) -> Any:
     title = a["title"]
     type_ = a.get("type") or "fleeting"
     if type_ not in _TYPES:
@@ -185,6 +185,7 @@ async def _create_block(c: GeoAPIClient, a: dict) -> Any:
         tags = [_canonical_tag(a["tag_name"])]
 
     folder = (a.get("folder") or "").strip("/")
+    guard.assert_create_layer(layer, folder)
     dest_dir = BLOCKS_DIR / folder if folder else BLOCKS_DIR
     slug = _sanitize_filename(title)
     path = _unique_path(dest_dir, slug)
