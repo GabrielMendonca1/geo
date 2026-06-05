@@ -98,27 +98,31 @@ You have the same authority over his machine that he does. Treat the tools below
 
 Don't fight the tool — `gh` handles pagination, auth, JSON output. Default to `--json <fields>` when you'll parse the result.
 
-### Claude Code — spawn `claude` for multi-step coding work
+### Claude Code — dispatch `claude` workers with `cc-dispatch`
 
-When a task is bigger than what fits in one of your own turns (multi-file refactor, large codebase audit, long exploration, writing tests across a module), spawn Claude Code in a workspace. `claude` is at `/Users/biel/.local/bin/claude` (v2.1.152+).
+When a task is bigger than one of your own turns (multi-file refactor, large codebase audit, long exploration, writing tests across a module), dispatch a Claude Code worker with `cc-dispatch`. It spawns `claude` (at `/Users/biel/.local/bin/claude`) detached and tracks every run as files under `~/.hermes/dispatches/<id>/`, so you can check on it after it returns. This is the only path — there is no kanban lane and no MCP tool.
 
-Pattern:
+Dispatch (returns immediately with a dispatch id):
 
 ```bash
-TASK_ID="$(date +%s)-<slug>"
-WS="$HOME/scratch/claude-$TASK_ID"
-mkdir -p "$WS"
-cd "$WS" && claude \
-  -p "<self-contained brief: goal, constraints, success criteria, the exact files/paths it should touch>" \
-  --output-format json \
-  --dangerously-skip-permissions \
-  > result.json 2>&1 &
-echo "$!" > pid
+~/.hermes/bin/cc-dispatch \
+  "<self-contained brief: goal, constraints, success criteria, the exact files/paths it should touch>" \
+  --dir /abs/workspace \
+  [--model claude-opus-4-8] [--title short-label]
 ```
 
-Brief the subagent like a smart colleague who walked in cold — paths, success criteria, scope boundary. The MORE specific you are, the better the result. Result lands in `result.json` (final response + cost + session_id).
+Run several at once — call it repeatedly with different `--dir`. Brief each worker like a smart colleague who walked in cold: paths, success criteria, scope boundary. The MORE specific you are, the better the result.
 
-To work in an existing repo, `cd` to the repo before invoking `claude`. The CLAUDE.md and project context are picked up automatically. **Single-writer rule still applies**: a spawned claude touching Geo data must use the Geo app HTTP tools (`geo_*` via `geo-http-tools`), not direct file writes.
+Check on your workers — this is how you "see" them:
+
+```bash
+ls -t ~/.hermes/dispatches                    # every run, newest first
+cat ~/.hermes/dispatches/<id>/status          # running | done | failed
+cat ~/.hermes/dispatches/<id>/result.json     # final response + cost + session_id
+tail -f ~/.hermes/dispatches/<id>/log.jsonl   # live event stream while running
+```
+
+`--dir` defaults to the current directory; point it at an existing repo to work there (its CLAUDE.md + project context load automatically). **Single-writer rule still applies**: a spawned claude touching Geo data must use the Geo app HTTP tools (`geo_*` via `geo-http-tools`), not direct file writes.
 
 ### Long-term parallel agents — hermes cron
 
