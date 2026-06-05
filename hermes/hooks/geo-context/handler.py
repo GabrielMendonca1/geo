@@ -36,10 +36,7 @@ import haiku
 HERMES_HOME = Path(os.path.expanduser("~/.hermes"))
 MEMORY_PATH = HERMES_HOME / "memories" / "MEMORY.md"
 STATE_PATH = Path(__file__).parent / ".state.json"
-GEO_API_JSON = Path(os.path.expanduser("~/Library/Application Support/Geo/api.json"))
 CONFIG_PATH = Path(__file__).parent.parent.parent / "config.yaml"
-KEYCHAIN_SERVICE = "geo-api-bootstrap"
-KEYCHAIN_ACCOUNT = "hermes-hook"
 
 
 def _nano_model() -> str:
