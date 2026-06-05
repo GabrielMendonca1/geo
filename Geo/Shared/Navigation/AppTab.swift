@@ -39,9 +39,9 @@ enum AppTab: String, CaseIterable {
         switch self {
         case .home: return "calendar"
         case .tasks: return "checklist.unchecked"
-        case .nodes: return "point.3.connected.trianglepath.dotted"
-        case .nano: return "rectangle.grid.2x2.fill"
-        case .brains: return "brain.head.profile"
+        case .nodes: return "brain.head.profile"
+        case .nano: return "sparkles"
+        case .brains: return "point.3.connected.trianglepath.dotted"
         case .settings: return "gearshape"
         }
     }
