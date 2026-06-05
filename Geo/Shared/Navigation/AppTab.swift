@@ -8,7 +8,7 @@ enum AppTab: String, CaseIterable {
     case brains = "Brains"
     case settings = "Settings"
 
-    static let defaultNavigationOrder: [AppTab] = [.home, .nano, .tasks, .nodes, .brains]
+    static let defaultNavigationOrder: [AppTab] = [.nodes, .home, .nano, .tasks, .brains]
 
     func nextTab() -> AppTab? {
         let order = Self.defaultNavigationOrder
