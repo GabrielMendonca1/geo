@@ -36,7 +36,7 @@ Two kinds of brain, **one node format, two factories with opposite write-posture
 Knowledge flows one way: the agent **reads** a domain brain → distills → **writes the insight into the essence brain** (`layer=agent`/`review`), never back into the domain brain. The agent holds standing awareness (per-brain self-description) and **decides which brain is suitable, then acts** — *not* a federated similarity fan-out.
 
 The verbs map onto tools that already exist, brain-scoped by one parameter:
-**search** = `search_blocks(brain:)` · **navigate** = `list_neighbors`/`find_backlinks`/`get_graph_snapshot(brain:)` · **delegate** = `claude_code_run(directory: <brain folder>)`.
+**search** = `search_blocks(brain:)` · **navigate** = `list_neighbors`/`find_backlinks`/`get_graph_snapshot(brain:)` · **delegate** = `cc-dispatch --dir <brain folder>`.
 
 ---
 
