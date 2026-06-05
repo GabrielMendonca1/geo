@@ -15,15 +15,27 @@ struct APIAccessSettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            endpointCard
-            tokensCard
-            addTokenCard
+            if FeatureFlags.httpServerEnabled {
+                endpointCard
+                tokensCard
+                addTokenCard
+            } else {
+                fileNativeNoticeCard
+            }
         }
         .onAppear {
-            refresh()
+            if FeatureFlags.httpServerEnabled { refresh() }
         }
         .sheet(item: revealBinding) { reveal in
             tokenRevealSheet(reveal: reveal)
+        }
+    }
+
+    private var fileNativeNoticeCard: some View {
+        APICard(title: "File-native mode", description: "Geo runs fully file-native — hermes reads and writes the vault files directly.") {
+            Text("The local HTTP API is off, so no endpoint or bearer tokens are needed (and no Keychain prompts at launch). To re-enable it, set the `geo.http.server.enabled` user default to true and relaunch.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 
