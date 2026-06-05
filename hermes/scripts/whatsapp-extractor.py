@@ -137,20 +137,29 @@ Se nada vale a pena: retorne proposals com todas as listas vazias. Bias: propor 
 
 DECIDE_PROMPT_TEMPLATE = """Você é o segundo cérebro do Gabriel (hermes). Abaixo estão propostas extraídas de conversas de WhatsApp das últimas {window}h por um classificador rápido. Você é o filtro inteligente: decida o que REALMENTE vale guardar. Dedup, una propostas relacionadas, descarte ruído. Bias: guardar MENOS, com qualidade.
 
+CONTEXTO DO CÉREBRO (vault real do Gabriel, files-are-truth — use para LINKAR e DEDUPLICAR):
+{brain_context}
+
 PROPOSTAS (JSON, uma entrada por chat):
 {proposals_json}
 
 Como decidir:
 - FATO durável sobre pessoa/projeto/decisão/preferência → um bloco. layer "agent" se é fato sólido e auto-evidente; layer "review" se merece o olhar dele antes de virar canônico. Auto-extraído de chat tende a "review".
-- COMPROMISSO/algo a fazer (com ou sem prazo) → uma task. title curto e acionável, notes com o contexto, due em ISO 8601 UTC (ex: 2026-06-10T13:00:00Z) ou null.
+- COMPROMISSO/algo a fazer → uma task. title curto e acionável, notes com o contexto. Toda task no Geo TEM prazo: due em ISO 8601 UTC (ex: 2026-06-10T13:00:00Z). Sem prazo claro no contexto, escolha uma data-alvo razoável — nunca null.
 - URGENTE: alguém esperando ele agora, decisão/deadline batendo → urgent (ele recebe no Telegram).
 - Conversa fiada, piada, combinado vago, fofoca, novidade qualquer → descarta.
+- DEDUP CONTRA O VAULT: se o CONTEXTO já tem um bloco ou task sobre o mesmo assunto, NÃO recrie — descarta. Só cria se acrescenta algo genuinamente novo.
 - Não invente nada fora das propostas. Dúvida = não guarda.
 
-Para cada bloco: "title" é um título de nota Zettelkasten (substantivo/conceito, não frase), "body" é o fato em markdown curto (1 a 3 frases, português), "type" é fleeting|literature|permanent.
+Para cada bloco:
+- "title": nota Zettelkasten (substantivo/conceito, não frase).
+- "type": fleeting|literature|permanent. "layer": "review" (padrão p/ auto-extraído) ou "agent".
+- "body": markdown curto (1 a 3 frases, português) que SEMPRE:
+  1) abre com `Parte de [[MOC — X]]` apontando p/ uma MOC REAL da lista de contexto. Sem essa linha a nota vira ilha morta — não emita nenhuma sem ela.
+  2) envolve cada pessoa/projeto/conceito saliente em [[wikilinks]]. Linke para títulos REAIS do contexto quando existirem; nunca invente um título de MOC fora da lista.
 
 Retorne JSON estrito (sem markdown, sem prefácio, sem ```):
-{{"blocks": [{{"title": "...", "body": "...", "type": "fleeting", "layer": "review"}}], "tasks": [{{"title": "...", "notes": "...", "due": null}}], "urgent": [{{"text": "...", "chat": "..."}}]}}
+{{"blocks": [{{"title": "...", "body": "Parte de [[MOC — X]]\\n...com [[wikilinks]]...", "type": "fleeting", "layer": "review"}}], "tasks": [{{"title": "...", "notes": "...", "due": "2026-06-10T13:00:00Z"}}], "urgent": [{{"text": "...", "chat": "..."}}]}}
 
 Se nada vale: retorne as três listas vazias."""
 
