@@ -392,63 +392,206 @@ private struct RebuildButton: View {
     }
 }
 
-// MARK: - Graph cell (an Obsidian-style graph tile; the graph IS the card)
+// MARK: - Floating chrome (translucent pills over the board)
 
-private struct BrainGraphCell: View {
-    let vault: BrainVault
-    @State private var hover = false
-
-    private let corner: CGFloat = 18
+private struct FloatingChrome: View {
+    let count: Int
+    let onReveal: () -> Void
+    let onCreate: () -> Void
 
     var body: some View {
-        ZStack {
-            // The graph fills the cell edge-to-edge (its own internal inset keeps
-            // nodes off the corners), so the tile reads as a panel of pure graph.
-            if vault.noteCount == 0 {
-                EmptyGraphMotif()
-            } else {
-                BrainMiniGraph(vault: vault)
+        VStack {
+            HStack(alignment: .top) {
+                titlePill
+                Spacer()
+                actionPill
             }
+            Spacer()
         }
-        .frame(maxWidth: .infinity)
-        .frame(height: 240)
-        .background(Color(nsColor: hover ? Palette.agentCardElevated : Palette.agentCard))
-        .overlay(alignment: .bottom) { labelOverlay }
-        .clipShape(RoundedRectangle(cornerRadius: corner))
-        .overlay(RoundedRectangle(cornerRadius: corner).strokeBorder(hover ? Palette.foreground.opacity(0.28) : Palette.foreground.opacity(0.12), lineWidth: 1))
-        .shadow(color: .black.opacity(hover ? 0.16 : 0), radius: hover ? 14 : 0, y: hover ? 6 : 0)
-        .scaleEffect(hover ? 1.01 : 1)
-        .animation(.easeOut(duration: 0.14), value: hover)
-        .onHover { hover = $0 }
+        .padding(.horizontal, 16)
+        .padding(.top, 14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
-    // Subtle scrim + minimal chrome: name, a state dot, and counts — legible on any graph.
-    private var labelOverlay: some View {
-        HStack(alignment: .bottom, spacing: 8) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(vault.title).font(.system(size: 15, weight: .semibold)).foregroundStyle(Palette.foreground).lineLimit(1)
-                HStack(spacing: 6) {
-                    Circle().fill(vault.ready ? Color(nsColor: Palette.agentSuccess) : Palette.tertiaryForeground).frame(width: 6, height: 6)
-                    Text(countLabel).font(.system(size: 11)).foregroundStyle(Palette.tertiaryForeground).lineLimit(1)
-                }
-            }
-            Spacer(minLength: 0)
-            Image(systemName: "chevron.right")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Palette.foreground.opacity(hover ? 0.85 : 0.4))
+    private var titlePill: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("Brains").font(.system(size: 18, weight: .bold)).foregroundStyle(Palette.foreground)
+            Text("\(count) vault\(count == 1 ? "" : "s") · ~/Geo/Brains")
+                .font(.system(size: 10.5)).foregroundStyle(Palette.tertiaryForeground)
         }
-        .padding(.horizontal, 14)
-        .padding(.bottom, 12)
-        .padding(.top, 22)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            // Soft bottom-up scrim so the label stays readable over light OR dark graphs.
-            LinearGradient(
-                colors: [Palette.background.opacity(0), Palette.background.opacity(0.72), Palette.background.opacity(0.94)],
-                startPoint: .top, endPoint: .bottom
-            )
-            .allowsHitTesting(false)
-        )
+        .padding(.horizontal, 14).padding(.vertical, 9)
+        .background(Capsule().fill(.ultraThinMaterial))
+        .overlay(Capsule().strokeBorder(Palette.foreground.opacity(0.10), lineWidth: 1))
+        .allowsHitTesting(false)
+    }
+
+    private var actionPill: some View {
+        HStack(spacing: 8) {
+            IconButton(system: "folder", help: "Reveal ~/Geo/Brains in Finder", action: onReveal)
+            Button(action: onCreate) { Label("New Brain", systemImage: "plus") }.buttonStyle(PillButtonStyle())
+        }
+        .padding(.horizontal, 10).padding(.vertical, 7)
+        .background(Capsule().fill(.ultraThinMaterial))
+        .overlay(Capsule().strokeBorder(Palette.foreground.opacity(0.10), lineWidth: 1))
+    }
+}
+
+// MARK: - Board card (an Obsidian-style graph tile; resizable + movable + zoomable)
+
+private enum Handle: CaseIterable {
+    case top, bottom, leading, trailing
+    case topLeading, topTrailing, bottomLeading, bottomTrailing
+
+    var unit: CGPoint {
+        switch self {
+        case .top: return .init(x: 0.5, y: 0)
+        case .bottom: return .init(x: 0.5, y: 1)
+        case .leading: return .init(x: 0, y: 0.5)
+        case .trailing: return .init(x: 1, y: 0.5)
+        case .topLeading: return .init(x: 0, y: 0)
+        case .topTrailing: return .init(x: 1, y: 0)
+        case .bottomLeading: return .init(x: 0, y: 1)
+        case .bottomTrailing: return .init(x: 1, y: 1)
+        }
+    }
+    var movesLeft: Bool { unit.x == 0 }
+    var movesRight: Bool { unit.x == 1 }
+    var movesTop: Bool { unit.y == 0 }
+    var movesBottom: Bool { unit.y == 1 }
+
+    var cursor: NSCursor {
+        switch self {
+        case .leading, .trailing: return .resizeLeftRight
+        case .top, .bottom: return .resizeUpDown
+        default: return .crosshair
+        }
+    }
+}
+
+private struct ResizeHandleLayer: View {
+    let visible: Bool
+    let gestureFor: (Handle) -> AnyGesture<Void>
+
+    private let hit: CGFloat = 18
+    private let dot: CGFloat = 9
+    private let ordered: [Handle] = [.top, .bottom, .leading, .trailing,
+                                     .topLeading, .topTrailing, .bottomLeading, .bottomTrailing]
+
+    var body: some View {
+        GeometryReader { geo in
+            ForEach(ordered, id: \.self) { h in
+                Circle()
+                    .fill(Color(nsColor: Palette.agentCardElevated))
+                    .overlay(Circle().strokeBorder(Palette.foreground.opacity(0.55), lineWidth: 1.5))
+                    .frame(width: dot, height: dot)
+                    .opacity(visible ? 1 : 0)
+                    .frame(width: hit, height: hit)
+                    .contentShape(Rectangle())
+                    .onHover { inside in if inside { h.cursor.push() } else { NSCursor.pop() } }
+                    .gesture(gestureFor(h))
+                    .position(x: geo.size.width * h.unit.x, y: geo.size.height * h.unit.y)
+            }
+        }
+    }
+}
+
+private struct BrainBoardCard: View {
+    let vault: BrainVault
+    @Binding var layout: BrainBoardLayout
+    let paneSize: CGSize
+    let onOpen: () -> Void
+    let onCommit: () -> Void
+
+    @State private var hover = false
+    @State private var dragStartFrame: CGRect?
+    @State private var moveStartOrigin: CGPoint?
+    @State private var didDrag = false
+
+    private let corner: CGFloat = 18
+    private let tapSlop: CGFloat = 4
+
+    var body: some View {
+        cardSurface
+            .frame(width: layout.frame.width, height: layout.frame.height)
+            .overlay(alignment: .topLeading) { nameChip }
+            .overlay {
+                ResizeHandleLayer(visible: hover, gestureFor: { h in AnyGesture(resizeGesture(h).map { _ in () }) })
+            }
+            .clipShape(RoundedRectangle(cornerRadius: corner))
+            .overlay(RoundedRectangle(cornerRadius: corner)
+                .strokeBorder(hover ? Palette.foreground.opacity(0.28) : Palette.foreground.opacity(0.12), lineWidth: 1))
+            .shadow(color: .black.opacity(hover ? 0.16 : 0), radius: hover ? 14 : 0, y: hover ? 6 : 0)
+            .position(x: layout.frame.midX, y: layout.frame.midY)
+            .onHover { hover = $0 }
+    }
+
+    private var cardSurface: some View {
+        ZStack {
+            if vault.noteCount == 0 { EmptyGraphMotif() }
+            else { BrainMiniGraph(vault: vault, zoom: $layout.zoom, onZoomCommit: onCommit) }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(nsColor: hover ? Palette.agentCardElevated : Palette.agentCard))
+        .contentShape(Rectangle())
+        .gesture(moveOrTap)
+    }
+
+    private var nameChip: some View {
+        HStack(spacing: 6) {
+            Circle().fill(vault.ready ? Color(nsColor: Palette.agentSuccess) : Palette.tertiaryForeground)
+                .frame(width: 6, height: 6)
+            Text(vault.title).font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Palette.foreground).lineLimit(1)
+            Text(countLabel).font(.system(size: 10))
+                .foregroundStyle(Palette.tertiaryForeground).lineLimit(1)
+        }
+        .padding(.horizontal, 10).padding(.vertical, 6)
+        .background(Capsule().fill(.ultraThinMaterial))
+        .overlay(Capsule().strokeBorder(Palette.foreground.opacity(0.10), lineWidth: 1))
+        .padding(10)
+        .allowsHitTesting(false)
+    }
+
+    private func resizeGesture(_ h: Handle) -> some Gesture {
+        DragGesture(minimumDistance: 1, coordinateSpace: .named("board"))
+            .onChanged { value in
+                let start = dragStartFrame ?? layout.frame
+                if dragStartFrame == nil { dragStartFrame = start }
+                var r = start
+                let dx = value.translation.width, dy = value.translation.height
+                if h.movesLeft  { r.origin.x = start.minX + dx; r.size.width  = start.maxX - r.origin.x }
+                if h.movesRight { r.size.width  = start.width  + dx }
+                if h.movesTop   { r.origin.y = start.minY + dy; r.size.height = start.maxY - r.origin.y }
+                if h.movesBottom { r.size.height = start.height + dy }
+                layout.frame = clampAnchored(r, anchor: h, start: start)
+            }
+            .onEnded { _ in dragStartFrame = nil; onCommit() }
+    }
+
+    private func clampAnchored(_ rect: CGRect, anchor h: Handle, start: CGRect) -> CGRect {
+        let maxS = BrainBoardLayout.maxSize(in: paneSize)
+        var r = rect
+        let w = min(max(r.width,  BrainBoardLayout.minSize.width),  maxS.width)
+        let hg = min(max(r.height, BrainBoardLayout.minSize.height), maxS.height)
+        if h.movesLeft { r.origin.x = start.maxX - w } else { r.origin.x = start.minX }
+        if h.movesTop  { r.origin.y = start.maxY - hg } else { r.origin.y = start.minY }
+        r.size = CGSize(width: w, height: hg)
+        return r
+    }
+
+    private var moveOrTap: some Gesture {
+        DragGesture(minimumDistance: 0, coordinateSpace: .named("board"))
+            .onChanged { value in
+                if moveStartOrigin == nil { moveStartOrigin = layout.frame.origin }
+                if hypot(value.translation.width, value.translation.height) > tapSlop { didDrag = true }
+                guard didDrag, let o = moveStartOrigin else { return }
+                layout.frame.origin = CGPoint(x: o.x + value.translation.width, y: o.y + value.translation.height)
+            }
+            .onEnded { value in
+                let dist = hypot(value.translation.width, value.translation.height)
+                if !didDrag && dist <= tapSlop { onOpen() } else { onCommit() }
+                moveStartOrigin = nil; didDrag = false
+            }
     }
 
     private var countLabel: String {
