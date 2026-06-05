@@ -334,77 +334,55 @@ EXTRACT_TOPK = 6
 EXTRACT_BODY_CAP = 4000
 
 
-def _parse_hits(raw: str) -> list:
-    try:
-        obj = json.loads(raw)
-    except Exception:
+def _file_search(query: str, limit: int) -> list:
+    import re
+
+    terms = [t.lower() for t in re.findall(r"[\w]+", query, flags=re.UNICODE)]
+    if not terms:
         return []
-    if isinstance(obj, list):
-        return [h for h in obj if isinstance(h, dict)]
-    if isinstance(obj, dict):
-        for key in ("results", "blocks", "data", "items"):
-            val = obj.get(key)
-            if isinstance(val, list):
-                return [h for h in val if isinstance(h, dict)]
-    return []
+    hits = []
+    for p in _iter_block_files():
+        try:
+            text = p.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        title = _block_h1(text) or p.stem.replace("-", " ")
+        body = _strip_frontmatter(text)
+        hay_title = title.lower()
+        hay_body = body.lower()
+        score = sum(3 * hay_title.count(t) + hay_body.count(t) for t in terms)
+        if score:
+            hits.append({"id": str(p.relative_to(GEO_BLOCKS_DIR)), "title": title,
+                         "body": body, "score": score})
+    hits.sort(key=lambda h: h["score"], reverse=True)
+    return hits[:limit]
 
 
 async def search_context(query: str, with_summary: bool = False) -> dict:
-    """Answer a question from Gabriel's Geo blocks: relevance-search his brain,
-    pull the full text of the top matches, and have Haiku extract ONLY the facts
-    that answer the question, cited by block title. Returns:
+    """Answer a question from Gabriel's Geo blocks: relevance-search his vault
+    (file-native — works app-closed), pull the full text of the top matches, and
+    have Haiku extract ONLY the facts that answer the question, cited by block
+    title. Returns:
 
         {"ok": bool, "query": str, "answer": str|None,
          "sources": [str], "results": str|None, "error": str|None}
 
     `answer` is the cited extraction; `results` holds the raw block context only
-    as a fallback when extraction is unavailable. Degrades to ok=False with error
-    set when Geo.app is closed."""
+    as a fallback when extraction is unavailable."""
     query = (query or "").strip()
     if not query:
         return {"ok": False, "query": query, "answer": None, "sources": [],
                 "results": None, "error": "empty query"}
-
-    info = _read_api_json()
-    if not info:
+    if not GEO_BLOCKS_DIR.exists():
         return {"ok": False, "query": query, "answer": None, "sources": [],
-                "results": None, "error": "Geo.app unreachable (api.json stale or pid dead)"}
-    token = _read_keychain_token()
-    if not token:
-        return {"ok": False, "query": query, "answer": None, "sources": [],
-                "results": None, "error": "no Geo API token in keychain"}
+                "results": None, "error": "Geo vault not found"}
 
-    token_ref = {"token": token}
-    base = f"http://127.0.0.1:{info['port']}"
-    headers = {"Authorization": f"Bearer {token}", "X-Caller-Id": "hermes-hook"}
-    search_path = "/v1/blocks/search?q=" + urllib.parse.quote(query) + f"&limit={SEARCH_LIMIT}"
     sources: list = []
     docs: list = []
-    try:
-        async with httpx.AsyncClient(base_url=base, headers=headers, timeout=8.0) as client:
-            raw = await asyncio.wait_for(_safe_get(client, search_path, token_ref), timeout=10.0)
-            if not raw:
-                return {"ok": True, "query": query, "answer": None, "sources": [],
-                        "results": None, "error": None}
-            hits = _parse_hits(raw)[:EXTRACT_TOPK]
-
-            async def _body(bid):
-                if not bid:
-                    return None
-                return _unwrap_block(await asyncio.wait_for(
-                    _safe_get(client, "/v1/blocks/" + urllib.parse.quote(str(bid)), token_ref),
-                    timeout=10.0))
-
-            bodies = await asyncio.gather(*(_body(h.get("id")) for h in hits))
-            for hit, body in zip(hits, bodies):
-                title = hit.get("title") or hit.get("id") or "?"
-                if not body:
-                    body = hit.get("snippet") or ""
-                sources.append(title)
-                docs.append(f"### [[{title}]]\n{body}".strip()[:EXTRACT_BODY_CAP])
-    except Exception as e:
-        return {"ok": False, "query": query, "answer": None, "sources": [],
-                "results": None, "error": f"http unreachable: {e}"}
+    for hit in _file_search(query, EXTRACT_TOPK):
+        title = hit["title"] or hit["id"] or "?"
+        sources.append(title)
+        docs.append(f"### [[{title}]]\n{hit['body']}".strip()[:EXTRACT_BODY_CAP])
 
     if not docs:
         return {"ok": True, "query": query, "answer": None, "sources": [],
