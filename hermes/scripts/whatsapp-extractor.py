@@ -611,14 +611,24 @@ def _normalize_due(due) -> str | None:
     return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _as_text(v) -> str:
+    if isinstance(v, str):
+        return v
+    if isinstance(v, list):
+        return "\n".join(_as_text(x) for x in v)
+    if v is None:
+        return ""
+    return str(v)
+
+
 def write_task_file(title: str, notes: str, due) -> str:
     task_id = str(uuid.uuid4()).upper()
     now = _now_z()
     due_z = _normalize_due(due) or datetime.now(timezone.utc).strftime("%Y-%m-%dT23:59:00Z")
     task = {
         "id": task_id,
-        "title": title,
-        "notes": notes or "",
+        "title": _as_text(title),
+        "notes": _as_text(notes),
         "body": {"kind": "task", "due": due_z},
         "status": "pending",
         "priority": "unset",
