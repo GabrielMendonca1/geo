@@ -2,7 +2,7 @@ import SwiftUI
 
 @Observable
 final class TabRouter {
-    var selectedTab: AppTab = .home
+    var selectedTab: AppTab = .nodes
 
     init(selectedTab: AppTab? = nil) {
         if let explicit = selectedTab {
