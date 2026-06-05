@@ -398,12 +398,11 @@ def find_backlinks(block_id: str) -> dict:
 
 def find_orphans() -> list[dict]:
     g = _build_graph(None)
-    linked = set()
-    for s, tgts in g["_adj"].items():
-        if tgts:
-            linked.add(s)
-        linked.update(tgts)
-    return [n for n in g["nodes"] if n["id"] not in linked]
+    has_out = g["_has_out"]
+    return [
+        n for n in g["nodes"]
+        if not g["_rev"].get(n["id"]) and n["id"] not in has_out
+    ]
 
 
 def find_unresolved_links() -> list[dict]:
