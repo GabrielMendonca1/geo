@@ -21,7 +21,6 @@ day-command.py. Run it with the hermes venv interpreter:
 from __future__ import annotations
 
 import asyncio
-import importlib.util
 import json
 import os
 import subprocess
@@ -32,15 +31,15 @@ from zoneinfo import ZoneInfo
 
 from anthropic import AsyncAnthropic
 
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if _SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPT_DIR)
+import geo_context
+
 HERMES_HOME = Path(os.path.expanduser("~/.hermes"))
 AUTH_PATH = HERMES_HOME / "auth.json"
 ENV_PATH = HERMES_HOME / ".env"
 CONFIG_PATH = Path(__file__).parent.parent / "config.yaml"
-
-CLIENT_CANDIDATES = [
-    HERMES_HOME / "plugins" / "geo-http-tools" / "client.py",
-    Path(__file__).parent.parent.parent / "hermes-extensions" / "geo-http-tools" / "client.py",
-]
 
 GABRIEL_TELEGRAM_CHAT_ID = "5225262193"
 DEFAULT_TZ = "America/Sao_Paulo"
