@@ -101,6 +101,12 @@ sync_daemon_dir "$SRC_DIR/whatsapp-ingest"  "$DEST_DIR/whatsapp-ingest"
 sync_daemon_dir "$SRC_DIR/hooks"            "$DEST_DIR/hooks"
 sync_daemon_dir "$SRC_DIR/scripts"          "$DEST_DIR/scripts"
 
+echo "==> Installing CLI helpers (cc-dispatch)"
+mkdir -p "$DEST_DIR/bin"
+rsync -a "$SRC_DIR/bin/" "$DEST_DIR/bin/"
+chmod +x "$DEST_DIR"/bin/* 2>/dev/null || true
+echo "  synced $SRC_DIR/bin/ -> $DEST_DIR/bin/"
+
 echo "==> Installing LaunchAgent plists into $LAUNCH_AGENTS_DIR"
 for plist in "$SRC_DIR"/launch-agents/*.plist; do
     [[ -e "$plist" ]] || continue
