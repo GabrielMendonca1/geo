@@ -203,9 +203,11 @@ async def _create_block(a: dict) -> Any:
     return {"id": _rel_id(path)}
 
 
-async def _move_block(c: GeoAPIClient, a: dict) -> Any:
+async def _move_block(a: dict) -> Any:
     src = _resolve_path(a["id"])
+    guard.assert_writable(src)
     folder = (a.get("folder") or "").strip("/")
+    guard.assert_create_layer("agent", folder)
     dest_dir = BLOCKS_DIR / folder if folder else BLOCKS_DIR
     dest_dir.mkdir(parents=True, exist_ok=True)
     dest = _unique_path(dest_dir, src.stem) if (dest_dir / src.name).exists() else dest_dir / src.name
