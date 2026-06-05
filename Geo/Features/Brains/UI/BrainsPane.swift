@@ -634,15 +634,43 @@ private struct EmptyGraphMotif: View {
 
 // MARK: - Mini-graph thumbnail (settled once, non-interactive — ports GraphView's force layout)
 
+private struct ScrollZoomCatcher: NSViewRepresentable {
+    var onZoom: (CGFloat) -> Void
+    func makeNSView(context: Context) -> CatcherView { let v = CatcherView(); v.onZoom = onZoom; return v }
+    func updateNSView(_ v: CatcherView, context: Context) { v.onZoom = onZoom }
+
+    final class CatcherView: NSView {
+        var onZoom: ((CGFloat) -> Void)?
+        override func scrollWheel(with e: NSEvent) {
+            let raw = e.hasPreciseScrollingDeltas ? e.scrollingDeltaY : e.deltaY
+            guard raw != 0 else { super.scrollWheel(with: e); return }
+            onZoom?(exp(raw * 0.01))
+        }
+        override func magnify(with e: NSEvent) { onZoom?(1 + e.magnification) }
+    }
+}
+
 private struct BrainMiniGraph: View {
     let vault: BrainVault
+    @Binding var zoom: CGFloat
+    var onZoomCommit: () -> Void
+
     @State private var graph: BlockGraph = .empty
     @State private var layout = MiniGraphLayout.empty
+    @State private var pinchBase: CGFloat = 0
 
     var body: some View {
         Canvas { ctx, size in draw(ctx, size) }
-            // Fill the cell; layout's own inset (see MiniGraphLayout) keeps nodes off corners.
             .padding(10)
+            .overlay(ScrollZoomCatcher { factor in applyZoom(factor) })
+            .simultaneousGesture(
+                MagnificationGesture()
+                    .onChanged { scale in
+                        if pinchBase == 0 { pinchBase = zoom }
+                        zoom = clampZoom(pinchBase * scale)
+                    }
+                    .onEnded { _ in pinchBase = 0; onZoomCommit() }
+            )
             .task(id: vault.id) {
                 let g = BrainGraphBuilder.build(notes: BrainVaultStore.notes(in: vault)).graph
                 let l = MiniGraphLayout.compute(g)
@@ -651,10 +679,24 @@ private struct BrainMiniGraph: View {
             }
     }
 
+    private func clampZoom(_ z: CGFloat) -> CGFloat {
+        min(max(z, BrainBoardLayout.zoomRange.lowerBound), BrainBoardLayout.zoomRange.upperBound)
+    }
+
+    private func applyZoom(_ factor: CGFloat) {
+        let new = clampZoom(zoom * factor)
+        guard new != zoom else { return }
+        zoom = new
+        onZoomCommit()
+    }
+
     private func draw(_ ctx: GraphicsContext, _ size: CGSize) {
         guard !layout.points.isEmpty else { return }
-        // Fill the whole (non-square) cell — graphs should sprawl, not sit in a centered box.
-        func project(_ p: CGPoint) -> CGPoint { CGPoint(x: p.x * size.width, y: p.y * size.height) }
+        let cx = size.width / 2, cy = size.height / 2
+        func project(_ p: CGPoint) -> CGPoint {
+            CGPoint(x: cx + (p.x * size.width  - cx) * zoom,
+                    y: cy + (p.y * size.height - cy) * zoom)
+        }
         var pointFor: [UUID: CGPoint] = [:]
         for (id, np) in layout.points { pointFor[id] = project(np) }
 
