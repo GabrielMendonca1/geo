@@ -83,12 +83,6 @@ copy_with_backup "$SRC_DIR/memories/MEMORY.md"   "$DEST_DIR/memories/MEMORY.md"
 copy_with_backup "$SRC_DIR/memories/USER.md"     "$DEST_DIR/memories/USER.md"
 copy_if_absent   "$SRC_DIR/.env.template"        "$DEST_DIR/.env"
 
-if grep -q "^GEO_MCP_BRIDGE_BIN=$" "$DEST_DIR/.env" 2>/dev/null; then
-    sed -i.bak "s|^GEO_MCP_BRIDGE_BIN=$|GEO_MCP_BRIDGE_BIN=$GEO_MCP_BRIDGE_BIN|" "$DEST_DIR/.env"
-    rm -f "$DEST_DIR/.env.bak"
-    echo "  populated GEO_MCP_BRIDGE_BIN in $DEST_DIR/.env"
-fi
-
 chmod 644 "$DEST_DIR/config.yaml" "$DEST_DIR/memories/MEMORY.md" "$DEST_DIR/memories/USER.md"
 chmod 600 "$DEST_DIR/.env"
 
