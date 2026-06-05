@@ -326,7 +326,7 @@ struct BrainsPane: View {
     }
 
     private var graphBody: some View {
-        GraphView(graph: graph, isActive: { true }, persistsSettings: false) { nodeId in
+        GraphView(graph: graph, isActive: { [tabRouter] in tabRouter.selectedTab == .brains }, persistsSettings: false) { nodeId in
             guard let url = lookup[nodeId]?.url else { return }
             NSWorkspace.shared.activateFileViewerSelecting([url])
         }
