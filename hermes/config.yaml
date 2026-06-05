@@ -46,7 +46,7 @@ mcp_servers: {}
 # Plugins (hermes-extensions/) — discovered from ~/.hermes/plugins/ and toggled
 # with `hermes plugins enable <name>` (NOT loaded from this file). Listed here
 # for reference so the enabled set is documented in one place:
-#   geo-http-tools     authenticated Geo HTTP API tools (read/write/destructive)
+#   geo-tools          file-native Geo vault tools (read/write/destructive)
 #   whatsapp-confirm   Telegram-gated WhatsApp send confirmation
 #   geo-search-tool    on-demand geo_search_context(query, with_summary?) tool
 #                      for arbitrary Geo lookups; COMPLEMENTS the geo-context
