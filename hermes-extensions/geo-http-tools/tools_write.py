@@ -275,8 +275,9 @@ async def _extract_permanent_from(a: dict) -> Any:
     return {"id": _rel_id(dest), "source": _rel_id(src)}
 
 
-async def _link_block_to_day(c: GeoAPIClient, a: dict) -> Any:
+async def _link_block_to_day(a: dict) -> Any:
     path = _resolve_path(a["block_id"])
+    guard.assert_writable(path)
     fm, body = _read_block(path)
     body = _ensure_day_link(body, a["day"])
     _atomic_write(path, fm + body)
