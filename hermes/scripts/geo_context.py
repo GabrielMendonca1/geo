@@ -49,7 +49,7 @@ def _fm_type(text: str) -> str | None:
 
 def _title(text: str, fallback: str) -> str:
     m = _H1_RE.search(text)
-    return m.group(1).strip() if m else fallback
+    return m.group(1).strip().strip("*").strip() if m else fallback
 
 
 def gather_brain_context() -> dict:
