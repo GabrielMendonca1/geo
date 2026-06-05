@@ -1,13 +1,15 @@
 """geo-http-tools — Geo tools for Gabriel's macOS app (`geo_*` prefix, no `mcp_`).
 
-BLOCK writers are native filesystem ops on the Geo vault (files are truth);
-TASK/read/ai/search/graph/tag/day tools talk to Geo.app's localhost HTTP API
-(Slice A), auth via macOS Keychain bearer.
+Fully file-native (the vault is truth): block writers are native FS ops guarded
+by ``guard`` (agents may only write agent/review/shared, never user/Você); block/
+day/tag reads come from the read-only ``Index/blocks.sqlite`` cache via ``reads``
+(glob+parse fallback when the app is mid-write or closed); task CRUD/dedup is
+``tasks_fs`` over ``Tasks/*.json``. No HTTP, no Keychain — the Geo.app FileWatcher
+reconciles the derived index after any write.
 
 Destructive ops (`geo_delete_block`, `geo_delete_task`) gate on a Telegram
-confirm from Gabriel: block delete is a native rm, task delete is an HTTP
-DELETE. See ``destructive.py`` for the confirm flow and the
-``pre_gateway_dispatch`` hook that captures his replies.
+confirm from Gabriel and are both native rm. See ``destructive.py`` for the
+confirm flow and the ``pre_gateway_dispatch`` hook that captures his replies.
 """
 
 from __future__ import annotations
