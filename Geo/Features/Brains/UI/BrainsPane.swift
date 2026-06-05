@@ -788,7 +788,7 @@ private enum MiniGraphLayout {
             minX = min(minX, p.x); maxX = max(maxX, p.x); minY = min(minY, p.y); maxY = max(maxY, p.y)
         }
         let cx = (minX + maxX) / 2, cy = (minY + maxY) / 2
-        let scale = max(maxX - minX, maxY - minY, 1)
+        let scale = max(maxX - minX, maxY - minY, n <= 4 ? 40 : 1)   // floor span so 2-node graphs spread, not stack at center
         var degree: [UUID: Int] = [:]
         for (s, t) in edges { degree[s, default: 0] += 1; degree[t, default: 0] += 1 }
         // Small brains (a couple of notes) need bigger nodes + a tighter, more centered
