@@ -27,8 +27,6 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
             return "AI"
         case .nanoHermes:
             return "Hermes"
-        case .apiAccess:
-            return "API Access"
         case .data:
             return "Backup & Data"
         case .advanced:
