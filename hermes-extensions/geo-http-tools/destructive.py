@@ -184,6 +184,7 @@ def _rm_block(block_id: str) -> dict:
     path = BLOCKS_DIR / rel
     if not path.exists():
         raise GeoError(f"block not found: {block_id}")
+    guard.assert_writable(path)
     os.remove(path)
     attach = path.parent / "Attachments" / path.stem
     if attach.is_dir():
