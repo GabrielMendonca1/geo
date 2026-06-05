@@ -187,58 +187,137 @@ enum VaultIngest {
 
 struct BrainsPane: View {
     @StateObject private var store = BrainVaultStore()
-    @StateObject private var board = BrainBoardModel()
+    @State private var selectedVaultId: String?
+    @State private var graph = BlockGraph(nodes: [], edges: [])
+    @State private var lookup: [UUID: BrainNote] = [:]
     @State private var showCreate = false
-    @State private var openVaultId: String?
-    @State private var paneSize: CGSize = .zero
+    @State private var showSources = false
+
+    private var selectedVault: BrainVault? {
+        guard let id = selectedVaultId else { return nil }
+        return store.vaults.first { $0.id == id }
+    }
 
     var body: some View {
         Pane {
             Group {
-                if let id = openVaultId, let vault = store.vaults.first(where: { $0.id == id }) {
-                    BrainDetailView(vault: vault, onBack: { openVaultId = nil; store.reload() })
-                } else {
-                    boardView
-                }
-            }
-        }
-        .sheet(isPresented: $showCreate) { CreateBrainSheet(store: store) { openVaultId = $0 } }
-        .task { store.reload() }
-    }
-
-    private var boardView: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .topLeading) {
-                Color.clear
-
                 if store.vaults.isEmpty {
                     emptyState
                 } else {
-                    ForEach(store.vaults) { vault in
-                        if board.layouts[vault.id] != nil {
-                            BrainBoardCard(
-                                vault: vault,
-                                layout: Binding(
-                                    get: { board.layouts[vault.id]! },
-                                    set: { board.update(vault.id, $0) }
-                                ),
-                                paneSize: geo.size,
-                                onOpen: { openVaultId = vault.id },
-                                onCommit: { board.commit(vault.id) }
-                            )
-                        }
+                    VStack(spacing: 0) {
+                        tabStrip
+                        Rectangle().fill(Palette.border).frame(height: 1)
+                        graphBody
                     }
                 }
-
-                FloatingChrome(count: store.vaults.count,
-                               onReveal: { NSWorkspace.shared.open(BrainVaultStore.root) },
-                               onCreate: { showCreate = true })
             }
-            .coordinateSpace(name: "board")
-            .onAppear { paneSize = geo.size; board.ensure(vaults: store.vaults, pane: geo.size) }
-            .onChange(of: geo.size) { _, s in paneSize = s; board.ensure(vaults: store.vaults, pane: s) }
-            .onChange(of: store.vaults.map(\.id)) { _, _ in board.ensure(vaults: store.vaults, pane: geo.size) }
         }
+        .task { store.reload() }
+        .onChange(of: store.vaults.map(\.id)) { _, ids in syncSelection(ids) }
+        .task(id: selectedVaultId) { await rebuildGraph() }
+        .sheet(isPresented: $showCreate) {
+            CreateBrainSheet(store: store) { newId in
+                selectedVaultId = newId
+                showCreate = false
+            }
+        }
+        .sheet(isPresented: $showSources) {
+            if let vault = selectedVault {
+                BrainDetailView(vault: vault, onBack: {
+                    showSources = false
+                    store.reload()
+                    Task { await rebuildGraph() }
+                })
+            }
+        }
+    }
+
+    private func rebuildGraph() async {
+        guard let vault = selectedVault else {
+            graph = BlockGraph(nodes: [], edges: [])
+            lookup = [:]
+            return
+        }
+        let built = await Task.detached {
+            BrainGraphBuilder.build(notes: BrainVaultStore.notes(in: vault))
+        }.value
+        guard selectedVaultId == vault.id else { return }
+        graph = built.graph
+        lookup = built.lookup
+    }
+
+    private func syncSelection(_ ids: [String]) {
+        if let id = selectedVaultId, ids.contains(id) { return }
+        selectedVaultId = ids.first
+    }
+
+    private var tabStrip: some View {
+        HStack(spacing: 10) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(store.vaults) { vault in
+                        vaultPill(vault)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+
+            Spacer(minLength: 8)
+
+            Button { showSources = true } label: {
+                Label("Sources", systemImage: "tray.full")
+            }
+            .buttonStyle(PillButtonStyle())
+            .disabled(selectedVault == nil)
+
+            Button { showCreate = true } label: {
+                Label("New Brain", systemImage: "plus")
+            }
+            .buttonStyle(PillButtonStyle())
+
+            IconButton(system: "folder", help: "Reveal Brains folder in Finder") {
+                NSWorkspace.shared.open(BrainVaultStore.root)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+
+    private func vaultPill(_ vault: BrainVault) -> some View {
+        let selected = vault.id == selectedVaultId
+        return Button {
+            selectedVaultId = vault.id
+        } label: {
+            HStack(spacing: 7) {
+                Circle()
+                    .fill(vault.ready ? Color(nsColor: Palette.agentSuccess) : Palette.tertiaryForeground)
+                    .frame(width: 7, height: 7)
+                Text(vault.title)
+                    .font(.system(size: 13, weight: selected ? .semibold : .medium))
+                    .foregroundStyle(Palette.foreground)
+                Text("\(vault.noteCount)")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Palette.tertiaryForeground)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(
+                Capsule().fill(selected ? Palette.foreground.opacity(0.12) : Color.clear)
+            )
+            .overlay(
+                Capsule().stroke(Palette.border, lineWidth: selected ? 0 : 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var graphBody: some View {
+        GraphView(graph: graph, isActive: { true }) { nodeId in
+            guard let url = lookup[nodeId]?.url else { return }
+            NSWorkspace.shared.activateFileViewerSelecting([url])
+        }
+        .id(selectedVaultId)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var emptyState: some View {
