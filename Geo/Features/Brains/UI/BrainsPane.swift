@@ -829,6 +829,22 @@ private enum BrainGraphBuilder {
         return (BlockGraph(nodes: nodes, edges: edges), lookup)
     }
 
+    private static func linkSlug(_ text: String) -> String {
+        let lowered = text.precomposedStringWithCanonicalMapping.lowercased()
+        var parts: [String] = []
+        var current = ""
+        for scalar in lowered.unicodeScalars {
+            let v = scalar.value
+            if (v >= 97 && v <= 122) || (v >= 48 && v <= 57) {
+                current.unicodeScalars.append(scalar)
+            } else if !current.isEmpty {
+                parts.append(current); current = ""
+            }
+        }
+        if !current.isEmpty { parts.append(current) }
+        return String(parts.joined(separator: "-").prefix(60))
+    }
+
     // Deterministic UUID from the note slug (FNV-1a, two seeds → 128 bits) so a rebuild
     // after ingest keeps existing nodes in place and only animates the new ones in.
     private static func stableID(for slug: String) -> UUID {
