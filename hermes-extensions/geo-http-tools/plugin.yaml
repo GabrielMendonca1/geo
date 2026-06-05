@@ -1,6 +1,6 @@
 name: geo-http-tools
 version: 0.1.0
-description: "Geo tools for Gabriel's macOS app (no MCP, no `mcp_` prefix). Block writers are native filesystem ops on the vault (files are truth); task/read/ai/search/graph tools use the localhost HTTP API (bearer auth via macOS Keychain). Destructive ops gate on a Telegram confirm."
+description: "Geo tools for Gabriel's macOS app (no MCP, no `mcp_` prefix). All tools are native filesystem ops over the vault (files are truth): block/task writers mutate the `.md`/`Tasks` files directly; read/search/graph tools query the read-only SQLite index (falling back to a file scan). Destructive ops gate on a Telegram confirm."
 author: ARC/Geo
 kind: standalone
 provides_tools:
