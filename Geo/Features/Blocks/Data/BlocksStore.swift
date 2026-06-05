@@ -115,7 +115,7 @@ class BlocksStore: ObservableObject {
     private let markdownConverter: MarkdownConverter
     private let frontmatterMutatorActor = FrontmatterMutatorActor()
     nonisolated(unsafe) private var pendingSaves: Set<Task<Void, Never>> = []
-    nonisolated(unsafe) private let pendingSavesLock = NSLock()
+    private let pendingSavesLock = NSLock()
 
     nonisolated private func insertPendingSave(_ task: Task<Void, Never>) {
         pendingSavesLock.lock(); defer { pendingSavesLock.unlock() }
