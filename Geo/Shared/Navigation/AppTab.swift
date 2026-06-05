@@ -28,9 +28,9 @@ enum AppTab: String, CaseIterable {
         switch self {
         case .home: return "Calendar"
         case .tasks: return "Tasks"
-        case .nodes: return "Graph"
-        case .nano: return "Geo"
-        case .brains: return "Brains"
+        case .nodes: return "Brain"
+        case .nano: return "Agent"
+        case .brains: return "Brainsets"
         case .settings: return "Settings"
         }
     }
