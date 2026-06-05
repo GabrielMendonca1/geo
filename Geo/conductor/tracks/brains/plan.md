@@ -204,7 +204,7 @@ Write tools in `BlockTools.swift`/`TagTools.swift` (note `link_block_to_day` is 
 
 **Routing awareness — `list_brains` / `get_brain_manifest`.** New `BrainTools.register(registry:)` added at `GeoApp.swift:130`. `list_brains` → `[{id, title, gist, state, default}]`. `get_brain_manifest(brain)` → full self-description. This is the comprehend→route→act surface: agent reads manifests, picks the brain, re-issues a scoped read.
 
-**Delegate contract.** Agent resolves the brain's absolute folder via `get_brain_manifest(brain).folder`, then `claude_code_run(directory: <brain folder>, prompt, ...)` (`hermes-extensions/claude-code-lane/README.md:11`). The subagent is read-only (only the brain's files, no write tools); it returns a synthesis the parent writes into the personal brain.
+**Delegate contract.** Agent resolves the brain's absolute folder via `get_brain_manifest(brain).folder`, then `~/.hermes/bin/cc-dispatch "<prompt>" --dir <brain folder>` (see `hermes/SOUL.md` → "Claude Code — dispatch `claude` workers"). The subagent is read-only (only the brain's files, no write tools); it returns a synthesis the parent writes into the personal brain — poll `~/.hermes/dispatches/<id>/status` and read `result.json`.
 
 **search_blocks semantic mode.** Gains `mode: lexical | semantic` (default `lexical`, backwards-compatible) + `brain`. `semantic` calls `index.semanticSearch(query, topK)` (Accelerate brute-force). Validated at `BlockTools.swift:210`.
 
