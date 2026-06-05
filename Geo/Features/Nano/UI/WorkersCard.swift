@@ -35,7 +35,7 @@ struct WorkersCard: View {
             }
             Spacer()
             if !service.dbAvailable {
-                Text("hermes kanban.db not found")
+                Text("no dispatch registry yet")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
