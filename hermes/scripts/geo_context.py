@@ -191,6 +191,7 @@ def tasks_for_day(date_iso: str) -> list[dict]:
 
 def upcoming_tasks(within_days: int = 7) -> list[dict]:
     today = datetime.now(timezone.utc).date()
+    horizon = today.fromordinal(today.toordinal() + within_days)
     out: list[dict] = []
     for t in _read_tasks():
         if t.get("status") != "pending":
@@ -202,9 +203,7 @@ def upcoming_tasks(within_days: int = 7) -> list[dict]:
             ad = datetime.fromisoformat(d).date()
         except Exception:
             continue
-        if today <= ad <= today.replace() and ad <= today and False:
-            pass
-        if today <= ad <= (today.fromordinal(today.toordinal() + within_days)):
+        if today <= ad <= horizon:
             out.append(t)
     out.sort(key=lambda t: t.get("anchor") or "9999")
     return out
