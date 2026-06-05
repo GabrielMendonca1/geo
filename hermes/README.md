@@ -23,7 +23,7 @@ cd hermes
 
 | File | Lands at | Role |
 |------|----------|------|
-| `config.yaml` | `~/.hermes/config.yaml` | MCP server registration (geo-mcp-bridge), platform toggles, model defaults. |
+| `config.yaml` | `~/.hermes/config.yaml` | Gateway config: platform toggles, connectors, model defaults, cron. |
 | `SOUL.md` | `~/.hermes/SOUL.md` | The persona / identity / tool catalog / guardrails the agent reads every turn. Merge of geo-claw's `SYSTEM_PROMPT` + `soul.default.md`. |
 | `memories/MEMORY.md` | `~/.hermes/memories/MEMORY.md` | Persistent world/work memory (2200-char cap). |
 | `memories/USER.md` | `~/.hermes/memories/USER.md` | Persistent user profile (1375-char cap). |
