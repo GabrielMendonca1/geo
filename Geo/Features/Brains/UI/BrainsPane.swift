@@ -475,7 +475,7 @@ private struct BrainDetailView: View {
     private var header: some View {
         HStack(spacing: 12) {
             Button(action: onBack) {
-                HStack(spacing: 4) { Image(systemName: "chevron.left").font(.system(size: 12, weight: .semibold)); Text("Brains").font(.system(size: 13)) }
+                HStack(spacing: 4) { Image(systemName: "chevron.left").font(.system(size: 12, weight: .semibold)); Text("Brainsets").font(.system(size: 13)) }
                     .foregroundStyle(Palette.tertiaryForeground)
             }.buttonStyle(.plain)
             Rectangle().fill(Palette.border).frame(width: 1, height: 18)
