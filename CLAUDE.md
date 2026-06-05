@@ -96,13 +96,12 @@ Layout in this repo:
 hermes/
   config.yaml      gateway config (api_server, connectors, cron)
   SOUL.md          system prompt / identity
+  bin/cc-dispatch  spawns detached `claude` workers, tracked under ~/.hermes/dispatches/<id>/
   memories/        long-term memory blocks
   install.sh       drops the LaunchAgent plist into ~/Library/LaunchAgents and starts it
 hermes-extensions/
-  claude-code-lane/    Hermes plugin (`claude_code_run` MCP tool) + LaunchAgent daemon
-                       (`ai.hermes.claude-code-lane`). Spawns `claude -p` instances in
-                       arbitrary directories as kanban workers (assignee=claude-code).
-                       Has its own `install.sh`; see hermes-extensions/claude-code-lane/README.md.
+  geo-http-tools/  Hermes plugin exposing Geo's localhost HTTP API as `geo_*` tools
+  brain-vault/     file-native brain vault tools (see Brains track)
 ```
 
 Install:
