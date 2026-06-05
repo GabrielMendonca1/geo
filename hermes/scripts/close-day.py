@@ -174,25 +174,6 @@ def load_oauth_token() -> str | None:
     return _token_from_auth_json() or _token_from_keychain()
 
 
-def load_geo_client():
-    for path in CLIENT_CANDIDATES:
-        if path.exists():
-            spec = importlib.util.spec_from_file_location("geo_client", str(path))
-            mod = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(mod)
-            return mod
-    raise RuntimeError("geo client.py not found in any known location")
-
-
-def _strip_frontmatter(md: str) -> str:
-    text = md or ""
-    if text.startswith("---"):
-        end = text.find("---", 3)
-        if end != -1:
-            text = text[end + 3 :]
-    return text.strip()
-
-
 def _fmt_anchor(anchor: str, tz: ZoneInfo) -> str:
     try:
         dt = datetime.fromisoformat(anchor.replace("Z", "+00:00")).astimezone(tz)
