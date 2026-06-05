@@ -284,175 +284,39 @@ async def _link_block_to_day(a: dict) -> Any:
     return {"id": _rel_id(path), "day": a["day"]}
 
 
-def _build_task_body(a: dict) -> dict:
-    kind = a.get("kind") or "task"
-    body: dict[str, Any] = {"kind": kind}
-    if kind == "task":
-        if "due" in a:
-            body["due"] = a["due"]
-        if "estimated_minutes" in a:
-            body["estimated_minutes"] = a["estimated_minutes"]
-    elif kind == "event":
-        if "start" in a:
-            body["start"] = a["start"]
-        if "end" in a:
-            body["end"] = a["end"]
-    elif kind == "habit":
-        if "recurrence" in a:
-            body["recurrence"] = a["recurrence"]
-        if "time_of_day" in a:
-            body["time_of_day"] = a["time_of_day"]
-        if "selected_weekdays" in a:
-            body["selected_weekdays"] = a["selected_weekdays"]
-    elif kind == "milestone":
-        if "target" in a:
-            body["target"] = a["target"]
-    return body
+# --- Task ops (file-native via tasks_fs; KEEP-COMPUTE stays app-side) -------
 
 
-def _notes_from(a: dict) -> Any:
-    notes = a.get("notes")
-    if notes is None and isinstance(a.get("body"), str):
-        notes = a["body"]
-    return notes
+async def _create_task(a: dict) -> Any:
+    return await asyncio.to_thread(tasks_fs.create_task, a)
 
 
-async def _create_task(c: GeoAPIClient, a: dict) -> Any:
-    payload: dict[str, Any] = {
-        "title": a["title"],
-        "body": _build_task_body(a),
-    }
-    notes = _notes_from(a)
-    if notes is not None:
-        payload["notes"] = notes
-    linked = a.get("linked_block_id") or a.get("block_id")
-    if linked is not None:
-        payload["linked_block_id"] = linked
-    if a.get("priority") is not None:
-        payload["priority"] = a["priority"]
-    tag_ids = a.get("tag_ids") or a.get("tags")
-    if tag_ids is not None:
-        payload["tag_ids"] = tag_ids
-    if a.get("reminders") is not None:
-        payload["reminders"] = a["reminders"]
-    return await c.post("/tasks", json=payload)
+async def _update_task(a: dict) -> Any:
+    return await asyncio.to_thread(tasks_fs.update_task, a)
 
 
-async def _update_task(c: GeoAPIClient, a: dict) -> Any:
-    payload: dict[str, Any] = {}
-    for k in ("title", "notes", "status", "priority"):
-        if k in a:
-            payload[k] = a[k]
-    linked = a.get("linked_block_id") or a.get("block_id")
-    if linked is not None:
-        payload["linked_block_id"] = linked
-    tag_ids = a.get("tag_ids") or a.get("tags")
-    if tag_ids is not None:
-        payload["tag_ids"] = tag_ids
-    if "body" in a and isinstance(a["body"], dict):
-        payload["body"] = a["body"]
-    elif a.get("kind") is not None:
-        payload["body"] = _build_task_body(a)
-    return await c.patch(f"/tasks/{a['id']}", json=payload)
+async def _complete_task(a: dict) -> Any:
+    return await asyncio.to_thread(tasks_fs.complete_task, a["id"])
 
 
-async def _complete_task(c: GeoAPIClient, a: dict) -> Any:
-    return await c.post(f"/tasks/{a['id']}/complete", json={})
+async def _add_reminder(a: dict) -> Any:
+    return await asyncio.to_thread(tasks_fs.add_reminder, a)
 
 
-async def _add_reminder(c: GeoAPIClient, a: dict) -> Any:
-    trigger = a.get("trigger", "absolute")
-    body: dict[str, Any] = {"trigger": trigger}
-    if trigger == "offset":
-        body["offset"] = a["offset"]
-    else:
-        body["at"] = a["at"]
-    return await c.post(f"/tasks/{a['id']}/reminder", json=body)
+async def _record_habit_occurrence(a: dict) -> Any:
+    return await asyncio.to_thread(tasks_fs.record_habit_occurrence, a)
 
 
-async def _ai_parse_task(c: GeoAPIClient, a: dict) -> Any:
-    return await c.post("/tasks/parse", json={"input": a["text"]})
+async def _find_tasks(a: dict) -> Any:
+    return await asyncio.to_thread(tasks_fs.find_tasks, a)
 
 
-async def _create_tag(c: GeoAPIClient, a: dict) -> Any:
-    body: dict[str, Any] = {"name": a["name"]}
-    if a.get("color") is not None:
-        body["color"] = a["color"]
-    return await c.post("/tags", json=body)
+async def _resolve_task(a: dict) -> Any:
+    return await asyncio.to_thread(tasks_fs.resolve_task, a)
 
 
-def _habit_date(at: Any) -> str:
-    from datetime import datetime, timezone
-    if isinstance(at, str) and at:
-        return at[:10]
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
-
-
-async def _record_habit_occurrence(c: GeoAPIClient, a: dict) -> Any:
-    date = _habit_date(a.get("at"))
-    return await c.post(f"/days/{date}/habit", json={"id": a["habit_id"]})
-
-
-# --- Semantic task tools (find-before-create dedup) ------------------------
-#
-# GET /v1/tasks returns a BARE JSON ARRAY of task summaries:
-#   [ {id, title, status, kind, priority, anchor, linked_block_id?}, ... ]
-# `status` is "pending" | "completed"; `kind` is task|event|habit|milestone;
-# `anchor` is the ISO 8601 anchor date (there is no top-level `due` — `due`
-# only appears nested in a task's `body` on the detail endpoint). Passing
-# status="pending" returns only pending tasks. Scoring lives in matching.py.
-
-_TASK_VIEW_KEYS = ("id", "title", "status", "kind", "anchor")
-
-
-async def _fetch_tasks(c: GeoAPIClient, include_completed: bool) -> list:
-    """Pending tasks (and completed too if asked) as a plain list of dicts."""
-    resp = await c.get("/tasks", status=None if include_completed else "pending")
-    if isinstance(resp, list):
-        return resp
-    if isinstance(resp, dict):
-        return resp.get("tasks") or []
-    return []
-
-
-def _task_view(task: dict) -> dict:
-    view = {k: task[k] for k in _TASK_VIEW_KEYS if k in task}
-    if "score" in task:
-        view["score"] = task["score"]
-    return view
-
-
-async def _find_tasks(c: GeoAPIClient, a: dict) -> Any:
-    tasks = await _fetch_tasks(c, bool(a.get("include_completed", False)))
-    ranked = rank(a["query"], tasks, limit=int(a.get("limit", 5)))
-    return {"matches": [_task_view(t) for t in ranked]}
-
-
-async def _resolve_task(c: GeoAPIClient, a: dict) -> Any:
-    tasks = await _fetch_tasks(c, bool(a.get("include_completed", False)))
-    ranked = rank(a["query"], tasks)
-    if not ranked:
-        return {"matched": False, "candidates": []}
-    best = ranked[0]
-    second = ranked[1]["score"] if len(ranked) > 1 else 0.0
-    clear = len(ranked) == 1 or best["score"] >= second + 0.15
-    if best["score"] >= 0.6 and clear:
-        return {"matched": True, "task": _task_view(best), "score": best["score"]}
-    return {"matched": False, "candidates": [_task_view(t) for t in ranked[:3]]}
-
-
-async def _upsert_task(c: GeoAPIClient, a: dict) -> Any:
-    threshold = float(a.get("match_threshold", 0.82))
-    if not bool(a.get("force_new", False)):
-        ranked = rank(a["title"], await _fetch_tasks(c, include_completed=False))
-        if ranked:
-            best = ranked[0]
-            kind_ok = a.get("kind") in (None, best.get("kind"))
-            if best["score"] >= threshold and kind_ok:
-                updated = await _update_task(c, {**a, "id": best["id"]})
-                return {"action": "updated", "task": updated, "matched_score": best["score"]}
-    created = await _create_task(c, a)
-    return {"action": "created", "task": created}
+async def _upsert_task(a: dict) -> Any:
+    return await asyncio.to_thread(tasks_fs.upsert_task, a)
 
 
 WRITE_TOOLS: list[dict] = [
@@ -754,37 +618,6 @@ WRITE_TOOLS: list[dict] = [
             "required": ["id"],
         },
         "handler": _wrap(_add_reminder),
-    },
-    {
-        "name": "geo_ai_parse_task",
-        "description": "Send free-form text to Geo's AI task parser. Returns structured {title, due, tags, ...}.",
-        "parameters": {
-            "type": "object",
-            "properties": {"text": {"type": "string"}},
-            "required": ["text"],
-        },
-        "handler": _wrap(_ai_parse_task),
-    },
-    {
-        "name": "geo_create_tag",
-        "description": "Create a tag (idempotent on `name`).",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "name": {"type": "string"},
-                "color": {
-                    "type": "object",
-                    "description": "Optional RGB color, floats 0..1: {red, green, blue}.",
-                    "properties": {
-                        "red": {"type": "number"},
-                        "green": {"type": "number"},
-                        "blue": {"type": "number"},
-                    },
-                },
-            },
-            "required": ["name"],
-        },
-        "handler": _wrap(_create_tag),
     },
     {
         "name": "geo_record_habit_occurrence",
