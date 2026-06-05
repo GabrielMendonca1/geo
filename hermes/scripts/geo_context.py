@@ -113,5 +113,102 @@ def render_brain_context() -> str:
     return "\n".join(lines) if lines else "(vault vazio)"
 
 
+def _iter_block_files():
+    if not BLOCKS_DIR.exists():
+        return
+    for root, dirs, files in os.walk(BLOCKS_DIR):
+        dirs[:] = [d for d in dirs if d != "Attachments"]
+        for fn in files:
+            if fn.endswith(".md"):
+                yield Path(root) / fn
+
+
+def _strip_frontmatter(md: str) -> str:
+    text = md or ""
+    if text.startswith("---"):
+        end = text.find("---", 3)
+        if end != -1:
+            text = text[end + 3:]
+    return text.strip()
+
+
+def today_str(tz=None) -> str:
+    return (datetime.now(tz) if tz else datetime.now()).date().isoformat()
+
+
+def day_context_today(date_iso: str | None = None) -> str:
+    date_iso = date_iso or today_str()
+    token = f"[[{date_iso}]]"
+    parts: list[str] = []
+    for p in _iter_block_files():
+        try:
+            text = p.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        if token in text:
+            body = _strip_frontmatter(text)
+            if body:
+                parts.append(body)
+    return "\n\n".join(parts)
+
+
+def _task_anchor(body: dict) -> str | None:
+    return body.get("due") or body.get("start") or body.get("target")
+
+
+def _read_tasks() -> list[dict]:
+    rows: list[dict] = []
+    if not TASKS_DIR.exists():
+        return rows
+    for p in sorted(TASKS_DIR.glob("*.json")):
+        try:
+            d = json.loads(p.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        body = d.get("body") or {}
+        rows.append({
+            "title": d.get("title"),
+            "kind": body.get("kind") or "task",
+            "anchor": _task_anchor(body),
+            "status": d.get("status"),
+            "priority": d.get("priority"),
+        })
+    return rows
+
+
+def _anchor_date(anchor: str | None) -> str | None:
+    if not anchor:
+        return None
+    try:
+        return datetime.fromisoformat(anchor.replace("Z", "+00:00")).date().isoformat()
+    except Exception:
+        return anchor[:10]
+
+
+def tasks_for_day(date_iso: str) -> list[dict]:
+    return [t for t in _read_tasks() if _anchor_date(t.get("anchor")) == date_iso]
+
+
+def upcoming_tasks(within_days: int = 7) -> list[dict]:
+    today = datetime.now(timezone.utc).date()
+    out: list[dict] = []
+    for t in _read_tasks():
+        if t.get("status") != "pending":
+            continue
+        d = _anchor_date(t.get("anchor"))
+        if not d:
+            continue
+        try:
+            ad = datetime.fromisoformat(d).date()
+        except Exception:
+            continue
+        if today <= ad <= today.replace() and ad <= today and False:
+            pass
+        if today <= ad <= (today.fromordinal(today.toordinal() + within_days)):
+            out.append(t)
+    out.sort(key=lambda t: t.get("anchor") or "9999")
+    return out
+
+
 if __name__ == "__main__":
     print(render_brain_context())
