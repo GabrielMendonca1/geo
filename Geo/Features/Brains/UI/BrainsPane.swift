@@ -558,7 +558,7 @@ private struct BrainBoardCard: View {
     private func resizeGesture(_ h: Handle) -> some Gesture {
         DragGesture(minimumDistance: 1, coordinateSpace: .named("board"))
             .onChanged { value in
-                let start = dragStartFrame ?? layout.frame
+                let start = dragStartFrame ?? frame
                 if dragStartFrame == nil { dragStartFrame = start }
                 var r = start
                 let dx = value.translation.width, dy = value.translation.height
@@ -566,9 +566,12 @@ private struct BrainBoardCard: View {
                 if h.movesRight { r.size.width  = start.width  + dx }
                 if h.movesTop   { r.origin.y = start.minY + dy; r.size.height = start.maxY - r.origin.y }
                 if h.movesBottom { r.size.height = start.height + dy }
-                layout.frame = clampAnchored(r, anchor: h, start: start)
+                liveFrame = clampAnchored(r, anchor: h, start: start)
             }
-            .onEnded { _ in dragStartFrame = nil; onCommit() }
+            .onEnded { _ in
+                if let f = liveFrame { layout.frame = f }
+                dragStartFrame = nil; liveFrame = nil; onCommit()
+            }
     }
 
     private func clampAnchored(_ rect: CGRect, anchor h: Handle, start: CGRect) -> CGRect {
