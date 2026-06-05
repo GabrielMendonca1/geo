@@ -512,16 +512,16 @@ private struct BrainBoardCard: View {
 
     var body: some View {
         cardSurface
-            .frame(width: layout.frame.width, height: layout.frame.height)
+            .frame(width: frame.width, height: frame.height)
             .overlay(alignment: .topLeading) { nameChip }
+            .clipShape(RoundedRectangle(cornerRadius: corner))
             .overlay {
                 ResizeHandleLayer(visible: hover, gestureFor: { h in AnyGesture(resizeGesture(h).map { _ in () }) })
             }
-            .clipShape(RoundedRectangle(cornerRadius: corner))
             .overlay(RoundedRectangle(cornerRadius: corner)
                 .strokeBorder(hover ? Palette.foreground.opacity(0.28) : Palette.foreground.opacity(0.12), lineWidth: 1))
             .shadow(color: .black.opacity(hover ? 0.16 : 0), radius: hover ? 14 : 0, y: hover ? 6 : 0)
-            .position(x: layout.frame.midX, y: layout.frame.midY)
+            .position(x: frame.midX, y: frame.midY)
             .onHover { hover = $0 }
     }
 
