@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# geo-http-tools — install the Hermes plugin.
-#   - Plugin:  ~/.hermes/plugins/geo-http-tools/   (rsync of this dir)
+# geo-tools — install the Hermes plugin.
+#   - Plugin:  ~/.hermes/plugins/geo-tools/   (rsync of this dir)
 #
 # No LaunchAgent: this plugin is pure in-process (tools + a gateway hook).
 # Re-run after edits to push code; hermes picks up changes on next restart
-# (or `hermes plugins reload geo-http-tools` if your install supports it).
+# (or `hermes plugins reload geo-tools` if your install supports it).
 
 set -euo pipefail
 
