@@ -320,15 +320,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         container.watcher.startWatching()
         Task { @MainActor in container.nanoHermesService.start() }
 
-        if FeatureFlags.httpServerEnabled {
-            APITokenStore.shared.ensureBootstrapTokens()
-            do {
-                try container.httpServer.start()
-            } catch {
-                logger.error("Failed to start HTTP API server: \(error.localizedDescription)")
-            }
-        }
-
         PermissionRegistry.shared.refreshAll()
         Task { @MainActor in
             self.startProtectedMonitoringIfAuthorized()
