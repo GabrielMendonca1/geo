@@ -675,8 +675,10 @@ private struct BrainMiniGraph: View {
                     .onEnded { _ in pinchBase = 0; onZoomCommit() }
             )
             .task(id: vault.id) {
-                let g = BrainGraphBuilder.build(notes: BrainVaultStore.notes(in: vault)).graph
-                let l = MiniGraphLayout.compute(g)
+                let (g, l) = await Task.detached(priority: .userInitiated) {
+                    let g = BrainGraphBuilder.build(notes: BrainVaultStore.notes(in: vault)).graph
+                    return (g, MiniGraphLayout.compute(g))
+                }.value
                 graph = g
                 layout = l
             }
