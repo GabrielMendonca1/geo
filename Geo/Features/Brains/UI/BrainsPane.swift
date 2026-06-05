@@ -260,11 +260,10 @@ enum VaultIngest {
 
 struct BrainsPane: View {
     @StateObject private var store = BrainVaultStore()
+    @StateObject private var board = BrainBoardModel()
     @State private var showCreate = false
     @State private var openVaultId: String?
-
-    // Big cells so each graph reads as a graph, not a thumbnail — a wall of graphs.
-    private let columns = [GridItem(.adaptive(minimum: 340, maximum: 460), spacing: 20)]
+    @State private var paneSize: CGSize = .zero
 
     var body: some View {
         Pane {
@@ -272,7 +271,7 @@ struct BrainsPane: View {
                 if let id = openVaultId, let vault = store.vaults.first(where: { $0.id == id }) {
                     BrainDetailView(vault: vault, onBack: { openVaultId = nil; store.reload() })
                 } else {
-                    listView
+                    boardView
                 }
             }
         }
@@ -280,30 +279,38 @@ struct BrainsPane: View {
         .task { store.reload() }
     }
 
-    private var listView: some View {
-        VStack(spacing: 0) {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Brains").font(.system(size: 24, weight: .bold)).foregroundStyle(Palette.foreground)
-                    Text("\(store.vaults.count) vault\(store.vaults.count == 1 ? "" : "s") · ~/Geo/Brains")
-                        .font(.system(size: 11)).foregroundStyle(Palette.tertiaryForeground)
-                }
-                Spacer()
-                IconButton(system: "folder", help: "Reveal ~/Geo/Brains in Finder") { NSWorkspace.shared.open(BrainVaultStore.root) }
-                Button { showCreate = true } label: { Label("New Brain", systemImage: "plus") }.buttonStyle(PillButtonStyle())
-            }
-            .padding(.horizontal, 24).padding(.top, 20).padding(.bottom, 16)
-            Rectangle().fill(Palette.border).frame(height: 1)
-            if store.vaults.isEmpty { emptyState } else {
-                ScrollView {
-                    LazyVGrid(columns: columns, spacing: 20) {
-                        ForEach(store.vaults) { vault in
-                            Button { openVaultId = vault.id } label: { BrainGraphCell(vault: vault) }.buttonStyle(.plain)
+    private var boardView: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .topLeading) {
+                Color.clear
+
+                if store.vaults.isEmpty {
+                    emptyState
+                } else {
+                    ForEach(store.vaults) { vault in
+                        if let layout = board.layouts[vault.id] {
+                            BrainBoardCard(
+                                vault: vault,
+                                layout: Binding(
+                                    get: { board.layouts[vault.id] ?? layout },
+                                    set: { board.update(vault.id, $0) }
+                                ),
+                                paneSize: geo.size,
+                                onOpen: { openVaultId = vault.id },
+                                onCommit: { board.commit(vault.id) }
+                            )
                         }
                     }
-                    .padding(24)
                 }
+
+                FloatingChrome(count: store.vaults.count,
+                               onReveal: { NSWorkspace.shared.open(BrainVaultStore.root) },
+                               onCreate: { showCreate = true })
             }
+            .coordinateSpace(name: "board")
+            .onAppear { paneSize = geo.size; board.ensure(vaults: store.vaults, pane: geo.size) }
+            .onChange(of: geo.size) { _, s in paneSize = s; board.ensure(vaults: store.vaults, pane: s) }
+            .onChange(of: store.vaults.map(\.id)) { _, _ in board.ensure(vaults: store.vaults, pane: geo.size) }
         }
     }
 
