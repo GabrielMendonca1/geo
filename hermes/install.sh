@@ -18,8 +18,6 @@ DEST_DIR="${HERMES_HOME:-$HOME/.hermes}"
 LAUNCH_AGENTS_DIR="$HOME/Library/LaunchAgents"
 TS="$(date +%Y%m%d-%H%M%S)"
 
-GEO_MCP_BRIDGE_BIN="${GEO_MCP_BRIDGE_BIN:-$REPO_ROOT/geo-mcp-bridge/geo-mcp-bridge}"
-
 mkdir -p "$DEST_DIR" "$DEST_DIR/memories" "$DEST_DIR/logs" "$LAUNCH_AGENTS_DIR"
 
 copy_with_backup() {
