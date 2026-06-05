@@ -186,6 +186,7 @@ enum VaultIngest {
 // MARK: - Pane (in-pane navigation — no NavigationStack; this window has a hidden title bar)
 
 struct BrainsPane: View {
+    @Environment(\.tabRouter) private var tabRouter
     @StateObject private var store = BrainVaultStore()
     @State private var selectedVaultId: String?
     @State private var graph = BlockGraph(nodes: [], edges: [])
