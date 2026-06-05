@@ -205,55 +205,20 @@ def _fmt_tasks(tasks: list[dict], tz: ZoneInfo) -> str:
     return "\n".join(lines)
 
 
-async def fetch_geo(geo) -> dict:
-    client = await geo.GeoAPIClient.get_instance()
+async def fetch_geo() -> dict:
     tz = _timezone()
-    today_str = datetime.now(tz).date().isoformat()
+    today = datetime.now(tz).date().isoformat()
 
-    day = None
-    day_context = ""
-    try:
-        day = await client.get("/days/today")
-    except Exception as e:
-        log(f"days/today failed: {e}")
-
-    if isinstance(day, dict) and day.get("block_ids"):
-        try:
-            blocks = await client.get("/blocks")
-            by_id = {b["id"]: b.get("title") for b in blocks if isinstance(b, dict)}
-        except Exception as e:
-            log(f"blocks list failed: {e}")
-            by_id = {}
-        parts = []
-        for bid in day.get("block_ids", []):
-            title = by_id.get(bid)
-            if not title:
-                continue
-            try:
-                body = await client.get("/blocks/by-title", title=title)
-                parts.append(_strip_frontmatter(body.get("markdown", "")))
-            except Exception as e:
-                log(f"block fetch failed ({title}): {e}")
-        day_context = "\n\n".join(p for p in parts if p)
-
-    today_tasks: list[dict] = []
-    week_tasks: list[dict] = []
-    try:
-        week_tasks = await client.get("/tasks/upcoming", within_days=7) or []
-        if not isinstance(week_tasks, list):
-            week_tasks = []
-    except Exception as e:
-        log(f"tasks/upcoming failed: {e}")
+    day_context = geo_context.day_context_today(today)
+    week_tasks = geo_context.upcoming_tasks(within_days=7)
     today_tasks = [
-        t for t in week_tasks
-        if isinstance(t, dict) and _anchor_date(t.get("anchor", ""), tz) == today_str
+        t for t in week_tasks if _anchor_date(t.get("anchor", ""), tz) == today
     ]
 
-    await geo.GeoAPIClient.reset_instance()
     return {
         "tz": tz,
-        "today_str": today_str,
-        "day": day,
+        "today_str": today,
+        "day": None,
         "day_context": day_context,
         "today_tasks": today_tasks,
         "week_tasks": week_tasks,
