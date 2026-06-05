@@ -90,9 +90,20 @@ platforms:
 # Models
 # ---------------------------------------------------------------------------
 model:
+  # default = the GATEWAY's inference model. Runs on the `openai-codex` provider
+  # (gpt-5.5, sub-backed) — NOT Claude. This key MUST be present: agent-mode cron
+  # jobs resolve job.model -> model.default, and an absent default yields an empty
+  # string that 400s with "Codex Responses request 'model' must be a non-empty
+  # string" (interactive turns have a provider-default fallback the cron path lacks).
+  default: gpt-5.5
+  # full / nano = CLAUDE slugs used ONLY by the standalone scripts (whatsapp-extractor
+  # Opus decide, day/close briefings, geo-context Haiku hook). They call Anthropic
+  # first-party via the Keychain "Claude Code-credentials" Max-OAuth token and never
+  # touch the gateway provider. Gateway-on-Claude is intentionally NOT used: a real
+  # ~28K-token gateway turn exhausts the Max allowance -> 400 out-of-extra-usage.
+  # (See memory hermes-model-provider for the full empirical write-up.)
   full: claude-opus-4-8
   nano: claude-haiku-4-5
-  # ANTHROPIC_API_KEY is read from ~/.hermes/.env
 
 # ---------------------------------------------------------------------------
 # Timezone (mirrors GEO_CLAW_TZ default in geo-claw)
