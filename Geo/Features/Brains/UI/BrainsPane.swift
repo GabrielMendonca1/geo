@@ -647,6 +647,9 @@ private struct ScrollZoomCatcher: NSViewRepresentable {
             onZoom?(exp(raw * 0.01))
         }
         override func magnify(with e: NSEvent) { onZoom?(1 + e.magnification) }
+        override func mouseDown(with e: NSEvent) { nextResponder?.mouseDown(with: e) }
+        override func mouseDragged(with e: NSEvent) { nextResponder?.mouseDragged(with: e) }
+        override func mouseUp(with e: NSEvent) { nextResponder?.mouseUp(with: e) }
     }
 }
 
