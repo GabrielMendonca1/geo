@@ -21,9 +21,9 @@ from .destructive import DESTRUCTIVE_TOOLS, get_inbound_hook
 from .tools_read import READ_TOOLS
 from .tools_write import WRITE_TOOLS
 
-logger = logging.getLogger("plugin.geo-http-tools")
+logger = logging.getLogger("plugin.geo-tools")
 
-TOOLSET = "geo_http"
+TOOLSET = "geo"
 
 _DISABLED = frozenset({
     "geo_move_block", "geo_link_block_to_day", "geo_update_task",
