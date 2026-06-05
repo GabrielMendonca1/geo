@@ -48,8 +48,6 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
             return "sparkles"
         case .nanoHermes:
             return "antenna.radiowaves.left.and.right"
-        case .apiAccess:
-            return "key.horizontal"
         case .data:
             return "externaldrive"
         case .advanced:
