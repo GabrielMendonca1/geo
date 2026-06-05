@@ -108,9 +108,8 @@ echo
 echo "==> Done. Next steps:"
 echo "  1. Open $DEST_DIR/.env and fill in ANTHROPIC_API_KEY (and any platform tokens you plan to use)."
 echo "  2. Generate API_SERVER_KEY:  openssl rand -hex 32"
-echo "  3. Build geo-mcp-bridge if missing:  (cd $REPO_ROOT/geo-mcp-bridge && ./build.sh)"
-echo "  4. Boot hermes:              hermes gateway start"
-echo "  5. Load the sidecar LaunchAgents (re-run after every install.sh to pick up plist/code changes):"
+echo "  3. Boot hermes:              hermes gateway start"
+echo "  4. Load the sidecar LaunchAgents (re-run after every install.sh to pick up plist/code changes):"
 for plist in "$SRC_DIR"/launch-agents/*.plist; do
     [[ -e "$plist" ]] || continue
     name="$(basename "$plist" .plist)"
