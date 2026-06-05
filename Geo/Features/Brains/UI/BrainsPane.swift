@@ -723,6 +723,7 @@ private struct CreateBrainSheet: View {
                 Text("~/Geo/Brains/\(BrainVaultStore.slug(name.isEmpty ? "name" : name))").font(.system(size: 10, design: .monospaced)).foregroundStyle(Palette.tertiaryForeground)
                 Spacer()
                 Button("Cancel") { dismiss() }.buttonStyle(.plain).foregroundStyle(Palette.tertiaryForeground)
+                    .padding(.horizontal, 8).padding(.vertical, 6).contentShape(Rectangle())
                 Button("Create") { create() }.buttonStyle(PillButtonStyle()).disabled(trimmed.isEmpty)
             }
         }
