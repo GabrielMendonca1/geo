@@ -584,7 +584,7 @@ struct GraphView: View {
                 .onChange(of: externalChangeSignal) { _, signal in handleExternalSignal(signal) }
                 .onChange(of: simulation.isSettled) { _, settled in handleSettledChange(settled) }
                 .onChange(of: forcesTuple) { _, _ in handleForcesChange() }
-                .onChange(of: settings) { _, newSettings in Self.saveSettings(newSettings); recomputeVisibilityCache() }
+                .onChange(of: settings) { _, newSettings in if persistsSettings { Self.saveSettings(newSettings) }; recomputeVisibilityCache() }
                 .onChange(of: hoverNodeID) { _, _ in recomputeFocusCache() }
                 .onChange(of: selectedNodeID) { _, _ in recomputeFocusCache() }
                 .onChange(of: settings.colorBy) { _, _ in settings.hiddenGroups.removeAll() }
