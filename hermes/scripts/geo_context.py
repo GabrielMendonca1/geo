@@ -86,10 +86,11 @@ def gather_brain_context() -> dict:
             due = body.get("due") or body.get("target") or body.get("start") or ""
             open_tasks.append((title, due[:10] if isinstance(due, str) else ""))
 
+    moc_titles = [m for m in moc_titles if m.startswith("MOC")]
     return {
-        "moc_titles": moc_titles,
+        "moc_titles": moc_titles[:40],
         "block_titles": block_titles[:_MAX_BLOCK_TITLES],
-        "open_tasks": open_tasks,
+        "open_tasks": open_tasks[:40],
     }
 
 
