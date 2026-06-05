@@ -49,7 +49,7 @@ def _register_all(ctx) -> None:
             description=tool["description"],
             emoji="",
         )
-    logger.info("geo-http-tools: registered %d tools (%d disabled)",
+    logger.info("geo-tools: registered %d tools (%d disabled)",
                 len(all_tools), len(_DISABLED))
 
 
