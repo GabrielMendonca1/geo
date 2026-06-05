@@ -90,20 +90,28 @@ platforms:
 # Models
 # ---------------------------------------------------------------------------
 model:
-  # default = the GATEWAY's inference model. Runs on the `openai-codex` provider
-  # (gpt-5.5, sub-backed) — NOT Claude. This key MUST be present: agent-mode cron
-  # jobs resolve job.model -> model.default, and an absent default yields an empty
-  # string that 400s with "Codex Responses request 'model' must be a non-empty
-  # string" (interactive turns have a provider-default fallback the cron path lacks).
-  default: gpt-5.5
-  # full / nano = CLAUDE slugs used ONLY by the standalone scripts (whatsapp-extractor
-  # Opus decide, day/close briefings, geo-context Haiku hook). They call Anthropic
-  # first-party via the Keychain "Claude Code-credentials" Max-OAuth token and never
-  # touch the gateway provider. Gateway-on-Claude is intentionally NOT used: a real
-  # ~28K-token gateway turn exhausts the Max allowance -> 400 out-of-extra-usage.
-  # (See memory hermes-model-provider for the full empirical write-up.)
+  # GATEWAY primary = Claude Opus on Gabriel's Claude Max sub (first-party OAuth,
+  # Keychain "Claude Code-credentials"). REQUIRES the HERMES-GEO fork in
+  # agent/anthropic_adapter.py (~line 752: capital "User-Agent" so the SDK doesn't
+  # double-stamp the UA into "Anthropic/Python ..., claude-cli/..." — a polluted UA
+  # makes Anthropic bill it as API/extra-usage instead of the sub). Re-apply that
+  # one-liner after every `hermes update`. default MUST be present (agent-mode crons
+  # resolve job.model -> model.default; empty default 400s the codex path).
+  provider: anthropic
+  default: claude-opus-4-8
+  # full / nano = CLAUDE slugs the standalone scripts use directly (whatsapp-extractor
+  # Opus decide, day/close briefings, geo-context Haiku hook) via the same Max-OAuth
+  # Keychain token. Independent of the gateway provider.
   full: claude-opus-4-8
   nano: claude-haiku-4-5
+
+# Fallback chain: when the Max allowance is hit (rare, only on heavy-dev-day
+# collisions), the gateway auto-drops to codex instead of hard-failing. Verified:
+# opus 400 out-of-extra-usage -> fallback=True -> gpt-5.5 answers. `hermes fallback list`.
+fallback_providers:
+  - provider: openai-codex
+    model: gpt-5.5
+    base_url: https://chatgpt.com/backend-api/codex
 
 # ---------------------------------------------------------------------------
 # Timezone (mirrors GEO_CLAW_TZ default in geo-claw)
