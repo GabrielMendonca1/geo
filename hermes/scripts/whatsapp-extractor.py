@@ -303,16 +303,6 @@ def _read_env_value(key: str) -> str | None:
     return None
 
 
-def load_geo_client():
-    for path in CLIENT_CANDIDATES:
-        if path.exists():
-            spec = importlib.util.spec_from_file_location("geo_client", str(path))
-            mod = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(mod)
-            return mod
-    raise RuntimeError("geo client.py not found in any known location")
-
-
 def _is_empty_record(rec: dict) -> bool:
     if rec.get("type") == "unknown" and not (rec.get("text") or "").strip():
         return True
