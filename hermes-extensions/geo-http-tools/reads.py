@@ -355,21 +355,26 @@ def _build_graph(limit: Optional[int] = None) -> dict:
             {"id": r["id"], "title": r["title"], "content": r["content"]}
             for r in _scan_files(limit)
         ]
+    rows = [r for r in rows if not r["id"].startswith("Daily/")]
     by_title = {nfc(r["title"]): r["id"] for r in rows}
     ids = {r["id"] for r in rows}
     nodes = [{"id": r["id"], "title": r["title"]} for r in rows]
     edges = []
     adj: dict[str, set] = {r["id"]: set() for r in rows}
     rev: dict[str, set] = {r["id"]: set() for r in rows}
+    has_out: set[str] = set()
     for r in rows:
-        link_titles, _ = _extract_links(r["content"])
+        link_titles, day_ids = _extract_links(r["content"])
+        if link_titles or day_ids:
+            has_out.add(r["id"])
         for lt in link_titles:
             tgt = by_title.get(nfc(lt))
             if tgt and tgt in ids and tgt != r["id"]:
                 edges.append({"source": r["id"], "target": tgt})
                 adj[r["id"]].add(tgt)
                 rev[tgt].add(r["id"])
-    return {"nodes": nodes, "edges": edges, "_adj": adj, "_rev": rev, "_by_title": by_title}
+    return {"nodes": nodes, "edges": edges, "_adj": adj, "_rev": rev,
+            "_by_title": by_title, "_has_out": has_out}
 
 
 def graph_snapshot(limit: Optional[int] = None) -> dict:
