@@ -588,16 +588,26 @@ private struct BrainBoardCard: View {
     private var moveOrTap: some Gesture {
         DragGesture(minimumDistance: 0, coordinateSpace: .named("board"))
             .onChanged { value in
-                if moveStartOrigin == nil { moveStartOrigin = layout.frame.origin }
+                if moveStartOrigin == nil { moveStartOrigin = frame.origin }
                 if hypot(value.translation.width, value.translation.height) > tapSlop { didDrag = true }
                 guard didDrag, let o = moveStartOrigin else { return }
-                layout.frame.origin = CGPoint(x: o.x + value.translation.width, y: o.y + value.translation.height)
+                var r = frame
+                r.origin = clampOrigin(CGPoint(x: o.x + value.translation.width, y: o.y + value.translation.height), size: r.size)
+                liveFrame = r
             }
             .onEnded { value in
                 let dist = hypot(value.translation.width, value.translation.height)
-                if !didDrag && dist <= tapSlop { onOpen() } else { onCommit() }
-                moveStartOrigin = nil; didDrag = false
+                if !didDrag && dist <= tapSlop { onOpen() }
+                else { if let f = liveFrame { layout.frame = f }; onCommit() }
+                liveFrame = nil; moveStartOrigin = nil; didDrag = false
             }
+    }
+
+    private func clampOrigin(_ origin: CGPoint, size: CGSize) -> CGPoint {
+        let margin: CGFloat = 12, topInset: CGFloat = 64, minVisible: CGFloat = 60
+        let x = min(max(origin.x, margin - size.width + minVisible), max(margin, paneSize.width - minVisible))
+        let y = min(max(origin.y, topInset), max(topInset, paneSize.height - minVisible))
+        return CGPoint(x: x, y: y)
     }
 
     private var countLabel: String {
