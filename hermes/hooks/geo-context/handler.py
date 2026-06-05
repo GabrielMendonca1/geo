@@ -109,7 +109,7 @@ def _format_today(raw: Optional[str]) -> Optional[str]:
 
 
 def _format_tasks(raw: Optional[str]) -> Optional[str]:
-    """Render GET /v1/tasks (pending) as a scannable '- title (anchor · prio)' list."""
+    """Render the pending-tasks envelope as a scannable '- title (anchor · prio)' list."""
     if not raw:
         return None
     try:
