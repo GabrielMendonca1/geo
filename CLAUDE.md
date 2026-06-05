@@ -53,9 +53,9 @@ macOS productivity hub (Swift/SwiftUI, local-first) + the hermes LaunchAgent tha
 Geo/                          macOS app source (Swift/SwiftUI) — see "Geo app" below
 Geo.xcodeproj/                Xcode project
 geo-mcp-bridge/               Swift binary, thin MCP bridge for the macOS app
-hermes/                       hermes daemon config (config.yaml, SOUL.md, memories/, install.sh)
+hermes/                       hermes daemon config (config.yaml, SOUL.md, bin/cc-dispatch, install.sh)
 hermes-extensions/            custom MCP plugins + worker daemons that ship with hermes
-  claude-code-lane/           Plugin + LaunchAgent daemon — spawns `claude` CLI as kanban workers
+  brain-vault/                file-native brain vault tools (see Brains track) · geo-http-tools/ · …
 LICENSE
 ```
 
