@@ -55,7 +55,7 @@ final class HermesKanbanService: ObservableObject {
         if lastError != nil { lastError = nil }
     }
 
-    private static func scan(root: URL) -> (Bool, [KanbanTask]) {
+    private nonisolated static func scan(root: URL) -> (Bool, [KanbanTask]) {
         let fm = FileManager.default
         guard let dirs = try? fm.contentsOfDirectory(
             at: root, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]
