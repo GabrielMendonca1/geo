@@ -166,7 +166,8 @@ final class BlockFileService {
 
     func removeMarkdownFromDisk(url: URL) async throws {
         try await withCheckedThrowingContinuation { continuation in
-            queue.async { [fileManager] in
+            queue.async {
+                let fileManager = FileManager.default
                 do {
                     guard fileManager.fileExists(atPath: url.path) else {
                         continuation.resume(returning: ())
