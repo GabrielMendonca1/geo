@@ -118,19 +118,6 @@ final class AppContainer {
 
         let templateService = MainActor.assumeIsolated { TemplateService.shared }
 
-        let mcpTools = MainActor.assumeIsolated {
-            BlockTools.register(blocks: blocksAdapter, tags: tagsAdapter, days: dayStoreAdapter)
-                + TaskTools.register(tasks: tasksAdapter)
-                + DayTools.register(blocks: blocksAdapter, captures: captureAdapter)
-                + TagTools.register(tags: tagsAdapter, blocks: blocksAdapter)
-                + AITools.register()
-                + BrainTools.register()
-        }
-        let registry = MCPToolRegistry(tools: mcpTools)
-
-        let apiRouter = GeoAPIRouter(registry: registry, blocks: blocksAdapter)
-        let httpServer = GeoHTTPServer(router: apiRouter)
-
         let nanoHermesService = MainActor.assumeIsolated { HermesStatusService() }
 
         let appEnvironment = AppEnvironment(
