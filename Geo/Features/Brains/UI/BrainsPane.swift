@@ -793,8 +793,8 @@ private enum MiniGraphLayout {
         for (s, t) in edges { degree[s, default: 0] += 1; degree[t, default: 0] += 1 }
         // Small brains (a couple of notes) need bigger nodes + a tighter, more centered
         // spread so they read as a graph rather than two stray dots near the corners.
-        let fill: CGFloat = n <= 4 ? 0.58 : 0.80
-        let base: CGFloat = n <= 4 ? 6.5 : 2.8
+        let fill: CGFloat = n <= 4 ? 0.42 : 0.80
+        let base: CGFloat = n <= 4 ? 7.5 : 2.8
         var points: [UUID: CGPoint] = [:], radii: [UUID: CGFloat] = [:]
         for id in ids {
             guard let p = pos[id] else { continue }
