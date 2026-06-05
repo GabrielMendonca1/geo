@@ -257,7 +257,6 @@ def _strip_frontmatter(md: str) -> str:
     return parts[2].strip() if len(parts) >= 3 else md.strip()
 
 
-SEARCH_LIMIT = 8
 EXTRACT_TOPK = 6
 EXTRACT_BODY_CAP = 4000
 
