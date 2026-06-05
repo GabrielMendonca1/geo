@@ -74,12 +74,32 @@ final class BrainBoardModel: ObservableObject {
         guard pane.width > 0, pane.height > 0 else { return }
         var missing: [BrainVault] = []
         for v in vaults where layouts[v.id] == nil {
-            if let saved = BrainBoardStore.load(v.id) { layouts[v.id] = saved }
+            if let saved = BrainBoardStore.load(v.id) { layouts[v.id] = BrainBoardModel.clamped(saved, pane: pane) }
             else { missing.append(v) }
         }
-        guard !missing.isEmpty else { return }
+        guard !missing.isEmpty else {
+            clampAll(pane: pane)
+            return
+        }
         let flowed = BrainBoardModel.autoFlow(missing, startIndex: layouts.count, pane: pane)
         for (id, layout) in flowed { layouts[id] = layout; BrainBoardStore.save(id, layout) }
+        clampAll(pane: pane)
+    }
+
+    func clampAll(pane: CGSize) {
+        guard pane.width > 0, pane.height > 0 else { return }
+        for (id, l) in layouts {
+            let c = BrainBoardModel.clamped(l, pane: pane)
+            if c.frame != l.frame { layouts[id] = c; BrainBoardStore.save(id, c) }
+        }
+    }
+
+    static func clamped(_ layout: BrainBoardLayout, pane: CGSize) -> BrainBoardLayout {
+        let margin: CGFloat = 12, topInset: CGFloat = 64, minVisible: CGFloat = 60
+        var l = layout
+        l.x = min(max(l.x, margin - l.w + minVisible), max(margin, pane.width - minVisible))
+        l.y = min(max(l.y, topInset), max(topInset, pane.height - minVisible))
+        return l
     }
 
     func update(_ id: String, _ layout: BrainBoardLayout) { layouts[id] = layout }
