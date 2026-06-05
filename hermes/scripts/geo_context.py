@@ -12,8 +12,8 @@ app-closed:
   - block_titles: root-level blocks (excludes Daily/Semanas/Dias journal churn)
   - open_tasks  : Tasks/*.json with status != completed (title + deadline)
 
-render_brain_context() returns a compact prompt block (~500 tokens) an LLM can
-link and dedup against. Import from any cron in this dir.
+render_brain_context() returns a compact prompt block (~650 tokens at current
+vault size) an LLM can link and dedup against. Import from any cron in this dir.
 """
 
 from __future__ import annotations
