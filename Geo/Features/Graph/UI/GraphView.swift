@@ -810,14 +810,13 @@ struct GraphView: View {
 
     private var simulationCanvas: some View {
         TimelineView(.animation(paused: simulation.isSettled && draggingNodeID == nil && !hasActiveEffects)) { context in
+            let date = context.date
             Canvas(rendersAsynchronously: true) { canvasContext, size in
                 renderCanvas(canvasContext: canvasContext, size: size)
             }
-            .onChange(of: context.date) { _, date in
-                DispatchQueue.main.async {
-                    simulation.step()
-                    pruneEffects(now: date)
-                }
+            .task(id: date) {
+                simulation.step()
+                pruneEffects(now: date)
             }
         }
         .allowsHitTesting(false)
