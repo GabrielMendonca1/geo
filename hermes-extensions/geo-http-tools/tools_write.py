@@ -1,17 +1,19 @@
-"""Write tool handlers for Geo.
+"""Write tool handlers for Geo — fully file-native (the vault is truth).
 
-BLOCK writers are native filesystem ops on the Geo vault (files are truth):
-a block IS its ``.md`` file under
+BLOCK writers are native filesystem ops: a block IS its ``.md`` file under
 ``~/Library/Application Support/Geo/Blocks/`` with YAML frontmatter
 (id/type/status/layer/tags) + an inline ``[[YYYY-MM-DD]]`` day-link. The
-Geo.app FileWatcher reconciles the derived SQLite index — no HTTP call is
-needed for the app to see a native write. TASK writers stay HTTP (KEEP-COMPUTE).
+``guard`` module enforces ``BlockLayer.allowsAgentWrites`` — agents may write
+only agent/review/shared blocks, never user (Você). TASK writers delegate to
+``tasks_fs`` (``Tasks/*.json``). The Geo.app FileWatcher reconciles the derived
+SQLite index — no HTTP call is needed for the app to see a native write.
 
 Destructive ops (delete_*) live in ``destructive.py``.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import re
@@ -22,8 +24,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-from .client import GeoAPIClient, GeoError
-from .matching import rank
+from . import guard, tasks_fs
+from .client import GeoError
 
 
 def _err(msg: str) -> str:
@@ -34,11 +36,10 @@ def _ok(payload: Any) -> str:
     return json.dumps({"ok": True, "data": payload}, default=str)
 
 
-def _wrap(handler: Callable[[GeoAPIClient, dict], Any]) -> Callable:
+def _wrap(handler: Callable[[dict], Any]) -> Callable:
     async def _entry(args: dict, **_kw: Any) -> str:
         try:
-            client = await GeoAPIClient.get_instance()
-            result = await handler(client, args or {})
+            result = await handler(args or {})
             return _ok(result)
         except GeoError as e:
             return _err(str(e))
