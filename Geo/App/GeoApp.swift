@@ -232,6 +232,19 @@ struct GeoApp: App {
         .defaultSize(width: 430, height: 600)
         .windowResizability(.contentMinSize)
         .commandsRemoved()
+
+        WindowGroup("External File", id: "external-editor", for: URL.self) { $url in
+            if let url {
+                ExternalFileEditorView(url: url)
+                    .environmentObject(container.templateService)
+            } else {
+                Text("File not found")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .defaultSize(width: 720, height: 760)
+        .windowResizability(.contentMinSize)
+        .commandsRemoved()
     }
 }
 
