@@ -353,6 +353,30 @@ final class AutoFormatAndOverlaysStressTests: XCTestCase {
         XCTAssertEqual(match?.contentRange.length, 2)
     }
 
+    func testAutoFormat_singleUnderscore_isolatedPair() {
+        let raw = "_x_" as NSString
+        let engine = AutoFormatEngine()
+        let match = engine.findSingleUnderscorePattern(at: raw.length, in: raw)
+        XCTAssertNotNil(match)
+        XCTAssertEqual(match?.contentRange.length, 1)
+        XCTAssertEqual(raw.substring(with: match!.contentRange), "x")
+    }
+
+    func testAutoFormat_intraWordUnderscores_doNotFormat() {
+        let raw = "foo_bar_baz" as NSString
+        let engine = AutoFormatEngine()
+        XCTAssertNil(
+            engine.findSingleUnderscorePattern(at: raw.length, in: raw),
+            "Intra-word underscores must not auto-italicize (CommonMark guard)."
+        )
+    }
+
+    func testAutoFormat_singleUnderscore_noOpener_returnsNil() {
+        let raw = "abc_" as NSString
+        let engine = AutoFormatEngine()
+        XCTAssertNil(engine.findSingleUnderscorePattern(at: raw.length, in: raw))
+    }
+
     // MARK: - cmd+K link template
 
     func testCmdK_emptyCursor_inspect() {
