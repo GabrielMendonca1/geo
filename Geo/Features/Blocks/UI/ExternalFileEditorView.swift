@@ -129,6 +129,15 @@ final class ExternalFileEditorModel: ObservableObject {
         watcher = service
     }
 
+    func stopWatching() {
+        watcher?.stop()
+        watcher = nil
+    }
+
+    deinit {
+        watcher?.stop()
+    }
+
     private func handleExternalChange() {
         guard let document else { return }
         guard let onDisk = diskModificationDate() else { return }
