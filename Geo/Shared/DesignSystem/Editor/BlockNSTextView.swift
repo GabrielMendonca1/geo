@@ -861,6 +861,8 @@ final class BlockNSTextView: NSTextView {
                 break
             case .link:
                 break
+            case .autoLink:
+                break
             case .embed:
                 break
             case .tag:
