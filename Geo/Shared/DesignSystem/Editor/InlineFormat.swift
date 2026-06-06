@@ -535,6 +535,12 @@ enum SpanStyler {
                     ts.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: r)
                     ts.addAttribute(.geoLink, value: url, range: r)
                 }
+                if case .autoLink(let url) = style {
+                    ts.addAttribute(.foregroundColor, value: NSColor.systemBlue, range: r)
+                    ts.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: r)
+                    ts.addAttribute(.geoLink, value: url, range: r)
+                    ts.addAttribute(.geoAutoLink, value: true, range: r)
+                }
             }
         }
     }
