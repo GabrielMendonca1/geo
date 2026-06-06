@@ -66,6 +66,7 @@ enum InlineParser {
 
     private static let wikiLinkRegex = try! NSRegularExpression(pattern: "(!?)\\[\\[([^\\[\\]\\n]*)\\]\\]")
     private static let linkRegex = try! NSRegularExpression(pattern: "(?<![\\[\\\\])\\[([^\\[\\]]+)\\]\\(((?:[^()]|\\([^()]*\\))+)\\)")
+    private static let bareURLRegex = try! NSRegularExpression(pattern: "(?<![\\w@/])https?://[^\\s<>\\[\\]()]+[^\\s<>\\[\\]().,;:!?'\"]")
     private static let codeRegex = try! NSRegularExpression(pattern: "`([^`]+)`")
     private static let boldItalicRegex = try! NSRegularExpression(pattern: "\\*\\*\\*(.+?)\\*\\*\\*")
     private static let boldRegex = try! NSRegularExpression(pattern: "\\*\\*(.+?)\\*\\*")
