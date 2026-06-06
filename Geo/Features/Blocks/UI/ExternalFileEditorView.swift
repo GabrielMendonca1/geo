@@ -26,7 +26,7 @@ struct ExternalFileEditorView: View {
             }
         }
         .background(Palette.background.ignoresSafeArea())
-        .background(WindowAccessor(window: $window))
+        .background(WindowReflection(window: $window))
         .navigationTitle(url.deletingPathExtension().lastPathComponent)
         .onAppear { model.load() }
         .onDisappear {
