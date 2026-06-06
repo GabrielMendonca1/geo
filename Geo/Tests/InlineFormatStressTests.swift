@@ -197,4 +197,54 @@ final class InlineFormatStressTests: XCTestCase {
         let (_, spans) = InlineParser.parse("$x\ny$")
         XCTAssertFalse(hasMath(spans), "Inline math must not cross newlines.")
     }
+
+    private func hasAutoLink(_ spans: [InlineSpan]) -> Bool {
+        hasStyle(spans) { if case .autoLink = $0 { return true } else { return false } }
+    }
+
+    private func autoLinkURL(_ spans: [InlineSpan]) -> String? {
+        for s in spans {
+            for style in s.styles {
+                if case .autoLink(let u) = style { return u }
+            }
+        }
+        return nil
+    }
+
+    func testBareURLBecomesAutoLink() {
+        let (clean, spans) = InlineParser.parse("see https://example.com/x?a=1 now")
+        XCTAssertTrue(hasAutoLink(spans), "Bare http(s) URL should produce an auto-link. clean=\(clean)")
+        XCTAssertEqual(autoLinkURL(spans), "https://example.com/x?a=1")
+        XCTAssertEqual(clean, "see https://example.com/x?a=1 now", "Auto-link must not strip any characters.")
+    }
+
+    func testBareURLInsideCodeIsNotLinked() {
+        let (_, spans) = InlineParser.parse("`https://example.com`")
+        XCTAssertFalse(hasAutoLink(spans), "URL inside a code span must not be auto-linked.")
+        XCTAssertTrue(hasCode(spans))
+    }
+
+    func testBareURLInsideWikiIsNotLinked() {
+        let (_, spans) = InlineParser.parse("[[https://example.com|alias]]")
+        XCTAssertFalse(hasAutoLink(spans), "URL inside a wikilink must not be auto-linked.")
+        XCTAssertTrue(hasWiki(spans))
+    }
+
+    func testBareURLInsideMathIsNotLinked() {
+        let (_, spans) = InlineParser.parse("$https://example.com$")
+        XCTAssertFalse(hasAutoLink(spans), "URL inside a math span must not be auto-linked.")
+    }
+
+    func testBareURLInsideMarkdownLinkIsNotDoubleLinked() {
+        let (_, spans) = InlineParser.parse("[label](https://example.com)")
+        XCTAssertFalse(hasAutoLink(spans), "URL inside an existing markdown link must not also auto-link.")
+        XCTAssertTrue(hasLink(spans))
+    }
+
+    func testBareURLRoundTripPreservesSource() {
+        let original = "before https://example.com/path?q=1#frag after"
+        let (clean, spans) = InlineParser.parse(original)
+        let serialized = InlineSerializer.serialize(content: clean, spans: spans)
+        XCTAssertEqual(serialized, original, "Auto-link round-trip must reproduce the raw URL, never inject []().")
+    }
 }
