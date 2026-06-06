@@ -813,18 +813,20 @@ struct GraphView: View {
     }
 
     private var simulationCanvas: some View {
-        TimelineView(.animation(paused: simulation.isSettled && draggingNodeID == nil && !hasActiveEffects)) { context in
+        TimelineView(.animation(paused: !simulationActive)) { _ in
             Canvas(rendersAsynchronously: true) { canvasContext, size in
                 renderCanvas(canvasContext: canvasContext, size: size)
             }
-            .onChange(of: context.date) { _, date in
-                DispatchQueue.main.async {
-                    simulation.step()
-                    pruneEffects(now: date)
-                }
-            }
         }
         .allowsHitTesting(false)
+        .task {
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: simulationActive ? 16_000_000 : 200_000_000)
+                guard simulationActive else { continue }
+                simulation.step()
+                pruneEffects(now: Date())
+            }
+        }
     }
 
     private var scrollWheelLayer: some View {
