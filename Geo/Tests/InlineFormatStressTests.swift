@@ -247,4 +247,24 @@ final class InlineFormatStressTests: XCTestCase {
         let serialized = InlineSerializer.serialize(content: clean, spans: spans)
         XCTAssertEqual(serialized, original, "Auto-link round-trip must reproduce the raw URL, never inject []().")
     }
+
+    func testBareURLWithUnderscoresIsNotItalicized() {
+        let original = "see https://en.wikipedia.org/wiki/Foo_bar_baz now"
+        let (clean, spans) = InlineParser.parse(original)
+        XCTAssertEqual(autoLinkURL(spans), "https://en.wikipedia.org/wiki/Foo_bar_baz")
+        XCTAssertEqual(clean, original, "Underscores inside a URL must not be stripped as italic markers.")
+        XCTAssertEqual(InlineSerializer.serialize(content: clean, spans: spans), original)
+    }
+
+    func testBareURLWithSpecialCharsRoundTrips() {
+        for original in [
+            "x https://example.com/a*b*c y",
+            "x https://example.com/a~~b~~c y",
+            "x https://example.com/a==b==c y"
+        ] {
+            let (clean, spans) = InlineParser.parse(original)
+            XCTAssertEqual(clean, original, "Markup chars inside a URL must survive parse: \(original)")
+            XCTAssertEqual(InlineSerializer.serialize(content: clean, spans: spans), original, "Round-trip must reproduce: \(original)")
+        }
+    }
 }
