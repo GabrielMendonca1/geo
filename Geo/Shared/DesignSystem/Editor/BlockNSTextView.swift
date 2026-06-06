@@ -944,6 +944,8 @@ final class BlockNSTextView: NSTextView {
             ts.removeAttribute(.geoLink, range: range)
             ts.removeAttribute(.underlineStyle, range: range)
             ts.addAttribute(.foregroundColor, value: baseForeground, range: range)
+        case .autoLink:
+            break
         case .embed:
             break
         case .tag:
