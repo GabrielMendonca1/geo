@@ -217,6 +217,10 @@ struct GeoApp: App {
                 .sheet(isPresented: $showOnboarding) {
                     OnboardingPermissionsView()
                 }
+                .onReceive(NotificationCenter.default.publisher(for: .openExternalFile)) { note in
+                    guard let url = note.object as? URL else { return }
+                    openWindow(id: "external-editor", value: url)
+                }
         }
         .windowStyle(.hiddenTitleBar)
         .commands {
