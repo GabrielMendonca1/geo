@@ -236,7 +236,6 @@ struct GeoApp: App {
         WindowGroup("External File", id: "external-editor", for: URL.self) { $url in
             if let url {
                 ExternalFileEditorView(url: url)
-                    .environmentObject(container.templateService)
             } else {
                 Text("File not found")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
