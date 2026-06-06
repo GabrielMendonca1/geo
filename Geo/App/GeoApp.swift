@@ -403,6 +403,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             _ = flushSemaphore.wait(timeout: .now() + 5.0)
         }
         container.blocksStore.flushPendingMetadata()
+        MainActor.assumeIsolated { ExternalFileEditorModel.flushAll() }
         permissionStateCancellable?.cancel()
         permissionStateCancellable = nil
         container.hotkeyManager.stopMonitoring()
