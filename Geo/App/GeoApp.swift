@@ -181,6 +181,7 @@ extension EnvironmentValues {
 @main
 struct GeoApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @Environment(\.openWindow) private var openWindow
     private let container: AppContainer
     @StateObject private var blocksViewModel: BlocksViewModel
     @StateObject private var watcher: ScreenshotWatcher
