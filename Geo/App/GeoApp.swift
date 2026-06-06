@@ -366,18 +366,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             .map { $0.resolvingSymlinksInPath().standardizedFileURL }
         guard !fileURLs.isEmpty else { return }
 
-        let vaultDirectory = container.blocksStore.fileService.blocksDirectory
-            .resolvingSymlinksInPath().standardizedFileURL
-        let vaultPrefix = vaultDirectory.path.hasSuffix("/") ? vaultDirectory.path : vaultDirectory.path + "/"
-
-        for url in fileURLs where !url.path.hasPrefix(vaultPrefix) {
-            NotificationCenter.default.post(name: .openExternalFile, object: url)
-        }
-
-        let vaultURLs = fileURLs.filter { $0.path.hasPrefix(vaultPrefix) }
-        guard !vaultURLs.isEmpty else { return }
-
         Task { @MainActor in
+            let vaultDirectory = container.blocksStore.fileService.blocksDirectory
+                .resolvingSymlinksInPath().standardizedFileURL
+            let vaultPrefix = vaultDirectory.path.hasSuffix("/") ? vaultDirectory.path : vaultDirectory.path + "/"
+
+            let vaultURLs = fileURLs.filter { $0.path.hasPrefix(vaultPrefix) }
+            for url in fileURLs where !vaultURLs.contains(url) {
+                NotificationCenter.default.post(name: .openExternalFile, object: url)
+            }
+
+            guard !vaultURLs.isEmpty else { return }
             let blocksRepo = container.environment.blocksRepository
             for url in vaultURLs {
                 guard let content = try? String(contentsOf: url, encoding: .utf8) else { continue }
