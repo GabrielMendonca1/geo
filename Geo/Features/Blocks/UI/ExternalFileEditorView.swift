@@ -120,8 +120,10 @@ final class ExternalFileEditorModel: ObservableObject {
 
     private func startWatching() {
         let service = FileWatcherService(url: url)
-        service.onChange = { [weak self] _ in
-            DispatchQueue.main.async { self?.handleExternalChange() }
+        service.onChange = { [weak self] (_: [URL]) in
+            Task { @MainActor [weak self] in
+                self?.handleExternalChange()
+            }
         }
         service.start()
         watcher = service
