@@ -372,6 +372,7 @@
 		958EBC112F9DA76C00F435DA /* GraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphView.swift; sourceTree = "<group>"; };
 		958EBC1A2F9DB45100F435DA /* NodesPane.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodesPane.swift; sourceTree = "<group>"; };
 		95BF1D9F2ED489C00070D1F6 /* BlockEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Geo/Features/Blocks/UI/BlockEditor.swift; sourceTree = SOURCE_ROOT; };
+		EXTFILE0001FREF0001 /* ExternalFileEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Geo/Features/Blocks/UI/ExternalFileEditorView.swift; sourceTree = SOURCE_ROOT; };
 		95ED674C2F05D40E00463159 /* ArtifactRows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtifactRows.swift; sourceTree = "<group>"; };
 		9CBE3190120FF8FEFD73E798 /* TaskFormView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Geo/Features/Tasks/UI/TaskFormView.swift; sourceTree = SOURCE_ROOT; };
 		A10000000000000000000001 /* GeoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GeoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
