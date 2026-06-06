@@ -1726,6 +1726,7 @@
 				C4A100000000000000000024 /* CaptureViewModel.swift in Sources */,
 				CAP0A1B2C3D4E5F6080009 /* OCRsListView.swift in Sources */,
 				95BF1DA02ED489C00070D1F6 /* BlockEditor.swift in Sources */,
+				EXTFILE0001BFIL0001 /* ExternalFileEditorView.swift in Sources */,
 				BEA00000000000000000001 /* BlockEditorActions.swift in Sources */,
 				TBU000008BLD /* BlockLinkedSchedulesHeader.swift in Sources */,
 				ATTACH0001BFIL0001 /* AttachmentHandler.swift in Sources */,
