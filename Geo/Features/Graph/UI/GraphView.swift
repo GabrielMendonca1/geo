@@ -1140,7 +1140,7 @@ struct GraphView: View {
     }
 
     private func renderCanvas(canvasContext: GraphicsContext, size: CGSize) {
-        var ctx = canvasContext
+        let ctx = canvasContext
         let focused = cachedFocusedID
         let neighbors = cachedNeighbors
         let dimEverythingElse = focused != nil
