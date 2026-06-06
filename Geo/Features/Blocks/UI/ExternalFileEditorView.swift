@@ -119,11 +119,24 @@ final class ExternalFileEditorModel: ObservableObject {
 
     private func reloadFromDisk() {
         guard let document else { return }
+        let pending = document.serialize()
+        if let lastWritten, pending != lastWritten {
+            writeConflictCopy(pending)
+        }
         let contents = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
         document.loadMarkdown(contents)
         document.seedEmptyParagraphIfNeeded()
         lastWritten = contents
         modificationDate = diskModificationDate()
+    }
+
+    private func writeConflictCopy(_ markdown: String) {
+        let ts = Int(Date().timeIntervalSince1970)
+        let base = url.deletingPathExtension().lastPathComponent
+        let conflict = url.deletingLastPathComponent()
+            .appendingPathComponent("\(base).geo-conflict-\(ts)")
+            .appendingPathExtension(url.pathExtension)
+        try? markdown.write(to: conflict, atomically: true, encoding: .utf8)
     }
 
     private func startWatching() {
