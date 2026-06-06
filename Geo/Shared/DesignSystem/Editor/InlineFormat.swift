@@ -294,6 +294,8 @@ enum InlineSerializer {
                     wikiMetaSpans.append((span.range, target, anchor, isEmbed))
                 } else if case .tag = style {
                     continue
+                } else if case .autoLink = style {
+                    continue
                 } else {
                     nonLinkSpans.append(InlineSpan(range: span.range, styles: [style]))
                 }
