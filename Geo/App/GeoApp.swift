@@ -351,12 +351,26 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
-        let mdURLs = urls.filter { $0.pathExtension.lowercased() == "md" || $0.pathExtension.lowercased() == "markdown" }
-        guard !mdURLs.isEmpty else { return }
+        let supported: Set<String> = ["md", "markdown", "txt", "text"]
+        let fileURLs = urls
+            .filter { supported.contains($0.pathExtension.lowercased()) }
+            .map { $0.resolvingSymlinksInPath().standardizedFileURL }
+        guard !fileURLs.isEmpty else { return }
+
+        let vaultDirectory = container.blocksStore.fileService.blocksDirectory
+            .resolvingSymlinksInPath().standardizedFileURL
+        let vaultPrefix = vaultDirectory.path.hasSuffix("/") ? vaultDirectory.path : vaultDirectory.path + "/"
+
+        for url in fileURLs where !url.path.hasPrefix(vaultPrefix) {
+            NotificationCenter.default.post(name: .openExternalFile, object: url)
+        }
+
+        let vaultURLs = fileURLs.filter { $0.path.hasPrefix(vaultPrefix) }
+        guard !vaultURLs.isEmpty else { return }
 
         Task { @MainActor in
             let blocksRepo = container.environment.blocksRepository
-            for url in mdURLs {
+            for url in vaultURLs {
                 guard let content = try? String(contentsOf: url, encoding: .utf8) else { continue }
                 let title = url.deletingPathExtension().lastPathComponent
                 _ = try? await blocksRepo.create(title: title, markdown: content)
