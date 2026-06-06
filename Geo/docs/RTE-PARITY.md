@@ -124,15 +124,15 @@ The matrix above lists implementation file:line. The parser/styler/auto-format p
 
 **Remaining gap:** `HTMLToMarkdown` (paste conversion) and `MathRenderer` (LaTeX→Unicode) have no tests. A regression in either ships silently. Markdown round-trip stability (P4) is also not yet asserted by a dedicated fuzz suite.
 
-### Test plan to close the gap
+### Test plan to close the remaining gap
 
 Three tiers, in priority order:
 
-1. **Parser snapshots** — pairs of `(markdown_input, [EditorBlock]_expected)`. One test per row in the Block-level table. Single XCTestCase: `MarkdownBlockParserTests`.
-2. **Styler snapshots** — `(markdown_input, NSAttributedString_expected_attributes)`. One test per row in the Inline table. `InlineFormatTests`.
-3. **Round-trip fuzz** — for every `.md` file under `Resources/PreviewContent` and a corpus of real notes: `parse → serialize → parse` must produce equal block trees. `MarkdownRoundTripTests`. Single test asserts P4.
+1. **Parser snapshots** — pairs of `(markdown_input, [EditorBlock]_expected)`. Covered by [MarkdownStressTests.swift](../Tests/MarkdownStressTests.swift) / [BlockModelTests.swift](../Tests/BlockModelTests.swift). Done.
+2. **Styler snapshots** — `(markdown_input, NSAttributedString_expected_attributes)`. Covered by [InlineFormatStressTests.swift](../Tests/InlineFormatStressTests.swift). Done.
+3. **Round-trip fuzz** — for every `.md` file under `Resources/PreviewContent` and a corpus of real notes: `parse → serialize → parse` must produce equal block trees. `MarkdownRoundTripTests`. Single test asserts P4. **Still pending.**
 
-Until all three exist, this matrix is documentation, not enforcement.
+Plus the two untested helpers: `HTMLToMarkdown` and `MathRenderer`.
 
 ## Update protocol
 
