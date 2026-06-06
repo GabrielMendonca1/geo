@@ -940,6 +940,7 @@
 				RTESTATUS001A /* EditorStatusBar.swift */,
 				RTEOUTLINE01A /* OutlinePopover.swift */,
 				95BF1D9F2ED489C00070D1F6 /* BlockEditor.swift */,
+				EXTFILE0001FREF0001 /* ExternalFileEditorView.swift */,
 				BEA00000000000000000002 /* BlockEditorActions.swift */,
 				TBU000008REF /* BlockLinkedSchedulesHeader.swift */,
 				ATTACH0001FREF0002 /* AttachmentHandler.swift */,
