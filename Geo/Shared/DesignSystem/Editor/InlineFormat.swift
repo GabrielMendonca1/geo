@@ -23,6 +23,7 @@ extension NSAttributedString.Key {
     static let geoEmbed = NSAttributedString.Key("geo.embed")
     static let geoTag = NSAttributedString.Key("geo.tag")
     static let geoLink = NSAttributedString.Key("geo.link")
+    static let geoAutoLink = NSAttributedString.Key("geo.autoLink")
     static let geoMath = NSAttributedString.Key("geo.math")
     static let geoHighlight = NSAttributedString.Key("geo.highlight")
 }
