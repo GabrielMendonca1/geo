@@ -9,6 +9,7 @@ enum InlineStyle: Hashable {
     case wikiLink
     case wikiLinkWithMeta(target: String, anchor: String?, isEmbed: Bool)
     case link(url: String)
+    case autoLink(url: String)
     case math
     case highlight
     case embed
