@@ -670,6 +670,8 @@ struct GraphView: View {
 
     private var hasActiveEffects: Bool { !externalPulses.isEmpty || !removalPulses.isEmpty }
 
+    private var simulationActive: Bool { !simulation.isSettled || draggingNodeID != nil || hasActiveEffects }
+
     private func recomputeVisibilityCache() {
         let set = computeVisibleNodeIDs()
         cachedVisibleSet = set
