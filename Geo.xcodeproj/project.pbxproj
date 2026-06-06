@@ -75,6 +75,7 @@
 		958EBC162F9DA76C00F435DA /* BlockGraphService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 958EBC0D2F9DA76C00F435DA /* BlockGraphService.swift */; };
 		958EBC1B2F9DB45100F435DA /* NodesPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = 958EBC1A2F9DB45100F435DA /* NodesPane.swift */; };
 		95BF1DA02ED489C00070D1F6 /* BlockEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95BF1D9F2ED489C00070D1F6 /* BlockEditor.swift */; };
+		EXTFILE0001BFIL0001 /* ExternalFileEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EXTFILE0001FREF0001 /* ExternalFileEditorView.swift */; };
 		95ED67512F05D40E00463159 /* ArtifactRows.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95ED674C2F05D40E00463159 /* ArtifactRows.swift */; };
 		977791C379F78336E0BF892B /* ShelfStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A300000000000000000012 /* ShelfStore.swift */; };
 		9B8EFD539426AD59CE87403A /* GeistMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 17EC2E069A6DCF2DF7E7CF7E /* GeistMono-Regular.ttf */; };
