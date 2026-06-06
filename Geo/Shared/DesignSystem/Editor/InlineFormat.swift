@@ -235,7 +235,7 @@ enum InlineParser {
 
         for m in tagRegex.matches(in: markdown, range: fullRange) {
             let tagRange = m.range(at: 2)
-            if isInsideCode(tagRange) || isInsideWikiLink(tagRange) || isInsideMath(tagRange) || isInsideLinkText(tagRange) { continue }
+            if isInsideCode(tagRange) || isInsideWikiLink(tagRange) || isInsideMath(tagRange) || isInsideLinkText(tagRange) || isInsideAutoLink(tagRange) { continue }
             let name = ns.substring(with: NSRange(location: tagRange.location + 1, length: tagRange.length - 1))
             contentRanges.append((.tag(name: name), tagRange))
         }
