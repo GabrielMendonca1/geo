@@ -195,15 +195,21 @@ enum InlineParser {
             linkFullRanges.contains { NSIntersectionRange($0, range).length > 0 }
         }
 
+        var autoLinkRanges: [NSRange] = []
         for m in bareURLRegex.matches(in: markdown, range: fullRange) {
             if isInsideCode(m.range) || isInsideWikiLink(m.range) || isInsideMath(m.range) || isInsideMarkdownLink(m.range) { continue }
             let url = ns.substring(with: m.range)
             contentRanges.append((.autoLink(url: url), m.range))
+            autoLinkRanges.append(m.range)
+        }
+
+        func isInsideAutoLink(_ range: NSRange) -> Bool {
+            autoLinkRanges.contains { NSIntersectionRange($0, range).length > 0 }
         }
 
         func nestedSymmetric(_ regex: NSRegularExpression, style: InlineStyle, markerWidth: Int) {
             for m in regex.matches(in: markdown, range: fullRange) {
-                if isInsideCode(m.range) || isInsideWikiLink(m.range) || isInsideMath(m.range) { continue }
+                if isInsideCode(m.range) || isInsideWikiLink(m.range) || isInsideMath(m.range) || isInsideAutoLink(m.range) { continue }
                 let cr = m.range(at: 1)
                 contentRanges.append((style, cr))
                 markerSet.insert(integersIn: m.range.location..<(m.range.location + markerWidth))
