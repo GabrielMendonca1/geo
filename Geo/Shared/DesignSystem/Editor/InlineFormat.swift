@@ -586,7 +586,11 @@ enum SpanExtractor {
             }
 
             if let url = attrs[.geoLink] as? String {
-                styles.insert(.link(url: url))
+                if (attrs[.geoAutoLink] as? Bool) == true {
+                    styles.insert(.autoLink(url: url))
+                } else {
+                    styles.insert(.link(url: url))
+                }
             }
 
             if attrs[.geoMath] is String {
