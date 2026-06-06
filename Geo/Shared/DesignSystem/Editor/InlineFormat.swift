@@ -401,6 +401,7 @@ enum InlineSerializer {
         case .wikiLinkWithMeta: return ""
         case .math: return "$"
         case .link: return ""
+        case .autoLink: return ""
         case .highlight: return "=="
         case .embed: return ""
         case .tag: return ""
