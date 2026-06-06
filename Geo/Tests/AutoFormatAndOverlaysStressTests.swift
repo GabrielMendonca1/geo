@@ -363,11 +363,16 @@ final class AutoFormatAndOverlaysStressTests: XCTestCase {
     }
 
     func testAutoFormat_intraWordUnderscores_doNotFormat() {
-        let raw = "foo_bar_baz" as NSString
         let engine = AutoFormatEngine()
+        let closingOnWord = "foo_bar_" as NSString
         XCTAssertNil(
-            engine.findSingleUnderscorePattern(at: raw.length, in: raw),
-            "Intra-word underscores must not auto-italicize (CommonMark guard)."
+            engine.findSingleUnderscorePattern(at: closingOnWord.length, in: closingOnWord),
+            "Opening '_' is preceded by a word character, so foo_bar_baz must not auto-italicize (CommonMark guard)."
+        )
+        let trailingWord = "_bar_baz" as NSString
+        XCTAssertNil(
+            engine.findSingleUnderscorePattern(at: 5, in: trailingWord),
+            "Closing '_' is followed by a word character, so it must not auto-italicize."
         )
     }
 
