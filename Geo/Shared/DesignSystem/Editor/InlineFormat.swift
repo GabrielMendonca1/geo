@@ -220,7 +220,7 @@ enum InlineParser {
         // outer `***` markers are claimed first (avoiding the non-greedy bold
         // regex matching `**` + `*text*` + `**` and leaving stray asterisks).
         for m in boldItalicRegex.matches(in: markdown, range: fullRange) {
-            if isInsideCode(m.range) || isInsideWikiLink(m.range) || isInsideMath(m.range) { continue }
+            if isInsideCode(m.range) || isInsideWikiLink(m.range) || isInsideMath(m.range) || isInsideAutoLink(m.range) { continue }
             let cr = m.range(at: 1)
             contentRanges.append((.bold, cr))
             contentRanges.append((.italic, cr))
