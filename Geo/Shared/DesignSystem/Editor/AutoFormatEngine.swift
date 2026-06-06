@@ -146,9 +146,8 @@ struct AutoFormatEngine {
     }
 
     private func isWordCharacter(_ text: NSString, at index: Int) -> Bool {
-        let scalar = UnicodeScalar(text.character(at: index))
-        guard let scalar else { return false }
-        return CharacterSet.alphanumerics.contains(scalar) || scalar == "_"
+        let c = text.character(at: index)
+        return (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || (c >= 48 && c <= 57) || c == 95
     }
 
     func applyInlineAutoFormat(openRange: NSRange, closeRange: NSRange, contentRange: NSRange, style: InlineStyle, in textView: BlockNSTextView) {
