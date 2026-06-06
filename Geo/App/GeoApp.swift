@@ -5,6 +5,10 @@ import os.log
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "geo", category: "GeoApp")
 
+extension Notification.Name {
+    static let openExternalFile = Notification.Name("ai.geo.openExternalFile")
+}
+
 enum RepositoryError: Error, Equatable {
     case notFound
     case invalidInput
