@@ -191,6 +191,16 @@ enum InlineParser {
             linkTextRanges.contains { NSIntersectionRange($0, range).length > 0 }
         }
 
+        func isInsideMarkdownLink(_ range: NSRange) -> Bool {
+            linkFullRanges.contains { NSIntersectionRange($0, range).length > 0 }
+        }
+
+        for m in bareURLRegex.matches(in: markdown, range: fullRange) {
+            if isInsideCode(m.range) || isInsideWikiLink(m.range) || isInsideMath(m.range) || isInsideMarkdownLink(m.range) { continue }
+            let url = ns.substring(with: m.range)
+            contentRanges.append((.autoLink(url: url), m.range))
+        }
+
         func nestedSymmetric(_ regex: NSRegularExpression, style: InlineStyle, markerWidth: Int) {
             for m in regex.matches(in: markdown, range: fullRange) {
                 if isInsideCode(m.range) || isInsideWikiLink(m.range) || isInsideMath(m.range) { continue }
