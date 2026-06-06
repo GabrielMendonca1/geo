@@ -119,7 +119,7 @@ final class ExternalFileEditorModel: ObservableObject {
     }
 
     private func startWatching() {
-        let service = FileWatcherService(url: url)
+        let service = FileWatcherService(url: url.deletingLastPathComponent())
         service.onChange = { [weak self] (_: [URL]) in
             Task { @MainActor [weak self] in
                 self?.handleExternalChange()
