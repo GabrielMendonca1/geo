@@ -42,6 +42,17 @@ struct AutoFormatEngine {
                 style: .italic,
                 in: textView
             )
+            return
+        }
+
+        if let result = findSingleUnderscorePattern(at: cursor, in: nsText) {
+            applyInlineAutoFormat(
+                openRange: result.openRange,
+                closeRange: result.closeRange,
+                contentRange: result.contentRange,
+                style: .italic,
+                in: textView
+            )
         }
     }
 
