@@ -105,23 +105,24 @@ Persistence is markdown-on-disk. Frontmatter (YAML) is split out, hidden from ed
 | P3 | Frontmatter (YAML) preserve | ✅ | [BlockEditorDocument.swift:40](../Shared/DesignSystem/Editor/BlockEditorDocument.swift) `splitFrontmatter` | Hidden from editing, restored on serialize. |
 | P4 | Markdown round-trip stability | ⚠️ | — | Not currently asserted by any test. See "Test coverage" below. |
 
-## Test coverage (the real guarantee gap)
+## Test coverage
 
-The matrix above lists implementation file:line. **What it does not list, because they don't exist, are tests for the parser/styler/auto-format paths.**
+The matrix above lists implementation file:line. The parser/styler/auto-format paths are exercised by stress-test suites; the remaining gap is two render/convert helpers.
 
 | Path | Test file | Status |
 |---|---|---|
-| `MarkdownBlockParser` | — | ❌ no tests |
-| `InlineParser` / `SpanStyler` / `SpanExtractor` | — | ❌ no tests |
-| `AutoFormatEngine` | — | ❌ no tests |
+| `MarkdownBlockParser` | [MarkdownStressTests.swift](../Tests/MarkdownStressTests.swift); [BlockModelTests.swift](../Tests/BlockModelTests.swift); [BlockEditOpsStressTests.swift](../Tests/BlockEditOpsStressTests.swift) | ✅ |
+| `InlineParser` / `SpanStyler` / `SpanExtractor` | [InlineFormatStressTests.swift](../Tests/InlineFormatStressTests.swift); [BlockModelTests.swift](../Tests/BlockModelTests.swift) | ✅ |
+| `AutoFormatEngine` | [AutoFormatAndOverlaysStressTests.swift](../Tests/AutoFormatAndOverlaysStressTests.swift); [InlineFormatStressTests.swift](../Tests/InlineFormatStressTests.swift) | ✅ |
+| `BlockEditorDocument` (frontmatter, mergeIdentity) | [BlockModelTests.swift](../Tests/BlockModelTests.swift); [MarkdownStressTests.swift](../Tests/MarkdownStressTests.swift); [AutoFormatAndOverlaysStressTests.swift](../Tests/AutoFormatAndOverlaysStressTests.swift) | ✅ |
+| Block-prefix line auto-format | [BlockPrefixDetectorTests.swift](../Tests/BlockPrefixDetectorTests.swift) (38 cases) | ✅ |
 | `HTMLToMarkdown` | — | ❌ no tests |
 | `MathRenderer` | — | ❌ no tests |
-| `BlockEditorDocument` (frontmatter, mergeIdentity) | — | ❌ no tests |
 | `BlocksStore` checkbox toggle | [BlocksStoreCheckboxTests.swift](../Tests/BlocksStoreCheckboxTests.swift) | ✅ |
 | `MarkdownIndexingService` | [MarkdownIndexingServiceTests.swift](../Tests/MarkdownIndexingServiceTests.swift) | ✅ |
 | `BlockGraphService` | [BlockGraphServiceTests.swift](../Tests/BlockGraphServiceTests.swift) | ✅ |
 
-**Implication:** every ✅ in the matrix is a snapshot bet, not a guarantee. A regression in `InlineParser` that drops italics will not be caught by CI today.
+**Remaining gap:** `HTMLToMarkdown` (paste conversion) and `MathRenderer` (LaTeX→Unicode) have no tests. A regression in either ships silently. Markdown round-trip stability (P4) is also not yet asserted by a dedicated fuzz suite.
 
 ### Test plan to close the gap
 
