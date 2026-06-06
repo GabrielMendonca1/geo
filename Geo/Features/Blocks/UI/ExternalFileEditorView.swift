@@ -58,6 +58,12 @@ struct ExternalFileEditorView: View {
 
 @MainActor
 final class ExternalFileEditorModel: ObservableObject {
+    static let live = NSHashTable<ExternalFileEditorModel>.weakObjects()
+
+    static func flushAll() {
+        for model in live.allObjects { model.flush() }
+    }
+
     private let url: URL
     @Published private(set) var document: BlockEditorDocument?
 
@@ -72,6 +78,7 @@ final class ExternalFileEditorModel: ObservableObject {
 
     func load() {
         guard document == nil else { return }
+        Self.live.add(self)
         let contents = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
         modificationDate = diskModificationDate()
         lastWritten = contents
