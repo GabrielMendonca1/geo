@@ -24,8 +24,6 @@ final class BlockGraphService: @unchecked Sendable {
 
         let tagColors = await resolveTagColors()
         let result = buildGraph(from: entries, tagColors: tagColors)
-
-        logger.debug("loadGraph produced \(result.graph.nodes.count) nodes and \(result.graph.edges.count) edges")
         return result
     }
 
