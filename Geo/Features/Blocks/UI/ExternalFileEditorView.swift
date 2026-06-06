@@ -31,6 +31,7 @@ struct ExternalFileEditorView: View {
         .onAppear { model.load() }
         .onDisappear {
             model.flush()
+            model.stopWatching()
             if let closeObserver {
                 NotificationCenter.default.removeObserver(closeObserver)
             }
