@@ -526,6 +526,8 @@ struct GraphView: View {
     var onLayoutChange: (([UUID: CGPoint], Bool) -> Void)? = nil
     var isActive: (() -> Bool)? = nil
     var persistsSettings: Bool = true
+    var initialFitScale: CGFloat = 0.85
+    var maxInitialZoom: CGFloat = 2.4
     var onNodeTap: (UUID) -> Void
 
     @Environment(\.colorScheme) private var colorScheme
