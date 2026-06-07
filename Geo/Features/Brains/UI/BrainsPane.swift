@@ -330,7 +330,7 @@ struct BrainsPane: View {
         if let vault = selectedVault, vault.noteCount == 0 {
             vaultEmptyState(vault)
         } else {
-            GraphView(graph: graph, isActive: { [tabRouter] in tabRouter.selectedTab == .brains }, persistsSettings: false, initialFitScale: 0.45, maxInitialZoom: 0.6) { nodeId in
+            GraphView(graph: graph, isActive: { [tabRouter] in tabRouter.selectedTab == .brains }, persistsSettings: false, initialFitScale: 0.45, maxInitialZoom: 0.6, minZoom: 0.15) { nodeId in
                 guard let url = lookup[nodeId]?.url else { return }
                 NSWorkspace.shared.activateFileViewerSelecting([url])
             }
