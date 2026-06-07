@@ -876,7 +876,7 @@ struct GraphView: View {
         }
         let bboxW = max(maxX - minX, 1), bboxH = max(maxY - minY, 1)
         let fit = min(size.width / bboxW, size.height / bboxH) * initialFitScale
-        let newZoom = max(0.4, min(maxInitialZoom, fit))
+        let newZoom = max(minZoom, min(maxInitialZoom, fit))
         zoom = newZoom
         pendingZoom = newZoom
         pan = CGSize(width: -(minX + maxX) / 2 * newZoom, height: -(minY + maxY) / 2 * newZoom)
