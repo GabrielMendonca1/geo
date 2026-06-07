@@ -1,8 +1,8 @@
 # Installing Geo 1.0.0
 
-Geo is a native macOS productivity hub (Swift/SwiftUI, local-first) plus the **hermes** LaunchAgent that reads and writes Geo's data over MCP.
+Geo is a native macOS productivity hub (Swift/SwiftUI, local-first) plus the **hermes** LaunchAgent that reads and writes Geo's data directly over the native filesystem — the same `.md` files the app owns under `~/Library/Application Support/Geo/` (MCP and the localhost HTTP API are both retired; see `Geo/docs/adr/ADR-0002-files-are-truth-vault-native-storage.md`).
 
-> **Heads up:** this build is **unsigned** (ad-hoc). It is **not** notarized, has **no Developer ID signature**, and there is **no auto-updater** — updates are manual rebuilds. macOS Gatekeeper will flag it as coming from an "unidentified developer"; see [Gatekeeper](#gatekeeper-unidentified-developer) below.
+> **Heads up:** this build is **ad-hoc signed**. It is **not** notarized, has **no Developer ID signature**, and there is **no auto-updater** — updates are manual rebuilds. macOS Gatekeeper will flag it as coming from an "unidentified developer"; see [Gatekeeper](#gatekeeper-unidentified-developer) below. The only thing standing between this and a notarized, Gatekeeper-trusted release is a **paid Apple Developer Program membership** (for the Developer ID certificate) — see [Building a release DMG](#building-a-release-dmg).
 
 ## Requirements
 
