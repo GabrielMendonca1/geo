@@ -49,7 +49,7 @@ The built `Geo.app` is emitted under the Xcode `DerivedData` build products dire
 
 ## Install the hermes daemon
 
-hermes is the 24/7 agent LaunchAgent (`ai.hermes.gateway`) that keeps WhatsApp / Gmail / Telegram online, runs cron prompts, and serves the in-app Nano pane over HTTP+SSE on `127.0.0.1:8642`.
+hermes is the 24/7 agent LaunchAgent (`ai.hermes.gateway`) that keeps WhatsApp / Gmail / Telegram online, runs cron prompts, dispatches Claude Code workers, and backs the in-app Nano status dashboard. It shares Geo's data purely through the filesystem — no socket between the two.
 
 ```bash
 bash hermes/install.sh             # drops the plist into ~/Library/LaunchAgents and starts the gateway
