@@ -12,15 +12,15 @@ set -euo pipefail
 #                 "unidentified developer" until notarized.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-XCODE_PROJECT="$PROJECT_ROOT/Geo.xcodeproj"
-BUILD_DIR="$PROJECT_ROOT/build"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+XCODE_PROJECT="$REPO_ROOT/Geo.xcodeproj"
+BUILD_DIR="$REPO_ROOT/build"
 ARCHIVE_PATH="$BUILD_DIR/Geo.xcarchive"
 EXPORT_PATH="$BUILD_DIR/export"
 APP_NAME="${APP_NAME:-Geo}"
 DMG_NAME="${DMG_NAME:-Geo}"
 BACKGROUND_IMG="$SCRIPT_DIR/assets/dmg-background.png"
-ENTITLEMENTS="$PROJECT_ROOT/Geo/App/Geo.entitlements"
+ENTITLEMENTS="$REPO_ROOT/Geo/App/Geo.entitlements"
 SPM_CACHE="$BUILD_DIR/spm-cache"
 
 DEVELOPER_ID_APP="${DEVELOPER_ID_APP:-}"
