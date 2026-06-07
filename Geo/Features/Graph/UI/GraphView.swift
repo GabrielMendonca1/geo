@@ -528,6 +528,7 @@ struct GraphView: View {
     var persistsSettings: Bool = true
     var initialFitScale: CGFloat = 0.85
     var maxInitialZoom: CGFloat = 2.4
+    var minZoom: CGFloat = 0.4
     var onNodeTap: (UUID) -> Void
 
     @Environment(\.colorScheme) private var colorScheme
