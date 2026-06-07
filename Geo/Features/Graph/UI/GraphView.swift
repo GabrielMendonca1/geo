@@ -1091,10 +1091,10 @@ struct GraphView: View {
     private var magnificationGesture: some Gesture {
         MagnificationGesture()
             .onChanged { value in
-                pendingZoom = max(0.4, min(2.4, zoom * value))
+                pendingZoom = max(minZoom, min(2.4, zoom * value))
             }
             .onEnded { value in
-                zoom = max(0.4, min(2.4, zoom * value))
+                zoom = max(minZoom, min(2.4, zoom * value))
                 pendingZoom = zoom
                 settings.zoom = Double(zoom)
             }
