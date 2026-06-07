@@ -4,8 +4,8 @@ set -euo pipefail
 : "${NOTARY_PROFILE:?Set NOTARY_PROFILE to the notarytool keychain profile name (created via: xcrun notarytool store-credentials)}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-BUILD_DIR="$PROJECT_ROOT/build"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+BUILD_DIR="$REPO_ROOT/build"
 DMG="${1:-$BUILD_DIR/Geo.dmg}"
 
 if [ ! -f "$DMG" ]; then
