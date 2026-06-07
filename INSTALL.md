@@ -96,10 +96,10 @@ Geo is local-first. The app is the sole owner of its data on disk:
 
 ### Backups
 
-There is no built-in backup. To back up manually, copy the whole folder:
+Geo has a built-in backup: **Settings → Export Backup** writes a `Geo-Backup-<timestamp>.zip` of your whole data folder (via `ditto`) to a folder you pick; **Restore** reads one back. To back up manually instead, copy the folder:
 
 ```bash
 cp -R ~/Library/Application\ Support/Geo ~/Desktop/Geo-backup-$(date +%Y%m%d)
 ```
 
-To restore, quit Geo and copy a backup folder back into place.
+To restore manually, quit Geo and copy a backup folder back into place.
