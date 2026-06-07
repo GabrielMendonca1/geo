@@ -60,7 +60,7 @@ Runtime state lives in `~/.hermes/` (`.env` for API keys/connector creds, `SOUL.
 
 ## Gatekeeper ("unidentified developer")
 
-Because the build is unsigned, double-clicking `Geo.app` the first time will be blocked. To open it:
+Because the build is ad-hoc signed (not notarized, no Developer ID), double-clicking `Geo.app` the first time will be blocked. To open it:
 
 1. **Right-click** (or Control-click) `Geo.app` in Finder.
 2. Choose **Open**.
