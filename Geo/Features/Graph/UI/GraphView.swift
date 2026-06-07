@@ -832,7 +832,7 @@ struct GraphView: View {
 
     private var scrollWheelLayer: some View {
         ScrollWheelMonitor(isActiveCheck: { [tabRouter, isActive] in isActive?() ?? (tabRouter.selectedTab == .nodes) }) { delta in
-            let next = max(0.4, min(2.4, zoom * (1 + delta)))
+            let next = max(minZoom, min(2.4, zoom * (1 + delta)))
             zoom = next
             pendingZoom = next
             scheduleZoomPersist(next)
