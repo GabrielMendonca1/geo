@@ -7,10 +7,32 @@ Geo is a native macOS productivity hub (Swift/SwiftUI, local-first) plus the **h
 ## Requirements
 
 - macOS with Xcode + command-line tools installed.
+- `create-dmg` (for building the DMG): `brew install create-dmg`.
 
-## Build from source
+## Install from the DMG (recommended)
+
+Open `build/Geo.dmg`, then drag **Geo.app** onto the **Applications** shortcut in the window. Launch from `/Applications` (first launch needs the [Gatekeeper](#gatekeeper-unidentified-developer) right-click → Open, because this build is ad-hoc signed).
+
+## Building a release DMG
 
 From the repo root (`/Users/biel/ARC/Forge/Geo`):
+
+```bash
+bash Geo/scripts/build_dist.sh
+```
+
+With no environment set this produces a fully working **ad-hoc** signed `build/Geo.dmg` (volume named `Geo <version>`) plus a `.sha256`. To produce a **notarized, Gatekeeper-trusted** release you need a **paid Apple Developer Program membership** and its *Developer ID Application* certificate, then:
+
+```bash
+export DEVELOPER_ID_APP='Developer ID Application: <Your Name> (<TEAMID>)'
+export TEAM_ID='<TEAMID>'
+bash Geo/scripts/build_dist.sh                                  # hardened-runtime, timestamped
+NOTARY_PROFILE=<profile> bash Geo/scripts/notarize.sh build/Geo.dmg   # submit + staple
+```
+
+Tagging `v*.*.*` runs the same path in CI (`.github/workflows/release.yml`) once the Developer ID secrets are configured.
+
+## Build from source (without packaging)
 
 ```bash
 # Build the app
