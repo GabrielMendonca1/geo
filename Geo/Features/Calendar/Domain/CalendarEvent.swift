@@ -59,7 +59,8 @@ struct CalendarEvent: Identifiable, Hashable {
             startDate: block.date,
             endDate: nil,
             type: .block(block),
-            color: resolvedColor(for: block, tagsById: tagsById)
+            color: resolvedColor(for: block, tagsById: tagsById),
+            isRecurringHabit: false
         )
     }
 
