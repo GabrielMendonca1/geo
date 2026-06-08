@@ -13,7 +13,7 @@ struct CalendarEvent: Identifiable, Hashable {
     let endDate: Date?
     let type: CalendarEventType
     let color: Color
-    let isRecurringHabit: Bool
+    var isRecurringHabit: Bool = false
 
     var isMultiDay: Bool {
         guard let endDate else { return false }
