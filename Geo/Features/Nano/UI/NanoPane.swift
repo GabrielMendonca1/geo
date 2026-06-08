@@ -788,7 +788,7 @@ private func relativeTime(_ date: Date) -> String {
     return f.localizedString(for: date, relativeTo: Date())
 }
 
-// Setup + error banners --------------------------------------------------
+// Setup banner -----------------------------------------------------------
 
 private struct HermesSetupBanner: View {
     @ObservedObject var service: HermesStatusService
