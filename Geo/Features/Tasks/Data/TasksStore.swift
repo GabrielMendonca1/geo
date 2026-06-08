@@ -374,7 +374,6 @@ final class TasksStore: ObservableObject {
     }
 
     private func handleExternalChanges(_ urls: [URL]) {
-        let now = Date()
         let jsonURLs = urls.filter { $0.pathExtension.lowercased() == "json" }
         guard !jsonURLs.isEmpty else { return }
 
@@ -388,7 +387,8 @@ final class TasksStore: ObservableObject {
             timestampLock.lock()
             let lastWrite = recentWriteTimestamps[taskId]
             timestampLock.unlock()
-            if let lastWrite, now.timeIntervalSince(lastWrite) < externalWriteGracePeriod {
+            let fileModified = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? Date()
+            if let lastWrite, abs(fileModified.timeIntervalSince(lastWrite)) < externalWriteGracePeriod {
                 continue
             }
 
