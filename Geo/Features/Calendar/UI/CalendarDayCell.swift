@@ -123,6 +123,32 @@ struct CalendarDayCell: View, Equatable {
         return Palette.foreground
     }
 
+    private var habitEvents: [PositionedEvent] {
+        events.filter { $0.event.isRecurringHabit }
+    }
+
+    private var pillEvents: [PositionedEvent] {
+        events.filter { !$0.event.isRecurringHabit }
+    }
+
+    private var habitDotRowHeight: CGFloat { 8 * scale }
+
+    private var habitDotRow: some View {
+        HStack(spacing: 3 * scale) {
+            ForEach(habitEvents.prefix(6)) { positioned in
+                CalendarEventPill(event: positioned.event, position: positioned.position, scale: scale)
+                    .onTapGesture { onEventTap(positioned.event) }
+            }
+            if habitEvents.count > 6 {
+                Text("+\(habitEvents.count - 6)")
+                    .font(.system(size: 8 * scale))
+                    .foregroundStyle(Palette.tertiaryForeground)
+            }
+        }
+        .frame(height: habitDotRowHeight, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     private var availableContentHeight: CGFloat {
         let usedByHeader = dayHeaderHeight
         let usedBySpanning = spanningAreaHeight
