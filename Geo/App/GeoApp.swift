@@ -289,6 +289,11 @@ struct BlockEditorWindowWrapper: View {
                 tagsRepository: appEnvironment.tagsRepository
             )
         }
+        .onChange(of: blockId.flatMap { viewModel.block(withID: $0) } == nil) { _, isMissing in
+            if isMissing, viewModel.hasLoadedInitialSnapshot {
+                dismissWindow()
+            }
+        }
         .frame(
             minWidth: 280,
             idealWidth: 430,
