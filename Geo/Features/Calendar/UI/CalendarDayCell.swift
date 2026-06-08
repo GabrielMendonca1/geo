@@ -153,7 +153,8 @@ struct CalendarDayCell: View, Equatable {
         let usedByHeader = dayHeaderHeight
         let usedBySpanning = spanningAreaHeight
         let usedByPadding = padding
-        return max(0, rowHeight - usedByHeader - usedBySpanning - usedByPadding)
+        let usedByHabits = habitEvents.isEmpty ? 0 : habitDotRowHeight + eventSpacing
+        return max(0, rowHeight - usedByHeader - usedBySpanning - usedByPadding - usedByHabits)
     }
 
     private var maxFittingEvents: Int {
