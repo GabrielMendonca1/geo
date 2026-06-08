@@ -1235,12 +1235,6 @@ private struct BlockListRow: View {
 
             Spacer(minLength: 12)
 
-            Text("\(block.metadata.type.displayName.lowercased()) · \(block.metadata.layer.displayName.lowercased())")
-                .font(.system(size: 12))
-                .foregroundColor(.secondary)
-                .lineLimit(1)
-                .fixedSize()
-
             Text(Self.dateFormatter.string(from: block.lastEdited))
                 .font(.system(size: 12, design: .monospaced))
                 .foregroundColor(.secondary)
