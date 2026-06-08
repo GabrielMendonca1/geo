@@ -7,9 +7,13 @@ final class EditorReconciler {
     func reconcile(
         oldBlocks: [EditorBlock],
         newBlocks: [EditorBlock],
-        excludingBlockId: UUID? = nil
+        excludingBlockId: UUID? = nil,
+        postEditCaret: (blockId: UUID, caret: Int)? = nil
     ) {
-        guard let focusCoordinator else { return }
+        guard let focusCoordinator else {
+            restoreCaret(postEditCaret)
+            return
+        }
 
         var oldById: [UUID: EditorBlock] = [:]
         oldById.reserveCapacity(oldBlocks.count)
