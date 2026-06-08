@@ -12,6 +12,20 @@ struct CalendarEventPill: View {
     private var borderWidth: CGFloat { 1 * scale }
 
     var body: some View {
+        if event.isRecurringHabit {
+            habitDot
+        } else {
+            fullPill
+        }
+    }
+
+    private var habitDot: some View {
+        Circle()
+            .fill(event.color.opacity(0.85))
+            .frame(width: 6 * scale, height: 6 * scale)
+    }
+
+    private var fullPill: some View {
         HStack(spacing: 3 * scale) {
             if let iconName {
                 Image(systemName: iconName)
