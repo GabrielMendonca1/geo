@@ -54,6 +54,10 @@ struct CalendarDayCell: View, Equatable {
             }
 
             VStack(alignment: .leading, spacing: eventSpacing) {
+                if !habitEvents.isEmpty {
+                    habitDotRow
+                }
+
                 ForEach(visibleEvents) { positioned in
                     CalendarEventPill(event: positioned.event, position: positioned.position, scale: scale)
                         .frame(height: eventRowHeight)
