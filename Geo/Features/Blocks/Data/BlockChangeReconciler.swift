@@ -92,7 +92,6 @@ final class BlockChangeReconciler {
                     continue
                 }
                 let title = fileService.titleFromMarkdown(content, fallback: "", allowTodoTitle: false)
-                let resourceValues = try? url.resourceValues(forKeys: resourceKeys)
                 let date = resourceValues?.creationDate ?? Date()
                 let lastEdited = resourceValues?.contentModificationDate ?? date
                 let block = BlocksStore.Block(
