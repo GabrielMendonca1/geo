@@ -167,7 +167,7 @@ struct CalendarDayCell: View, Equatable {
             count += 1
             used += singlePillTotal
         }
-        if count < events.count {
+        if count < pillEvents.count {
             while count > 0 && used + overflowRowHeight > availableContentHeight {
                 count -= 1
                 used -= singlePillTotal
@@ -177,11 +177,11 @@ struct CalendarDayCell: View, Equatable {
     }
 
     private var visibleEvents: [PositionedEvent] {
-        return Array(events.prefix(maxFittingEvents))
+        return Array(pillEvents.prefix(maxFittingEvents))
     }
 
     private var overflowEvents: [PositionedEvent] {
-        return Array(events.dropFirst(maxFittingEvents))
+        return Array(pillEvents.dropFirst(maxFittingEvents))
     }
 
     private var overflowCount: Int {
