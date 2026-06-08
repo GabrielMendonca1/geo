@@ -231,12 +231,13 @@ struct BlocksPane: View {
                     blocksGridContent
                 }
             }
-        }
-        .onTapGesture {
-            if !selectedBlockIds.isEmpty {
-                selectedBlockIds.removeAll()
+            .contentShape(Rectangle())
+            .onTapGesture {
+                if !selectedBlockIds.isEmpty {
+                    selectedBlockIds.removeAll()
+                }
+                focusedBlockId = nil
             }
-            focusedBlockId = nil
         }
         .onChange(of: navigationStore.searchTexts[.nodes]) { _, newValue in
             let value = newValue ?? ""
