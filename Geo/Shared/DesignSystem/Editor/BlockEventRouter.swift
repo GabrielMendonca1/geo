@@ -112,7 +112,11 @@ final class BlockEventRouter {
         }
 
         let originatingId: UUID? = tr.steps.compactMap { ($0 as? ReplaceContentStep)?.blockId }.first
-        reconciler.reconcile(oldBlocks: oldBlocks, newBlocks: document.blocks, excludingBlockId: originatingId)
+        let postEditCaret: (blockId: UUID, caret: Int)? = {
+            guard let originatingId, let caret = tr.meta["postEditCaret"] as? Int else { return nil }
+            return (blockId: originatingId, caret: caret)
+        }()
+        reconciler.reconcile(oldBlocks: oldBlocks, newBlocks: document.blocks, excludingBlockId: originatingId, postEditCaret: postEditCaret)
 
         let newContext = PluginContext(
             blocks: document.blocks,
