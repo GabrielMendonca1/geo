@@ -259,6 +259,7 @@ struct GeoApp: App {
 struct BlockEditorWindowWrapper: View {
     let blockId: String?
     @Environment(\.appEnvironment) private var appEnvironment
+    @Environment(\.dismissWindow) private var dismissWindow
     @EnvironmentObject private var viewModel: BlocksViewModel
     @State private var forceRawEditor: Bool = false
     @StateObject private var actionsHolder = BlockEditorActionsHolder()
