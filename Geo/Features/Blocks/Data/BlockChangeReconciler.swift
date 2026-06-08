@@ -156,10 +156,10 @@ final class BlockChangeReconciler {
         timestampLock.unlock()
     }
 
-    private func shouldIgnoreExternalChange(for blockId: String, at date: Date) -> Bool {
+    private func shouldIgnoreExternalChange(for blockId: String, fileModified: Date) -> Bool {
         timestampLock.lock()
         defer { timestampLock.unlock() }
         guard let lastWrite = recentWriteTimestamps[blockId] else { return false }
-        return abs(date.timeIntervalSince(lastWrite)) < externalWriteGracePeriod
+        return abs(fileModified.timeIntervalSince(lastWrite)) < externalWriteGracePeriod
     }
 }
