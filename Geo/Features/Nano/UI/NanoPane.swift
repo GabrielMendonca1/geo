@@ -6,9 +6,6 @@ import GRDB
 struct NanoPane: View {
     @EnvironmentObject private var service: HermesStatusService
     @StateObject private var insights = TodayInsightsService()
-    @StateObject private var activity = ActivityFeedService()
-    @State private var dismissedErrorId: UUID?
-    @State private var scrollTargetId: UUID?
 
     var body: some View {
         Pane {
@@ -19,13 +16,6 @@ struct NanoPane: View {
                     VStack(alignment: .leading, spacing: 24) {
                         if service.setupState != .running {
                             HermesSetupBanner(service: service)
-                        }
-                        if let banner = recentError, service.setupState == .running {
-                            ErrorBanner(event: banner) {
-                                scrollTargetId = banner.id
-                            } onDismiss: {
-                                dismissedErrorId = banner.id
-                            }
                         }
 
                         TodayCard(insights: insights)
@@ -39,8 +29,6 @@ struct NanoPane: View {
                             GeoCard { HermesCronsSection() }
                             GeoCard { WorkersCard() }
                         }
-
-                        ActivityCard(events: activity.events, scrollTo: $scrollTargetId)
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 24)
@@ -50,23 +38,10 @@ struct NanoPane: View {
         }
         .onAppear {
             insights.start()
-            activity.start()
         }
         .onDisappear {
             insights.stop()
-            activity.stop()
         }
-        .onChange(of: activity.events.count) { _, _ in
-            insights.refresh()
-        }
-    }
-
-    private var recentError: ActivityEvent? {
-        guard let last = activity.events.last,
-              last.level >= 50,
-              last.id != dismissedErrorId,
-              Date().timeIntervalSince(last.timestamp) <= 60 else { return nil }
-        return last
     }
 }
 
