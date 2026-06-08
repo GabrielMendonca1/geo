@@ -71,7 +71,8 @@ struct CalendarEvent: Identifiable, Hashable {
             startDate: holiday.startDate,
             endDate: holiday.endDate,
             type: .holiday(holiday),
-            color: GeoStyle.Colors.EventPill.holiday
+            color: GeoStyle.Colors.EventPill.holiday,
+            isRecurringHabit: false
         )
     }
 
