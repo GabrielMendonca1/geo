@@ -56,7 +56,6 @@ final class BlockChangeReconciler {
 
     func handleExternalChanges(_ urls: [URL], currentBlocks: [BlocksStore.Block]? = nil) {
         pruneWriteTimestamps()
-        let now = Date()
         let blocks = currentBlocks ?? []
 
         let relevant = urls.filter { $0.pathExtension.lowercased() == "md" }
@@ -71,7 +70,9 @@ final class BlockChangeReconciler {
         for url in relevant {
             let blockId = fileService.relativeId(for: url)
             if blockId.hasPrefix("Attachments/") { continue }
-            if shouldIgnoreExternalChange(for: blockId, at: now) {
+            let resourceValues = try? url.resourceValues(forKeys: resourceKeys)
+            let fileModified = resourceValues?.contentModificationDate ?? Date()
+            if shouldIgnoreExternalChange(for: blockId, fileModified: fileModified) {
                 continue
             }
             if fileManager.fileExists(atPath: url.path) {
