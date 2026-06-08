@@ -13,13 +13,14 @@ struct CalendarEvent: Identifiable, Hashable {
     let endDate: Date?
     let type: CalendarEventType
     let color: Color
+    let isRecurringHabit: Bool
 
     var isMultiDay: Bool {
         guard let endDate else { return false }
         return !Calendar.current.isDate(startDate, inSameDayAs: endDate)
     }
 
-    static func from(task: TaskItem, occurrenceSuffix: String? = nil, blocksById: [String: BlockEntity], tagsById: [String: Tag]) -> CalendarEvent {
+    static func from(task: TaskItem, occurrenceSuffix: String? = nil, isRecurringHabit: Bool = false, blocksById: [String: BlockEntity], tagsById: [String: Tag]) -> CalendarEvent {
         let id = occurrenceSuffix.map { "task-\(task.id)-\($0)" } ?? "task-\(task.id)"
         return CalendarEvent(
             id: id,
@@ -27,25 +28,28 @@ struct CalendarEvent: Identifiable, Hashable {
             startDate: task.startTime,
             endDate: task.endTime,
             type: .task(task),
-            color: resolvedColor(for: task, blocksById: blocksById, tagsById: tagsById)
+            color: resolvedColor(for: task, blocksById: blocksById, tagsById: tagsById),
+            isRecurringHabit: isRecurringHabit
         )
     }
 
     static func from(task: TaskItem, occurrenceDate: Date, blocksById: [String: BlockEntity], tagsById: [String: Tag]) -> CalendarEvent {
         var shifted = task
+        var isHabit = false
         switch task.body {
         case .event(let start, let end):
             let duration = end.timeIntervalSince(start)
             shifted.body = .event(start: occurrenceDate, end: occurrenceDate.addingTimeInterval(duration))
         case .habit(let rule, _, let occurrences):
             shifted.body = .habit(rule: rule, timeOfDay: occurrenceDate, occurrences: occurrences)
+            isHabit = true
         case .task(_, let est):
             shifted.body = .task(due: occurrenceDate, estimatedMinutes: est)
         case .milestone:
             shifted.body = .milestone(target: occurrenceDate)
         }
         let suffix = "\(Int(occurrenceDate.timeIntervalSinceReferenceDate))"
-        return from(task: shifted, occurrenceSuffix: suffix, blocksById: blocksById, tagsById: tagsById)
+        return from(task: shifted, occurrenceSuffix: suffix, isRecurringHabit: isHabit, blocksById: blocksById, tagsById: tagsById)
     }
 
     static func from(block: BlockEntity, tagsById: [String: Tag]) -> CalendarEvent {
