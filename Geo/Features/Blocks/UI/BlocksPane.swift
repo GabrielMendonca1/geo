@@ -118,10 +118,6 @@ struct BlocksPane: View {
                 blocksRepository: appEnvironment.blocksRepository,
                 tagsRepository: appEnvironment.tagsRepository
             )
-            if !didDefaultToFolders {
-                groupingMode = .folder
-                didDefaultToFolders = true
-            }
             await refreshFolders()
         }
         .task {
