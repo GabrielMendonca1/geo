@@ -132,3 +132,19 @@ timezone: America/Sao_Paulo
 #     --name day-briefing --no-agent
 #
 # `hermes cron list` to see it, `hermes cron remove day-briefing` to drop it.
+
+# ---------------------------------------------------------------------------
+# Approvals — FULL BYPASS (Gabriel runs the gateway hands-off)
+# ---------------------------------------------------------------------------
+# mode: "off" -> tools/approval.py early-returns approved for EVERY flagged
+# command (the master switch). Quoted because bare `off` is a YAML 1.1 bool.
+# cron_mode: approve -> cron jobs may run flagged commands without a human.
+# mcp_reload_confirm: false -> reload MCP without a prompt.
+# This block MUST live in the repo: install.sh's template_config overwrites
+# ~/.hermes/config.yaml from here, so omitting it silently reverts to manual.
+approvals:
+  mode: "off"
+  timeout: 60
+  cron_mode: approve
+  mcp_reload_confirm: false
+  destructive_slash_confirm: false
