@@ -47,5 +47,19 @@ final class EditorReconciler {
 
             tv.invalidateIntrinsicContentSize()
         }
+
+        restoreCaret(postEditCaret)
+    }
+
+    private func restoreCaret(_ postEditCaret: (blockId: UUID, caret: Int)?) {
+        guard let postEditCaret, let focusCoordinator else { return }
+        DispatchQueue.main.async { [weak focusCoordinator] in
+            guard let tv = focusCoordinator?.textView(for: postEditCaret.blockId) else { return }
+            guard tv.window?.firstResponder === tv else { return }
+            let caret = min(max(0, postEditCaret.caret), (tv.string as NSString).length)
+            let current = tv.selectedRange()
+            if current.length == 0 && current.location == caret { return }
+            tv.setSelectedRange(NSRange(location: caret, length: 0))
+        }
     }
 }
