@@ -71,8 +71,7 @@ final class BlockChangeReconciler {
             let blockId = fileService.relativeId(for: url)
             if blockId.hasPrefix("Attachments/") { continue }
             let resourceValues = try? url.resourceValues(forKeys: resourceKeys)
-            let fileModified = resourceValues?.contentModificationDate ?? Date()
-            if shouldIgnoreExternalChange(for: blockId, fileModified: fileModified) {
+            if shouldIgnoreExternalChange(for: blockId) {
                 continue
             }
             if fileManager.fileExists(atPath: url.path) {
@@ -156,10 +155,10 @@ final class BlockChangeReconciler {
         timestampLock.unlock()
     }
 
-    private func shouldIgnoreExternalChange(for blockId: String, fileModified: Date) -> Bool {
+    private func shouldIgnoreExternalChange(for blockId: String) -> Bool {
         timestampLock.lock()
         defer { timestampLock.unlock() }
         guard let lastWrite = recentWriteTimestamps[blockId] else { return false }
-        return abs(fileModified.timeIntervalSince(lastWrite)) < externalWriteGracePeriod
+        return Date().timeIntervalSince(lastWrite) < externalWriteGracePeriod
     }
 }

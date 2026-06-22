@@ -768,9 +768,7 @@ class BlocksStore: ObservableObject {
         )
         self.blocks[idx] = updated
         self.changeReconciler.recordWrite(for: blockID)
-        Task { [indexCoordinator] in
-            await indexCoordinator.index(block: updated)
-        }
+        await indexCoordinator.index(block: updated)
 
         return 0
     }
