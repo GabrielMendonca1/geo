@@ -1200,7 +1200,7 @@ final class BlockModelTests: XCTestCase {
         XCTAssertTrue(dirtyCalled)
         XCTAssertEqual(doc.blocks[1].content, "New body")
         XCTAssertEqual(doc.serialize(), "# Title\nNew body\n")
-        XCTAssertEqual(doc.editGeneration, gen)
+        XCTAssertEqual(doc.editGeneration, gen + 1, "content edits advance editGeneration so the store-sync gate stays closed while typing")
     }
 
     func testBlockEditorDocumentStructuralEditIncrements() {

@@ -142,6 +142,7 @@ final class BlockNSTextView: NSTextView {
         super.didChangeText()
         guard !isAutoFormatting else { return }
         invalidateIntrinsicContentSize()
+        guard !hasMarkedText() else { return }
         flushContentChange()
     }
 

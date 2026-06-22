@@ -268,6 +268,7 @@ final class BlockEditorDocument {
             blocks[index] = block.withContent(content, spans: spans)
         }
         lastEditedBlockId = blocks[index].id
+        editGeneration &+= 1
         onDirty?()
     }
 

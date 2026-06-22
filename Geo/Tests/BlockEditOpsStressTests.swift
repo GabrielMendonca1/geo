@@ -680,4 +680,25 @@ final class BlockEditOpsStressTests: XCTestCase {
         XCTAssertEqual(contentChanges.first, "helloX")
     }
 
+    /// Regression for the dual-emit collapse freeze: during IME / dead-key composition
+    /// (`hasMarkedText()`), emitting `.contentChange` mutates the model, which rewrites
+    /// `tv.string` and cancels the live marked range — wedging the input system. No
+    /// content event may escape until the composition commits.
+    func testNoContentChangeWhileMarkedText() {
+        let tv = BlockNSTextView()
+        tv.isEditable = true
+        tv.blockId = UUID()
+
+        var contentChanges = 0
+        tv.onEvent = { if case .contentChange = $0 { contentChanges += 1 } }
+
+        tv.setMarkedText("´", selectedRange: NSRange(location: 1, length: 0), replacementRange: NSRange(location: 0, length: 0))
+        XCTAssertTrue(tv.hasMarkedText(), "precondition: composition is live")
+        XCTAssertEqual(contentChanges, 0, "no .contentChange while marked text is composing")
+
+        tv.insertText("á", replacementRange: NSRange(location: 0, length: 1))
+        XCTAssertFalse(tv.hasMarkedText(), "composition committed")
+        XCTAssertGreaterThan(contentChanges, 0, "committed text emits .contentChange")
+    }
+
 }
