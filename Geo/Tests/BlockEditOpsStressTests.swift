@@ -653,4 +653,31 @@ final class BlockEditOpsStressTests: XCTestCase {
         XCTAssertEqual(codeSpans.count, 1, "expected one code span")
     }
 
+    // MARK: - dual-emit collapse (single source of truth)
+
+    /// Locks the collapse: one keystroke emits exactly one `.contentChange` and
+    /// never a `.transaction`. Before the collapse, `shouldChangeText` emitted a
+    /// rival `.transaction` from a predicted string (with empty spans) in addition
+    /// to `didChangeText`'s `.contentChange`, double-mutating the model per keystroke.
+    func testTypingEmitsSingleContentChangeNeverTransaction() {
+        let tv = BlockNSTextView()
+        tv.isEditable = true
+        tv.blockId = UUID()
+        tv.string = "hello"
+        tv.setSelectedRange(NSRange(location: 5, length: 0))
+
+        var events: [BlockEditorEvent] = []
+        tv.onEvent = { events.append($0) }
+        tv.insertText("X", replacementRange: NSRange(location: 5, length: 0))
+
+        let transactions = events.filter { if case .transaction = $0 { return true }; return false }
+        let contentChanges = events.compactMap { event -> String? in
+            if case .contentChange(let content, _) = event { return content }
+            return nil
+        }
+        XCTAssertEqual(transactions.count, 0, "typing must not emit a rival .transaction")
+        XCTAssertEqual(contentChanges.count, 1, "typing emits exactly one .contentChange")
+        XCTAssertEqual(contentChanges.first, "helloX")
+    }
+
 }

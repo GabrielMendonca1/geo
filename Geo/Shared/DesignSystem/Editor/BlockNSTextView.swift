@@ -131,27 +131,7 @@ final class BlockNSTextView: NSTextView {
 
     override func shouldChangeText(in affectedCharRange: NSRange, replacementString: String?) -> Bool {
         if isApplyingTransaction { return true }
-        guard let blockId, let replacement = replacementString else {
-            return super.shouldChangeText(in: affectedCharRange, replacementString: replacementString)
-        }
-        if hasMarkedText() {
-            return super.shouldChangeText(in: affectedCharRange, replacementString: replacementString)
-        }
-
-        let ns = string as NSString
-        let safeRange = NSIntersectionRange(affectedCharRange, NSRange(location: 0, length: ns.length))
-        let newFullString = ns.replacingCharacters(in: safeRange, with: replacement)
-
-        if !allowsInternalNewlines && replacement.contains("\n") {
-            return super.shouldChangeText(in: affectedCharRange, replacementString: replacementString)
-        }
-
-        let newCaret = safeRange.location + (replacement as NSString).length
-        var tr = EditorTransaction.replaceContent(blockId: blockId, content: newFullString, spans: [])
-        tr.meta["postEditCaret"] = newCaret
-        onEvent?(.transaction(tr))
-
-        return true
+        return super.shouldChangeText(in: affectedCharRange, replacementString: replacementString)
     }
 
     override func setMarkedText(_ string: Any, selectedRange: NSRange, replacementRange: NSRange) {
