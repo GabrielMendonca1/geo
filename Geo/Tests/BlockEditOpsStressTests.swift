@@ -717,4 +717,17 @@ final class BlockEditOpsStressTests: XCTestCase {
         XCTAssertEqual(router.slashState?.blockId, blockId)
     }
 
+    func testSlashFuzzyRankingAndFilter() {
+        let id = UUID()
+        func filtered(_ q: String) -> [BlockSlashCommand] {
+            SlashCommandOverlay.filtered(for: id, slashState: SlashState(blockId: id, blockIndex: 0, filter: q, selectedIndex: 0))
+        }
+        XCTAssertEqual(filtered("").count, BlockSlashCommand.all.count, "empty filter shows every command (browse)")
+        XCTAssertEqual(filtered("head").first?.id, "h1", "label-prefix match ranks; declaration order breaks ties")
+        XCTAssertEqual(filtered("code").first?.id, "code")
+        XCTAssertEqual(filtered("tabl").first?.id, "table")
+        XCTAssertTrue(filtered("zzzznope").isEmpty, "no match returns empty (drives the empty-state row)")
+        XCTAssertLessThanOrEqual(filtered("e").count, 8, "filtered list is capped")
+    }
+
 }

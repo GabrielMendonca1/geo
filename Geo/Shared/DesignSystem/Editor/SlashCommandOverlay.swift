@@ -3,13 +3,18 @@ import SwiftUI
 struct SlashCommandOverlay: View {
     let commands: [BlockSlashCommand]
     let selectedIndex: Int
+    let query: String
     let onSelect: (BlockSlashCommand) -> Void
 
+    private var showSections: Bool { query.isEmpty }
+
     private var displayItems: [DisplayItem] {
-        let capped = Array(commands.prefix(12))
+        guard showSections else {
+            return commands.enumerated().map { .command(index: $0.offset, cmd: $0.element) }
+        }
         var items: [DisplayItem] = []
         var lastSection: BlockSlashCommand.Section?
-        for (i, cmd) in capped.enumerated() {
+        for (i, cmd) in commands.enumerated() {
             if cmd.section != lastSection {
                 items.append(.header(cmd.section.rawValue))
                 lastSection = cmd.section
@@ -32,31 +37,89 @@ struct SlashCommandOverlay: View {
     }
 
     var body: some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 0) {
-                ForEach(displayItems) { item in
-                    switch item {
-                    case .header(let title):
-                        Text(title.uppercased())
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(Palette.tertiaryForeground)
-                            .padding(.horizontal, 12)
-                            .padding(.top, 8)
-                            .padding(.bottom, 4)
-                    case .command(let index, let cmd):
-                        commandRow(cmd, isSelected: index == selectedIndex)
+        VStack(spacing: 0) {
+            if commands.isEmpty {
+                emptyState
+            } else {
+                list
+            }
+            Divider().opacity(0.5)
+            footer
+        }
+        .frame(width: 300)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.border, lineWidth: 1))
+        .shadow(color: .black.opacity(0.22), radius: 16, y: 8)
+        .zIndex(100)
+    }
+
+    private var list: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 1) {
+                    ForEach(displayItems) { item in
+                        switch item {
+                        case .header(let title):
+                            Text(title.uppercased())
+                                .font(.system(size: 11, weight: .semibold))
+                                .kerning(0.5)
+                                .foregroundStyle(Palette.tertiaryForeground.opacity(0.8))
+                                .padding(.horizontal, 14)
+                                .padding(.top, 10)
+                                .padding(.bottom, 4)
+                        case .command(let index, let cmd):
+                            commandRow(cmd, isSelected: index == selectedIndex)
+                                .id(cmd.id)
+                        }
                     }
                 }
+                .padding(.vertical, 6)
             }
-            .padding(.vertical, 4)
+            .frame(maxHeight: 360)
+            .onChange(of: selectedIndex) { _, newValue in
+                guard newValue >= 0, newValue < commands.count else { return }
+                withAnimation(.easeOut(duration: 0.12)) {
+                    proxy.scrollTo(commands[newValue].id, anchor: .center)
+                }
+            }
         }
-        .frame(width: 280)
-        .frame(maxHeight: 340)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Palette.border.opacity(0.3), lineWidth: 0.5))
-        .shadow(color: .black.opacity(0.18), radius: 12, y: 6)
-        .zIndex(100)
+    }
+
+    private var emptyState: some View {
+        HStack {
+            Text("No commands")
+                .font(.system(size: 13))
+                .foregroundStyle(Palette.tertiaryForeground)
+            Spacer()
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
+    }
+
+    private var footer: some View {
+        HStack(spacing: 12) {
+            hint("↑↓", "navigate")
+            hint("↵", "select")
+            hint("esc", "dismiss")
+            Spacer()
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 7)
+    }
+
+    private func hint(_ key: String, _ label: String) -> some View {
+        HStack(spacing: 4) {
+            Text(key)
+                .font(.system(size: 10, weight: .medium, design: .rounded))
+                .foregroundStyle(Palette.foreground.opacity(0.7))
+                .padding(.horizontal, 4)
+                .padding(.vertical, 1)
+                .background(Palette.secondaryBackground, in: RoundedRectangle(cornerRadius: 3))
+            Text(label)
+                .font(.system(size: 10))
+                .foregroundStyle(Palette.tertiaryForeground)
+        }
     }
 
     private func commandRow(_ cmd: BlockSlashCommand, isSelected: Bool) -> some View {
@@ -65,8 +128,8 @@ struct SlashCommandOverlay: View {
         } label: {
             HStack(spacing: 10) {
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(isSelected ? Palette.accent.opacity(0.15) : Palette.secondaryBackground.opacity(0.6))
-                    .frame(width: 32, height: 32)
+                    .fill(isSelected ? Palette.accent.opacity(0.16) : Palette.secondaryBackground.opacity(0.7))
+                    .frame(width: 30, height: 30)
                     .overlay(
                         Image(systemName: cmd.icon)
                             .font(.system(size: 14))
@@ -74,7 +137,7 @@ struct SlashCommandOverlay: View {
                     )
                 VStack(alignment: .leading, spacing: 1) {
                     Text(cmd.label)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
                         .foregroundStyle(Color(Palette.editorForeground))
                     Text(cmd.description)
                         .font(.system(size: 11))
@@ -83,24 +146,60 @@ struct SlashCommandOverlay: View {
                 }
                 Spacer()
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(isSelected ? Palette.accent.opacity(0.08) : Color.clear)
-            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(isSelected ? Palette.accent.opacity(0.12) : Color.clear)
+            .overlay(alignment: .leading) {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(Palette.accent)
+                        .frame(width: 3, height: 22)
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 7))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .padding(.horizontal, 4)
+        .padding(.horizontal, 5)
     }
 
     static func filtered(for blockId: UUID, slashState: SlashState?) -> [BlockSlashCommand] {
         guard let state = slashState, state.blockId == blockId else { return [] }
-        if state.filter.isEmpty { return BlockSlashCommand.all }
         let query = state.filter.lowercased()
-        return BlockSlashCommand.all.filter { cmd in
-            cmd.label.lowercased().contains(query) ||
-            cmd.id.lowercased().contains(query) ||
-            cmd.aliases.contains(where: { $0.lowercased().contains(query) })
+        if query.isEmpty { return BlockSlashCommand.all }
+        return BlockSlashCommand.all.enumerated()
+            .compactMap { pair -> (score: Int, order: Int, cmd: BlockSlashCommand)? in
+                guard let s = score(pair.element, query: query) else { return nil }
+                return (s, pair.offset, pair.element)
+            }
+            .sorted { $0.score != $1.score ? $0.score > $1.score : $0.order < $1.order }
+            .prefix(8)
+            .map { $0.cmd }
+    }
+
+    /// Ranks a command against the query: exact/prefix/alias beat substring beat subsequence.
+    /// Returns nil when there is no match at all.
+    private static func score(_ cmd: BlockSlashCommand, query: String) -> Int? {
+        let label = cmd.label.lowercased()
+        if label == query { return 1000 }
+        if label.hasPrefix(query) { return 850 }
+        if cmd.aliases.contains(where: { $0.lowercased() == query }) { return 800 }
+        if cmd.aliases.contains(where: { $0.lowercased().hasPrefix(query) }) { return 650 }
+        if label.contains(query) { return 500 }
+        if cmd.aliases.contains(where: { $0.lowercased().contains(query) }) { return 400 }
+        if isSubsequence(query, of: label) { return 200 }
+        return nil
+    }
+
+    private static func isSubsequence(_ needle: String, of haystack: String) -> Bool {
+        var iterator = haystack.makeIterator()
+        for ch in needle {
+            var matched = false
+            while let h = iterator.next() {
+                if h == ch { matched = true; break }
+            }
+            if !matched { return false }
         }
+        return true
     }
 }
