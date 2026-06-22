@@ -7,6 +7,7 @@ final class BlockEditorDocument {
     var blocks: [EditorBlock] = []
     var focusRequest: BlockFocusRequest?
     var editGeneration: UInt64 = 0
+    var structuralGeneration: UInt64 = 0
     private(set) var lastEditedBlockId: UUID?
     private(set) var blockIndex: [UUID: Int] = [:]
     private var hiddenFrontmatter: String = ""
@@ -41,6 +42,7 @@ final class BlockEditorDocument {
         let restoredDoc = BlockDocument(blocks: restored, source: newDoc.source)
         blocks = MarkdownBlockParser.mergeIdentity(old: oldDoc, new: restoredDoc).blocks
         editGeneration &+= 1
+        structuralGeneration &+= 1
         rebuildBlockIndex()
     }
 
@@ -288,6 +290,7 @@ final class BlockEditorDocument {
         focusRequest = newFocus
         lastEditedBlockId = nil
         editGeneration &+= 1
+        structuralGeneration &+= 1
         onDirty?()
 
         undoManager?.registerUndo(withTarget: self) { target in
@@ -331,6 +334,7 @@ final class BlockEditorDocument {
         focusRequest = focus
         lastEditedBlockId = nil
         editGeneration &+= 1
+        structuralGeneration &+= 1
         onDirty?()
     }
 }

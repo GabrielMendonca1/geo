@@ -57,6 +57,7 @@ final class BlockNSTextView: NSTextView {
     private var toolbarDismissTimer: DispatchWorkItem?
     private var scrollObserver: NSObjectProtocol?
     private var lastMeasuredWidth: CGFloat = -1
+    private var lastReportedHeight: CGFloat = -1
 
     deinit {
         if let scrollObserver { NotificationCenter.default.removeObserver(scrollObserver) }
@@ -86,7 +87,9 @@ final class BlockNSTextView: NSTextView {
     }
 
     override var intrinsicContentSize: NSSize {
-        TextViewHeightCalculator.calculateHeight(for: self)
+        let size = TextViewHeightCalculator.calculateHeight(for: self)
+        lastReportedHeight = size.height
+        return size
     }
 
     override func layout() {
@@ -141,7 +144,11 @@ final class BlockNSTextView: NSTextView {
     override func didChangeText() {
         super.didChangeText()
         guard !isAutoFormatting else { return }
-        invalidateIntrinsicContentSize()
+        let newHeight = TextViewHeightCalculator.calculateHeight(for: self).height
+        if abs(newHeight - lastReportedHeight) > 0.5 {
+            lastReportedHeight = newHeight
+            invalidateIntrinsicContentSize()
+        }
         guard !hasMarkedText() else { return }
         flushContentChange()
     }

@@ -1192,6 +1192,7 @@ final class BlockModelTests: XCTestCase {
     func testBlockEditorDocumentUpdateBlockContent() {
         let doc = BlockEditorDocument(markdown: "# Title\nBody\n")
         let gen = doc.editGeneration
+        let structGen = doc.structuralGeneration
         var dirtyCalled = false
         doc.onDirty = { dirtyCalled = true }
 
@@ -1201,11 +1202,13 @@ final class BlockModelTests: XCTestCase {
         XCTAssertEqual(doc.blocks[1].content, "New body")
         XCTAssertEqual(doc.serialize(), "# Title\nNew body\n")
         XCTAssertEqual(doc.editGeneration, gen + 1, "content edits advance editGeneration so the store-sync gate stays closed while typing")
+        XCTAssertEqual(doc.structuralGeneration, structGen, "content edits must NOT bump structuralGeneration — the visible-index cache stays put, no per-keystroke recompute")
     }
 
     func testBlockEditorDocumentStructuralEditIncrements() {
         let doc = BlockEditorDocument(markdown: "Line\n")
         let gen = doc.editGeneration
+        let structGen = doc.structuralGeneration
         var dirtyCalled = false
         doc.onDirty = { dirtyCalled = true }
 
@@ -1215,6 +1218,7 @@ final class BlockModelTests: XCTestCase {
 
         XCTAssertTrue(dirtyCalled)
         XCTAssertEqual(doc.editGeneration, gen + 1)
+        XCTAssertEqual(doc.structuralGeneration, structGen + 1, "structural edits bump structuralGeneration so the visible-index cache recomputes")
         XCTAssertEqual(doc.blocks.count, 2)
     }
 

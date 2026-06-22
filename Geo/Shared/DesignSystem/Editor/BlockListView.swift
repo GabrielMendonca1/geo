@@ -70,7 +70,7 @@ struct BlockListView: View {
     }
 
     private var visibleIndices: [Int] {
-        if cachedVisibleIndices.isEmpty || lastStructuralGen != document.editGeneration {
+        if cachedVisibleIndices.isEmpty || lastStructuralGen != document.structuralGeneration {
             return BlockTreeNavigator.visibleBlocks(document.blocks)
         }
         return cachedVisibleIndices
@@ -188,9 +188,9 @@ struct BlockListView: View {
                 }
                 .onAppear {
                     cachedVisibleIndices = BlockTreeNavigator.visibleBlocks(document.blocks)
-                    lastStructuralGen = document.editGeneration
+                    lastStructuralGen = document.structuralGeneration
                 }
-                .onChange(of: document.editGeneration) { _, newGen in
+                .onChange(of: document.structuralGeneration) { _, newGen in
                     guard newGen != lastStructuralGen else { return }
                     lastStructuralGen = newGen
                     cachedVisibleIndices = BlockTreeNavigator.visibleBlocks(document.blocks)
