@@ -88,10 +88,23 @@ enum MathRenderer {
         "R": "ℛ", "S": "𝒮",
     ]
 
+    private static let cache = NSCache<NSString, NSAttributedString>()
+
+    private static func colorIdentifier(_ color: NSColor) -> String {
+        let rgb = color.usingColorSpace(.sRGB) ?? color
+        return String(format: "%.4f,%.4f,%.4f,%.4f",
+                      rgb.redComponent, rgb.greenComponent, rgb.blueComponent, rgb.alphaComponent)
+    }
+
     static func render(latex: String, fontSize: CGFloat, color: NSColor) -> NSAttributedString {
         let trimmed = latex.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             return NSAttributedString(string: "")
+        }
+
+        let cacheKey = "\(trimmed)|\(fontSize)|\(colorIdentifier(color))" as NSString
+        if let cached = cache.object(forKey: cacheKey)?.copy() as? NSAttributedString {
+            return cached
         }
 
         let result = NSMutableAttributedString()
@@ -101,7 +114,7 @@ enum MathRenderer {
             .foregroundColor: color,
         ]
 
-        var chars = Array(trimmed)
+        let chars = Array(trimmed)
         var pos = 0
 
         while pos < chars.count {
@@ -308,6 +321,10 @@ enum MathRenderer {
 
             result.append(NSAttributedString(string: String(ch), attributes: baseAttrs))
             pos += 1
+        }
+
+        if let copy = result.copy() as? NSAttributedString {
+            cache.setObject(copy, forKey: cacheKey)
         }
 
         return result
