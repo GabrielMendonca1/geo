@@ -824,18 +824,20 @@ final class BlockEventRouter {
     }
 
     private func navigateSlashUp() {
-        guard slashState != nil else { return }
-        let count = SlashCommandOverlay.filtered(for: slashState!.blockId, slashState: slashState).count
+        guard var state = slashState else { return }
+        let count = SlashCommandOverlay.filtered(for: state.blockId, slashState: state).count
         if count > 0 {
-            slashState!.selectedIndex = (slashState!.selectedIndex - 1 + count) % count
+            state.selectedIndex = (state.selectedIndex - 1 + count) % count
+            slashState = state
         }
     }
 
     private func navigateSlashDown() {
-        guard slashState != nil else { return }
-        let count = SlashCommandOverlay.filtered(for: slashState!.blockId, slashState: slashState).count
+        guard var state = slashState else { return }
+        let count = SlashCommandOverlay.filtered(for: state.blockId, slashState: state).count
         if count > 0 {
-            slashState!.selectedIndex = (slashState!.selectedIndex + 1) % count
+            state.selectedIndex = (state.selectedIndex + 1) % count
+            slashState = state
         }
     }
 
@@ -918,18 +920,20 @@ final class BlockEventRouter {
     }
 
     private func navigateMentionUp() {
-        guard mentionState != nil else { return }
-        let count = MentionOverlay.filtered(mentionState: mentionState, mentionableBlocks: mentionableBlocks).count
+        guard var state = mentionState else { return }
+        let count = MentionOverlay.filtered(mentionState: state, mentionableBlocks: mentionableBlocks).count
         if count > 0 {
-            mentionState!.selectedIndex = (mentionState!.selectedIndex - 1 + count) % count
+            state.selectedIndex = (state.selectedIndex - 1 + count) % count
+            mentionState = state
         }
     }
 
     private func navigateMentionDown() {
-        guard mentionState != nil else { return }
-        let count = MentionOverlay.filtered(mentionState: mentionState, mentionableBlocks: mentionableBlocks).count
+        guard var state = mentionState else { return }
+        let count = MentionOverlay.filtered(mentionState: state, mentionableBlocks: mentionableBlocks).count
         if count > 0 {
-            mentionState!.selectedIndex = (mentionState!.selectedIndex + 1) % count
+            state.selectedIndex = (state.selectedIndex + 1) % count
+            mentionState = state
         }
     }
 

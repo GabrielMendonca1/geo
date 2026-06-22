@@ -637,9 +637,10 @@ final class BlockNSTextView: NSTextView {
             return
         }
 
+        guard let ts = textStorage else { return }
         var cursor = selectedRange().location
         let text = string as NSString
-        if let ts = textStorage, cursor > 0, cursor < ts.length {
+        if cursor > 0, cursor < ts.length {
             var wikiRange = NSRange(location: NSNotFound, length: 0)
             let value = ts.attribute(.geoWikiLink, at: cursor, effectiveRange: &wikiRange)
             if value != nil, wikiRange.location != NSNotFound, cursor > wikiRange.location, cursor < NSMaxRange(wikiRange) {
@@ -647,7 +648,7 @@ final class BlockNSTextView: NSTextView {
                 setSelectedRange(NSRange(location: cursor, length: 0))
             }
         }
-        let allSpans = SpanExtractor.extract(from: textStorage!, baseFont: baseFont)
+        let allSpans = SpanExtractor.extract(from: ts, baseFont: baseFont)
 
         if cursor >= text.length {
             onEvent?(.split(cursorOffset: cursor, after: "", spans: []))
@@ -672,8 +673,8 @@ final class BlockNSTextView: NSTextView {
                 }
                 if string.isEmpty {
                     onEvent?(.delete)
-                } else if canMerge {
-                    let mergeSpans = SpanExtractor.extract(from: textStorage!, baseFont: baseFont)
+                } else if canMerge, let ts = textStorage {
+                    let mergeSpans = SpanExtractor.extract(from: ts, baseFont: baseFont)
                     onEvent?(.merge(string, mergeSpans))
                 }
                 return
