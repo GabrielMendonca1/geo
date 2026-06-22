@@ -170,6 +170,10 @@
 		EDITOROVERLAYLAYER001B /* EditorOverlayLayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDITOROVERLAYLAYER001A /* EditorOverlayLayer.swift */; };
 		EDITORPLUGIN001B /* EditorPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDITORPLUGIN001A /* EditorPlugin.swift */; };
 		EDITORRECONCILER001B /* EditorReconciler.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDITORRECONCILER001A /* EditorReconciler.swift */; };
+		BERCC0001BLD0000000000B /* BlockEventRouter+ContentChange.swift in Sources */ = {isa = PBXBuildFile; fileRef = BERCC0001REF0000000000A /* BlockEventRouter+ContentChange.swift */; };
+		BERST0001BLD0000000000B /* BlockEventRouter+Structural.swift in Sources */ = {isa = PBXBuildFile; fileRef = BERST0001REF0000000000A /* BlockEventRouter+Structural.swift */; };
+		BERCV0001BLD0000000000B /* BlockEventRouter+Convert.swift in Sources */ = {isa = PBXBuildFile; fileRef = BERCV0001REF0000000000A /* BlockEventRouter+Convert.swift */; };
+		BERMN0001BLD0000000000B /* BlockEventRouter+Menus.swift in Sources */ = {isa = PBXBuildFile; fileRef = BERMN0001REF0000000000A /* BlockEventRouter+Menus.swift */; };
 		EDITORTRANSACTION001B /* EditorTransaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDITORTRANSACTION001A /* EditorTransaction.swift */; };
 		F5A300000000000000000031 /* ShelfRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A300000000000000000016 /* ShelfRepository.swift */; };
 		F5A300000000000000000032 /* ShelfStoreRepositoryAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A300000000000000000017 /* ShelfStoreRepositoryAdapter.swift */; };
@@ -473,6 +477,10 @@
 		EDITOROVERLAYLAYER001A /* EditorOverlayLayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorOverlayLayer.swift; sourceTree = "<group>"; };
 		EDITORPLUGIN001A /* EditorPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorPlugin.swift; sourceTree = "<group>"; };
 		EDITORRECONCILER001A /* EditorReconciler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorReconciler.swift; sourceTree = "<group>"; };
+		BERCC0001REF0000000000A /* BlockEventRouter+ContentChange.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BlockEventRouter+ContentChange.swift"; sourceTree = "<group>"; };
+		BERST0001REF0000000000A /* BlockEventRouter+Structural.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BlockEventRouter+Structural.swift"; sourceTree = "<group>"; };
+		BERCV0001REF0000000000A /* BlockEventRouter+Convert.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BlockEventRouter+Convert.swift"; sourceTree = "<group>"; };
+		BERMN0001REF0000000000A /* BlockEventRouter+Menus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BlockEventRouter+Menus.swift"; sourceTree = "<group>"; };
 		EDITORTRANSACTION001A /* EditorTransaction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorTransaction.swift; sourceTree = "<group>"; };
 		F5A300000000000000000011 /* ShelfItem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShelfItem.swift; sourceTree = "<group>"; };
 		F5A300000000000000000012 /* ShelfStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShelfStore.swift; sourceTree = "<group>"; };
@@ -1141,6 +1149,10 @@
 				EDITORTRANSACTION001A /* EditorTransaction.swift */,
 				EDITORPLUGIN001A /* EditorPlugin.swift */,
 				EDITORRECONCILER001A /* EditorReconciler.swift */,
+				BERCC0001REF0000000000A /* BlockEventRouter+ContentChange.swift */,
+				BERST0001REF0000000000A /* BlockEventRouter+Structural.swift */,
+				BERCV0001REF0000000000A /* BlockEventRouter+Convert.swift */,
+				BERMN0001REF0000000000A /* BlockEventRouter+Menus.swift */,
 				EDITOROVERLAYLAYER001A /* EditorOverlayLayer.swift */,
 				NEWF000000000000000100 /* Commands */,
 			);
@@ -1920,6 +1932,10 @@
 				EDITORTRANSACTION001B /* EditorTransaction.swift in Sources */,
 				EDITORPLUGIN001B /* EditorPlugin.swift in Sources */,
 				EDITORRECONCILER001B /* EditorReconciler.swift in Sources */,
+				BERCC0001BLD0000000000B /* BlockEventRouter+ContentChange.swift in Sources */,
+				BERST0001BLD0000000000B /* BlockEventRouter+Structural.swift in Sources */,
+				BERCV0001BLD0000000000B /* BlockEventRouter+Convert.swift in Sources */,
+				BERMN0001BLD0000000000B /* BlockEventRouter+Menus.swift in Sources */,
 				EDITOROVERLAYLAYER001B /* EditorOverlayLayer.swift in Sources */,
 				NEWF00000000000000000021B /* IndentBlockCommand.swift in Sources */,
 				NEWF00000000000000000022B /* SplitBlockCommand.swift in Sources */,
