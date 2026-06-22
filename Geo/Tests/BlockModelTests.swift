@@ -315,6 +315,23 @@ final class BlockModelTests: XCTestCase {
         XCTAssertEqual(serialized, markdown)
     }
 
+    /// Hot-path splicer coverage: every other withContent test passes `spans: []`,
+    /// so the `InlineSerializer.serialize` branch of `rebuild` — the per-keystroke
+    /// model→string step — was never exercised with real inline spans. This locks
+    /// that non-empty spans survive the splice and the rawText round-trips back.
+    func testWithContentPreservesNonEmptySpans() {
+        let (clean, spans) = InlineParser.parse("plain **bold** and *italic* tail")
+        XCTAssertFalse(spans.isEmpty, "fixture must carry inline spans")
+
+        let block = MarkdownBlockParser.parse(markdown: "seed\n").blocks[0].withContent(clean, spans: spans)
+        XCTAssertEqual(block.content, clean, "content getter returns clean text without markers")
+        XCTAssertEqual(block.spans.map(\.styles), spans.map(\.styles), "inline spans survive the hot-path splicer")
+
+        let (reparsedClean, reparsedSpans) = InlineParser.parse(block.rawText.trimmingCharacters(in: .newlines))
+        XCTAssertEqual(reparsedClean, clean, "rawText reserializes spans and round-trips to the same clean text")
+        XCTAssertEqual(reparsedSpans.map(\.styles), spans.map(\.styles), "reserialized markdown re-parses to equivalent spans")
+    }
+
     // MARK: - withKind
 
     func testWithKindParagraphToHeading() {
@@ -1535,4 +1552,39 @@ final class BlockModelTests: XCTestCase {
         XCTAssertEqual(result[1].range.location, 5)
     }
 
+}
+
+final class OpenFileRouterTests: XCTestCase {
+    private let vault = URL(fileURLWithPath: "/Users/geo-test/Library/Application Support/Geo/Blocks", isDirectory: true)
+
+    private func norm(_ url: URL) -> URL { url.resolvingSymlinksInPath().standardizedFileURL }
+
+    func testVaultFileAlreadyIndexedOpensExistingNeverCreates() {
+        let file = vault.appendingPathComponent("Note.md")
+        let outcomes = OpenFileRouter.resolve(
+            urls: [file],
+            vaultDirectory: vault,
+            existingByPath: [norm(file).path: "block-123"]
+        )
+        XCTAssertEqual(outcomes, [.openExisting(blockId: "block-123")])
+        XCTAssertFalse(outcomes.contains { if case .create = $0 { return true } else { return false } })
+    }
+
+    func testVaultFileNotIndexedCreates() {
+        let file = vault.appendingPathComponent("Fresh.md")
+        let outcomes = OpenFileRouter.resolve(urls: [file], vaultDirectory: vault, existingByPath: [:])
+        XCTAssertEqual(outcomes, [.create(url: norm(file))])
+    }
+
+    func testExternalFileRoutesToExternal() {
+        let file = URL(fileURLWithPath: "/Users/geo-test/Documents/External.md")
+        let outcomes = OpenFileRouter.resolve(urls: [file], vaultDirectory: vault, existingByPath: [:])
+        XCTAssertEqual(outcomes, [.external(url: norm(file))])
+    }
+
+    func testUnsupportedExtensionIgnored() {
+        let file = vault.appendingPathComponent("image.png")
+        let outcomes = OpenFileRouter.resolve(urls: [file], vaultDirectory: vault, existingByPath: [:])
+        XCTAssertTrue(outcomes.isEmpty)
+    }
 }
