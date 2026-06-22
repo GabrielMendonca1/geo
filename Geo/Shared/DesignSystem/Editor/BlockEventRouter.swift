@@ -113,7 +113,7 @@ final class BlockEventRouter {
 
         let originatingId: UUID? = tr.steps.compactMap { ($0 as? ReplaceContentStep)?.blockId }.first
         let postEditCaret: (blockId: UUID, caret: Int)? = {
-            guard let originatingId, let caret = tr.meta["postEditCaret"] as? Int else { return nil }
+            guard let originatingId, let caret = tr.meta.postEditCaret else { return nil }
             return (blockId: originatingId, caret: caret)
         }()
         reconciler.reconcile(oldBlocks: oldBlocks, newBlocks: document.blocks, excludingBlockId: originatingId, postEditCaret: postEditCaret)
@@ -530,11 +530,9 @@ final class BlockEventRouter {
             let insertAt = min(targetSubtree.lowerBound, afterBlocks.count)
             afterBlocks.insert(contentsOf: movingSlice, at: insertAt)
         }
-        document.executeCommand(MoveBlockCommand(
-            snapshotBefore: snapshotBefore,
-            snapshotAfter: afterBlocks,
-            focusBlockId: blockId
-        ), undoManager: undoManager)
+        structuralEdit("Move Block", focus: BlockFocusRequest(blockId: blockId, cursorOffset: 0)) { blocks in
+            blocks = afterBlocks
+        }
     }
 
     func moveBlockDown(at index: Int) {
@@ -557,11 +555,9 @@ final class BlockEventRouter {
             let insertAt = min(targetSubtree.upperBound - subtree.count, afterBlocks.count)
             afterBlocks.insert(contentsOf: movingSlice, at: insertAt)
         }
-        document.executeCommand(MoveBlockCommand(
-            snapshotBefore: snapshotBefore,
-            snapshotAfter: afterBlocks,
-            focusBlockId: blockId
-        ), undoManager: undoManager)
+        structuralEdit("Move Block", focus: BlockFocusRequest(blockId: blockId, cursorOffset: 0)) { blocks in
+            blocks = afterBlocks
+        }
     }
 
     func duplicateBlock(at index: Int) {
@@ -1018,64 +1014,56 @@ final class BlockEventRouter {
         }
     }
 
+    private func resolving(_ id: UUID, _ body: (Int) -> Void) {
+        if let i = document.index(of: id) { body(i) }
+    }
+
     func handleEvent(_ event: BlockEditorEvent, on id: UUID) {
-        guard let i = document.index(of: id) else { return }
-        handleEvent(event, at: i)
+        resolving(id) { handleEvent(event, at: $0) }
     }
 
     func deleteBlock(id: UUID) {
-        guard let i = document.index(of: id) else { return }
-        deleteBlock(at: i)
+        resolving(id) { deleteBlock(at: $0) }
     }
 
     func duplicateBlock(id: UUID) {
-        guard let i = document.index(of: id) else { return }
-        duplicateBlock(at: i)
+        resolving(id) { duplicateBlock(at: $0) }
     }
 
     func moveBlockUp(id: UUID) {
-        guard let i = document.index(of: id) else { return }
-        moveBlockUp(at: i)
+        resolving(id) { moveBlockUp(at: $0) }
     }
 
     func moveBlockDown(id: UUID) {
-        guard let i = document.index(of: id) else { return }
-        moveBlockDown(at: i)
+        resolving(id) { moveBlockDown(at: $0) }
     }
 
     func convertBlock(id: UUID, to kind: EditorBlockKind) {
-        guard let i = document.index(of: id) else { return }
-        convertBlock(at: i, to: kind)
+        resolving(id) { convertBlock(at: $0, to: kind) }
     }
 
     func insertBlock(beforeId id: UUID) {
-        guard let i = document.index(of: id) else { return }
-        insertBlock(at: i)
+        resolving(id) { insertBlock(at: $0) }
     }
 
     func insertBlock(afterId id: UUID) {
-        guard let i = document.index(of: id) else { return }
-        insertBlock(at: i + 1)
+        resolving(id) { insertBlock(at: $0 + 1) }
     }
 
     func indentBlock(id: UUID) {
-        guard let i = document.index(of: id) else { return }
-        indentBlock(at: i)
+        resolving(id) { indentBlock(at: $0) }
     }
 
     func outdentBlock(id: UUID) {
-        guard let i = document.index(of: id) else { return }
-        outdentBlock(at: i)
+        resolving(id) { outdentBlock(at: $0) }
     }
 
     func toggleCheckbox(id: UUID) {
-        guard let i = document.index(of: id) else { return }
-        toggleCheckbox(at: i)
+        resolving(id) { toggleCheckbox(at: $0) }
     }
 
     func toggleCollapse(id: UUID) {
-        guard let i = document.index(of: id) else { return }
-        toggleCollapse(at: i)
+        resolving(id) { toggleCollapse(at: $0) }
     }
 
 }
