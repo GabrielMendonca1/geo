@@ -701,4 +701,20 @@ final class BlockEditOpsStressTests: XCTestCase {
         XCTAssertGreaterThan(contentChanges, 0, "committed text emits .contentChange")
     }
 
+    /// Regression: the dual-emit collapse routed keystrokes through .contentChange,
+    /// which never notified the slash/mention plugins (they only ran via dispatch's
+    /// transaction). So typing "/" stopped opening the command menu. handleContentChange
+    /// must run the menu plugins so router.slashState is set.
+    func testTypingSlashOpensCommandMenu() {
+        let (router, doc, focus, _) = makeRouter(blocks: [EditorBlock.paragraph(content: "")])
+        let blockId = doc.blocks[0].id
+        focus.activeFocusedBlockId = blockId
+        doc.focusRequest = BlockFocusRequest(blockId: blockId, cursorOffset: 1)
+
+        router.handleEvent(.contentChange("/", []), at: 0)
+
+        XCTAssertNotNil(router.slashState, "typing / must open the slash command menu")
+        XCTAssertEqual(router.slashState?.blockId, blockId)
+    }
+
 }

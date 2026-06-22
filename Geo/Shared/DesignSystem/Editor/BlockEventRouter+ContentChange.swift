@@ -47,6 +47,7 @@ extension BlockEventRouter {
         }
         document.updateBlockContent(at: index, content: content, spans: spans)
         guard index < document.blocks.count else { return }
+        runMenuPlugins(for: document.blocks[index].id)
         if case .paragraph = document.blocks[index].kind {
             if content.contains("\n") {
                 var lines = content.components(separatedBy: "\n")

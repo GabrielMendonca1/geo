@@ -124,6 +124,19 @@ final class BlockEventRouter {
         }
     }
 
+    func runMenuPlugins(for blockId: UUID) {
+        let caret = focusCoordinator.textView(for: blockId)?.selectedRange().location
+        let context = PluginContext(
+            blocks: document.blocks,
+            selection: currentSelection,
+            focusedBlockId: blockId
+        )
+        let tr = EditorTransaction(name: "ContentChange", steps: [], meta: TransactionMeta(postEditCaret: caret, composing: false))
+        for plugin in plugins {
+            plugin.onTransaction(tr, oldContext: context, newContext: context)
+        }
+    }
+
     func handleEvent(_ event: BlockEditorEvent, at index: Int) {
         guard index >= 0, index < document.blocks.count else { return }
         switch event {
