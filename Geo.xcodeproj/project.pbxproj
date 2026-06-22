@@ -54,7 +54,10 @@
 		95456C5D2ED3DA0F00EDB4A9 /* NavigationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95456C5C2ED3DA0F00EDB4A9 /* NavigationStore.swift */; };
 		95456C5F2ED4758300EDB4A9 /* GlobalHotkeyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95456C5E2ED4758300EDB4A9 /* GlobalHotkeyManager.swift */; };
 		95456C612ED47F2500EDB4A9 /* BlocksPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95456C602ED47F2500EDB4A9 /* BlocksPane.swift */; };
+		DCMPBLD00000000000000005 /* BlocksControlBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCMPREF00000000000000005 /* BlocksControlBar.swift */; };
+		DCMPBLD00000000000000006 /* BlocksPaneSubviews.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCMPREF00000000000000006 /* BlocksPaneSubviews.swift */; };
 		95456C632ED47F3400EDB4A9 /* BlocksStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95456C622ED47F3400EDB4A9 /* BlocksStore.swift */; };
+		DCMPBLD00000000000000004 /* BlocksStoreParsers.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCMPREF00000000000000004 /* BlocksStoreParsers.swift */; };
 		95574B2F2ED09F6C000C8978 /* LogStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95574B2E2ED09F56000C8978 /* LogStore.swift */; };
 		95574B312ED09F93000C8978 /* ScreenshotWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95574B302ED09F90000C8978 /* ScreenshotWatcher.swift */; };
 		95574B362ED0D514000C8978 /* OCRService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95574B342ED0CAC9000C8978 /* OCRService.swift */; };
@@ -69,12 +72,23 @@
 		958371E12F210EAA00FB7A7C /* MonthCalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 958371DD2F210EAA00FB7A7C /* MonthCalendarView.swift */; };
 		958371E22F210EAA00FB7A7C /* CalendarGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = 958371DA2F210EAA00FB7A7C /* CalendarGrid.swift */; };
 		958371E32F210EAA00FB7A7C /* CalendarDayCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 958371D82F210EAA00FB7A7C /* CalendarDayCell.swift */; };
-		958371E42F210EAA00FB7A7C /* CalendarHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 958371DB2F210EAA00FB7A7C /* CalendarHeader.swift */; };
+		CALNEW0000000000000001B1 /* CalendarRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CALNEW0000000000000001F1 /* CalendarRootView.swift */; };
+		CALNEW0000000000000001B2 /* CalendarFiltersModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CALNEW0000000000000001F2 /* CalendarFiltersModel.swift */; };
+		CALNEW0000000000000001B3 /* CalendarFilterChips.swift in Sources */ = {isa = PBXBuildFile; fileRef = CALNEW0000000000000001F3 /* CalendarFilterChips.swift */; };
+		CALNEW0000000000000001B4 /* WeekCalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CALNEW0000000000000001F4 /* WeekCalendarView.swift */; };
+		CALNEW0000000000000001B5 /* DayCalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CALNEW0000000000000001F5 /* DayCalendarView.swift */; };
+		CALNEW0000000000000001B6 /* CalendarTimeGridLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = CALNEW0000000000000001F6 /* CalendarTimeGridLayout.swift */; };
+		CALNEW0000000000000001B7 /* CalendarTimeGridEventCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = CALNEW0000000000000001F7 /* CalendarTimeGridEventCard.swift */; };
+		CALNEW0000000000000001B8 /* CalendarTimeGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = CALNEW0000000000000001F8 /* CalendarTimeGrid.swift */; };
+		CALNEW0000000000000001B9 /* CalendarDaySummaryCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = CALNEW0000000000000001F9 /* CalendarDaySummaryCards.swift */; };
 		958EBC142F9DA76C00F435DA /* BlockGraph.swift in Sources */ = {isa = PBXBuildFile; fileRef = 958EBC0F2F9DA76C00F435DA /* BlockGraph.swift */; };
 		958EBC152F9DA76C00F435DA /* GraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 958EBC112F9DA76C00F435DA /* GraphView.swift */; };
+		GRAPHSIMBLD000000000001 /* GraphSimulation.swift in Sources */ = {isa = PBXBuildFile; fileRef = GRAPHSIMREF000000000001 /* GraphSimulation.swift */; };
 		958EBC162F9DA76C00F435DA /* BlockGraphService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 958EBC0D2F9DA76C00F435DA /* BlockGraphService.swift */; };
 		958EBC1B2F9DB45100F435DA /* NodesPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = 958EBC1A2F9DB45100F435DA /* NodesPane.swift */; };
 		95BF1DA02ED489C00070D1F6 /* BlockEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95BF1D9F2ED489C00070D1F6 /* BlockEditor.swift */; };
+		DCMPBLD00000000000000007 /* BlockEditorSubviews.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCMPREF00000000000000007 /* BlockEditorSubviews.swift */; };
+		DCMPBLD00000000000000008 /* BlockEditorAutosaveController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCMPREF00000000000000008 /* BlockEditorAutosaveController.swift */; };
 		EXTFILE0001BFIL0001 /* ExternalFileEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EXTFILE0001FREF0001 /* ExternalFileEditorView.swift */; };
 		95ED67512F05D40E00463159 /* ArtifactRows.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95ED674C2F05D40E00463159 /* ArtifactRows.swift */; };
 		977791C379F78336E0BF892B /* ShelfStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A300000000000000000012 /* ShelfStore.swift */; };
@@ -114,7 +128,6 @@
 		B1C2D3E4F5061728394B0005 /* MarkdownIndexingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A0005 /* MarkdownIndexingService.swift */; };
 		B1C2D3E4F5061728394B0006 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = AABBCCDD0011223344556688 /* GRDB */; };
 		B1C2D3E4F5061728394B0007 /* MarkdownConverter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A0006 /* MarkdownConverter.swift */; };
-		B1C2D3E4F5061728394B0009 /* MarkdownStyler.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A0008 /* MarkdownStyler.swift */; };
 		B1C2D3E4F5061728394B000A /* Markdown in Frameworks */ = {isa = PBXBuildFile; productRef = AABBCCDD00112233445566AA /* Markdown */; };
 		B1C2D3E4F5061728394B0010 /* InlineImageLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A0010 /* InlineImageLoader.swift */; };
 		B1C2D3E4F5A6B1C2D3E4F5A6 /* MonaSans-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A1B2C3D4E5F6 /* MonaSans-Medium.ttf */; };
@@ -133,11 +146,6 @@
 		C4A100000000000000000024 /* CaptureViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4A100000000000000000014 /* CaptureViewModel.swift */; };
 		C4DE45CE9E8EEE050CE9BCA8 /* BlockGraphServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CE06F10D6B1A513C3381BD0 /* BlockGraphServiceTests.swift */; };
 		CA72DE266C2D644ABFCAE10C02A2ACC1 /* DayManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EF96EE23544AAE820F24C7E344A40BF /* DayManager.swift */; };
-		CALSB00000000000000000B1 /* CalendarSidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CALSB00000000000000000F1 /* CalendarSidebarView.swift */; };
-		CALSB00000000000000000B2 /* CalendarSidebarViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CALSB00000000000000000F2 /* CalendarSidebarViewModel.swift */; };
-		CALSB00000000000000000B3 /* CalendarMiniMonthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CALSB00000000000000000F3 /* CalendarMiniMonthView.swift */; };
-		CALSB00000000000000000B4 /* CalendarFilterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CALSB00000000000000000F4 /* CalendarFilterView.swift */; };
-		CALSB00000000000000000B5 /* CalendarEventDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CALSB00000000000000000F5 /* CalendarEventDetailView.swift */; };
 		CAP0A1B2C3D4E5F6080009 /* OCRsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAP0A1B2C3D4E5F6070009 /* OCRsListView.swift */; };
 		CD093D075F2FD5FF3611FA99 /* ShelfItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A300000000000000000011 /* ShelfItem.swift */; };
 		CMDP0001BFIL0001 /* CommandPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = CMDP0001FREF0001 /* CommandPalette.swift */; };
@@ -173,16 +181,17 @@
 		HRMSBLD0000000005 /* HermesEnv.swift in Sources */ = {isa = PBXBuildFile; fileRef = HRMSREF0000000005 /* HermesEnv.swift */; };
 		HRMSSETT0000000001 /* NanoHermesSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = HRMSSETT0000000002 /* NanoHermesSettingsView.swift */; };
 		HRMSSTAT0000000001 /* HermesStatusService.swift in Sources */ = {isa = PBXBuildFile; fileRef = HRMSSTAT0000000002 /* HermesStatusService.swift */; };
+		DCMPBLD00000000000000003 /* TodayInsightsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCMPREF00000000000000003 /* TodayInsightsService.swift */; };
 		KANBSVC00000000001 /* HermesKanbanService.swift in Sources */ = {isa = PBXBuildFile; fileRef = KANBSVC00000000002 /* HermesKanbanService.swift */; };
 		MACT000000000000000B /* MenuActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = MACT000000000000000R /* MenuActions.swift */; };
 		MATH0001BFIL0001 /* MathRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = MATH0001FREF0001 /* MathRenderer.swift */; };
 		NANO00BLD0000000001 /* NanoPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = NANO00REF0000000001 /* NanoPane.swift */; };
+		DCMPBLD00000000000000000 /* NanoDashShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCMPREF00000000000000000 /* NanoDashShared.swift */; };
+		DCMPBLD00000000000000001 /* NanoChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCMPREF00000000000000001 /* NanoChrome.swift */; };
+		DCMPBLD00000000000000002 /* NanoCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCMPREF00000000000000002 /* NanoCards.swift */; };
 		NANO00BLD0000000005 /* ConnectorDrawer.swift in Sources */ = {isa = PBXBuildFile; fileRef = NANO00REF0000000005 /* ConnectorDrawer.swift */; };
-		NANO00BLD0000000006 /* JobDrawer.swift in Sources */ = {isa = PBXBuildFile; fileRef = NANO00REF0000000006 /* JobDrawer.swift */; };
 		NANO00BLD0000000007 /* JobStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = NANO00REF0000000007 /* JobStore.swift */; };
 		NANO00BLD0000000019 /* HermesCronsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = NANO00REF0000000019 /* HermesCronsSection.swift */; };
-		NANO00BLD0000000020 /* MarkdownView.swift in Sources */ = {isa = PBXBuildFile; fileRef = NANO00REF0000000020 /* MarkdownView.swift */; };
-		NANO00BLD0000000021 /* CodeBlockView.swift in Sources */ = {isa = PBXBuildFile; fileRef = NANO00REF0000000021 /* CodeBlockView.swift */; };
 		NANOCARD0000000000000BLD /* NanoCardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = NANOCARD0000000000000REF /* NanoCardTests.swift */; };
 		NAV00000000000000000111 /* NavigationRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = NAV00000000000000000011 /* NavigationRepository.swift */; };
 		NAV00000000000000000112 /* NavigationStoreAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = NAV00000000000000000012 /* NavigationStoreAdapter.swift */; };
@@ -351,7 +360,10 @@
 		95456C5C2ED3DA0F00EDB4A9 /* NavigationStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationStore.swift; sourceTree = "<group>"; };
 		95456C5E2ED4758300EDB4A9 /* GlobalHotkeyManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalHotkeyManager.swift; sourceTree = "<group>"; };
 		95456C602ED47F2500EDB4A9 /* BlocksPane.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Geo/Features/Blocks/UI/BlocksPane.swift; sourceTree = SOURCE_ROOT; };
+		DCMPREF00000000000000005 /* BlocksControlBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlocksControlBar.swift; sourceTree = "<group>"; };
+		DCMPREF00000000000000006 /* BlocksPaneSubviews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlocksPaneSubviews.swift; sourceTree = "<group>"; };
 		95456C622ED47F3400EDB4A9 /* BlocksStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Geo/Features/Blocks/Data/BlocksStore.swift; sourceTree = SOURCE_ROOT; };
+		DCMPREF00000000000000004 /* BlocksStoreParsers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlocksStoreParsers.swift; sourceTree = "<group>"; };
 		95574B2E2ED09F56000C8978 /* LogStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Geo/Features/Capture/Data/LogStore.swift; sourceTree = SOURCE_ROOT; };
 		95574B302ED09F90000C8978 /* ScreenshotWatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Geo/Features/Capture/Data/ScreenshotWatcher.swift; sourceTree = SOURCE_ROOT; };
 		95574B342ED0CAC9000C8978 /* OCRService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OCRService.swift; sourceTree = "<group>"; };
@@ -364,14 +376,25 @@
 		958371D82F210EAA00FB7A7C /* CalendarDayCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarDayCell.swift; sourceTree = "<group>"; };
 		958371D92F210EAA00FB7A7C /* CalendarEventPill.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarEventPill.swift; sourceTree = "<group>"; };
 		958371DA2F210EAA00FB7A7C /* CalendarGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarGrid.swift; sourceTree = "<group>"; };
-		958371DB2F210EAA00FB7A7C /* CalendarHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarHeader.swift; sourceTree = "<group>"; };
+		CALNEW0000000000000001F1 /* CalendarRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarRootView.swift; sourceTree = "<group>"; };
+		CALNEW0000000000000001F2 /* CalendarFiltersModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarFiltersModel.swift; sourceTree = "<group>"; };
+		CALNEW0000000000000001F3 /* CalendarFilterChips.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarFilterChips.swift; sourceTree = "<group>"; };
+		CALNEW0000000000000001F4 /* WeekCalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeekCalendarView.swift; sourceTree = "<group>"; };
+		CALNEW0000000000000001F5 /* DayCalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayCalendarView.swift; sourceTree = "<group>"; };
+		CALNEW0000000000000001F6 /* CalendarTimeGridLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarTimeGridLayout.swift; sourceTree = "<group>"; };
+		CALNEW0000000000000001F7 /* CalendarTimeGridEventCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarTimeGridEventCard.swift; sourceTree = "<group>"; };
+		CALNEW0000000000000001F8 /* CalendarTimeGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarTimeGrid.swift; sourceTree = "<group>"; };
+		CALNEW0000000000000001F9 /* CalendarDaySummaryCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarDaySummaryCards.swift; sourceTree = "<group>"; };
 		958371DC2F210EAA00FB7A7C /* CalendarWeekdayHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarWeekdayHeader.swift; sourceTree = "<group>"; };
 		958371DD2F210EAA00FB7A7C /* MonthCalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonthCalendarView.swift; sourceTree = "<group>"; };
 		958EBC0D2F9DA76C00F435DA /* BlockGraphService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockGraphService.swift; sourceTree = "<group>"; };
 		958EBC0F2F9DA76C00F435DA /* BlockGraph.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockGraph.swift; sourceTree = "<group>"; };
 		958EBC112F9DA76C00F435DA /* GraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphView.swift; sourceTree = "<group>"; };
+		GRAPHSIMREF000000000001 /* GraphSimulation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphSimulation.swift; sourceTree = "<group>"; };
 		958EBC1A2F9DB45100F435DA /* NodesPane.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodesPane.swift; sourceTree = "<group>"; };
 		95BF1D9F2ED489C00070D1F6 /* BlockEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Geo/Features/Blocks/UI/BlockEditor.swift; sourceTree = SOURCE_ROOT; };
+		DCMPREF00000000000000007 /* BlockEditorSubviews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockEditorSubviews.swift; sourceTree = "<group>"; };
+		DCMPREF00000000000000008 /* BlockEditorAutosaveController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockEditorAutosaveController.swift; sourceTree = "<group>"; };
 		EXTFILE0001FREF0001 /* ExternalFileEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Geo/Features/Blocks/UI/ExternalFileEditorView.swift; sourceTree = SOURCE_ROOT; };
 		95ED674C2F05D40E00463159 /* ArtifactRows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtifactRows.swift; sourceTree = "<group>"; };
 		9CBE3190120FF8FEFD73E798 /* TaskFormView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Geo/Features/Tasks/UI/TaskFormView.swift; sourceTree = SOURCE_ROOT; };
@@ -385,7 +408,6 @@
 		A1B2C3D4E5F60718293A0003 /* FileWatcherService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileWatcherService.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F60718293A0005 /* MarkdownIndexingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownIndexingService.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F60718293A0006 /* MarkdownConverter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownConverter.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F60718293A0008 /* MarkdownStyler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownStyler.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F60718293A0010 /* InlineImageLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InlineImageLoader.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A1B2C3D4E5F6 /* MonaSans-Medium.ttf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; name = "MonaSans-Medium.ttf"; path = "Geo/Resources/Fonts/MonaSans-Medium.ttf"; sourceTree = SOURCE_ROOT; };
 		A9937952854366473575ED09 /* NotificationManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
@@ -426,11 +448,6 @@
 		C4A100000000000000000013 /* CaptureStoreRepositoryAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureStoreRepositoryAdapter.swift; sourceTree = "<group>"; };
 		C4A100000000000000000014 /* CaptureViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureViewModel.swift; sourceTree = "<group>"; };
 		C5C5116E16B8C749E689BD22 /* TasksPane.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Geo/Features/Tasks/UI/TasksPane.swift; sourceTree = SOURCE_ROOT; };
-		CALSB00000000000000000F1 /* CalendarSidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarSidebarView.swift; sourceTree = "<group>"; };
-		CALSB00000000000000000F2 /* CalendarSidebarViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarSidebarViewModel.swift; sourceTree = "<group>"; };
-		CALSB00000000000000000F3 /* CalendarMiniMonthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarMiniMonthView.swift; sourceTree = "<group>"; };
-		CALSB00000000000000000F4 /* CalendarFilterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarFilterView.swift; sourceTree = "<group>"; };
-		CALSB00000000000000000F5 /* CalendarEventDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarEventDetailView.swift; sourceTree = "<group>"; };
 		CAP0A1B2C3D4E5F6070009 /* OCRsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OCRsListView.swift; sourceTree = "<group>"; };
 		CMDP0001FREF0001 /* CommandPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPalette.swift; sourceTree = "<group>"; };
 		CMDP0002FREF0001 /* CommandPaletteViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteViewModel.swift; sourceTree = "<group>"; };
@@ -469,16 +486,17 @@
 		HRMSREF0000000005 /* HermesEnv.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HermesEnv.swift; sourceTree = "<group>"; };
 		HRMSSETT0000000002 /* NanoHermesSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NanoHermesSettingsView.swift; sourceTree = "<group>"; };
 		HRMSSTAT0000000002 /* HermesStatusService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Geo/Features/Nano/Data/HermesStatusService.swift; sourceTree = SOURCE_ROOT; };
+		DCMPREF00000000000000003 /* TodayInsightsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Geo/Features/Nano/Data/TodayInsightsService.swift; sourceTree = SOURCE_ROOT; };
 		KANBSVC00000000002 /* HermesKanbanService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HermesKanbanService.swift; sourceTree = "<group>"; };
 		MACT000000000000000R /* MenuActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuActions.swift; sourceTree = "<group>"; };
 		MATH0001FREF0001 /* MathRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MathRenderer.swift; sourceTree = "<group>"; };
 		NANO00REF0000000001 /* NanoPane.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NanoPane.swift; sourceTree = "<group>"; };
+		DCMPREF00000000000000000 /* NanoDashShared.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoDashShared.swift; sourceTree = "<group>"; };
+		DCMPREF00000000000000001 /* NanoChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoChrome.swift; sourceTree = "<group>"; };
+		DCMPREF00000000000000002 /* NanoCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoCards.swift; sourceTree = "<group>"; };
 		NANO00REF0000000005 /* ConnectorDrawer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ConnectorDrawer.swift; sourceTree = "<group>"; };
-		NANO00REF0000000006 /* JobDrawer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = JobDrawer.swift; sourceTree = "<group>"; };
 		NANO00REF0000000007 /* JobStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = JobStore.swift; sourceTree = "<group>"; };
 		NANO00REF0000000019 /* HermesCronsSection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HermesCronsSection.swift; sourceTree = "<group>"; };
-		NANO00REF0000000020 /* MarkdownView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MarkdownView.swift; sourceTree = "<group>"; };
-		NANO00REF0000000021 /* CodeBlockView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CodeBlockView.swift; sourceTree = "<group>"; };
 		NANOCARD0000000000000REF /* NanoCardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoCardTests.swift; sourceTree = "<group>"; };
 		NAV00000000000000000011 /* NavigationRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationRepository.swift; sourceTree = "<group>"; };
 		NAV00000000000000000012 /* NavigationStoreAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationStoreAdapter.swift; sourceTree = "<group>"; };
@@ -759,6 +777,7 @@
 			children = (
 				958EBC1A2F9DB45100F435DA /* NodesPane.swift */,
 				958EBC112F9DA76C00F435DA /* GraphView.swift */,
+				GRAPHSIMREF000000000001 /* GraphSimulation.swift */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -872,6 +891,7 @@
 			isa = PBXGroup;
 			children = (
 				HRMSSTAT0000000002 /* HermesStatusService.swift */,
+				DCMPREF00000000000000003 /* TodayInsightsService.swift */,
 			);
 			path = Data;
 			sourceTree = "<group>";
@@ -923,6 +943,7 @@
 			isa = PBXGroup;
 			children = (
 				95456C622ED47F3400EDB4A9 /* BlocksStore.swift */,
+				DCMPREF00000000000000004 /* BlocksStoreParsers.swift */,
 				B10C00000000000200000004 /* BlocksStoreRepositoryAdapter.swift */,
 				B10C00000000000200000005 /* FileAttachmentService.swift */,
 				NEWF00000000000000000003A /* TemplateService.swift */,
@@ -937,9 +958,13 @@
 			isa = PBXGroup;
 			children = (
 				95456C602ED47F2500EDB4A9 /* BlocksPane.swift */,
+				DCMPREF00000000000000005 /* BlocksControlBar.swift */,
+				DCMPREF00000000000000006 /* BlocksPaneSubviews.swift */,
 				RTESTATUS001A /* EditorStatusBar.swift */,
 				RTEOUTLINE01A /* OutlinePopover.swift */,
 				95BF1D9F2ED489C00070D1F6 /* BlockEditor.swift */,
+				DCMPREF00000000000000007 /* BlockEditorSubviews.swift */,
+				DCMPREF00000000000000008 /* BlockEditorAutosaveController.swift */,
 				EXTFILE0001FREF0001 /* ExternalFileEditorView.swift */,
 				BEA00000000000000000002 /* BlockEditorActions.swift */,
 				TBU000008REF /* BlockLinkedSchedulesHeader.swift */,
@@ -998,15 +1023,18 @@
 				958371DD2F210EAA00FB7A7C /* MonthCalendarView.swift */,
 				958371DA2F210EAA00FB7A7C /* CalendarGrid.swift */,
 				958371D82F210EAA00FB7A7C /* CalendarDayCell.swift */,
-				958371DB2F210EAA00FB7A7C /* CalendarHeader.swift */,
 				958371DC2F210EAA00FB7A7C /* CalendarWeekdayHeader.swift */,
 				958371D92F210EAA00FB7A7C /* CalendarEventPill.swift */,
 				C11A00000000000000000013 /* CalendarViewModel.swift */,
-				CALSB00000000000000000F1 /* CalendarSidebarView.swift */,
-				CALSB00000000000000000F2 /* CalendarSidebarViewModel.swift */,
-				CALSB00000000000000000F3 /* CalendarMiniMonthView.swift */,
-				CALSB00000000000000000F4 /* CalendarFilterView.swift */,
-				CALSB00000000000000000F5 /* CalendarEventDetailView.swift */,
+				CALNEW0000000000000001F1 /* CalendarRootView.swift */,
+				CALNEW0000000000000001F2 /* CalendarFiltersModel.swift */,
+				CALNEW0000000000000001F3 /* CalendarFilterChips.swift */,
+				CALNEW0000000000000001F4 /* WeekCalendarView.swift */,
+				CALNEW0000000000000001F5 /* DayCalendarView.swift */,
+				CALNEW0000000000000001F6 /* CalendarTimeGridLayout.swift */,
+				CALNEW0000000000000001F7 /* CalendarTimeGridEventCard.swift */,
+				CALNEW0000000000000001F8 /* CalendarTimeGrid.swift */,
+				CALNEW0000000000000001F9 /* CalendarDaySummaryCards.swift */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -1197,12 +1225,12 @@
 			isa = PBXGroup;
 			children = (
 				NANO00REF0000000001 /* NanoPane.swift */,
+				DCMPREF00000000000000000 /* NanoDashShared.swift */,
+				DCMPREF00000000000000001 /* NanoChrome.swift */,
+				DCMPREF00000000000000002 /* NanoCards.swift */,
 				WORKCARD0000000002 /* WorkersCard.swift */,
 				NANO00REF0000000005 /* ConnectorDrawer.swift */,
-				NANO00REF0000000006 /* JobDrawer.swift */,
 				NANO00REF0000000019 /* HermesCronsSection.swift */,
-				NANO00REF0000000020 /* MarkdownView.swift */,
-				NANO00REF0000000021 /* CodeBlockView.swift */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -1280,7 +1308,6 @@
 			isa = PBXGroup;
 			children = (
 				A1B2C3D4E5F60718293A0006 /* MarkdownConverter.swift */,
-				A1B2C3D4E5F60718293A0008 /* MarkdownStyler.swift */,
 				A1B2C3D4E5F60718293A0005 /* MarkdownIndexingService.swift */,
 				A1B2C3D4E5F60718293A0010 /* InlineImageLoader.swift */,
 				SYNHI00001FREF0002 /* SyntaxHighlighter.swift */,
@@ -1700,6 +1727,7 @@
 				4180AEF12839A0830054FEA9 /* Bundle+Version.swift in Sources */,
 				95ED67512F05D40E00463159 /* ArtifactRows.swift in Sources */,
 				95456C632ED47F3400EDB4A9 /* BlocksStore.swift in Sources */,
+				DCMPBLD00000000000000004 /* BlocksStoreParsers.swift in Sources */,
 				B10C00000000000300000001 /* BlockEntity.swift in Sources */,
 				B10C00000000000300000010 /* BlockType.swift in Sources */,
 				B10C00000000000300000030 /* BlockStatus.swift in Sources */,
@@ -1716,7 +1744,6 @@
 				B1C2D3E4F5061728394B0003 /* FileWatcherService.swift in Sources */,
 				B1C2D3E4F5061728394B0005 /* MarkdownIndexingService.swift in Sources */,
 				B1C2D3E4F5061728394B0007 /* MarkdownConverter.swift in Sources */,
-				B1C2D3E4F5061728394B0009 /* MarkdownStyler.swift in Sources */,
 				B1C2D3E4F5061728394B0010 /* InlineImageLoader.swift in Sources */,
 				4180AEFB2839A32F0054FEA9 /* AboutView.swift in Sources */,
 				4180AEEE2839A0660054FEA9 /* Bundle+Name.swift in Sources */,
@@ -1726,6 +1753,8 @@
 				C4A100000000000000000024 /* CaptureViewModel.swift in Sources */,
 				CAP0A1B2C3D4E5F6080009 /* OCRsListView.swift in Sources */,
 				95BF1DA02ED489C00070D1F6 /* BlockEditor.swift in Sources */,
+				DCMPBLD00000000000000007 /* BlockEditorSubviews.swift in Sources */,
+				DCMPBLD00000000000000008 /* BlockEditorAutosaveController.swift in Sources */,
 				EXTFILE0001BFIL0001 /* ExternalFileEditorView.swift in Sources */,
 				BEA00000000000000000001 /* BlockEditorActions.swift in Sources */,
 				TBU000008BLD /* BlockLinkedSchedulesHeader.swift in Sources */,
@@ -1751,16 +1780,21 @@
 				958371E12F210EAA00FB7A7C /* MonthCalendarView.swift in Sources */,
 				958371E22F210EAA00FB7A7C /* CalendarGrid.swift in Sources */,
 				958371E32F210EAA00FB7A7C /* CalendarDayCell.swift in Sources */,
-				958371E42F210EAA00FB7A7C /* CalendarHeader.swift in Sources */,
 				C11A00000000000000000023 /* CalendarViewModel.swift in Sources */,
-				CALSB00000000000000000B1 /* CalendarSidebarView.swift in Sources */,
-				CALSB00000000000000000B2 /* CalendarSidebarViewModel.swift in Sources */,
-				CALSB00000000000000000B3 /* CalendarMiniMonthView.swift in Sources */,
-				CALSB00000000000000000B4 /* CalendarFilterView.swift in Sources */,
-				CALSB00000000000000000B5 /* CalendarEventDetailView.swift in Sources */,
+				CALNEW0000000000000001B1 /* CalendarRootView.swift in Sources */,
+				CALNEW0000000000000001B2 /* CalendarFiltersModel.swift in Sources */,
+				CALNEW0000000000000001B3 /* CalendarFilterChips.swift in Sources */,
+				CALNEW0000000000000001B4 /* WeekCalendarView.swift in Sources */,
+				CALNEW0000000000000001B5 /* DayCalendarView.swift in Sources */,
+				CALNEW0000000000000001B6 /* CalendarTimeGridLayout.swift in Sources */,
+				CALNEW0000000000000001B7 /* CalendarTimeGridEventCard.swift in Sources */,
+				CALNEW0000000000000001B8 /* CalendarTimeGrid.swift in Sources */,
+				CALNEW0000000000000001B9 /* CalendarDaySummaryCards.swift in Sources */,
 				95574B362ED0D514000C8978 /* OCRService.swift in Sources */,
 				4180AEF32839A0950054FEA9 /* Bundle+Copyright.swift in Sources */,
 				95456C612ED47F2500EDB4A9 /* BlocksPane.swift in Sources */,
+				DCMPBLD00000000000000005 /* BlocksControlBar.swift in Sources */,
+				DCMPBLD00000000000000006 /* BlocksPaneSubviews.swift in Sources */,
 				RTESTATUS001B /* EditorStatusBar.swift in Sources */,
 				4180AEC0283976740054FEA9 /* SettingsWindow.swift in Sources */,
 				95574B2F2ED09F6C000C8978 /* LogStore.swift in Sources */,
@@ -1799,6 +1833,7 @@
 				055140250E9F36D465B3559D /* AccessibilityPermission.swift in Sources */,
 				2BE41C1E1B10CCBD3958B62E /* InputMonitoringPermission.swift in Sources */,
 				HRMSSTAT0000000001 /* HermesStatusService.swift in Sources */,
+				DCMPBLD00000000000000003 /* TodayInsightsService.swift in Sources */,
 				HRMSSETT0000000001 /* NanoHermesSettingsView.swift in Sources */,
 				SHAREDKCBLD0001 /* KeychainHelper.swift in Sources */,
 				SHAREDWTNBLD0001 /* WikiTitleNormalizer.swift in Sources */,
@@ -1902,19 +1937,20 @@
 				958EBC1B2F9DB45100F435DA /* NodesPane.swift in Sources */,
 				958EBC142F9DA76C00F435DA /* BlockGraph.swift in Sources */,
 				958EBC152F9DA76C00F435DA /* GraphView.swift in Sources */,
+				GRAPHSIMBLD000000000001 /* GraphSimulation.swift in Sources */,
 				958EBC162F9DA76C00F435DA /* BlockGraphService.swift in Sources */,
 				GST00BLDR000000000001 /* GraphStore.swift in Sources */,
 				TBU000004BLD /* QuickAddParser.swift in Sources */,
 				TBU000005BLD /* TasksStore+HabitCompletion.swift in Sources */,
 				TBU000006BLD /* AutoCompleteSuggestionService.swift in Sources */,
 				NANO00BLD0000000001 /* NanoPane.swift in Sources */,
+				DCMPBLD00000000000000000 /* NanoDashShared.swift in Sources */,
+				DCMPBLD00000000000000001 /* NanoChrome.swift in Sources */,
+				DCMPBLD00000000000000002 /* NanoCards.swift in Sources */,
 				WORKCARD0000000001 /* WorkersCard.swift in Sources */,
 				NANO00BLD0000000005 /* ConnectorDrawer.swift in Sources */,
-				NANO00BLD0000000006 /* JobDrawer.swift in Sources */,
 				NANO00BLD0000000007 /* JobStore.swift in Sources */,
 				NANO00BLD0000000019 /* HermesCronsSection.swift in Sources */,
-				NANO00BLD0000000020 /* MarkdownView.swift in Sources */,
-				NANO00BLD0000000021 /* CodeBlockView.swift in Sources */,
 				HRMSBLD0000000005 /* HermesEnv.swift in Sources */,
 				KANBSVC00000000001 /* HermesKanbanService.swift in Sources */,
 				F647E355467B97D72E413A2C /* NotificationPermission.swift in Sources */,
@@ -2106,15 +2142,17 @@
 				AUTOMATION_APPLE_EVENTS = YES;
 				CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION = YES;
 				CODE_SIGN_ENTITLEMENTS = Geo/App/Geo.entitlements;
-				CODE_SIGN_IDENTITY = "Apple Development";
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
-				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_IDENTITY = "Geo Local Signing";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Geo Local Signing";
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = "";
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"Geo/Resources/Preview Content\"";
 				ENABLE_APP_SANDBOX = NO;
-				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_DEBUG_DYLIB = NO;
+				ENABLE_HARDENED_RUNTIME = NO;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = YES;
 				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
@@ -2127,6 +2165,7 @@
 				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Geo needs to send Apple Events to automate tasks and manage system functionality.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Geo needs camera access to capture screenshots and images.";
 				INFOPLIST_KEY_NSDesktopFolderUsageDescription = "Geo needs access to your Desktop folder to save and organize captured files.";
+				INFOPLIST_KEY_NSInputMonitoringUsageDescription = "Geo needs input monitoring to provide global keyboard shortcuts and capture assistance.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -2156,9 +2195,10 @@
 				AUTOMATION_APPLE_EVENTS = YES;
 				CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION = YES;
 				CODE_SIGN_ENTITLEMENTS = Geo/App/Geo.entitlements;
-				CODE_SIGN_IDENTITY = "Apple Development";
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
-				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_IDENTITY = "Geo Local Signing";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Geo Local Signing";
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = "";
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
@@ -2177,6 +2217,7 @@
 				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Geo needs to send Apple Events to automate tasks and manage system functionality.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Geo needs camera access to capture screenshots and images.";
 				INFOPLIST_KEY_NSDesktopFolderUsageDescription = "Geo needs access to your Desktop folder to save and organize captured files.";
+				INFOPLIST_KEY_NSInputMonitoringUsageDescription = "Geo needs input monitoring to provide global keyboard shortcuts and capture assistance.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
