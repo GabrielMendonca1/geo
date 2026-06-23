@@ -297,7 +297,7 @@ struct GeoApp: App {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .defaultSize(width: 720, height: 760)
+        .defaultSize(width: 1000, height: 800)
         .windowResizability(.contentMinSize)
         .restorationBehavior(.disabled)
         .handlesExternalEvents(matching: [])
