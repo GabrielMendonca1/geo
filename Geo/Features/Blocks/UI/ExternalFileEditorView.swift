@@ -32,6 +32,7 @@ struct ExternalFileEditorView: View {
         .onDisappear {
             model.flush()
             model.stopWatching()
+            FileOpenCoordinator.shared.unregisterExternalWindow(url)
             if let closeObserver {
                 NotificationCenter.default.removeObserver(closeObserver)
             }
@@ -43,6 +44,7 @@ struct ExternalFileEditorView: View {
 
     private func configureWindow(_ window: NSWindow?) {
         guard let window else { return }
+        FileOpenCoordinator.shared.registerExternalWindow(url, window)
         if let closeObserver {
             NotificationCenter.default.removeObserver(closeObserver)
         }

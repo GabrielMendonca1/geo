@@ -23,6 +23,8 @@
 		3F07CC64AE2689F6C2C6DA0A9A6CF786 /* CurrentDayHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02097A30DAF122904836BF44001DF396 /* CurrentDayHeader.swift */; };
 		3F90C3B7981045B8A7BCC6C6 /* FontManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3853647B6F294A63B46B70FC /* FontManager.swift */; };
 		4180AEAE2839753E0054FEA9 /* GeoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4180AEAD2839753E0054FEA9 /* GeoApp.swift */; };
+		0FR00001BLD0000000000B /* OpenFileRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FR00001REF0000000000A /* OpenFileRouter.swift */; };
+		0FR00002BLD0000000000B /* OpenFileRouterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FR00002REF0000000000A /* OpenFileRouterTests.swift */; };
 		4180AEB22839753F0054FEA9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4180AEB12839753F0054FEA9 /* Assets.xcassets */; };
 		4180AEB52839753F0054FEA9 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4180AEB42839753F0054FEA9 /* Preview Assets.xcassets */; };
 		4180AEC0283976740054FEA9 /* SettingsWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4180AEBF283976740054FEA9 /* SettingsWindow.swift */; };
@@ -330,6 +332,8 @@
 		3EF96EE23544AAE820F24C7E344A40BF /* DayManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayManager.swift; sourceTree = "<group>"; };
 		4180AEAA2839753E0054FEA9 /* Geo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Geo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4180AEAD2839753E0054FEA9 /* GeoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeoApp.swift; sourceTree = "<group>"; };
+		0FR00001REF0000000000A /* OpenFileRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenFileRouter.swift; sourceTree = "<group>"; };
+		0FR00002REF0000000000A /* OpenFileRouterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenFileRouterTests.swift; sourceTree = "<group>"; };
 		4180AEB12839753F0054FEA9 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		4180AEB42839753F0054FEA9 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		4180AEB62839753F0054FEA9 /* Geo.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Geo.entitlements; sourceTree = "<group>"; };
@@ -808,6 +812,7 @@
 				A10000000000000000000005 /* TagTests.swift */,
 				NANOCARD0000000000000REF /* NanoCardTests.swift */,
 				A10000000000000000000008 /* BlockModelTests.swift */,
+				0FR00002REF0000000000A /* OpenFileRouterTests.swift */,
 				TBU000101REF /* TaskItemSchemaTests.swift */,
 				TBU000102REF /* BlocksStoreCheckboxTests.swift */,
 				TBU000103REF /* QuickAddParserTests.swift */,
@@ -1276,6 +1281,7 @@
 			isa = PBXGroup;
 			children = (
 				4180AEAD2839753E0054FEA9 /* GeoApp.swift */,
+				0FR00001REF0000000000A /* OpenFileRouter.swift */,
 				4180AEB62839753F0054FEA9 /* Geo.entitlements */,
 				4180AEC3283979530054FEA9 /* MainView.swift */,
 				APPCMDGRP000001 /* Commands */,
@@ -1832,6 +1838,7 @@
 				4180AEEB2839A0280054FEA9 /* AboutCommand.swift in Sources */,
 				95456C5F2ED4758300EDB4A9 /* GlobalHotkeyManager.swift in Sources */,
 				4180AEAE2839753E0054FEA9 /* GeoApp.swift in Sources */,
+				0FR00001BLD0000000000B /* OpenFileRouter.swift in Sources */,
 				958371A62F1D5C7000FB7A7C /* FABConfiguration.swift in Sources */,
 				958371A72F1D5C7000FB7A7C /* FABAction.swift in Sources */,
 				958371A82F1D5C7000FB7A7C /* FABMenu.swift in Sources */,
@@ -1985,6 +1992,7 @@
 				A10000000000000000000013 /* TagTests.swift in Sources */,
 				NANOCARD0000000000000BLD /* NanoCardTests.swift in Sources */,
 				A10000000000000000000016 /* BlockModelTests.swift in Sources */,
+				0FR00002BLD0000000000B /* OpenFileRouterTests.swift in Sources */,
 				TBU000101BLD /* TaskItemSchemaTests.swift in Sources */,
 				TBU000102BLD /* BlocksStoreCheckboxTests.swift in Sources */,
 				TBU000103BLD /* QuickAddParserTests.swift in Sources */,

@@ -5,8 +5,54 @@ import os.log
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "geo", category: "GeoApp")
 
-extension Notification.Name {
-    static let openExternalFile = Notification.Name("ai.geo.openExternalFile")
+@MainActor
+final class FileOpenCoordinator {
+    static let shared = FileOpenCoordinator()
+
+    private var openWindow: OpenWindowAction?
+    private var pending: [OpenFileRouter.Outcome] = []
+    private var externalWindows: [String: NSWindow] = [:]
+    private var externalInFlight: Set<String> = []
+
+    func setOpener(_ action: OpenWindowAction) {
+        openWindow = action
+        guard !pending.isEmpty else { return }
+        let queued = pending
+        pending = []
+        for outcome in queued { dispatch(outcome) }
+    }
+
+    func dispatch(_ outcome: OpenFileRouter.Outcome) {
+        guard let openWindow else { pending.append(outcome); return }
+        switch outcome {
+        case .openExisting(let blockId):
+            openWindow(id: "editor", value: blockId)
+            NSApp.activate(ignoringOtherApps: true)
+        case .external(let url):
+            let key = url.path
+            if let existing = externalWindows[key] {
+                existing.makeKeyAndOrderFront(nil)
+                NSApp.activate(ignoringOtherApps: true)
+                return
+            }
+            guard !externalInFlight.contains(key) else { return }
+            externalInFlight.insert(key)
+            openWindow(id: "external-editor", value: url)
+            NSApp.activate(ignoringOtherApps: true)
+        case .create:
+            break
+        }
+    }
+
+    func registerExternalWindow(_ url: URL, _ window: NSWindow) {
+        externalWindows[url.path] = window
+        externalInFlight.remove(url.path)
+    }
+
+    func unregisterExternalWindow(_ url: URL) {
+        externalWindows.removeValue(forKey: url.path)
+        externalInFlight.remove(url.path)
+    }
 }
 
 enum RepositoryError: Error, Equatable {
@@ -217,12 +263,11 @@ struct GeoApp: App {
                 .sheet(isPresented: $showOnboarding) {
                     OnboardingPermissionsView()
                 }
-                .onReceive(NotificationCenter.default.publisher(for: .openExternalFile)) { note in
-                    guard let url = note.object as? URL else { return }
-                    openWindow(id: "external-editor", value: url)
-                }
+                .onAppear { FileOpenCoordinator.shared.setOpener(openWindow) }
         }
         .windowStyle(.hiddenTitleBar)
+        .handlesExternalEvents(matching: [])
+        .restorationBehavior(.disabled)
         .commands {
             AboutCommand()
             AlwaysOnTopCommand()
@@ -240,6 +285,8 @@ struct GeoApp: App {
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1000, height: 800)
         .windowResizability(.contentMinSize)
+        .restorationBehavior(.disabled)
+        .handlesExternalEvents(matching: [])
         .commandsRemoved()
 
         WindowGroup("External File", id: "external-editor", for: URL.self) { $url in
@@ -252,6 +299,8 @@ struct GeoApp: App {
         }
         .defaultSize(width: 720, height: 760)
         .windowResizability(.contentMinSize)
+        .restorationBehavior(.disabled)
+        .handlesExternalEvents(matching: [])
         .commandsRemoved()
     }
 }
@@ -366,35 +415,50 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
-        let supported: Set<String> = ["md", "markdown", "txt", "text"]
-        let fileURLs = urls
-            .filter { supported.contains($0.pathExtension.lowercased()) }
-            .map { $0.resolvingSymlinksInPath().standardizedFileURL }
-        guard !fileURLs.isEmpty else { return }
-
         Task { @MainActor in
             let vaultDirectory = container.blocksStore.fileService.blocksDirectory
-                .resolvingSymlinksInPath().standardizedFileURL
-            let vaultPrefix = vaultDirectory.path.hasSuffix("/") ? vaultDirectory.path : vaultDirectory.path + "/"
-
-            let vaultURLs = fileURLs.filter { $0.path.hasPrefix(vaultPrefix) }
-            for url in fileURLs where !vaultURLs.contains(url) {
-                NotificationCenter.default.post(name: .openExternalFile, object: url)
-            }
-
-            guard !vaultURLs.isEmpty else { return }
             let blocksRepo = container.environment.blocksRepository
-            for url in vaultURLs {
-                guard let content = try? String(contentsOf: url, encoding: .utf8) else { continue }
-                let title = url.deletingPathExtension().lastPathComponent
-                _ = try? await blocksRepo.create(title: title, markdown: content)
+            let existing = (try? await blocksRepo.list()) ?? []
+            let existingByPath = Dictionary(
+                existing.map { ($0.url.resolvingSymlinksInPath().standardizedFileURL.path, $0.id) },
+                uniquingKeysWith: { first, _ in first }
+            )
+
+            let outcomes = OpenFileRouter.resolve(
+                urls: urls,
+                vaultDirectory: vaultDirectory,
+                existingByPath: existingByPath
+            )
+            guard !outcomes.isEmpty else { return }
+
+            var didCreate = false
+            for outcome in outcomes {
+                switch outcome {
+                case .openExisting, .external:
+                    FileOpenCoordinator.shared.dispatch(outcome)
+                case .create(let url):
+                    guard let content = try? String(contentsOf: url, encoding: .utf8) else { continue }
+                    let title = url.deletingPathExtension().lastPathComponent
+                    _ = try? await blocksRepo.create(title: title, markdown: content)
+                    didCreate = true
+                }
             }
-            container.navigationStore.selectTab(.nodes)
+            if didCreate {
+                container.navigationStore.selectTab(.nodes)
+            }
         }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        return true
+        return false
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        return !flag
+    }
+
+    func applicationShouldOpenUntitledFile(_ sender: NSApplication) -> Bool {
+        return false
     }
 
     func applicationWillTerminate(_ notification: Notification) {
