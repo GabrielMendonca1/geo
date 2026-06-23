@@ -161,22 +161,22 @@ struct BlockListView: View {
                     .onPreferenceChange(BlockRowBoundsKey.self) { newBounds in
                         if newBounds != rowBounds { rowBounds = newBounds }
                     }
-                    .overlay(alignment: .topLeading) {
-                        EditorOverlayLayer(
-                            router: router,
-                            rowBounds: rowBounds,
-                            mentionableBlocks: mentionableBlocks,
-                            onSlashSelect: { cmd, idx in
-                                router.executeBlockSlashCommand(cmd, at: idx)
-                                consumeTemplatePickerRequest(at: idx)
-                            },
-                            onMentionSelect: { item, idx in
-                                router.executeMention(item, at: idx)
-                            }
-                        )
-                    }
                 }
                 .coordinateSpace(name: "editor")
+                .overlay(alignment: .topLeading) {
+                    EditorOverlayLayer(
+                        router: router,
+                        rowBounds: rowBounds,
+                        mentionableBlocks: mentionableBlocks,
+                        onSlashSelect: { cmd, idx in
+                            router.executeBlockSlashCommand(cmd, at: idx)
+                            consumeTemplatePickerRequest(at: idx)
+                        },
+                        onMentionSelect: { item, idx in
+                            router.executeMention(item, at: idx)
+                        }
+                    )
+                }
                 .onChange(of: selectionManager.selectedBlockIds) { _, newValue in
                     selectionManager.installSelectionMonitor(
                         active: !newValue.isEmpty,

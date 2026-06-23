@@ -238,7 +238,7 @@ struct GeoApp: App {
                 .environment(\.appEnvironment, container.environment)
         }
         .windowStyle(.hiddenTitleBar)
-        .defaultSize(width: 430, height: 600)
+        .defaultSize(width: 1000, height: 800)
         .windowResizability(.contentMinSize)
         .commandsRemoved()
 
