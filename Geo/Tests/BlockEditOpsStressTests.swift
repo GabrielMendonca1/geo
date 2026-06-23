@@ -730,4 +730,21 @@ final class BlockEditOpsStressTests: XCTestCase {
         XCTAssertLessThanOrEqual(filtered("e").count, 8, "filtered list is capped")
     }
 
+    func testMentionFuzzyRankingAndFilter() {
+        let items = [
+            BlockMentionItem(id: "1", title: "Project Plan"),
+            BlockMentionItem(id: "2", title: "Daily Notes"),
+            BlockMentionItem(id: "3", title: "Planning Doc"),
+        ]
+        func filtered(_ q: String) -> [BlockMentionItem] {
+            MentionOverlay.filtered(
+                mentionState: MentionState(blockId: UUID(), blockIndex: 0, filter: q, selectedIndex: 0),
+                mentionableBlocks: items
+            )
+        }
+        XCTAssertEqual(filtered("").count, 3, "empty filter browses all")
+        XCTAssertEqual(filtered("plan").first?.id, "3", "title-prefix 'Planning' outranks substring 'Project Plan'")
+        XCTAssertTrue(filtered("zzz").isEmpty, "no match returns empty")
+    }
+
 }

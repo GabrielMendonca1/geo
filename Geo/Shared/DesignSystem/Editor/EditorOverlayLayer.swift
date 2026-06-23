@@ -23,7 +23,7 @@ struct EditorOverlayLayer: View {
 
     private static let menuVerticalGap: CGFloat = 4
     private static let slashMenuWidth: CGFloat = 300
-    private static let mentionMenuWidth: CGFloat = 260
+    private static let mentionMenuWidth: CGFloat = 300
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -63,22 +63,20 @@ struct EditorOverlayLayer: View {
     private var mentionLayer: some View {
         if let state = router.mentionState, let rect = rowBounds[state.blockId] {
             let items = MentionOverlay.filtered(mentionState: state, mentionableBlocks: mentionableBlocks)
-            if !items.isEmpty {
-                MentionOverlay(
-                    items: items,
-                    selectedIndex: state.selectedIndex,
-                    onSelect: { item in onMentionSelect(item, state.blockIndex) }
-                )
-                .frame(width: Self.mentionMenuWidth)
-                .fixedSize(horizontal: true, vertical: true)
-                .offset(
-                    x: rect.minX,
-                    y: rect.maxY + Self.menuVerticalGap
-                )
-                .allowsHitTesting(true)
-                .zIndex(EditorOverlayZ.mentionMenu)
-                .transition(.opacity)
-            }
+            MentionOverlay(
+                items: items,
+                selectedIndex: state.selectedIndex,
+                onSelect: { item in onMentionSelect(item, state.blockIndex) }
+            )
+            .frame(width: Self.mentionMenuWidth)
+            .fixedSize(horizontal: true, vertical: true)
+            .offset(
+                x: rect.minX,
+                y: rect.maxY + Self.menuVerticalGap
+            )
+            .allowsHitTesting(true)
+            .zIndex(EditorOverlayZ.mentionMenu)
+            .transition(.opacity)
         }
     }
 }
