@@ -192,7 +192,10 @@ def get_block_by_title(title: str) -> dict:
                 block_id = rec["id"]
                 break
     if block_id is None:
-        raise GeoError(f"no block titled: {title}")
+        raise GeoError(
+            f"no block titled '{title}' — it may not exist. Do NOT retry this call; "
+            f"use geo_search_blocks to find blocks by content, or geo_list_blocks to browse titles."
+        )
     return _read_block_file(block_id)
 
 
