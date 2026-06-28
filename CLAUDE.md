@@ -1,148 +1,93 @@
 # Geo
 
-macOS productivity hub (Swift/SwiftUI, local-first) + the hermes LaunchAgent that reads/writes Geo's data over the native filesystem on the same Mac (MCP and the localhost HTTP API both retired as the data contract). Captures, organizes, transcribes; bridges WhatsApp / Gmail / Telegram and dispatches subagents.
-
-## Architecture
+Personal, local-first macOS knowledge hub: a native **Swift/SwiftUI** app plus **hermes**, a 24/7 agent LaunchAgent on the same Mac. Both read/write the **same Markdown vault directly over the filesystem — no socket, no MCP, no HTTP between them**. The app captures, organizes, transcribes, and renders a Zettelkasten graph; hermes bridges WhatsApp/Gmail/Telegram, runs cron prompts, and dispatches Claude Code subagents.
 
 ```
-┌────────────────────────────────────────────────────────────────┐
-│                     Geo system (this repo)                     │
-│                                                                │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │  Geo.app   (Swift / SwiftUI, macOS, local-first)         │  │
-│  │                                                          │  │
-│  │  Notch UI · FloatingShelf · Main Window · Global hotkey  │  │
-│  │       │                                                  │  │
-│  │       ▼                                                  │  │
-│  │  Features: Blocks · Tasks · Tags · Graph · Capture ·     │  │
-│  │            Calendar · Nano · Settings · About            │  │
-│  │       │                                                  │  │
-│  │       ▼                                                  │  │
-│  │  Stores (@ObservableObject + Combine, singletons)        │  │
-│  │  BlocksStore · TasksStore · TagStore · DayStore · Nav    │  │
-│  │       │                                                  │  │
-│  │       ▼                                                  │  │
-│  │  Infra: GRDB (SQLite) · Vision OCR · CGEventTap ·        │  │
-│  │         FileWatcher · AI                                 │  │
-│  │       │                                                  │  │
-│  │       ▼                                                  │  │
-│  │  ~/Library/Application Support/Geo/   (files are truth)  │  │
-│  │   Blocks/<Layer>/**.md (frontmatter Properties +         │  │
-│  │     inline [[wikilinks]] & [[YYYY-MM-DD]] day-links)     │  │
-│  │   Tasks/*.md · tags.json (colors) · days.json            │  │
-│  │   Index/blocks.sqlite (rebuildable cache, derived)       │  │
-│  └──────────────────────────┬─────────────────────────────┘      │
-│                              │ native FS only: reads via RO      │
-│                              ▼ Index/blocks.sqlite, FS writes    │
-│                       ┌──────────────────────────────────┐       │
-│                       │  hermes  (LaunchAgent, ~/.hermes) │      │
-│                       │  • WhatsApp/Gmail/Telegram bridge │      │
-│                       │  • cron prompts                   │      │
-│                       │  • cc-dispatch (CC workers)       │      │
-│                       └──────────────────────────────────┘       │
-└────────────────────────────────────────────────────────────────┘
+Geo.app (SwiftUI)  ──derives──▶  Index/blocks.sqlite   (rebuildable cache)
+  notch · capture · graph · tasks · calendar · OCR · Nano
+        │ writes .md
+        ▼
+~/Library/Application Support/Geo/Blocks/**.md   ← single source of truth
+        ▲
+        │ native filesystem only (no socket)
+hermes (LaunchAgent)   WhatsApp · Gmail · Telegram · cron · cc-dispatch
 ```
 
-## Layout (repo root)
+This file is the source of truth for the architecture. Deep dives on demand: storage model → `Geo/docs/adr/ADR-0002-files-are-truth-vault-native-storage.md`; install + macOS permissions → `INSTALL.md`; hermes runtime → `hermes/config.yaml` + `hermes/SOUL.md`.
 
-```
-Geo/                          macOS app source (Swift/SwiftUI) — see "Geo app" below
-Geo.xcodeproj/                Xcode project
-hermes/                       hermes daemon config (config.yaml, SOUL.md, bin/cc-dispatch, install.sh)
-hermes-extensions/            custom plugins + worker daemons that ship with hermes
-  brain-vault/                file-native brain vault tools (see Brains track) · geo-tools/ · …
-LICENSE
+## Build / run / test
+
+Scheme is `Geo` (auto-generated from the target; there is no checked-in `.xcscheme`).
+
+```bash
+xcodebuild -project Geo.xcodeproj -scheme Geo -destination 'platform=macOS' build
+xcodebuild -project Geo.xcodeproj -scheme Geo -destination 'platform=macOS' test
+xcodebuild clean -scheme Geo
 ```
 
-## Geo app (`Geo/`)
+- **Tests run as-is.** The Debug config sets `ENABLE_DEBUG_DYLIB = NO` + `ENABLE_HARDENED_RUNTIME = NO` (in `project.pbxproj`) so the XCTest host launches — don't re-add those as command-line flags.
+- **To actually RUN the app, build Release and copy it in** — a Debug build crashes on launch (`@rpath/Geo.debug.dylib`):
+  ```bash
+  export DEVELOPER_DIR="$HOME/Applications/Xcode-beta.app/Contents/Developer"
+  SRC=$(xcodebuild -scheme Geo -configuration Release -showBuildSettings | awk '/ BUILT_PRODUCTS_DIR /{print $3; exit}')
+  ditto "$SRC/Geo.app" /Applications/Geo.app && open /Applications/Geo.app
+  ```
+- **Distributable DMG** (ad-hoc signed, no Apple account needed): `bash Geo/scripts/build_dist.sh`. Notarize path: `Geo/scripts/notarize.sh` (see `INSTALL.md`).
+- **Verify UI changes by running the real app**, not by tests alone — the editor keystroke path has invariants the suite can't catch (see Hard rules).
+
+## Hard rules
+
+- **Files are truth.** A block *is* its `.md` file. `Index/blocks.sqlite` (FTS + graph + `block_tags` + `block_days`) is a **rebuildable cache, never authoritative** — corruption is fixed by re-deriving from files (FileWatcher → `BlockChangeReconciler` → rebuild). Only `tags.json` (tag colors) and `days.json` survive as small central caches/fallbacks; the `.blocks-metadata.json` sidecar is retired.
+- **Sandbox is OFF** (`com.apple.security.app-sandbox = false`). Required for screenshot-dir watching, launching subagents, and the `CGEventTap` hotkey. Moving to the App Store would force this to change.
+- **State lives in singleton stores**, not views. New persisted state → a new Store (`@MainActor ObservableObject`), never a stray `@State`.
+- **hermes writes only its layers.** It may raw-FS-write `Agente`/`Revisao`/`Compartilhado` blocks, **never `Voce/`** (the user's) — enforced by `hermes-extensions/geo-tools/guard.py` + FileWatcher quarantine.
+- **Editor keystroke invariants** (`Geo/Features/Blocks/UI/BlockEditor.swift`): the marked-text guard, the `editGeneration` bump, and the `isApplyingTransaction` mask are load-bearing. Drop any one and the editor freezes on specific inputs *while still passing the suite*. Verify editor edits by running the app.
+- **TDD.** Track work in `Geo/conductor/tracks/<track>/plan.md`; tech-stack changes go in `Geo/conductor/tech-stack.md`.
+- **Commit format:** `<type>(<scope>): <description>` — `feat fix docs style refactor test chore`.
+
+## App layout (`Geo/`)
 
 ```
 App/         @main, composition, Notch UI, entitlements
-Features/    feature modules (each = Data + Domain + UI)
-Shared/      DesignSystem · Infrastructure · Navigation · Platform · Tags
-Utilities/   GeoStyle · ResponsiveLayout · WindowReflection
-Extensions/  Bundle+, NSWindow+, ProcessInfo+
-Tests/       XCTest, target >80% coverage
-docs/        ADRs + architecture notes
-conductor/   tracks/<track>/plan.md — TDD task tracking
+Features/    feature-first modules (each = Data + Domain + UI):
+             Blocks Tasks Calendar Capture Graph Brains Nano
+             FloatingShelf Home Settings About Onboarding
+Shared/      DesignSystem · Infrastructure (GRDB) · Navigation · Platform · Tags · Support
+Utilities/ Extensions/   small cross-cutting helpers
+Tests/       XCTest
+docs/        ADRs (adr/) + architecture notes
+conductor/   product/process tracks, tech-stack, product guidelines
+scripts/     build_dist.sh · notarize.sh · dev
 ```
 
-Build / test:
+Key services: `OCRService` (Vision) · `GlobalHotkeyManager` (CGEventTap) · `PermissionRegistry` · `DatabaseService`/`IndexCoordinator` (GRDB) · `DayManager` (midnight transitions).
 
-```bash
-xcodebuild build  -scheme Geo -destination 'platform=macOS'
-xcodebuild test   -scheme Geo -destination 'platform=macOS'
-xcodebuild clean  -scheme Geo
-```
+Design system: Geo Blue `#0055FF` · SF Pro · SF Symbols · dark mode · Apple HIG. Details in `Geo/conductor/product-guidelines.md`.
 
-Key services: `OCRService` (Vision) · `GlobalHotkeyManager` (CGEventTap) · `PermissionRegistry` · `DatabaseService` (GRDB) · `IndexCoordinator` · `DayManager` (midnight transitions).
+## Storage model
 
-Design system: Geo Blue `#0055FF` · SF Pro · SF Symbols · dark mode required · Apple HIG. Details in `Geo/conductor/product-guidelines.md`.
+The `.md` file holds the whole truth: frontmatter Properties (`id`, `type`, `status`, `layer`, `tags`, `full_width` — omitted when false) plus inline `[[wikilinks]]` and `[[YYYY-MM-DD]]` day-links in the body. The app **derives** everything else (FTS, graph, tag-map, day-map) into `Index/blocks.sqlite`. Layer is a frontmatter property **today — the vault is flat**; ADR-0002 specifies a future folder-per-layer split (`Voce`/`Agente`/`Revisao`/`Compartilhado` — ASCII slugs on disk, accented display names) and `guard.py` already checks the folder segment so it survives that split. `frontmatter_version` is still written (monotonic) but is **not** a coordination lock: this is a single-user serial app and all readers tolerate its absence.
 
 ## hermes
 
-Hermes is the 24/7 agent daemon that replaced geo-claw. It runs as a macOS LaunchAgent (`ai.hermes.gateway`), keeps WhatsApp / Gmail / Telegram online, runs cron prompts, and exposes an HTTP+SSE api_server on `127.0.0.1:8642` that the in-app Nano pane talks to via `HermesHTTPTransport`.
-
-**Inference.** The gateway runs on **`gpt-5.5` via the `openai-codex` provider** (sub-backed; `config.yaml` `model.provider`/`model.default`). Running the gateway on Claude (Max-OAuth) was tried and abandoned: Anthropic meters **any tool-bearing request on a Claude subscription OAuth token to the empty extra-usage bucket** → `400 out-of-extra-usage`, by design (confirmed by the hermes maintainer in issue #28849, and #15080/#10575). The gateway always carries tools, so it can't run free on the sub. The standalone scripts (whatsapp-extractor Opus decide, day/close briefings, geo-context Haiku hook) DO use Claude on the sub via the Keychain `Claude Code-credentials` token (`model.full`/`model.nano`) — because those calls are **tool-free** and bill against the included quota. `model.default` must stay set (`gpt-5.5`) or agent-mode crons fail with an empty-model Codex error. See memory `hermes-model-provider` for the full investigation.
-
-Layout in this repo:
+24/7 agent daemon (LaunchAgent `ai.hermes.gateway`) that keeps WhatsApp/Gmail/Telegram online and runs cron prompts. Install: `bash hermes/install.sh`, then `launchctl list ai.hermes.gateway` to verify.
 
 ```
 hermes/
-  config.yaml      gateway config (api_server, connectors, cron)
-  SOUL.md          system prompt / identity
-  bin/cc-dispatch  spawns detached `claude` workers, tracked under ~/.hermes/dispatches/<id>/
-  memories/        long-term memory blocks
-  install.sh       drops the LaunchAgent plist into ~/Library/LaunchAgents and starts it
-hermes-extensions/
-  geo-tools/       Hermes plugin exposing Geo as file-native `geo_*` tools (vault FS + RO sqlite index)
-  brain-vault/     file-native brain vault tools (see Brains track)
+  config.yaml       platforms · model · approvals · quick_commands — live source of truth for runtime behavior
+  SOUL.md           system prompt / identity
+  bin/cc-dispatch   spawns detached `claude` workers → ~/.hermes/dispatches/<id>/
+  install.sh        drops the plist into ~/Library/LaunchAgents and starts the gateway
+hermes-extensions/  plugins: geo-tools (file-native geo_* vault tools + RO sqlite index + guard.py),
+                    geo-search-tool, whatsapp-confirm, brain-vault
 ```
 
-Install:
+Runtime state (managed by hermes, NOT in repo): `~/.hermes/` — `.env`, `SOUL.md`, `memories/`, `db/hermes.sqlite`, `logs/gateway.log`, `dispatches/`.
 
-```bash
-bash hermes/install.sh        # drops plist + starts the gateway
-launchctl list ai.hermes.gateway   # verify it's running
-```
+**In-app surface (Nano).** `Geo/Features/Nano/` reads hermes state **straight from the filesystem**: `HermesStatusService` (status + log tail) and `HermesKanbanService` (`~/.hermes/dispatches/`). There is no `HermesHTTPTransport` — the app never opens a socket to hermes. Settings → Hermes (`NanoHermesSettingsView`) installs the daemon and surfaces `API_SERVER_KEY` from `~/.hermes/.env`.
 
-Runtime layout (managed by hermes, NOT in this repo):
+**Inference.** The gateway runs on **`gpt-5.5` via the `openai-codex` provider** (native tool_calls + streaming, one HTTP call per hop); the chat lane is latency/tool-reliability-bound, not intelligence-bound. Heavy/coding work goes to **Claude via `cc-dispatch`** workers. `model.default` must stay non-empty (agent-mode crons resolve `job.model → model.default`). `model.full`/`model.nano` (`claude-opus-4-8`/`claude-haiku-4-5`) are used **only by tool-free standalone scripts** via the Max-sub OAuth Keychain token, billing the included quota. Running the *gateway* on Claude currently 400s ("out of extra usage") — the Max sub's included quota is depleted/contended on this Mac, so switching needs funded extra usage. The `claude-code-local` `claude -p` proxy lane is retired. Full current rationale: `hermes/config.yaml` `model:` block.
 
-```
-~/.hermes/
-  .env                        API_SERVER_KEY, connector creds
-  SOUL.md                     editable runtime copy
-  memories/                   runtime memories
-  db/hermes.sqlite            conversations + cron state
-  logs/gateway.log            ND-JSON daemon log
-```
+**cc-dispatch.** `~/.hermes/bin/cc-dispatch "<brief>" --dir <abs> [--model <id>] [--title <t>]` spawns `claude -p … --output-format stream-json --dangerously-skip-permissions` detached, tracked as files under `~/.hermes/dispatches/<id>/` (`status` · `log.jsonl` · `result.json`). Run several at once with different `--dir`. There is no kanban lane and no `claude_code_run` MCP tool.
 
-In-app surface:
-- Nano pane (`Geo/Features/Nano/`) reads hermes status, tails the log, shows cron tiles, and routes chat through `HermesHTTPTransport`.
-- Settings → Hermes (`NanoHermesSettingsView`) installs the daemon, opens SOUL/.env, surfaces the API key, and rotates the MCP endpoint token.
-
-Hermes hands off bounded coding work to Claude Code with `~/.hermes/bin/cc-dispatch "<brief>" --dir <abs> [--model <id>] [--title <t>]`. It spawns `claude -p <prompt> --output-format stream-json --dangerously-skip-permissions` detached in the workspace dir and tracks each run as files under `~/.hermes/dispatches/<id>/` (`status` = running|done|failed · `log.jsonl` live stream · `result.json` final response+cost+session_id). The agent reads those files to see what its workers are doing — there is no kanban lane and no `claude_code_run` MCP tool (both retired 2026-06-05). Run several at once by calling it repeatedly with different `--dir`. Documented in `hermes/SOUL.md`; deployed by `hermes/install.sh` (synced from `hermes/bin/`).
-
-## Storage model (files are truth)
-
-A block **is** its `.md` file. The file holds the whole truth: frontmatter Properties (`id`, `type`, `status`, `layer`, `tags`, `full_width` — omitted when false) plus inline `[[wikilinks]]` and `[[YYYY-MM-DD]]` day-links in the body. The app **derives** everything else — FTS, the graph, the tag-map (`block_tags`), and the day-map (`block_days`) — into `Index/blocks.sqlite`, which is a **rebuildable cache, never authoritative**: corruption is fixed by re-deriving from the files (FileWatcher → `BlockChangeReconciler` → `rebuildIndex`). See `Geo/docs/adr/ADR-0002-files-are-truth-vault-native-storage.md` for the full model, the folder→layer map (`Voce`/`Agente`/`Revisao`/`Compartilhado` ASCII slugs), and the phased (default-OFF gated) migration.
-
-Zero-data-loss: `days.json`, `tags.json` (full schema incl. colors/membership), and the SQLite metadata columns (`layer`/`tagId`/`dayId`/`isFullWidth`) are **kept as rebuildable caches / fallbacks** for blocks whose Properties are not yet inlined. Phase 1–3 reads are frontmatter/derived-preferred *with* a fallback to SQLite/`days.json`. The retired `.blocks-metadata.json` sidecar (Phase 0) is gone from the runtime; SQLite is its replacement cache. The hard cutover (dropping the fallback columns) is **deferred behind a default-OFF gate** (`geo.migration.filesAreTruth.enabled`); `FilesAreTruthMigrationRunner` is the single deliberate completion path — it backs up the whole `Geo/` dir first, aborts if the index is empty, then runs the idempotent reinject→layer→tags→day-links backfills. `Index/blocks.sqlite` is the sole live cache; `geo-index.db` (stale FTS), the 0-byte `Index/blocks.db`, and the 0-byte `geo.sqlite` are orphan disk artifacts with no code references (clean manually).
-
-`frontmatter_version` is **demoted**: it is still written (harmlessly, monotonic) but is no longer treated as cross-process coordination — concurrency is a non-issue (single-user serial app), and all readers tolerate its absence (→ 0). `FrontmatterMutatorActor` only serializes same-block writes in-process; it is not a multi-writer lock.
-
-> Historical: an in-app AI/Agent pane (`Geo/Features/Agent/`) used to drive its own kanban with `symphony: true` frontmatter and `~/.symphony/workspaces/`. Removed in favor of out-of-app `claude` dispatch (`hermes/bin/cc-dispatch`), which owns the worker-spawning role entirely outside the app. Inert `symphony: true` keys in existing blocks and the `~/.symphony/workspaces/` tree on disk are leftover user data — code stops reading them but they survive until cleaned manually.
-
-## The hard rules (app)
-
-- **Sandbox is OFF** (`com.apple.security.app-sandbox = false`). Required for: arbitrary screenshot dir watching, launching subagents, CGEventTap accessibility. If moving to App Store this must change.
-- **State is singleton stores**, not view-local. New persisted state → new Store, not a `@State` somewhere.
-- **TDD**: tests track in `Geo/conductor/tracks/<track>/plan.md`; tech-stack changes go in `Geo/conductor/tech-stack.md`.
-- **Commit format**: `<type>(<scope>): <description>` — `feat fix docs style refactor test chore`.
-
-## Cross-cutting
-
-- The macOS app **owns deriving the indexes** (FTS/graph/tag-map/day-map → `Index/blocks.sqlite`); the `.md` files are the truth both the app and hermes share. MCP **and** the localhost HTTP API are both retired as the data contract (ADR-0002 §1.2/§8) — Geo serves nothing over a socket anymore.
-- Hermes runs side-by-side on the same Mac and reaches Geo **purely through the filesystem**: it reads the RO `Index/blocks.sqlite` (falling back to a file scan) and raw-FS-writes the layers it owns (`Agente`/`Revisao`/`Compartilhado`) — never `Voce/` (enforced by the plugin's `guard.py` + FileWatcher quarantine).
-- The tool surface is **native FS ops + KEEP-COMPUTE**: block/task writers mutate `.md`/`Tasks` files directly; read / search / dedup / bm25 / graph tools query the RO sqlite index.
-- Extending hermes capabilities = adding a tool under `hermes-extensions/` or a native FS op, not re-centralizing on any in-app server.
+> Historical: the in-app Agent pane (`symphony: true` frontmatter, `~/.symphony/`) and `geo-claw` were removed — worker-spawning is now entirely out-of-app via `cc-dispatch`. Inert `symphony:` keys in old blocks are leftover user data.
