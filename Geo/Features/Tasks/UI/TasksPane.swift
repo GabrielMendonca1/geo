@@ -1,4 +1,5 @@
 import SwiftUI
+import GeoCore
 
 extension TaskPriority {
     var tintColor: Color? {
@@ -12,17 +13,74 @@ extension TaskPriority {
     }
 }
 
+private enum BoardColumnKind: String, Identifiable {
+    case overdue
+    case today
+    case later
+    case goals
+    case done
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .overdue: return "Overdue"
+        case .today: return "Today"
+        case .later: return "Later"
+        case .goals: return "Goals"
+        case .done: return "Done"
+        }
+    }
+
+    var dotColor: Color {
+        switch self {
+        case .overdue: return Color(nsColor: Palette.agentDanger)
+        case .today: return GeoStyle.Colors.geoBlueDark
+        case .later: return Color(nsColor: .systemTeal)
+        case .goals: return Color(nsColor: .systemPurple)
+        case .done: return Color(nsColor: Palette.agentSuccess)
+        }
+    }
+
+    var emptyHint: String? {
+        switch self {
+        case .today: return "Nothing for today"
+        case .later: return "Nothing upcoming"
+        default: return nil
+        }
+    }
+
+    var acceptsDrops: Bool {
+        switch self {
+        case .today, .later, .done: return true
+        case .overdue, .goals: return false
+        }
+    }
+
+    var supportsInlineAdd: Bool {
+        self == .today || self == .later
+    }
+
+    var inlineAddDayOffset: Int {
+        self == .later ? 1 : 0
+    }
+}
+
 struct TasksPane: View {
     @Environment(\.appEnvironment) private var appEnvironment
     @Environment(\.navigationStore) private var navigationStore
     @Environment(\.openWindow) private var openWindow
     @StateObject private var viewModel = TasksViewModel()
+    @StateObject private var agendaViewModel = DayAgendaViewModel()
     @State private var showingTaskForm = false
     @State private var editingTask: TaskItem?
     @State private var pendingPreFillBlockId: String?
     @State private var windowSize: CGSize = .zero
     @State private var quickTitle = ""
-    @State private var goalsExpanded = false
+    @State private var dropTargetColumn: BoardColumnKind?
+    @State private var addingInColumn: BoardColumnKind?
+    @State private var columnDraftTitle = ""
+    @FocusState private var columnAddFocused: Bool
     @FocusState private var quickAddFocused: Bool
     @State private var isSearchExpanded = false
     @FocusState private var isSearchFieldFocused: Bool
@@ -42,13 +100,14 @@ struct TasksPane: View {
                 VStack(spacing: 0) {
                     filterBar
                     quickAddBar
+                    dayAgenda
 
                     if viewModel.tasks.isEmpty {
                         emptyState
                     } else if viewModel.filteredTasks.isEmpty {
                         noResultsState
                     } else {
-                        taskList
+                        board
                     }
                 }
 
@@ -179,6 +238,8 @@ struct TasksPane: View {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 13))
                         .foregroundColor(.secondary)
+                        .frame(width: 24, height: 24)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
@@ -188,6 +249,8 @@ struct TasksPane: View {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(.secondary)
+                    .frame(width: 24, height: 24)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .keyboardShortcut(.escape, modifiers: [])
@@ -260,6 +323,8 @@ struct TasksPane: View {
                     Image(systemName: "return")
                         .font(.system(size: responsiveLayout.editorFontSize * 0.72, weight: .semibold))
                         .foregroundStyle(Palette.accent)
+                        .frame(width: 24, height: 24)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .pointingHandCursor()
@@ -274,6 +339,25 @@ struct TasksPane: View {
         .overlay(
             RoundedRectangle(cornerRadius: 10 * responsiveLayout.scale)
                 .stroke(quickAddFocused ? Palette.accent.opacity(0.4) : Palette.border.opacity(0.15), lineWidth: 1)
+        )
+        .padding(.horizontal, responsiveLayout.editorPaddingHorizontal)
+        .padding(.bottom, 8 * responsiveLayout.scale)
+    }
+
+    private var dayAgenda: some View {
+        DayAgendaView(
+            viewModel: agendaViewModel,
+            tasks: viewModel.tasks,
+            scale: responsiveLayout.scale,
+            fontSize: responsiveLayout.editorFontSize,
+            onEditTask: { id in
+                if let task = viewModel.tasks.first(where: { $0.id == id }) {
+                    editingTask = task
+                }
+            },
+            onCompleteTask: { id in
+                Task { await viewModel.completeTask(id: id) }
+            }
         )
         .padding(.horizontal, responsiveLayout.editorPaddingHorizontal)
         .padding(.bottom, 8 * responsiveLayout.scale)
@@ -333,7 +417,7 @@ struct TasksPane: View {
         case .task:
             return .task(due: anchor, estimatedMinutes: nil)
         case .event:
-            return .event(start: anchor, end: anchor.addingTimeInterval(3600))
+            return .event(start: anchor, end: anchor.addingTimeInterval(3600), externalEKEventID: nil)
         case .habit:
             return .habit(rule: .daily, timeOfDay: anchor, occurrences: [])
         case .milestone:
@@ -389,101 +473,246 @@ struct TasksPane: View {
         .frame(maxWidth: .infinity)
     }
 
-    private var taskList: some View {
+    private var board: some View {
         let scale = responsiveLayout.scale
-        return ScrollView {
-            LazyVStack(alignment: .leading, spacing: 18 * scale) {
+        return ScrollView(.horizontal, showsIndicators: false) {
+            HStack(alignment: .top, spacing: 14 * scale) {
                 if !viewModel.overdueTasks.isEmpty {
-                    taskSection("Overdue", viewModel.overdueTasks, tint: .red)
+                    boardColumn(.overdue, tasks: viewModel.overdueTasks)
                 }
-                taskSection("Today", viewModel.todayTasks, tint: nil, emptyHint: "Nothing for today")
-                if !viewModel.upcomingTasks.isEmpty {
-                    taskSection("Later", viewModel.upcomingTasks, tint: nil)
-                }
+                boardColumn(.today, tasks: viewModel.todayTasks)
+                boardColumn(.later, tasks: viewModel.upcomingTasks)
                 if !viewModel.milestones.isEmpty {
-                    collapsibleSection("Goals", icon: "flag.fill", viewModel.milestones, isExpanded: goalsExpanded) {
-                        goalsExpanded.toggle()
-                    }
+                    boardColumn(.goals, tasks: viewModel.milestones)
                 }
-                if !viewModel.completedTasks.isEmpty {
-                    collapsibleSection("Completed", icon: "checkmark.circle", viewModel.completedTasks, isExpanded: viewModel.showCompleted) {
-                        viewModel.showCompleted.toggle()
-                    }
+                if viewModel.showCompleted && !viewModel.completedTasks.isEmpty {
+                    boardColumn(.done, tasks: viewModel.completedTasks)
                 }
             }
-            .frame(maxWidth: 760 * scale)
-            .frame(maxWidth: .infinity, alignment: .top)
+            .animation(.easeInOut(duration: 0.2), value: visibleColumnsSignature)
             .padding(.horizontal, responsiveLayout.editorPaddingHorizontal)
             .padding(.top, responsiveLayout.editorPaddingVertical * 0.5)
-            .padding(.bottom, responsiveLayout.editorPaddingHorizontal + 56 * scale)
+            .padding(.bottom, 14 * scale)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var visibleColumnsSignature: [Bool] {
+        [
+            viewModel.overdueTasks.isEmpty,
+            viewModel.milestones.isEmpty,
+            viewModel.showCompleted && !viewModel.completedTasks.isEmpty
+        ]
     }
 
     @ViewBuilder
-    private func sectionHeader(_ title: String, count: Int, tint: Color?, leading: AnyView? = nil) -> some View {
+    private func boardColumn(_ column: BoardColumnKind, tasks: [TaskItem]) -> some View {
         let scale = responsiveLayout.scale
-        HStack(spacing: 6 * scale) {
-            if let leading { leading }
-            Text(title.uppercased())
-                .font(.system(size: responsiveLayout.editorFontSize * 0.76, weight: .semibold))
-                .tracking(0.5)
-                .foregroundStyle(tint ?? Palette.tertiaryForeground)
-            Text("\(count)")
-                .font(.system(size: responsiveLayout.editorFontSize * 0.72, weight: .medium))
-                .foregroundStyle(Palette.tertiaryForeground)
-            Spacer(minLength: 0)
-        }
-    }
-
-    @ViewBuilder
-    private func taskSection(_ title: String, _ tasks: [TaskItem], tint: Color?, emptyHint: String? = nil) -> some View {
-        let scale = responsiveLayout.scale
-        VStack(alignment: .leading, spacing: 8 * scale) {
-            sectionHeader(title, count: tasks.count, tint: tint)
-            if tasks.isEmpty {
-                if let emptyHint {
-                    Text(emptyHint)
-                        .font(.system(size: responsiveLayout.editorFontSize * 0.82))
-                        .foregroundStyle(Palette.tertiaryForeground.opacity(0.7))
+        let isDropTarget = dropTargetColumn == column
+        let base = VStack(alignment: .leading, spacing: 0) {
+            columnHeader(column, count: tasks.count)
+            ScrollView(showsIndicators: false) {
+                LazyVStack(alignment: .leading, spacing: 8 * scale) {
+                    if tasks.isEmpty, let hint = column.emptyHint {
+                        Text(hint)
+                            .font(.system(size: responsiveLayout.editorFontSize * 0.82))
+                            .foregroundStyle(Palette.tertiaryForeground.opacity(0.7))
+                            .padding(.horizontal, 4 * scale)
+                            .padding(.vertical, 8 * scale)
+                    } else {
+                        ForEach(tasks) { task in
+                            taskCard(task)
+                                .draggable(task.id)
+                                .transition(.opacity.combined(with: .scale(scale: 0.97)))
+                        }
+                    }
+                    if column.supportsInlineAdd {
+                        columnAddFooter(column)
+                    }
                 }
-            } else {
-                ForEach(tasks) { task in
-                    taskCard(task)
-                }
+                .animation(.spring(response: 0.32, dampingFraction: 0.82), value: tasks.map(\.id))
+                .padding(10 * scale)
             }
         }
+        .frame(width: 300 * scale)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .background(
+            RoundedRectangle(cornerRadius: 16 * scale)
+                .fill(Palette.secondaryBackground.opacity(isDropTarget ? 0.7 : 0.45))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16 * scale)
+                .strokeBorder(
+                    isDropTarget ? GeoStyle.Colors.geoBlueDark.opacity(0.7) : Palette.border.opacity(0.3),
+                    lineWidth: isDropTarget ? 1.5 : 1
+                )
+        )
+
+        if column.acceptsDrops {
+            base.dropDestination(for: String.self) { ids, _ in
+                handleDrop(ids, on: column)
+            } isTargeted: { targeted in
+                dropTargetColumn = targeted ? column : (dropTargetColumn == column ? nil : dropTargetColumn)
+            }
+        } else {
+            base
+        }
     }
 
     @ViewBuilder
-    private func collapsibleSection(_ title: String, icon: String, _ tasks: [TaskItem], isExpanded: Bool, toggle: @escaping () -> Void) -> some View {
+    private func columnHeader(_ column: BoardColumnKind, count: Int) -> some View {
         let scale = responsiveLayout.scale
-        VStack(alignment: .leading, spacing: 8 * scale) {
-            Button(action: toggle) {
-                sectionHeader(
-                    title,
-                    count: tasks.count,
-                    tint: nil,
-                    leading: AnyView(
-                        HStack(spacing: 6 * scale) {
-                            Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                                .font(.system(size: responsiveLayout.editorFontSize * 0.7, weight: .semibold))
-                                .foregroundStyle(Palette.tertiaryForeground)
-                            Image(systemName: icon)
-                                .font(.system(size: responsiveLayout.editorFontSize * 0.72))
-                                .foregroundStyle(Palette.tertiaryForeground)
-                        }
-                    )
-                )
+        HStack(spacing: 8 * scale) {
+            RoundedRectangle(cornerRadius: 3 * scale)
+                .fill(column.dotColor)
+                .frame(width: 10 * scale, height: 10 * scale)
+            Text(column.title)
+                .font(.system(size: responsiveLayout.editorFontSize * 0.92, weight: .semibold))
+                .foregroundStyle(Palette.foreground)
+            Text("\(count)")
+                .font(.system(size: responsiveLayout.editorFontSize * 0.72, weight: .medium))
+                .foregroundStyle(column == .overdue ? Color(nsColor: Palette.agentDanger) : Palette.tertiaryForeground)
+                .padding(.horizontal, 7 * scale)
+                .padding(.vertical, 2 * scale)
+                .background(Capsule().fill(Palette.secondaryBackground.opacity(0.9)))
+            Spacer(minLength: 0)
+            columnMenu(column)
+        }
+        .padding(.horizontal, 14 * scale)
+        .padding(.top, 12 * scale)
+        .padding(.bottom, 4 * scale)
+    }
+
+    @ViewBuilder
+    private func columnMenu(_ column: BoardColumnKind) -> some View {
+        switch column {
+        case .overdue:
+            Menu {
+                Button("Move all to Today") {
+                    Task { await viewModel.moveOverdueToToday() }
+                }
+            } label: {
+                columnMenuIcon
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+        case .done:
+            Menu {
+                Button("Clear completed", role: .destructive) {
+                    Task { await viewModel.clearCompleted() }
+                }
+            } label: {
+                columnMenuIcon
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+        default:
+            EmptyView()
+        }
+    }
+
+    private var columnMenuIcon: some View {
+        Image(systemName: "ellipsis")
+            .font(.system(size: responsiveLayout.editorFontSize * 0.8, weight: .semibold))
+            .foregroundStyle(Palette.tertiaryForeground)
+            .frame(width: 22 * responsiveLayout.scale, height: 22 * responsiveLayout.scale)
+            .contentShape(Rectangle())
+    }
+
+    @ViewBuilder
+    private func columnAddFooter(_ column: BoardColumnKind) -> some View {
+        let scale = responsiveLayout.scale
+        if addingInColumn == column {
+            HStack(spacing: 6 * scale) {
+                TextField("New task", text: $columnDraftTitle)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: responsiveLayout.editorFontSize * 0.88))
+                    .focused($columnAddFocused)
+                    .onSubmit { submitColumnAdd(column) }
+                Button {
+                    closeColumnAdd()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: responsiveLayout.editorFontSize * 0.62, weight: .semibold))
+                        .foregroundStyle(Palette.tertiaryForeground)
+                        .frame(width: 20 * scale, height: 20 * scale)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .pointingHandCursor()
+            }
+            .padding(.horizontal, 11 * scale)
+            .padding(.vertical, 9 * scale)
+            .background(
+                RoundedRectangle(cornerRadius: 10 * scale)
+                    .fill(Palette.background.opacity(0.55))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10 * scale)
+                    .strokeBorder(GeoStyle.Colors.geoBlueDark.opacity(0.5), lineWidth: 1)
+            )
+            .onExitCommand { closeColumnAdd() }
+        } else {
+            Button {
+                addingInColumn = column
+                columnDraftTitle = ""
+                DispatchQueue.main.async { columnAddFocused = true }
+            } label: {
+                HStack(spacing: 6 * scale) {
+                    Image(systemName: "plus")
+                        .font(.system(size: responsiveLayout.editorFontSize * 0.7, weight: .semibold))
+                    Text("Add card")
+                        .font(.system(size: responsiveLayout.editorFontSize * 0.82, weight: .medium))
+                }
+                .foregroundStyle(Palette.tertiaryForeground)
+                .padding(.horizontal, 8 * scale)
+                .padding(.vertical, 7 * scale)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .pointingHandCursor()
-            if isExpanded {
-                ForEach(tasks) { task in
-                    taskCard(task)
+        }
+    }
+
+    private func closeColumnAdd() {
+        addingInColumn = nil
+        columnDraftTitle = ""
+        columnAddFocused = false
+    }
+
+    private func submitColumnAdd(_ column: BoardColumnKind) {
+        let trimmed = columnDraftTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            closeColumnAdd()
+            return
+        }
+        columnDraftTitle = ""
+        let cal = Calendar.current
+        let day = cal.date(byAdding: .day, value: column.inlineAddDayOffset, to: cal.startOfDay(for: Date())) ?? Date()
+        let due = cal.date(bySettingHour: 23, minute: 59, second: 59, of: day) ?? day
+        let draft = TaskDraft(title: trimmed, body: .task(due: due, estimatedMinutes: nil))
+        Task { _ = try? await appEnvironment.tasksRepository.create(draft) }
+    }
+
+    private func handleDrop(_ ids: [String], on column: BoardColumnKind) -> Bool {
+        guard !ids.isEmpty else { return false }
+        Task {
+            for id in ids {
+                switch column {
+                case .today:
+                    await viewModel.reschedule(id: id, dayOffset: 0)
+                case .later:
+                    await viewModel.reschedule(id: id, dayOffset: 1)
+                case .done:
+                    await viewModel.completeTask(id: id)
+                case .overdue, .goals:
+                    break
                 }
             }
         }
+        return true
     }
 
     private func taskCard(_ task: TaskItem) -> some View {
@@ -492,13 +721,13 @@ struct TasksPane: View {
             fontSize: taskListFontSize,
             layoutScale: responsiveLayout.scale,
             linkedBlockTitle: viewModel.linkedBlockTitle(for: task),
-            linkedBlockCount: task.linkedBlockId.map { viewModel.linkedBlockCount(for: $0) } ?? 0,
             hasLinkedBlock: viewModel.hasLinkedBlock(task),
             checkboxes: viewModel.checkboxes(for: task),
             onEdit: { editingTask = $0 },
             onComplete: { id in Task { await viewModel.completeTask(id: id) } },
             onMarkPending: { id in Task { await viewModel.markTaskPending(id: id) } },
             onDelete: { id in Task { await viewModel.deleteTask(id: id) } },
+            onReschedule: { id, offset in Task { await viewModel.reschedule(id: id, dayOffset: offset) } },
             onToggleCheckbox: { taskId, blockId, line in
                 Task { await viewModel.toggleCheckbox(in: blockId, lineNumber: line, taskId: taskId) }
             },
@@ -512,45 +741,35 @@ private struct TaskCard: View {
     var fontSize: CGFloat = GeoStyle.Typography.editorFontSize
     var layoutScale: CGFloat = 1
     let linkedBlockTitle: String?
-    let linkedBlockCount: Int
     var hasLinkedBlock: Bool = false
     var checkboxes: [BlockCheckbox] = []
     let onEdit: (TaskItem) -> Void
     let onComplete: (String) -> Void
     let onMarkPending: (String) -> Void
     let onDelete: (String) -> Void
+    var onReschedule: ((String, Int) -> Void)? = nil
     var onToggleCheckbox: ((String, String, Int) -> Void)? = nil
     var onOpenBlock: ((String) -> Void)? = nil
     @State private var isHovering = false
-    @State private var showCompleteAnimation = false
+    @State private var checklistExpanded = false
 
     private static let maxInlineCheckboxes = 5
 
-    private var titleFontSize: CGFloat { fontSize * 1.08 }
-    private var subtitleFontSize: CGFloat { fontSize * 0.8 }
-    private var chipFontSize: CGFloat { fontSize * 0.72 }
-    private var iconFontSize: CGFloat { fontSize * 0.78 }
-    private var checkboxSize: CGFloat { fontSize * 1.24 }
-    private var checkboxTapTargetSize: CGFloat { checkboxSize + (8 * layoutScale) }
+    private var titleFontSize: CGFloat { fontSize * 0.95 }
+    private var subtitleFontSize: CGFloat { fontSize * 0.76 }
+    private var chipFontSize: CGFloat { fontSize * 0.7 }
+    private var iconFontSize: CGFloat { fontSize * 0.74 }
+    private var badgeSize: CGFloat { fontSize * 1.7 }
 
-    private var completionIndicatorScale: CGFloat {
-        task.status == .completed ? 1 : (showCompleteAnimation ? 1 : 0)
-    }
-
-    private var reminderCount: Int { task.reminders.count }
+    private var isCompleted: Bool { task.status == .completed }
 
     private var showsLinkedBlockSection: Bool {
         hasLinkedBlock && linkedBlockTitle != nil
     }
 
-    private var isEvent: Bool {
-        if case .event = task.body { return true }
-        return false
-    }
-
     private var typeColor: Color {
         switch task.body {
-        case .task: return Palette.accent
+        case .task: return GeoStyle.Colors.geoBlueDark
         case .event: return Color(nsColor: Palette.agentWarning)
         case .habit: return Color(nsColor: Palette.agentSuccess)
         case .milestone: return Color(nsColor: .systemPurple)
@@ -570,14 +789,23 @@ private struct TaskCard: View {
         return Double(checkboxesCompletedCount) / Double(checkboxesTotalCount)
     }
 
-    private var notesPreview: String {
-        task.notes.trimmingCharacters(in: .whitespacesAndNewlines)
+    private var showsPriorityFlag: Bool {
+        task.priority == .urgent || task.priority == .high
     }
 
-    private var eventLocation: String? {
-        let n = notesPreview
-        guard !n.isEmpty else { return nil }
-        return n.split(separator: "\n").first.map(String.init)
+    private var canReschedule: Bool {
+        task.isTask || task.isEvent
+    }
+
+    private var overdueDays: Int? {
+        guard task.isOverdue else { return nil }
+        let cal = Calendar.current
+        let days = cal.dateComponents(
+            [.day],
+            from: cal.startOfDay(for: task.anchorDate),
+            to: cal.startOfDay(for: Date())
+        ).day
+        return (days ?? 0) > 0 ? days : nil
     }
 
     private func whenText(_ date: Date) -> String {
@@ -585,21 +813,6 @@ private struct TaskCard: View {
             return DateFormatters.shortTime.string(from: date)
         }
         return DateFormatters.mediumDate.string(from: date)
-    }
-
-    private func toggleCompletionFromCheckbox() {
-        if task.status == .completed {
-            showCompleteAnimation = false
-            onMarkPending(task.id)
-            return
-        }
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.75)) {
-            showCompleteAnimation = true
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
-            onComplete(task.id)
-            showCompleteAnimation = false
-        }
     }
 
     @ViewBuilder
@@ -611,7 +824,7 @@ private struct TaskCard: View {
                 .frame(width: 24 * layoutScale, height: 24 * layoutScale)
                 .background(
                     RoundedRectangle(cornerRadius: 6 * layoutScale)
-                        .fill(Palette.secondaryBackground.opacity(0.82))
+                        .fill(Palette.secondaryBackground.opacity(0.92))
                 )
         }
         .buttonStyle(.plain)
@@ -619,134 +832,41 @@ private struct TaskCard: View {
         .pointingHandCursor()
     }
 
-    @ViewBuilder
-    private var linkedBlockSection: some View {
-        VStack(alignment: .leading, spacing: 6 * layoutScale) {
-            linkedBlockChip
-            if checkboxesTotalCount > 0 && !task.isMilestone {
-                progressRow
-            }
+    private var kindBadge: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 7 * layoutScale)
+                .fill(typeColor.opacity(0.16))
+            Image(systemName: task.kind.icon)
+                .font(.system(size: fontSize * 0.78, weight: .semibold))
+                .foregroundStyle(typeColor)
         }
-        .padding(.top, 2 * layoutScale)
-    }
-
-    @ViewBuilder
-    private var linkedBlockChip: some View {
-        Button {
-            if let blockId = task.linkedBlockId {
-                onOpenBlock?(blockId)
-            }
-        } label: {
-            HStack(spacing: 6 * layoutScale) {
-                Image(systemName: "doc.text")
-                    .font(.system(size: chipFontSize, weight: .medium))
-                    .foregroundStyle(Palette.tertiaryForeground)
-                Text(linkedBlockTitle ?? "")
-                    .font(.system(size: chipFontSize, weight: .medium))
-                    .lineLimit(1)
-                    .foregroundStyle(Palette.foreground.opacity(0.85))
-                Image(systemName: "chevron.right")
-                    .font(.system(size: chipFontSize * 0.85, weight: .semibold))
-                    .foregroundStyle(Palette.tertiaryForeground)
-            }
-            .padding(.horizontal, 8 * layoutScale)
-            .padding(.vertical, 4 * layoutScale)
-            .background(
-                RoundedRectangle(cornerRadius: 6 * layoutScale)
-                    .fill(Palette.secondaryBackground.opacity(0.55))
-            )
-        }
-        .buttonStyle(.plain)
-        .pointingHandCursor()
-    }
-
-    @ViewBuilder
-    private func checkboxRow(_ cb: BlockCheckbox) -> some View {
-        Button {
-            guard let blockId = task.linkedBlockId else { return }
-            onToggleCheckbox?(task.id, blockId, cb.lineNumber)
-        } label: {
-            HStack(alignment: .top, spacing: 8 * layoutScale) {
-                Image(systemName: cb.checked ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: subtitleFontSize * 1.05, weight: .medium))
-                    .foregroundStyle(cb.checked ? Color(nsColor: Palette.agentSuccess) : Palette.tertiaryForeground)
-                Text(cb.text)
-                    .font(.system(size: subtitleFontSize))
-                    .lineLimit(2)
-                    .strikethrough(cb.checked)
-                    .foregroundStyle(cb.checked ? Palette.tertiaryForeground : Palette.foreground.opacity(0.9))
-                Spacer(minLength: 0)
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .pointingHandCursor()
-    }
-
-    @ViewBuilder
-    private var progressRow: some View {
-        HStack(spacing: 8 * layoutScale) {
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(Palette.secondaryBackground.opacity(0.6))
-                    Capsule()
-                        .fill(Palette.accent)
-                        .frame(width: max(0, geo.size.width * checkboxProgress))
-                }
-            }
-            .frame(height: 5 * layoutScale)
-
-            Text("\(checkboxesCompletedCount)/\(checkboxesTotalCount) done")
-                .font(.system(size: chipFontSize, weight: .regular))
-                .foregroundStyle(Palette.tertiaryForeground)
-                .fixedSize(horizontal: true, vertical: false)
-        }
-        .padding(.top, 2 * layoutScale)
-    }
-
-    @ViewBuilder
-    private var completionButton: some View {
-        Button(action: toggleCompletionFromCheckbox) {
-            let strokeColor: Color = task.status == .completed ? Color(nsColor: Palette.agentSuccess) : Palette.accent
-            ZStack {
-                Circle()
-                    .stroke(strokeColor, lineWidth: 1.4 * layoutScale)
-                    .frame(width: checkboxSize, height: checkboxSize)
-                Circle()
-                    .fill(Color(nsColor: Palette.agentSuccess))
-                    .frame(width: checkboxSize, height: checkboxSize)
-                    .scaleEffect(completionIndicatorScale)
-                    .opacity(Double(completionIndicatorScale))
-                Image(systemName: "checkmark")
-                    .font(.system(size: fontSize * 0.56, weight: .bold))
-                    .foregroundStyle(.white)
-                    .scaleEffect(completionIndicatorScale)
-                    .opacity(Double(completionIndicatorScale))
-            }
-            .frame(width: checkboxTapTargetSize, height: checkboxTapTargetSize)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .pointingHandCursor()
+        .frame(width: badgeSize, height: badgeSize)
     }
 
     @ViewBuilder
     private var titleRow: some View {
-        let titleColor: Color = task.status == .completed ? Palette.tertiaryForeground : Palette.foreground
-        Text(task.title)
-            .font(.system(size: titleFontSize, weight: .semibold))
-            .lineLimit(2)
-            .strikethrough(task.status == .completed)
-            .foregroundStyle(titleColor)
+        HStack(alignment: .firstTextBaseline, spacing: 5 * layoutScale) {
+            if showsPriorityFlag, let tint = task.priority.tintColor {
+                Image(systemName: task.priority.icon)
+                    .font(.system(size: subtitleFontSize, weight: .bold))
+                    .foregroundStyle(tint)
+            }
+            Text(task.title)
+                .font(.system(size: titleFontSize, weight: .medium))
+                .lineLimit(2)
+                .foregroundStyle(isCompleted ? Palette.tertiaryForeground : Palette.foreground)
+        }
     }
 
     @ViewBuilder
-    private var detailLine: some View {
+    private var metaLine: some View {
         switch task.body {
         case .task(let due, _):
             HStack(spacing: 5 * layoutScale) {
                 Text(whenText(due))
+                if let days = overdueDays {
+                    Text("·"); Text("\(days)d late")
+                }
                 if let dur = task.estimatedDuration {
                     Text("·"); Text(dur)
                 }
@@ -757,11 +877,11 @@ private struct TaskCard: View {
             .font(.system(size: subtitleFontSize, weight: .medium))
             .foregroundStyle(task.isOverdue ? Color(nsColor: Palette.agentDanger) : Palette.tertiaryForeground)
 
-        case .event(let start, let end):
+        case .event(let start, let end, _):
             HStack(spacing: 5 * layoutScale) {
                 Text("\(DateFormatters.shortTime.string(from: start)) – \(DateFormatters.shortTime.string(from: end))")
-                if let loc = eventLocation {
-                    Text("·"); Text(loc).lineLimit(1)
+                if let days = overdueDays {
+                    Text("·"); Text("\(days)d late")
                 }
             }
             .font(.system(size: subtitleFontSize, weight: .medium))
@@ -777,6 +897,14 @@ private struct TaskCard: View {
                         Text("\(task.habitCurrentStreak)")
                     }
                     .foregroundStyle(Color(nsColor: Palette.agentWarning))
+                }
+                if task.isHabitCompletedToday {
+                    Text("·")
+                    HStack(spacing: 3 * layoutScale) {
+                        Image(systemName: "checkmark.circle.fill")
+                        Text("Done today")
+                    }
+                    .foregroundStyle(Color(nsColor: Palette.agentSuccess))
                 }
             }
             .font(.system(size: subtitleFontSize, weight: .medium))
@@ -812,104 +940,177 @@ private struct TaskCard: View {
     }
 
     @ViewBuilder
-    private var notePreviewText: some View {
-        Text(notesPreview)
-            .font(.system(size: subtitleFontSize))
-            .lineLimit(1)
-            .foregroundStyle(Palette.tertiaryForeground)
-    }
-
-    @ViewBuilder
-    private var checkboxList: some View {
-        VStack(alignment: .leading, spacing: 4 * layoutScale) {
-            ForEach(visibleCheckboxes, id: \.lineNumber) { cb in
-                checkboxRow(cb)
-            }
-            if hiddenCheckboxCount > 0 {
-                Button {
-                    if let blockId = task.linkedBlockId {
-                        onOpenBlock?(blockId)
+    private var checklistSection: some View {
+        VStack(alignment: .leading, spacing: 5 * layoutScale) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) { checklistExpanded.toggle() }
+            } label: {
+                HStack(spacing: 7 * layoutScale) {
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule()
+                                .fill(Palette.secondaryBackground.opacity(0.8))
+                            Capsule()
+                                .fill(typeColor)
+                                .frame(width: max(0, geo.size.width * checkboxProgress))
+                        }
                     }
-                } label: {
-                    Text("+\(hiddenCheckboxCount) more")
+                    .frame(height: 4 * layoutScale)
+
+                    Text("\(checkboxesCompletedCount)/\(checkboxesTotalCount)")
                         .font(.system(size: chipFontSize, weight: .medium))
-                        .foregroundStyle(Palette.accent)
+                        .foregroundStyle(Palette.tertiaryForeground)
+                        .fixedSize(horizontal: true, vertical: false)
+
+                    Image(systemName: checklistExpanded ? "chevron.down" : "chevron.right")
+                        .font(.system(size: chipFontSize * 0.85, weight: .semibold))
+                        .foregroundStyle(Palette.tertiaryForeground)
                 }
-                .buttonStyle(.plain)
-                .pointingHandCursor()
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .pointingHandCursor()
+
+            if checklistExpanded {
+                VStack(alignment: .leading, spacing: 4 * layoutScale) {
+                    ForEach(visibleCheckboxes, id: \.lineNumber) { cb in
+                        checkboxRow(cb)
+                    }
+                    if hiddenCheckboxCount > 0 {
+                        Button {
+                            if let blockId = task.linkedBlockId {
+                                onOpenBlock?(blockId)
+                            }
+                        } label: {
+                            Text("+\(hiddenCheckboxCount) more")
+                                .font(.system(size: chipFontSize, weight: .medium))
+                                .foregroundStyle(GeoStyle.Colors.geoBlueDark)
+                                .padding(.vertical, 3 * layoutScale)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .pointingHandCursor()
+                    }
+                }
             }
         }
     }
 
     @ViewBuilder
+    private func checkboxRow(_ cb: BlockCheckbox) -> some View {
+        Button {
+            guard let blockId = task.linkedBlockId else { return }
+            onToggleCheckbox?(task.id, blockId, cb.lineNumber)
+        } label: {
+            HStack(alignment: .top, spacing: 7 * layoutScale) {
+                Image(systemName: cb.checked ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: subtitleFontSize, weight: .medium))
+                    .foregroundStyle(cb.checked ? Color(nsColor: Palette.agentSuccess) : Palette.tertiaryForeground)
+                Text(cb.text)
+                    .font(.system(size: subtitleFontSize))
+                    .lineLimit(2)
+                    .foregroundStyle(cb.checked ? Palette.tertiaryForeground : Palette.foreground.opacity(0.9))
+                Spacer(minLength: 0)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .pointingHandCursor()
+    }
+
+    @ViewBuilder
+    private var linkedBlockChip: some View {
+        Button {
+            if let blockId = task.linkedBlockId {
+                onOpenBlock?(blockId)
+            }
+        } label: {
+            HStack(spacing: 5 * layoutScale) {
+                Image(systemName: "doc.text")
+                    .font(.system(size: chipFontSize, weight: .medium))
+                    .foregroundStyle(Palette.tertiaryForeground)
+                Text(linkedBlockTitle ?? "")
+                    .font(.system(size: chipFontSize, weight: .medium))
+                    .lineLimit(1)
+                    .foregroundStyle(Palette.foreground.opacity(0.8))
+            }
+            .padding(.horizontal, 7 * layoutScale)
+            .padding(.vertical, 3 * layoutScale)
+            .background(
+                RoundedRectangle(cornerRadius: 5 * layoutScale)
+                    .fill(Palette.secondaryBackground.opacity(0.65))
+            )
+        }
+        .buttonStyle(.plain)
+        .pointingHandCursor()
+    }
+
+    @ViewBuilder
     private var hoverActions: some View {
-        if isHovering && task.status == .pending {
-            HStack(spacing: 6 * layoutScale) {
-                rowActionButton(icon: "pencil", label: "Edit task", foreground: Palette.tertiaryForeground) {
-                    onEdit(task)
+        if isHovering {
+            HStack(spacing: 4 * layoutScale) {
+                if task.status == .pending {
+                    if !task.isHabitCompletedToday {
+                        rowActionButton(icon: "checkmark", label: "Complete task", foreground: Color(nsColor: Palette.agentSuccess)) {
+                            onComplete(task.id)
+                        }
+                    }
+                    rowActionButton(icon: "pencil", label: "Edit task", foreground: Palette.tertiaryForeground) {
+                        onEdit(task)
+                    }
+                } else {
+                    rowActionButton(icon: "arrow.uturn.backward", label: "Mark as pending", foreground: Palette.tertiaryForeground) {
+                        onMarkPending(task.id)
+                    }
                 }
                 rowActionButton(icon: "trash", label: "Delete task", foreground: Color(nsColor: Palette.agentDanger).opacity(0.8)) {
                     onDelete(task.id)
                 }
             }
-            .padding(8 * layoutScale)
+            .padding(6 * layoutScale)
             .transition(.opacity)
         }
     }
 
-    @ViewBuilder
-    private var mainRow: some View {
-        HStack(alignment: .top, spacing: 10 * layoutScale) {
-            completionButton
+    private var cardContent: some View {
+        HStack(alignment: .top, spacing: 9 * layoutScale) {
+            kindBadge
             VStack(alignment: .leading, spacing: 4 * layoutScale) {
                 titleRow
-                detailLine
-                if !notesPreview.isEmpty && !isEvent {
-                    notePreviewText
-                }
+                metaLine
                 if checkboxesTotalCount > 0 && !task.isMilestone {
-                    checkboxList
+                    checklistSection
+                }
+                if showsLinkedBlockSection {
+                    linkedBlockChip
                 }
             }
             Spacer(minLength: 0)
         }
-    }
-
-    private var cardBackground: some View {
-        RoundedRectangle(cornerRadius: 12 * layoutScale)
-            .fill(Palette.secondaryBackground.opacity(0.35))
-    }
-
-    private var cardBorder: some View {
-        RoundedRectangle(cornerRadius: 12 * layoutScale)
-            .strokeBorder(Palette.border.opacity(0.4), lineWidth: 1)
-    }
-
-    private var cardContent: some View {
-        HStack(spacing: 0) {
-            Rectangle()
-                .fill(typeColor)
-                .frame(width: 3 * layoutScale)
-            VStack(alignment: .leading, spacing: 8 * layoutScale) {
-                mainRow
-                if showsLinkedBlockSection {
-                    linkedBlockSection
-                }
-            }
-            .padding(.vertical, 12 * layoutScale)
-            .padding(.leading, 12 * layoutScale)
-            .padding(.trailing, 14 * layoutScale)
-        }
-        .background(cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 12 * layoutScale))
-        .overlay(cardBorder)
+        .padding(.horizontal, 11 * layoutScale)
+        .padding(.vertical, 10 * layoutScale)
+        .background(
+            RoundedRectangle(cornerRadius: 10 * layoutScale)
+                .fill(Palette.background.opacity(isHovering ? 0.75 : 0.55))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10 * layoutScale)
+                .strokeBorder(Palette.border.opacity(isHovering ? 0.7 : 0.45), lineWidth: 1)
+        )
         .overlay(alignment: .topTrailing) { hoverActions }
-        .contentShape(RoundedRectangle(cornerRadius: 12 * layoutScale))
+        .contentShape(RoundedRectangle(cornerRadius: 10 * layoutScale))
+        .shadow(
+            color: Color.black.opacity(isHovering ? 0.18 : 0),
+            radius: 8 * layoutScale,
+            x: 0,
+            y: 3 * layoutScale
+        )
+        .scaleEffect(isHovering ? 1.01 : 1)
     }
 
     var body: some View {
         cardContent
-            .opacity(task.status == .completed ? 0.55 : 1)
+            .opacity(isCompleted ? 0.55 : 1)
             .frame(maxWidth: .infinity, alignment: .topLeading)
             .pointingHandCursor()
             .onTapGesture { onEdit(task) }
@@ -920,6 +1121,11 @@ private struct TaskCard: View {
                 if task.status == .pending {
                     Button("Edit") { onEdit(task) }
                     Button("Complete") { onComplete(task.id) }
+                    if canReschedule {
+                        Divider()
+                        Button("Move to Today") { onReschedule?(task.id, 0) }
+                        Button("Move to Tomorrow") { onReschedule?(task.id, 1) }
+                    }
                     Divider()
                 } else {
                     Button("Mark as Pending") { onMarkPending(task.id) }

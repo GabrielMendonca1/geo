@@ -4,9 +4,12 @@ description: >
   block) from Gabriel's Geo data. Auto-injection is ENABLED again: this fires
   on session:start / session:reset and rewrites MEMORY.md with the fixed
   identity bundle (profile + memory + interaction protocol + today), which
-  config.yaml injects into every turn. The bundle now also includes the
+  config.yaml injects into every turn. It also fires on agent:start: for each
+  incoming message it performs a tiny lexical Geo lookup, writes a bounded
+  sidecar under ~/.hermes/runtime/geo-context/, and exposes that snippet to the
+  gateway as ephemeral per-turn system context. The bundle now also includes the
   Interaction Protocol block. The fetch+summarize logic is also reused behind
   the on-demand geo_search_context tool (hermes-extensions/geo-search-tool),
   which the agent calls with a query for arbitrary lookups beyond this bundle.
   The hash/TTL gating and silent no-op when Geo.app is closed still apply.
-events: [session:start, session:reset]
+events: [session:start, session:reset, agent:start]

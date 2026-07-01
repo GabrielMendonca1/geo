@@ -25,6 +25,7 @@ final class NavigationStore {
     private(set) var path: [String] = []
     var searchTexts: [AppTab: String] = [:]
     var fabExpanded: Bool = false
+    var graphSearchPresented: Bool = false
 
     var selectedTab: AppTab {
         get { tabRouter.selectedTab }

@@ -1,4 +1,5 @@
 import Foundation
+import GeoCore
 
 enum HabitCompletionError: Error, Equatable {
     case taskNotFound

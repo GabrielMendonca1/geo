@@ -75,9 +75,6 @@ struct TabIconView: View {
     var body: some View {
         Group {
             switch tab {
-            case .home:
-                Image(systemName: tab.icon)
-                    .symbolEffect(.bounce.down.byLayer, value: animationTrigger)
             case .tasks:
                 Image(systemName: tab.icon)
                     .symbolEffect(.wiggle.backward.byLayer, value: animationTrigger)
@@ -99,6 +96,6 @@ struct TabIconView: View {
 }
 
 #Preview {
-    NavigationSegmentedControl(selection: .constant(.home))
+    NavigationSegmentedControl(selection: .constant(.nodes))
         .padding()
 }

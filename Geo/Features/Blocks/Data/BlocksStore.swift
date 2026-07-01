@@ -49,6 +49,26 @@ class BlocksStore: ObservableObject {
         let markdown: String
         let url: URL
         let metadata: BlockMetadata
+
+        struct ObservationFingerprint: Hashable {
+            let id: String
+            let title: String
+            let lastEdited: Date
+            let tagName: String?
+            let status: String?
+            let type: BlockType
+            let layer: BlockLayer
+
+            init(_ block: Block) {
+                id = block.id
+                title = block.title
+                lastEdited = block.lastEdited
+                tagName = block.metadata.tagName
+                status = block.metadata.status
+                type = block.metadata.type
+                layer = block.metadata.layer
+            }
+        }
     }
 
     struct BlockMetadata: Codable, Hashable {
@@ -790,224 +810,6 @@ class BlocksStore: ObservableObject {
         }
     }
 
-}
-
-enum FrontmatterMutationError: Error, Equatable {
-    case blockNotFound(String)
-}
-
-actor FrontmatterMutatorActor {
-    private var tails: [String: Task<Int, Error>] = [:]
-
-    func enqueue(blockID: String, work: @escaping @Sendable () async throws -> Int) async throws -> Int {
-        let prior = tails[blockID]
-        let task = Task<Int, Error> {
-            if let prior {
-                _ = try? await prior.value
-            }
-            return try await work()
-        }
-        tails[blockID] = task
-        defer {
-            if tails[blockID] == task {
-                tails[blockID] = nil
-            }
-        }
-        return try await task.value
-    }
-}
-
-enum FrontmatterEditor {
-    static func upsert(in markdown: String, values: [String: AnyCodableValue]) -> String {
-        let lines = markdown.components(separatedBy: "\n")
-        var leadingBlankCount = 0
-        while leadingBlankCount < lines.count,
-              lines[leadingBlankCount].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            leadingBlankCount += 1
-        }
-        let hasOpen = leadingBlankCount < lines.count
-            && lines[leadingBlankCount].trimmingCharacters(in: .whitespacesAndNewlines) == "---"
-
-        guard hasOpen else {
-            return buildFresh(values: values) + (markdown.isEmpty ? "" : markdown)
-        }
-
-        var closeIndex: Int = -1
-        var frontmatterLines: [String] = []
-        var i = leadingBlankCount + 1
-        while i < lines.count {
-            let trimmed = lines[i].trimmingCharacters(in: .whitespacesAndNewlines)
-            if trimmed == "---" {
-                closeIndex = i
-                break
-            }
-            frontmatterLines.append(lines[i])
-            i += 1
-        }
-        if closeIndex == -1 {
-            return buildFresh(values: values) + markdown
-        }
-
-        var remaining = values
-        var newFrontmatter: [String] = []
-        for line in frontmatterLines {
-            let parts = line.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
-            let key = parts.first.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) } ?? ""
-            if let newValue = remaining.removeValue(forKey: key) {
-                newFrontmatter.append("\(key): \(serialize(newValue))")
-            } else {
-                newFrontmatter.append(line)
-            }
-        }
-        for key in remaining.keys.sorted() {
-            guard let value = remaining[key] else { continue }
-            newFrontmatter.append("\(key): \(serialize(value))")
-        }
-
-        var rebuilt: [String] = []
-        rebuilt.append(contentsOf: lines.prefix(leadingBlankCount))
-        rebuilt.append("---")
-        rebuilt.append(contentsOf: newFrontmatter)
-        rebuilt.append("---")
-        rebuilt.append(contentsOf: lines.dropFirst(closeIndex + 1))
-        return rebuilt.joined(separator: "\n")
-    }
-
-    private static func buildFresh(values: [String: AnyCodableValue]) -> String {
-        var block = "---\n"
-        for key in values.keys.sorted() {
-            guard let value = values[key] else { continue }
-            block += "\(key): \(serialize(value))\n"
-        }
-        block += "---\n"
-        return block
-    }
-
-    static func serialize(_ value: AnyCodableValue) -> String {
-        switch value {
-        case .string(let s):
-            return FrontmatterYAML.emitScalar(s)
-        case .int(let i):
-            return String(i)
-        case .double(let d):
-            return String(d)
-        case .bool(let b):
-            return b ? "true" : "false"
-        case .null:
-            return ""
-        case .array(let arr):
-            return FrontmatterYAML.emitInlineList(arr.map { $0.stringValue ?? serialize($0) })
-        case .object:
-            return ""
-        }
-    }
-}
-
-enum DayLinkBody {
-    static func inserting(dayId: String, into markdown: String) -> String {
-        let token = "[[\(dayId)]]"
-        let trimmedTail = markdown.hasSuffix("\n") ? markdown : markdown + "\n"
-        return trimmedTail + token + "\n"
-    }
-}
-
-struct BlockCheckbox: Hashable, Sendable {
-    let text: String
-    let checked: Bool
-    let lineNumber: Int
-}
-
-struct BlockCheckboxSnapshot: Hashable, Sendable {
-    let text: String
-    let wasChecked: Bool
-}
-
-enum BlockCheckboxError: Error, Equatable {
-    case blockNotFound
-    case lineNotFound
-    case notACheckbox
-    case persistenceFailed
-}
-
-private enum BlockCheckboxParsing {
-    static let openPattern = #"^(\s*(?:[-*+]\s+|\d+\.\s+)\[)( )(\]\s+)(.*)$"#
-    static let closedPattern = #"^(\s*(?:[-*+]\s+|\d+\.\s+)\[)([xX])(\]\s+)(.*)$"#
-    static let fencePattern = #"^\s*```"#
-
-    static let openRegex = try! NSRegularExpression(pattern: openPattern)
-    static let closedRegex = try! NSRegularExpression(pattern: closedPattern)
-    static let fenceRegex = try! NSRegularExpression(pattern: fencePattern)
-
-    static func splitLines(_ markdown: String) -> [String] {
-        markdown.components(separatedBy: "\n")
-    }
-
-    static func codeBlockMask(for lines: [String]) -> [Bool] {
-        var mask = [Bool](repeating: false, count: lines.count)
-        var inFence = false
-        for (i, line) in lines.enumerated() {
-            let nsLine = line as NSString
-            let isFence = fenceRegex.firstMatch(in: line, range: NSRange(location: 0, length: nsLine.length)) != nil
-            if isFence {
-                mask[i] = true
-                inFence.toggle()
-            } else {
-                mask[i] = inFence
-            }
-        }
-        return mask
-    }
-
-    enum CheckboxMatch {
-        case open(text: String)
-        case closed(text: String)
-    }
-
-    static func match(line: String) -> CheckboxMatch? {
-        let nsLine = line as NSString
-        let range = NSRange(location: 0, length: nsLine.length)
-        if let m = openRegex.firstMatch(in: line, range: range), m.numberOfRanges >= 5 {
-            let textRange = m.range(at: 4)
-            let text = nsLine.substring(with: textRange)
-            return .open(text: text)
-        }
-        if let m = closedRegex.firstMatch(in: line, range: range), m.numberOfRanges >= 5 {
-            let textRange = m.range(at: 4)
-            let text = nsLine.substring(with: textRange)
-            return .closed(text: text)
-        }
-        return nil
-    }
-
-    static func toggled(line: String) -> String? {
-        let nsLine = line as NSString
-        let range = NSRange(location: 0, length: nsLine.length)
-        if let m = openRegex.firstMatch(in: line, range: range), m.numberOfRanges >= 5 {
-            let prefix = nsLine.substring(with: m.range(at: 1))
-            let suffix = nsLine.substring(with: m.range(at: 3))
-            let text = nsLine.substring(with: m.range(at: 4))
-            return "\(prefix)x\(suffix)\(text)"
-        }
-        if let m = closedRegex.firstMatch(in: line, range: range), m.numberOfRanges >= 5 {
-            let prefix = nsLine.substring(with: m.range(at: 1))
-            let suffix = nsLine.substring(with: m.range(at: 3))
-            let text = nsLine.substring(with: m.range(at: 4))
-            return "\(prefix) \(suffix)\(text)"
-        }
-        return nil
-    }
-
-    static func uncheck(line: String) -> String? {
-        let nsLine = line as NSString
-        let range = NSRange(location: 0, length: nsLine.length)
-        guard let m = closedRegex.firstMatch(in: line, range: range), m.numberOfRanges >= 5 else {
-            return nil
-        }
-        let prefix = nsLine.substring(with: m.range(at: 1))
-        let suffix = nsLine.substring(with: m.range(at: 3))
-        let text = nsLine.substring(with: m.range(at: 4))
-        return "\(prefix) \(suffix)\(text)"
-    }
 }
 
 extension BlocksStore {

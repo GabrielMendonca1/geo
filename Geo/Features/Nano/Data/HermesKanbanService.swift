@@ -27,21 +27,16 @@ final class HermesKanbanService: ObservableObject {
         .homeDirectoryForCurrentUser
         .appendingPathComponent(".hermes/dispatches")
 
-    private var pollTask: Task<Void, Never>?
+    private lazy var poller = Poller(interval: 2_000_000_000) { [weak self] in
+        await self?.tick()
+    }
 
     func start() {
-        guard pollTask == nil else { return }
-        pollTask = Task { [weak self] in
-            while !Task.isCancelled {
-                await self?.tick()
-                try? await Task.sleep(nanoseconds: 2_000_000_000)
-            }
-        }
+        poller.start()
     }
 
     func stop() {
-        pollTask?.cancel()
-        pollTask = nil
+        poller.stop()
         dbAvailable = false
     }
 

@@ -39,39 +39,39 @@ private struct RawKey: Hashable {
 enum MarkdownBlockParser {
 
     private static let headingRegex: NSRegularExpression = {
-        (try? NSRegularExpression(pattern: "^(\\s*)(#{1,6})\\s", options: [])) ?? NSRegularExpression()
+        try! NSRegularExpression(pattern: "^(\\s*)(#{1,6})\\s", options: [])
     }()
 
     private static let toggleRegex: NSRegularExpression = {
-        (try? NSRegularExpression(pattern: "^>>\\s*\\[(>|v)\\]\\s*(.*)$", options: [])) ?? NSRegularExpression()
+        try! NSRegularExpression(pattern: "^>>\\s*\\[(>|v)\\]\\s*(.*)$", options: [])
     }()
 
     private static let calloutRegex: NSRegularExpression = {
-        (try? NSRegularExpression(pattern: "^>\\s*\\[!(\\w+)\\]\\s*(.*)?$", options: [])) ?? NSRegularExpression()
+        try! NSRegularExpression(pattern: "^>\\s*\\[!(\\w+)\\]\\s*(.*)?$", options: [])
     }()
 
     private static let blockquoteRegex: NSRegularExpression = {
-        (try? NSRegularExpression(pattern: "^(\\s*)((?:>\\s?)+)", options: [])) ?? NSRegularExpression()
+        try! NSRegularExpression(pattern: "^(\\s*)((?:>\\s?)+)", options: [])
     }()
 
     private static let checkboxRegex: NSRegularExpression = {
-        (try? NSRegularExpression(pattern: "^(\\s*)([-*+])\\s+\\[([ xX])\\]\\s", options: [])) ?? NSRegularExpression()
+        try! NSRegularExpression(pattern: "^(\\s*)([-*+])\\s+\\[([ xX])\\]\\s", options: [])
     }()
 
     private static let orderedCheckboxRegex: NSRegularExpression = {
-        (try? NSRegularExpression(pattern: "^(\\s*)(\\d+)\\.\\s+\\[([ xX])\\]\\s", options: [])) ?? NSRegularExpression()
+        try! NSRegularExpression(pattern: "^(\\s*)(\\d+)\\.\\s+\\[([ xX])\\]\\s", options: [])
     }()
 
     private static let bulletRegex: NSRegularExpression = {
-        (try? NSRegularExpression(pattern: "^(\\s*)([-*+])\\s", options: [])) ?? NSRegularExpression()
+        try! NSRegularExpression(pattern: "^(\\s*)([-*+])\\s", options: [])
     }()
 
     static let orderedRegex: NSRegularExpression = {
-        (try? NSRegularExpression(pattern: "^(\\s*)(\\d+)\\.\\s", options: [])) ?? NSRegularExpression()
+        try! NSRegularExpression(pattern: "^(\\s*)(\\d+)\\.\\s", options: [])
     }()
 
     static let imageRegex: NSRegularExpression = {
-        (try? NSRegularExpression(pattern: "^!\\[([^\\]]*)\\]\\(([^)]+)\\)\\s*$", options: [])) ?? NSRegularExpression()
+        try! NSRegularExpression(pattern: "^!\\[([^\\]]*)\\]\\(([^)]+)\\)\\s*$", options: [])
     }()
 
     static func parseImageMarkdown(_ text: String) -> (alt: String, url: String)? {

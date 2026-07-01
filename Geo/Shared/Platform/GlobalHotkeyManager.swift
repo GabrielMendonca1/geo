@@ -217,26 +217,7 @@ class GlobalHotkeyManager {
 
     private func simulatePasteCommand() {
         isSimulatingPaste = true
-
-        let source = CGEventSource(stateID: .hidSystemState)
-        let keyV: CGKeyCode = 9
-        let cmdFlag = CGEventFlags.maskCommand
-
-        guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: keyV, keyDown: true),
-              let keyUp = CGEvent(keyboardEventSource: source, virtualKey: keyV, keyDown: false) else {
-            isSimulatingPaste = false
-            return
-        }
-
-        keyDown.flags = cmdFlag
-        keyUp.flags = cmdFlag
-
-        keyDown.post(tap: .cghidEventTap)
-        keyUp.post(tap: .cghidEventTap)
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            self.isSimulatingPaste = false
-        }
+        postPaste()
     }
 
     private func pasteLatestText(isRecent: Bool = true, retryCount: Int = 0) {
@@ -338,6 +319,10 @@ class GlobalHotkeyManager {
     }
 
     private func postPasteCommand() {
+        postPaste()
+    }
+
+    private func postPaste() {
         let source = CGEventSource(stateID: .hidSystemState)
         let keyV: CGKeyCode = 9
         let cmdFlag = CGEventFlags.maskCommand

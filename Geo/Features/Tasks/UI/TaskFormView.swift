@@ -1,21 +1,32 @@
 import SwiftUI
+import GeoCore
+
+enum TaskFormStyle {
+    static let accent = GeoStyle.Colors.geoBlueDark
+    static let cardRadius: CGFloat = 14
+    static let cardFill = Palette.secondaryBackground.opacity(0.55)
+    static let cardStroke = Palette.border.opacity(0.35)
+}
 
 struct TaskFormView: View {
 
     let editingTask: TaskItem?
     let availableBlocks: [TaskBlockOption]
     let preFillBlockId: String?
+    let preFillDate: Date?
 
     @StateObject private var viewModel = TaskFormViewModel()
 
     init(
         editingTask: TaskItem? = nil,
         availableBlocks: [TaskBlockOption] = [],
-        preFillBlockId: String? = nil
+        preFillBlockId: String? = nil,
+        preFillDate: Date? = nil
     ) {
         self.editingTask = editingTask
         self.availableBlocks = availableBlocks
         self.preFillBlockId = preFillBlockId
+        self.preFillDate = preFillDate
     }
 
     var body: some View {
@@ -45,7 +56,7 @@ struct TaskFormView: View {
             LinearGradient(
                 colors: [
                     Palette.background,
-                    Palette.secondaryBackground.opacity(0.2)
+                    Palette.secondaryBackground.opacity(0.3)
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -56,11 +67,36 @@ struct TaskFormView: View {
             if editingTask == nil, let preFillBlockId, viewModel.linkedBlockId == nil {
                 viewModel.linkedBlockId = preFillBlockId
             }
+            if editingTask == nil, let preFillDate {
+                viewModel.applyPrefillDate(preFillDate)
+            }
         }
         .onChange(of: viewModel.customInterval) { _, newValue in
             if newValue < 1 {
                 viewModel.customInterval = 1
             }
+        }
+    }
+}
+
+struct TaskFormSectionHeader: View {
+    let title: String
+    let icon: String
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(TaskFormStyle.accent.opacity(0.16))
+                Image(systemName: icon)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(TaskFormStyle.accent)
+            }
+            .frame(width: 22, height: 22)
+            Text(title.uppercased())
+                .font(.system(size: 11, weight: .bold))
+                .tracking(0.9)
+                .foregroundStyle(Palette.tertiaryForeground)
         }
     }
 }
@@ -72,27 +108,19 @@ struct TaskFormSectionCard<Content: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 7) {
-                Image(systemName: icon)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Palette.accent)
-                Text(title)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Palette.foreground)
-            }
+            TaskFormSectionHeader(title: title, icon: icon)
             content()
         }
-        .padding(14)
+        .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 11)
-                .fill(Palette.background.opacity(0.9))
+            RoundedRectangle(cornerRadius: TaskFormStyle.cardRadius)
+                .fill(TaskFormStyle.cardFill)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 11)
-                .stroke(Palette.border.opacity(0.18), lineWidth: 1)
+            RoundedRectangle(cornerRadius: TaskFormStyle.cardRadius)
+                .stroke(TaskFormStyle.cardStroke, lineWidth: 1)
         )
-        .shadow(color: Color.black.opacity(0.03), radius: 4, x: 0, y: 1)
     }
 }
 
@@ -110,16 +138,11 @@ struct TaskFormCollapsibleCard<Content: View>: View {
                     isExpanded.toggle()
                 }
             } label: {
-                HStack(spacing: 7) {
-                    Image(systemName: icon)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Palette.accent)
-                    Text(title)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Palette.foreground)
+                HStack(spacing: 8) {
+                    TaskFormSectionHeader(title: title, icon: icon)
                     if !isExpanded {
                         Text(summary)
-                            .font(.system(size: 11))
+                            .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(Palette.tertiaryForeground)
                     }
                     Spacer()
@@ -128,6 +151,7 @@ struct TaskFormCollapsibleCard<Content: View>: View {
                         .foregroundStyle(Palette.tertiaryForeground)
                         .rotationEffect(.degrees(isExpanded ? 90 : 0))
                 }
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
 
@@ -135,204 +159,324 @@ struct TaskFormCollapsibleCard<Content: View>: View {
                 content()
             }
         }
-        .padding(14)
+        .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 11)
-                .fill(Palette.background.opacity(0.9))
+            RoundedRectangle(cornerRadius: TaskFormStyle.cardRadius)
+                .fill(TaskFormStyle.cardFill)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 11)
-                .stroke(Palette.border.opacity(0.18), lineWidth: 1)
+            RoundedRectangle(cornerRadius: TaskFormStyle.cardRadius)
+                .stroke(TaskFormStyle.cardStroke, lineWidth: 1)
         )
-        .shadow(color: Color.black.opacity(0.03), radius: 4, x: 0, y: 1)
     }
 }
 
-struct LinkedBlockPicker: View {
+struct TaskChecklistCard: View {
     @Environment(\.appEnvironment) private var appEnvironment
+    @Environment(\.openWindow) private var openWindow
     @ObservedObject var viewModel: TaskFormViewModel
     let availableBlocks: [TaskBlockOption]
 
-    @State private var search: String = ""
-    @State private var creatingBlock = false
-    @State private var creationError: String?
-    @State private var inlineEditorBlockId: String?
-    @State private var inlineEditorMarkdown: String = ""
-    @State private var inlineEditorTitle: String = ""
+    @State private var checkboxes: [BlockCheckbox] = []
+    @State private var linkedBlockTitle: String?
+    @State private var newItemText: String = ""
+    @State private var isBusy = false
+    @State private var errorMessage: String?
+    @FocusState private var newItemFocused: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Linked Block")
-                .font(.caption)
-                .foregroundStyle(Palette.tertiaryForeground)
-
-            TextField("Search blocks", text: $search)
-                .textFieldStyle(.roundedBorder)
-
-            Menu {
-                Button("None") { viewModel.linkedBlockId = nil }
-                Divider()
-                Button {
-                    Task { await createInlineBlock() }
-                } label: {
-                    Label("Create new block", systemImage: "plus.square")
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                TaskFormSectionHeader(title: "Checklist", icon: "checklist")
+                if !checkboxes.isEmpty {
+                    Text("\(checkboxes.filter(\.checked).count)/\(checkboxes.count)")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(TaskFormStyle.accent)
                 }
-                if !filteredBlocks.isEmpty {
-                    Divider()
-                    ForEach(filteredBlocks) { block in
-                        Button(block.title) { viewModel.linkedBlockId = block.id }
-                    }
+                Spacer()
+                if viewModel.linkedBlockId != nil {
+                    blockMenu
                 }
-            } label: {
-                HStack {
-                    Image(systemName: "doc.text")
-                        .foregroundStyle(Palette.accent)
-                    Text(currentLabel)
-                        .foregroundStyle(Palette.foreground)
-                    Spacer()
-                    if creatingBlock {
-                        ProgressView().controlSize(.small)
-                    } else {
-                        Image(systemName: "chevron.up.chevron.down")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(Palette.tertiaryForeground)
-                    }
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 7)
-                .background(
-                    RoundedRectangle(cornerRadius: 7)
-                        .fill(Palette.background.opacity(0.9))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 7)
-                        .stroke(Palette.border.opacity(0.2), lineWidth: 1)
-                )
             }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)
 
-            if let creationError {
-                Label(creationError, systemImage: "exclamationmark.triangle.fill")
+            if viewModel.linkedBlockId != nil {
+                linkedContent
+            } else {
+                emptyContent
+            }
+
+            if let errorMessage {
+                Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
                     .font(.caption)
                     .foregroundStyle(.orange)
             }
         }
-        .sheet(item: Binding(
-            get: { inlineEditorBlockId.map { InlineBlockEditorIdentifier(id: $0) } },
-            set: { newValue in
-                if newValue == nil { inlineEditorBlockId = nil }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: TaskFormStyle.cardRadius)
+                .fill(TaskFormStyle.cardFill)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: TaskFormStyle.cardRadius)
+                .stroke(viewModel.linkedBlockId == nil ? TaskFormStyle.cardStroke : TaskFormStyle.accent.opacity(0.35), lineWidth: 1)
+        )
+        .task(id: viewModel.linkedBlockId) {
+            await refresh()
+        }
+    }
+
+    @ViewBuilder
+    private var linkedContent: some View {
+        Button {
+            openLinkedBlock()
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "doc.text")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(TaskFormStyle.accent)
+                Text(linkedBlockTitle ?? "Linked block")
+                    .font(.system(size: 12, weight: .semibold))
+                    .lineLimit(1)
+                    .foregroundStyle(Palette.foreground)
+                Image(systemName: "arrow.up.forward")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(Palette.tertiaryForeground)
             }
-        )) { ident in
-            InlineBlockEditorSheet(
-                blockId: ident.id,
-                title: inlineEditorTitle,
-                markdown: $inlineEditorMarkdown,
-                onSave: { saveInlineBlock(id: ident.id) },
-                onDismiss: { inlineEditorBlockId = nil }
+            .padding(.horizontal, 9)
+            .padding(.vertical, 5)
+            .background(
+                RoundedRectangle(cornerRadius: 7)
+                    .fill(Palette.background.opacity(0.7))
             )
+            .contentShape(Rectangle())
         }
-    }
+        .buttonStyle(.plain)
+        .pointingHandCursor()
 
-    private var filteredBlocks: [TaskBlockOption] {
-        let sorted = availableBlocks.sorted {
-            $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
-        }
-        if search.isEmpty { return sorted }
-        return sorted.filter { $0.title.localizedCaseInsensitiveContains(search) }
-    }
-
-    private var currentLabel: String {
-        guard let id = viewModel.linkedBlockId else { return "None" }
-        if let match = availableBlocks.first(where: { $0.id == id }) {
-            return match.title
-        }
-        return "Linked block"
-    }
-
-    private func createInlineBlock() async {
-        creatingBlock = true
-        creationError = nil
-        defer { creatingBlock = false }
-
-        let baseTitle = viewModel.trimmedTitle.isEmpty ? "New Block" : viewModel.trimmedTitle
-        do {
-            let block = try await appEnvironment.blocksRepository.create(title: baseTitle, markdown: "")
-            viewModel.linkedBlockId = block.id
-            inlineEditorTitle = block.title.isEmpty ? baseTitle : block.title
-            inlineEditorMarkdown = block.markdown
-            inlineEditorBlockId = block.id
-        } catch {
-            creationError = "Could not create block: \(error.localizedDescription)"
-        }
-    }
-
-    private func saveInlineBlock(id: String) {
-        let markdown = inlineEditorMarkdown
-        Task {
-            do {
-                try await appEnvironment.blocksRepository.update(id: id, markdown: markdown)
-            } catch {
-                await MainActor.run {
-                    creationError = "Could not save block content: \(error.localizedDescription)"
+        if checkboxes.isEmpty {
+            Text("No items yet — add the first step below.")
+                .font(.system(size: 11))
+                .foregroundStyle(Palette.tertiaryForeground)
+        } else {
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(checkboxes, id: \.lineNumber) { checkbox in
+                    checkboxRow(checkbox)
                 }
             }
         }
-        inlineEditorBlockId = nil
-    }
-}
 
-private struct InlineBlockEditorIdentifier: Identifiable {
-    let id: String
-}
-
-private struct InlineBlockEditorSheet: View {
-    let blockId: String
-    let title: String
-    @Binding var markdown: String
-    let onSave: () -> Void
-    let onDismiss: () -> Void
-
-    var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Image(systemName: "doc.text")
-                    .foregroundStyle(Palette.accent)
-                Text(title.isEmpty ? "New Block" : title)
-                    .font(.system(size: 14, weight: .semibold))
-                Spacer()
+        HStack(spacing: 7) {
+            Image(systemName: "plus")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(TaskFormStyle.accent)
+            TextField("Add checklist item", text: $newItemText)
+                .textFieldStyle(.plain)
+                .font(.system(size: 12))
+                .focused($newItemFocused)
+                .onSubmit { addItem() }
+            if isBusy {
+                ProgressView().controlSize(.small)
             }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 14)
-            .background(Palette.secondaryBackground.opacity(0.22))
-
-            Divider()
-
-            TextEditor(text: $markdown)
-                .font(.system(size: 13))
-                .padding(12)
-
-            Divider()
-
-            HStack {
-                Text("Markdown supported")
-                    .font(.caption)
-                    .foregroundStyle(Palette.tertiaryForeground)
-                Spacer()
-                Button("Cancel") { onDismiss() }
-                    .keyboardShortcut(.cancelAction)
-                    .buttonStyle(.bordered)
-                Button("Save") { onSave() }
-                    .keyboardShortcut(.defaultAction)
-                    .buttonStyle(.borderedProminent)
-            }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 12)
-            .background(Palette.secondaryBackground.opacity(0.22))
         }
-        .frame(width: 480, height: 380)
-        .background(Palette.background)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Palette.background.opacity(0.7))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Palette.border.opacity(0.25), lineWidth: 1)
+        )
+    }
+
+    @ViewBuilder
+    private var emptyContent: some View {
+        Text("No checklist yet. Create a block named after this task to track its steps.")
+            .font(.system(size: 11))
+            .foregroundStyle(Palette.tertiaryForeground)
+
+        HStack(spacing: 8) {
+            Button {
+                Task { await createWorkspaceBlock() }
+            } label: {
+                HStack(spacing: 6) {
+                    if isBusy {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 11, weight: .bold))
+                    }
+                    Text("Create checklist block")
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 11)
+                .padding(.vertical, 7)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(TaskFormStyle.accent)
+                )
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(isBusy)
+            .pointingHandCursor()
+
+            Menu {
+                ForEach(sortedBlocks) { block in
+                    Button(block.title) { viewModel.linkedBlockId = block.id }
+                }
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "link")
+                        .font(.system(size: 10, weight: .semibold))
+                    Text("Link existing")
+                        .font(.system(size: 12, weight: .medium))
+                }
+                .foregroundStyle(Palette.foreground)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Palette.background.opacity(0.7))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Palette.border.opacity(0.3), lineWidth: 1)
+                )
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+        }
+    }
+
+    private var blockMenu: some View {
+        Menu {
+            Button("Open in editor") { openLinkedBlock() }
+            Divider()
+            Menu("Change block") {
+                ForEach(sortedBlocks) { block in
+                    Button(block.title) { viewModel.linkedBlockId = block.id }
+                }
+            }
+            Button("Unlink", role: .destructive) { viewModel.linkedBlockId = nil }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Palette.tertiaryForeground)
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+    }
+
+    @ViewBuilder
+    private func checkboxRow(_ checkbox: BlockCheckbox) -> some View {
+        Button {
+            toggle(checkbox)
+        } label: {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: checkbox.checked ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(checkbox.checked ? TaskFormStyle.accent : Palette.tertiaryForeground)
+                Text(checkbox.text)
+                    .font(.system(size: 12))
+                    .foregroundStyle(checkbox.checked ? Palette.tertiaryForeground : Palette.foreground.opacity(0.92))
+                    .multilineTextAlignment(.leading)
+                Spacer(minLength: 0)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .pointingHandCursor()
+    }
+
+    private var sortedBlocks: [TaskBlockOption] {
+        availableBlocks.sorted {
+            $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
+        }
+    }
+
+    private func openLinkedBlock() {
+        guard let blockId = viewModel.linkedBlockId else { return }
+        openWindow(id: "editor", value: blockId)
+    }
+
+    private func refresh() async {
+        guard let blockId = viewModel.linkedBlockId else {
+            checkboxes = []
+            linkedBlockTitle = nil
+            return
+        }
+        let repository = appEnvironment.blocksRepository
+        checkboxes = await repository.checkboxes(in: blockId)
+        if let match = availableBlocks.first(where: { $0.id == blockId }) {
+            linkedBlockTitle = match.title
+        } else if let block = try? await repository.get(id: blockId) {
+            linkedBlockTitle = block.displayTitle
+        }
+    }
+
+    private func toggle(_ checkbox: BlockCheckbox) {
+        guard let blockId = viewModel.linkedBlockId else { return }
+        if let idx = checkboxes.firstIndex(where: { $0.lineNumber == checkbox.lineNumber }) {
+            checkboxes[idx] = BlockCheckbox(text: checkbox.text, checked: !checkbox.checked, lineNumber: checkbox.lineNumber)
+        }
+        Task {
+            do {
+                try await appEnvironment.blocksRepository.toggleCheckbox(in: blockId, lineNumber: checkbox.lineNumber)
+                errorMessage = nil
+            } catch {
+                errorMessage = "Could not update item: \(error.localizedDescription)"
+            }
+            await refresh()
+        }
+    }
+
+    private func addItem() {
+        let text = newItemText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, let blockId = viewModel.linkedBlockId, !isBusy else { return }
+        newItemText = ""
+        Task {
+            isBusy = true
+            do {
+                let repository = appEnvironment.blocksRepository
+                guard let block = try await repository.get(id: blockId) else {
+                    throw RepositoryError.notFound
+                }
+                var markdown = block.markdown
+                if !markdown.isEmpty, !markdown.hasSuffix("\n") {
+                    markdown += "\n"
+                }
+                markdown += "- [ ] \(text)\n"
+                try await repository.update(id: blockId, markdown: markdown)
+                errorMessage = nil
+            } catch {
+                errorMessage = "Could not add item: \(error.localizedDescription)"
+            }
+            await refresh()
+            isBusy = false
+            newItemFocused = true
+        }
+    }
+
+    private func createWorkspaceBlock() async {
+        guard !isBusy else { return }
+        isBusy = true
+        defer { isBusy = false }
+        let title = viewModel.trimmedTitle.isEmpty ? "New Task" : viewModel.trimmedTitle
+        do {
+            let block = try await appEnvironment.blocksRepository.create(title: title, markdown: "")
+            viewModel.linkedBlockId = block.id
+            errorMessage = nil
+            newItemFocused = true
+        } catch {
+            errorMessage = "Could not create block: \(error.localizedDescription)"
+        }
     }
 }
 

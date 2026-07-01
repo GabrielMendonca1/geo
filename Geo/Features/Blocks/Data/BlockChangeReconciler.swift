@@ -22,6 +22,11 @@ final class BlockChangeReconciler {
     private let metadataService: BlockMetadataService
     private let indexCoordinator: IndexCoordinator
     private var fileWatcher: FileWatcherService?
+    private var pendingURLs: [URL] = []
+    private var pendingPaths: Set<String> = []
+    private var lastReconcile: Date = .distantPast
+    private var trailingFlushTask: Task<Void, Never>?
+    private let coalesceInterval: TimeInterval = 0.3
 
     var onBlocksChanged: (([BlocksStore.Block]) -> Void)?
     var currentBlocksProvider: (() -> [BlocksStore.Block])?
@@ -41,11 +46,37 @@ final class BlockChangeReconciler {
         watcher.onChange = { [weak self] (urls: [URL]) in
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                self.handleExternalChanges(urls, currentBlocks: self.currentBlocksProvider?() ?? [])
+                self.enqueueExternalChanges(urls)
             }
         }
         watcher.start()
         fileWatcher = watcher
+    }
+
+    private func enqueueExternalChanges(_ urls: [URL]) {
+        for url in urls where pendingPaths.insert(url.path).inserted {
+            pendingURLs.append(url)
+        }
+        guard !pendingURLs.isEmpty, trailingFlushTask == nil else { return }
+        if Date().timeIntervalSince(lastReconcile) >= coalesceInterval {
+            flushPendingChanges()
+        } else {
+            trailingFlushTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(nanoseconds: 300_000_000)
+                guard let self, !Task.isCancelled else { return }
+                self.trailingFlushTask = nil
+                self.flushPendingChanges()
+            }
+        }
+    }
+
+    private func flushPendingChanges() {
+        lastReconcile = Date()
+        let urls = pendingURLs
+        pendingURLs.removeAll()
+        pendingPaths.removeAll()
+        guard !urls.isEmpty else { return }
+        handleExternalChanges(urls, currentBlocks: currentBlocksProvider?() ?? [])
     }
 
     func recordWrite(for blockId: String) {

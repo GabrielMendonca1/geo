@@ -10,13 +10,19 @@ Each run gets a folder under ``~/.hermes/dispatches/<id>/``:
 
 Returns immediately, printing the dispatch id and its folder. The worker is
 double-forked so it survives the caller's shell turn.
+
+On SIGTERM/SIGINT the worker writes status=failed and fires a 'worker died'
+notify; on SIGKILL / OOM / power loss no callback can run — such a dispatch is
+left with status=running and a stale pid, and must be reaped externally.
 """
 from __future__ import annotations
 
 import argparse
 import json
+import html
 import os
 import re
+import signal
 import subprocess
 import sys
 import time
@@ -25,14 +31,47 @@ from pathlib import Path
 HERMES = Path(os.environ.get("HERMES_HOME", str(Path.home() / ".hermes")))
 ROOT = HERMES / "dispatches"
 CLAUDE = os.environ.get("CLAUDE_CODE_BIN", str(Path.home() / ".local/bin/claude"))
+HERMES_BIN = os.environ.get("HERMES_BIN", str(Path.home() / ".local/bin/hermes"))
+
+
+def _notify(d: Path, target: str, emoji: str, title: str, summary: str,
+            did: str, cost_str: str, timeout: int = 30) -> None:
+    # Wrap the body in an HTML <pre> block so `hermes send` takes its HTML
+    # branch (verbatim text, ParseMode.HTML) instead of interpreting the
+    # worker output as MarkdownV2 — backticks/asterisks/fences survive intact.
+    # Only &, <, > need escaping inside <pre>. Best-effort: never raises.
+    try:
+        raw = f"{summary}\n\n({did}{cost_str})"
+        body = "<pre>" + html.escape(raw) + "</pre>"
+        # `hermes send` prepends the subject OUTSIDE the <pre>, and the whole
+        # message is sent with ParseMode.HTML, so the subject must be HTML-safe.
+        subject = f"{emoji} cc-dispatch: {html.escape(title)}"
+        p = subprocess.run(
+            [HERMES_BIN, "send", "-t", target, "-q",
+             "-s", subject, "-f", "-"],
+            input=body, capture_output=True, text=True, timeout=timeout,
+        )
+        (d / "notify.log").write_text(
+            f"returncode={p.returncode}\n--- stdout ---\n{p.stdout}\n--- stderr ---\n{p.stderr}\n"
+        )
+        if p.returncode != 0:
+            (d / "notify_error").write_text(
+                f"exit {p.returncode}\n{p.stderr or p.stdout}".strip() + "\n"
+            )
+    except Exception as e:  # noqa: BLE001 — notification is best-effort
+        try:
+            (d / "notify_error").write_text(repr(e) + "\n")
+        except Exception:  # noqa: BLE001
+            pass
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(prog="cc-dispatch")
     ap.add_argument("prompt", help="self-contained brief passed to `claude -p`")
     ap.add_argument("--dir", default=os.getcwd(), help="absolute workspace dir (default: cwd)")
-    ap.add_argument("--model", default="", help="optional model id, e.g. claude-opus-4-8")
+    ap.add_argument("--model", default="", help="optional model id, e.g. claude-fable-5")
     ap.add_argument("--title", default="", help="optional short label (default: first line of prompt)")
+    ap.add_argument("--notify", default="", help="hermes send target to ping on completion, e.g. 'telegram' or 'telegram:<chat_id>'")
     a = ap.parse_args()
 
     workdir = Path(a.dir).expanduser()
@@ -67,6 +106,36 @@ def main() -> None:
     os.dup2(devnull, 1)
     os.dup2(devnull, 2)
 
+    proc_holder: list = []
+    state = {"finalized": False}
+
+    def _died(signum, _frame):
+        # If the normal completion path already claimed finalization, stand
+        # down and return — do NOT os._exit, which would abort the in-flight
+        # normal status/result writes and notify. This also guards the trap
+        # against re-entrancy (a second signal during _died).
+        if state["finalized"]:
+            return
+        state["finalized"] = True
+        try:
+            if proc_holder:
+                try:
+                    proc_holder[0].terminate()
+                except Exception:  # noqa: BLE001
+                    pass
+            (d / "status").write_text("failed")
+            (d / "ended_at").write_text(str(int(time.time())))
+            (d / "error").write_text(f"killed by signal {signum}\n")
+            if a.notify:
+                _notify(d, a.notify, "☠️", title, f"worker died (signal {signum})",
+                        did, "", timeout=10)
+        except Exception:  # noqa: BLE001
+            pass
+        os._exit(143)
+
+    signal.signal(signal.SIGTERM, _died)
+    signal.signal(signal.SIGINT, _died)
+
     argv = [CLAUDE, "-p", a.prompt, "--output-format", "stream-json",
             "--verbose", "--dangerously-skip-permissions"]
     if a.model:
@@ -79,10 +148,16 @@ def main() -> None:
                 argv, cwd=str(workdir), stdin=subprocess.DEVNULL,
                 stdout=log, stderr=subprocess.STDOUT, text=True,
             )
+            proc_holder.append(proc)
             (d / "pid").write_text(str(proc.pid))
             code = proc.wait()
     except Exception as e:  # noqa: BLE001
         (d / "error").write_text(repr(e))
+
+    # Claim finalization the instant the worker is reaped, before writing the
+    # final status/result — a late SIGTERM/SIGINT now finds _died standing down
+    # instead of flipping this finished run to failed or double-notifying.
+    state["finalized"] = True
 
     res = None
     try:
@@ -103,6 +178,26 @@ def main() -> None:
     (d / "ended_at").write_text(str(int(time.time())))
     ok = code == 0 and res is not None and not res.get("is_error")
     (d / "status").write_text("done" if ok else "failed")
+
+    # Completion callback: push a Telegram (or any hermes-configured platform)
+    # message so the dispatcher agent / Gabriel is told when the detached worker
+    # finishes, instead of having to poll status. `hermes send` reuses the
+    # gateway's platform creds and needs no running gateway or LLM.
+    if a.notify:
+        emoji = "✅" if ok else "❌"
+        summary = ""
+        if res:
+            summary = res.get("result") or res.get("response") or ""
+        summary = (summary or f"(no result event, exit {code})").strip()
+        if len(summary) > 600:
+            summary = summary[:599] + "…"
+        cost = res.get("total_cost_usd") if res else None
+        if isinstance(cost, (int, float)):
+            cost_str = f" · ${cost:.3f}" if 0 < cost < 0.01 else f" · ${cost:.2f}"
+        else:
+            cost_str = ""
+        _notify(d, a.notify, emoji, title, summary, did, cost_str)
+
     os._exit(0)
 
 

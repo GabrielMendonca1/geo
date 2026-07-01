@@ -15,7 +15,7 @@ Open `build/Geo.dmg`, then drag **Geo.app** onto the **Applications** shortcut i
 
 ## Building a release DMG
 
-From the repo root (`/Users/biel/ARC/Forge/Geo`):
+From the repo root (`/Users/biel/ARCA/Forge/Geo`):
 
 ```bash
 bash Geo/scripts/build_dist.sh

@@ -23,56 +23,55 @@ final class IndexCoordinator {
         self.indexer = indexer
     }
 
+    private func safe<T>(
+        _ defaultValue: T,
+        _ message: @autoclosure @escaping () -> String,
+        _ op: () async throws -> T
+    ) async -> T {
+        do {
+            return try await op()
+        } catch {
+            logger.error("\(message()): \(error)")
+            return defaultValue
+        }
+    }
+
     func rebuildIndex(blocks: [BlocksStore.Block]) async {
         let entries = blocks.map { entry(for: $0) }
-        do {
+        await safe((), "rebuildIndex failed") {
             try await database.rebuildIndex(entries: entries)
-        } catch {
-            logger.error("rebuildIndex failed: \(error)")
         }
     }
 
     func index(block: BlocksStore.Block) async {
         let entry = entry(for: block)
-        do {
+        await safe((), "index(block:) failed for \(block.id)") {
             try await database.upsertBlock(entry)
-        } catch {
-            logger.error("index(block:) failed for \(block.id): \(error)")
         }
     }
 
     func index(block: BlocksStore.Block, document: MarkdownDocument) async {
         let entry = entry(for: block, document: document)
-        do {
+        await safe((), "index(block:document:) failed for \(block.id)") {
             try await database.upsertBlock(entry)
-        } catch {
-            logger.error("index(block:document:) failed for \(block.id): \(error)")
         }
     }
 
     func remove(blockId: String) async {
-        do {
+        await safe((), "remove(blockId:) failed for \(blockId)") {
             try await database.removeBlock(id: blockId)
-        } catch {
-            logger.error("remove(blockId:) failed for \(blockId): \(error)")
         }
     }
 
     func blockIds(matchingTag tag: String) async -> [String] {
-        do {
-            return try await database.blockIds(matchingTag: tag)
-        } catch {
-            logger.error("blockIds(matchingTag:) failed: \(error)")
-            return []
+        await safe([], "blockIds(matchingTag:) failed") {
+            try await database.blockIds(matchingTag: tag)
         }
     }
 
     func blockIds(matchingDay dayId: String) async -> [String] {
-        do {
-            return try await database.blockIds(matchingDay: dayId)
-        } catch {
-            logger.error("blockIds(matchingDay:) failed: \(error)")
-            return []
+        await safe([], "blockIds(matchingDay:) failed") {
+            try await database.blockIds(matchingDay: dayId)
         }
     }
 
@@ -88,103 +87,70 @@ final class IndexCoordinator {
     }
 
     func blockId(forAltId altId: String) async -> String? {
-        do {
-            return try await database.blockId(forAltId: altId)
-        } catch {
-            logger.error("blockId(forAltId:) failed: \(error)")
-            return nil
+        await safe(nil, "blockId(forAltId:) failed") {
+            try await database.blockId(forAltId: altId)
         }
     }
 
     func blockIdsWithOpenTaskCheckboxes() async -> [String] {
-        do {
-            return try await database.blockIdsWithOpenTaskCheckboxes()
-        } catch {
-            logger.error("blockIdsWithOpenTaskCheckboxes() failed: \(error)")
-            return []
+        await safe([], "blockIdsWithOpenTaskCheckboxes() failed") {
+            try await database.blockIdsWithOpenTaskCheckboxes()
         }
     }
 
     func blockIds(createdBetween range: ClosedRange<Date>) async -> [String] {
-        do {
-            return try await database.blockIds(createdBetween: range)
-        } catch {
-            logger.error("blockIds(createdBetween:) failed: \(error)")
-            return []
+        await safe([], "blockIds(createdBetween:) failed") {
+            try await database.blockIds(createdBetween: range)
         }
     }
 
     func searchBlockIds(matching query: String) async -> [String] {
-        do {
-            return try await database.searchBlockIds(matching: query)
-        } catch {
-            logger.error("searchBlockIds(matching:) failed for query '\(query)': \(error)")
-            return []
+        await safe([], "searchBlockIds(matching:) failed for query '\(query)'") {
+            try await database.searchBlockIds(matching: query)
         }
     }
 
     func fetchAllBlocks() async -> [BlockIndexEntry] {
-        do {
-            return try await database.fetchAllBlocks()
-        } catch {
-            logger.error("fetchAllBlocks() failed: \(error)")
-            return []
+        await safe([], "fetchAllBlocks() failed") {
+            try await database.fetchAllBlocks()
         }
     }
 
     func findBacklinks(for title: String) async -> [BlockIndexEntry] {
         let normalized = WikiTitleNormalizer.normalize(title)
         guard !normalized.isEmpty else { return [] }
-        do {
-            return try await database.searchBlocksContaining(wikiLink: normalized)
-        } catch {
-            logger.error("findBacklinks(for:) failed for title '\(title)': \(error)")
-            return []
+        return await safe([], "findBacklinks(for:) failed for title '\(title)'") {
+            try await database.searchBlocksContaining(wikiLink: normalized)
         }
     }
 
     func fetchBlocks(ids: [String]) async -> [BlockIndexEntry] {
-        do {
-            return try await database.fetchBlocks(ids: ids)
-        } catch {
-            logger.error("fetchBlocks(ids:) failed: \(error)")
-            return []
+        await safe([], "fetchBlocks(ids:) failed") {
+            try await database.fetchBlocks(ids: ids)
         }
     }
 
     func fetchBlocks(byType type: String) async -> [BlockIndexEntry] {
-        do {
-            return try await database.fetchBlocks(byType: type)
-        } catch {
-            logger.error("fetchBlocks(byType:) failed: \(error)")
-            return []
+        await safe([], "fetchBlocks(byType:) failed") {
+            try await database.fetchBlocks(byType: type)
         }
     }
 
     func fetchBlocks(byStatus status: String) async -> [BlockIndexEntry] {
-        do {
-            return try await database.fetchBlocks(byStatus: status)
-        } catch {
-            logger.error("fetchBlocks(byStatus:) failed: \(error)")
-            return []
+        await safe([], "fetchBlocks(byStatus:) failed") {
+            try await database.fetchBlocks(byStatus: status)
         }
     }
 
     func blockIds(matchingType type: String) async -> [String] {
-        do {
-            return try await database.blockIds(matchingType: type)
-        } catch {
-            logger.error("blockIds(matchingType:) failed: \(error)")
-            return []
+        await safe([], "blockIds(matchingType:) failed") {
+            try await database.blockIds(matchingType: type)
         }
     }
 
     func blockIds(matchingStatus status: String) async -> [String] {
-        do {
-            return try await database.blockIds(matchingStatus: status)
-        } catch {
-            logger.error("blockIds(matchingStatus:) failed: \(error)")
-            return []
+        await safe([], "blockIds(matchingStatus:) failed") {
+            try await database.blockIds(matchingStatus: status)
         }
     }
 
@@ -313,17 +279,14 @@ final class IndexCoordinator {
     }
 
     func fetchMetadata(for blockId: String) async -> BlocksStore.BlockMetadata? {
-        do {
+        await safe(nil, "fetchMetadata(for:) failed for \(blockId)") {
             guard let row = try await database.fetchMetadataRow(for: blockId) else { return nil }
             return Self.metadata(from: row)
-        } catch {
-            logger.error("fetchMetadata(for:) failed for \(blockId): \(error)")
-            return nil
         }
     }
 
     func fetchAllMetadata() async -> [String: BlocksStore.BlockMetadata] {
-        do {
+        await safe([:], "fetchAllMetadata() failed") {
             let rows = try await database.fetchAllMetadataRows()
             var result: [String: BlocksStore.BlockMetadata] = [:]
             result.reserveCapacity(rows.count)
@@ -334,9 +297,6 @@ final class IndexCoordinator {
                 }
             }
             return result
-        } catch {
-            logger.error("fetchAllMetadata() failed: \(error)")
-            return [:]
         }
     }
 

@@ -1,4 +1,5 @@
 import Foundation
+import GeoCore
 import Combine
 import AppKit
 import UserNotifications

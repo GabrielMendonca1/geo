@@ -319,6 +319,68 @@ async def _upsert_task(a: dict) -> Any:
     return await asyncio.to_thread(tasks_fs.upsert_task, a)
 
 
+_TODO_UNCHECKED_RE = re.compile(r"^(\s*)- \[ \] (.+)$")
+
+
+def _fold(s: str) -> str:
+    d = unicodedata.normalize("NFD", s.casefold())
+    return "".join(c for c in d if not unicodedata.combining(c))
+
+
+async def _task_todos(a: dict) -> Any:
+    task = await asyncio.to_thread(tasks_fs.get_task, a["task_id"])
+    linked = task.get("linkedBlockId")
+    created_block = False
+    if linked:
+        path = _resolve_path(linked)
+    else:
+        created = await _create_block({"title": task["title"]})
+        linked = created["id"]
+        path = _resolve_path(linked)
+        created_block = True
+        await asyncio.to_thread(tasks_fs.set_linked_block, task["id"], linked)
+    guard.assert_writable(path)
+    fm, body = _read_block(path)
+    lines = body.split("\n")
+    checked: list[str] = []
+    not_found: list[str] = []
+    for needle in a.get("check") or []:
+        want = _fold(str(needle))
+        for i, line in enumerate(lines):
+            m = _TODO_UNCHECKED_RE.match(line)
+            if m and want and want in _fold(m.group(2)):
+                lines[i] = f"{m.group(1)}- [x] {m.group(2)}"
+                checked.append(m.group(2))
+                break
+        else:
+            not_found.append(str(needle))
+    body = "\n".join(lines)
+    added: list[str] = []
+    for item in a.get("items") or []:
+        text = str(item.get("text", "") if isinstance(item, dict) else item).strip()
+        if not text:
+            continue
+        mark = "x" if isinstance(item, dict) and item.get("done") else " "
+        added.append(f"- [{mark}] {text}")
+    log = str(a.get("log") or "").strip()
+    if added or log:
+        if body and not body.endswith("\n"):
+            body += "\n"
+        body += "\n".join(added + ([log] if log else [])) + "\n"
+    _atomic_write(path, fm + body)
+    out: dict[str, Any] = {
+        "task_id": task["id"],
+        "block_id": _rel_id(path),
+        "added": added,
+        "checked": checked,
+    }
+    if not_found:
+        out["not_found"] = not_found
+    if created_block:
+        out["created_block"] = True
+    return out
+
+
 WRITE_TOOLS: list[dict] = [
     {
         "name": "geo_find_tasks",
@@ -349,8 +411,8 @@ WRITE_TOOLS: list[dict] = [
             "instead of guessing an id. Returns {matched: true, task, score} when there is "
             "a single confident match (score >= 0.6 and clearly ahead of the rest); "
             "otherwise {matched: false, candidates: [top 3 {id,title,score}]} so you can "
-            "ask which one. Use before geo_complete_task / geo_update_task / geo_delete_task "
-            "when you only know the task by description."
+            "ask which one. Use before geo_complete_task / geo_delete_task when you only "
+            "know the task by description; to edit fields, re-upsert via geo_upsert_task."
         ),
         "parameters": {
             "type": "object",
@@ -365,39 +427,84 @@ WRITE_TOOLS: list[dict] = [
     {
         "name": "geo_upsert_task",
         "description": (
-            "RECOMMENDED way to create a task: find-or-create (dedup). Same fields as "
-            "geo_create_task (`title` + `kind` required-by-kind fields; optional `notes`, "
-            "`linked_block_id`, `priority`, `tag_ids`, `reminders`). It first fuzzy-searches "
-            "pending tasks; if an existing task matches the title closely (score >= "
-            "match_threshold, default 0.82, and any provided `kind` agrees) it UPDATES that "
-            "task and returns {action: 'updated', task, matched_score}. Otherwise it creates "
-            "a new task and returns {action: 'created', task}. Set force_new=true to skip "
-            "dedup. Prefer this over geo_create_task to stop duplicate tasks."
+            "Gabriel's scheduler — the ONE tool that puts anything on his agenda: a task "
+            "(to-do with a deadline), an event (happens at a time), a habit (recurring "
+            "routine), or a milestone (outcome with a target date). `kind` decides which "
+            "fields apply. Find-or-create with dedup: fuzzy-searches pending tasks first; "
+            "a close title match (score >= match_threshold, default 0.82, same kind) is "
+            "UPDATED and returns {action: 'updated', task, matched_score}; otherwise it "
+            "creates and returns {action: 'created', task}. Editing (reschedule, retitle, "
+            "reprioritize) = re-upsert the same title with the new fields. force_new=true "
+            "skips dedup for a deliberate duplicate. A task is a PURE SCHEDULING RECORD — "
+            "title, kind, dates, priority, tags. It carries NO prose: any content, "
+            "context, progress, or research goes in its linked block as checkboxes via "
+            "geo_task_todos, never in the title or a chat restatement."
         ),
         "parameters": {
             "type": "object",
             "properties": {
                 "title": {"type": "string"},
-                "kind": {"type": "string", "description": "task|event|habit|milestone (default 'task')."},
-                "due": {"type": "string", "description": "kind=task: ISO 8601 UTC due time."},
+                "kind": {"type": "string", "description": "task|event|habit|milestone (default 'task'). task = one-shot to-do Gabriel must DO by a deadline. event = something that HAPPENS at a specific time (meeting, call, appointment, trip) — needs start+end. habit = recurring routine ('todo dia', 'every week') — never model recurring things as repeated tasks. milestone = outcome/goal to HIT by a target date (launch, delivery), not an action item."},
+                "due": {"type": "string", "description": "kind=task: hora LOCAL de Gabriel (America/Sao_Paulo), naive, SEM 'Z' nem offset — 'YYYY-MM-DDTHH:MM:SS'. O código converte pra UTC; NÃO faça a conta de fuso. Ex.: 18:00 → '2026-06-22T18:00:00'. Sem horário → só a data 'YYYY-MM-DD' (o sistema põe no fim do dia)."},
                 "estimated_minutes": {"type": "integer", "description": "kind=task: estimate."},
-                "start": {"type": "string", "description": "kind=event: ISO 8601 start."},
-                "end": {"type": "string", "description": "kind=event: ISO 8601 end."},
-                "recurrence": {"type": "string", "description": "kind=habit: daily|weekdays|weekly|biweekly|monthly|yearly."},
-                "time_of_day": {"type": "string", "description": "kind=habit: ISO 8601 time-of-day."},
-                "selected_weekdays": {"type": "array", "items": {"type": "integer"}, "description": "kind=habit: optional weekday selection."},
-                "target": {"type": "string", "description": "kind=milestone: ISO 8601 target."},
-                "notes": {"type": "string", "description": "Free-form task notes."},
+                "start": {"type": "string", "description": "kind=event: início em hora LOCAL naive 'YYYY-MM-DDTHH:MM:SS' (sem 'Z'). Ex.: 15h → '2026-06-22T15:00:00'. Nunca invente hora que Gabriel não disse — use uma redonda ou pergunte."},
+                "end": {"type": "string", "description": "kind=event: fim em hora LOCAL naive (sem 'Z'). Sem duração → start + 1h. Período de vários dias ('de seg a qua') → start = primeiro dia, end = último dia (só a data 'YYYY-MM-DD')."},
+                "recurrence": {"type": "string", "description": "daily|weekdays|weekly|biweekly|monthly|yearly. kind=habit: the repeat rule. kind=event: expands into a SERIES of real event instances (requires recurrence_end_date, max 26) — use for recurring meetings, not a habit."},
+                "time_of_day": {"type": "string", "description": "kind=habit: hora LOCAL naive; só o horário importa (a data é ignorada). Ex.: 07:00 → '2026-06-22T07:00:00' (sem 'Z')."},
+                "selected_weekdays": {"type": "array", "items": {"type": "integer"}, "description": "kind=habit: optional weekday selection (1=Sun … 7=Sat)."},
+                "recurrence_end_date": {"type": "string", "description": "data LOCAL 'YYYY-MM-DD' — para de repetir depois dela. Opcional p/ kind=habit, OBRIGATÓRIO p/ evento recorrente."},
+                "target": {"type": "string", "description": "kind=milestone: data-alvo LOCAL 'YYYY-MM-DD' (ou 'YYYY-MM-DDTHH:MM:SS' naive sem 'Z' se tiver hora). Sem hora → só a data."},
                 "linked_block_id": {"type": "string", "description": "Optional source block."},
                 "priority": {"type": "string"},
                 "tag_ids": {"type": "array", "items": {"type": "string"}},
-                "reminders": {"type": "array", "items": {"type": "object"}, "description": "[{trigger:'offset'|'absolute', offset|at}]."},
+                "reminders": {"type": "array", "items": {"type": "object"}, "description": "[{trigger:'offset'|'absolute', offset|at}]. at = hora LOCAL naive 'YYYY-MM-DDTHH:MM:SS' (sem 'Z')."},
                 "match_threshold": {"type": "number", "description": "Dedup cutoff, default 0.82."},
                 "force_new": {"type": "boolean", "description": "Skip dedup, always create. Default false."},
             },
             "required": ["title"],
         },
         "handler": _wrap(_upsert_task),
+    },
+    {
+        "name": "geo_task_todos",
+        "description": (
+            "THE work surface of a task. Tasks carry no prose — all content, context, "
+            "progress, next steps, and research live in the task's linked block as "
+            "markdown checkboxes ('- [ ]' / '- [x]') that Gabriel sees and toggles in "
+            "the app. This tool appends checkbox items and/or checks off existing ones "
+            "on that block, creating the block first (agent layer, titled after the "
+            "task) and linking it when the task has none. Reach for it whenever you'd "
+            "be tempted to write task details anywhere else: break work into `items`, "
+            "flip finished ones with `check`, and use `log` only for the rare line "
+            "that genuinely isn't a to-do. Never restate task info in chat or in "
+            "separate blocks."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "task_id": {"type": "string"},
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "text": {"type": "string"},
+                            "done": {"type": "boolean", "description": "Default false."},
+                        },
+                        "required": ["text"],
+                    },
+                    "description": "Checkbox lines to append: each becomes '- [ ] text' ('- [x]' when done=true). One atomic step per item.",
+                },
+                "check": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Substrings matched case/accent-insensitively against existing unchecked '- [ ]' lines; the first matching line per entry flips to '- [x]'.",
+                },
+                "log": {"type": "string", "description": "Rare: ONE short plain prose line appended after the items, only when a checkbox genuinely doesn't fit."},
+            },
+            "required": ["task_id"],
+        },
+        "handler": _wrap(_task_todos),
     },
     {
         "name": "geo_create_block",
@@ -428,33 +535,11 @@ WRITE_TOOLS: list[dict] = [
         "handler": _wrap(_create_block),
     },
     {
-        "name": "geo_move_block",
-        "description": (
-            "Move a block into a folder (or to the vault root) via a filesystem move. "
-            "A block's id IS its path under the vault, so moving changes the id — the "
-            "returned id is the new folder-prefixed path. Pass `folder` like "
-            "'Areas/Health' (created if missing); pass folder='' or omit it to move to "
-            "the root. Wikilinks ([[Title]]) keep resolving after a move since they "
-            "match by title."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "id": {"type": "string", "description": "Current block id (path), e.g. 'My-Block.md' or 'Old/My-Block.md'."},
-                "folder": {"type": "string", "description": "Destination folder path, or '' for the vault root."},
-            },
-            "required": ["id"],
-        },
-        "handler": _wrap(_move_block),
-    },
-    {
         "name": "geo_update_block",
         "description": (
             "Replace a block's full markdown body in place (preserving its frontmatter). "
             "`body` becomes the entire block content below the frontmatter (not a partial "
-            "patch) — include the '# <title>' H1 and any [[date]] day-links you want to "
-            "keep. To change the layer use geo_set_layer; to change the tag use "
-            "geo_set_block_tag."
+            "patch) — include the '# <title>' H1 and any [[date]] day-links you want to keep."
         ),
         "parameters": {
             "type": "object",
@@ -467,48 +552,6 @@ WRITE_TOOLS: list[dict] = [
         "handler": _wrap(_update_block),
     },
     {
-        "name": "geo_set_block_tag",
-        "description": "Set a block's tag in its frontmatter (lowercased). A block carries a single tag; pass an empty tag_name to clear it.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "id": {"type": "string"},
-                "tag_name": {"type": "string", "description": "Tag to set; empty string clears the tag."},
-            },
-            "required": ["id", "tag_name"],
-        },
-        "handler": _wrap(_set_block_tag),
-    },
-    {
-        "name": "geo_set_layer",
-        "description": "Change a block's layer in its frontmatter (user|agent|review|shared).",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "id": {"type": "string"},
-                "layer": {"type": "string", "description": "user|agent|review|shared."},
-            },
-            "required": ["id", "layer"],
-        },
-        "handler": _wrap(_set_layer),
-    },
-    {
-        "name": "geo_extract_permanent_from",
-        "description": (
-            "Create a new permanent stub block referencing a source block. Writes a new "
-            ".md titled 'Extraído de [[<source title>]]' (the source is left intact). "
-            "Takes only the source `id`."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "id": {"type": "string", "description": "Source block id."},
-            },
-            "required": ["id"],
-        },
-        "handler": _wrap(_extract_permanent_from),
-    },
-    {
         "name": "geo_promote_to_permanent",
         "description": "Promote a block to type=permanent in place (frontmatter edit).",
         "parameters": {
@@ -517,19 +560,6 @@ WRITE_TOOLS: list[dict] = [
             "required": ["id"],
         },
         "handler": _wrap(_promote_to_permanent),
-    },
-    {
-        "name": "geo_link_block_to_day",
-        "description": "Append an inline [[YYYY-MM-DD]] day-link to a block's body (idempotent).",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "day": {"type": "string"},
-                "block_id": {"type": "string"},
-            },
-            "required": ["day", "block_id"],
-        },
-        "handler": _wrap(_link_block_to_day),
     },
     {
         "name": "geo_create_task",
@@ -542,54 +572,24 @@ WRITE_TOOLS: list[dict] = [
             "type": "object",
             "properties": {
                 "title": {"type": "string"},
-                "kind": {"type": "string", "description": "task|event|habit|milestone (default 'task')."},
-                "due": {"type": "string", "description": "kind=task: ISO 8601 UTC due time."},
+                "kind": {"type": "string", "description": "task|event|habit|milestone (default 'task'). task = one-shot to-do Gabriel must DO by a deadline. event = something that HAPPENS at a specific time (meeting, call, appointment, trip) — needs start+end. habit = recurring routine ('todo dia', 'every week') — never model recurring things as repeated tasks. milestone = outcome/goal to HIT by a target date (launch, delivery), not an action item."},
+                "due": {"type": "string", "description": "kind=task: hora LOCAL de Gabriel (America/Sao_Paulo), naive, SEM 'Z' nem offset — 'YYYY-MM-DDTHH:MM:SS'. O código converte pra UTC; NÃO faça a conta de fuso. Ex.: 18:00 → '2026-06-22T18:00:00'. Sem horário → só a data 'YYYY-MM-DD' (o sistema põe no fim do dia)."},
                 "estimated_minutes": {"type": "integer", "description": "kind=task: estimate."},
-                "start": {"type": "string", "description": "kind=event: ISO 8601 start."},
-                "end": {"type": "string", "description": "kind=event: ISO 8601 end."},
-                "recurrence": {"type": "string", "description": "kind=habit: daily|weekdays|weekly|biweekly|monthly|yearly."},
-                "time_of_day": {"type": "string", "description": "kind=habit: ISO 8601 time-of-day."},
-                "selected_weekdays": {"type": "array", "items": {"type": "integer"}, "description": "kind=habit: optional weekday selection."},
-                "target": {"type": "string", "description": "kind=milestone: ISO 8601 target."},
-                "notes": {"type": "string", "description": "Free-form task notes."},
+                "start": {"type": "string", "description": "kind=event: início em hora LOCAL naive 'YYYY-MM-DDTHH:MM:SS' (sem 'Z'). Ex.: 15h → '2026-06-22T15:00:00'. Nunca invente hora que Gabriel não disse — use uma redonda ou pergunte."},
+                "end": {"type": "string", "description": "kind=event: fim em hora LOCAL naive (sem 'Z'). Sem duração → start + 1h. Período de vários dias ('de seg a qua') → start = primeiro dia, end = último dia (só a data 'YYYY-MM-DD')."},
+                "recurrence": {"type": "string", "description": "daily|weekdays|weekly|biweekly|monthly|yearly. kind=habit: the repeat rule. kind=event: expands into a SERIES of real event instances (requires recurrence_end_date, max 26) — use for recurring meetings, not a habit."},
+                "time_of_day": {"type": "string", "description": "kind=habit: hora LOCAL naive; só o horário importa (a data é ignorada). Ex.: 07:00 → '2026-06-22T07:00:00' (sem 'Z')."},
+                "selected_weekdays": {"type": "array", "items": {"type": "integer"}, "description": "kind=habit: optional weekday selection (1=Sun … 7=Sat)."},
+                "recurrence_end_date": {"type": "string", "description": "data LOCAL 'YYYY-MM-DD' — para de repetir depois dela. Opcional p/ kind=habit, OBRIGATÓRIO p/ evento recorrente."},
+                "target": {"type": "string", "description": "kind=milestone: data-alvo LOCAL 'YYYY-MM-DD' (ou 'YYYY-MM-DDTHH:MM:SS' naive sem 'Z' se tiver hora). Sem hora → só a data."},
                 "linked_block_id": {"type": "string", "description": "Optional source block."},
                 "priority": {"type": "string"},
                 "tag_ids": {"type": "array", "items": {"type": "string"}},
-                "reminders": {"type": "array", "items": {"type": "object"}, "description": "[{trigger:'offset'|'absolute', offset|at}]."},
+                "reminders": {"type": "array", "items": {"type": "object"}, "description": "[{trigger:'offset'|'absolute', offset|at}]. at = hora LOCAL naive 'YYYY-MM-DDTHH:MM:SS' (sem 'Z')."},
             },
             "required": ["title"],
         },
         "handler": _wrap(_create_task),
-    },
-    {
-        "name": "geo_update_task",
-        "description": (
-            "Patch task fields. To reschedule, pass a full structured `body` "
-            "{kind, due|start|end|recurrence|time_of_day|target}; alternatively pass `kind` "
-            "plus the kind's fields and the body is built for you."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "id": {"type": "string"},
-                "title": {"type": "string"},
-                "notes": {"type": "string"},
-                "status": {"type": "string", "description": "pending|completed."},
-                "priority": {"type": "string"},
-                "linked_block_id": {"type": "string"},
-                "tag_ids": {"type": "array", "items": {"type": "string"}},
-                "kind": {"type": "string", "description": "task|event|habit|milestone (drives body rebuild)."},
-                "due": {"type": "string"},
-                "start": {"type": "string"},
-                "end": {"type": "string"},
-                "recurrence": {"type": "string"},
-                "time_of_day": {"type": "string"},
-                "target": {"type": "string"},
-                "body": {"type": "object", "description": "Full structured body {kind, ...} for reschedule."},
-            },
-            "required": ["id"],
-        },
-        "handler": _wrap(_update_task),
     },
     {
         "name": "geo_complete_task",
@@ -602,31 +602,13 @@ WRITE_TOOLS: list[dict] = [
         "handler": _wrap(_complete_task),
     },
     {
-        "name": "geo_add_reminder",
-        "description": (
-            "Schedule a reminder for a task. trigger='absolute' fires at the ISO 8601 `at`; "
-            "trigger='offset' fires at an `offset` relative to the task's anchor."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "id": {"type": "string"},
-                "trigger": {"type": "string", "description": "'absolute' (default) or 'offset'."},
-                "at": {"type": "string", "description": "ISO 8601 datetime (trigger=absolute)."},
-                "offset": {"type": "string", "description": "Offset enum value (trigger=offset)."},
-            },
-            "required": ["id"],
-        },
-        "handler": _wrap(_add_reminder),
-    },
-    {
         "name": "geo_record_habit_occurrence",
         "description": "Log an occurrence of a habit. `at` defaults to now.",
         "parameters": {
             "type": "object",
             "properties": {
                 "habit_id": {"type": "string"},
-                "at": {"type": "string", "description": "Optional ISO 8601 datetime."},
+                "at": {"type": "string", "description": "Opcional. Hora LOCAL naive 'YYYY-MM-DDTHH:MM:SS' (sem 'Z')."},
             },
             "required": ["habit_id"],
         },

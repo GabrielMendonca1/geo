@@ -8,7 +8,7 @@ final class FileWatcherService {
     private var retainedSelf: Unmanaged<FileWatcherService>?
     var onChange: (([URL]) -> Void)?
 
-    init(url: URL, latency: CFTimeInterval = 0.4) {
+    init(url: URL, latency: CFTimeInterval = 0.15) {
         self.url = url
         self.latency = latency
     }
@@ -27,6 +27,7 @@ final class FileWatcherService {
         let flags = FSEventStreamCreateFlags(
             kFSEventStreamCreateFlagFileEvents
             | kFSEventStreamCreateFlagUseCFTypes
+            | kFSEventStreamCreateFlagNoDefer
         )
         guard let stream = FSEventStreamCreate(
             kCFAllocatorDefault,

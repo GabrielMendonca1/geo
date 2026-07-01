@@ -1,4 +1,5 @@
 import XCTest
+import GeoCore
 @testable import Geo
 
 final class TaskItemSchemaTests: XCTestCase {
@@ -24,7 +25,6 @@ final class TaskItemSchemaTests: XCTestCase {
         let task = TaskItem(
             id: "abc",
             title: "Morning Routine",
-            notes: "",
             linkedBlockId: "blk-1",
             status: .pending,
             priority: .high,
@@ -95,12 +95,56 @@ final class TaskItemSchemaTests: XCTestCase {
             title: "Standup",
             createdAt: fixed,
             modifiedAt: fixed,
-            body: .event(start: start, end: end)
+            body: .event(start: start, end: end, externalEKEventID: nil)
         )
 
         let decoded = try makeDecoder().decode(TaskItem.self, from: makeEncoder().encode(task))
         XCTAssertEqual(decoded, task)
         XCTAssertEqual(decoded.endTime, end)
+    }
+
+    func testEventOmitsExternalIDWhenNilAndDecodesMissingKeyAsNil() throws {
+        let start = Date(timeIntervalSince1970: 1_710_000_000)
+        let end = start.addingTimeInterval(3600)
+        let fixed = Date(timeIntervalSince1970: 1_700_000_000)
+        let task = TaskItem(
+            id: "e3",
+            title: "Standup",
+            createdAt: fixed,
+            modifiedAt: fixed,
+            body: .event(start: start, end: end, externalEKEventID: nil)
+        )
+
+        let data = try makeEncoder().encode(task)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let body = try XCTUnwrap(json["body"] as? [String: Any])
+        XCTAssertNil(body["externalEKEventID"], "nil externalEKEventID must be omitted so old readers stay valid")
+
+        let decoded = try makeDecoder().decode(TaskItem.self, from: data)
+        guard case .event(_, _, let externalID) = decoded.body else {
+            return XCTFail("Expected .event body")
+        }
+        XCTAssertNil(externalID)
+    }
+
+    func testEventRoundTripPreservesExternalID() throws {
+        let start = Date(timeIntervalSince1970: 1_710_000_000)
+        let end = start.addingTimeInterval(3600)
+        let fixed = Date(timeIntervalSince1970: 1_700_000_000)
+        let task = TaskItem(
+            id: "e4",
+            title: "Sync",
+            createdAt: fixed,
+            modifiedAt: fixed,
+            body: .event(start: start, end: end, externalEKEventID: "EK-123")
+        )
+
+        let decoded = try makeDecoder().decode(TaskItem.self, from: makeEncoder().encode(task))
+        XCTAssertEqual(decoded, task)
+        guard case .event(_, _, let externalID) = decoded.body else {
+            return XCTFail("Expected .event body")
+        }
+        XCTAssertEqual(externalID, "EK-123")
     }
 
     func testTaskDueByRoundTrip() throws {
@@ -133,7 +177,7 @@ final class TaskItemSchemaTests: XCTestCase {
     func testEventWithEndTimeInitProducesEventBody() {
         let start = Date(timeIntervalSince1970: 1_720_000_000)
         let end = start.addingTimeInterval(1800)
-        let task = TaskItem(id: "e2", title: "Sync", body: .event(start: start, end: end))
+        let task = TaskItem(id: "e2", title: "Sync", body: .event(start: start, end: end, externalEKEventID: nil))
         XCTAssertEqual(task.kind, .event)
         XCTAssertEqual(task.endTime, end)
     }
@@ -168,5 +212,48 @@ final class TaskItemSchemaTests: XCTestCase {
         XCTAssertEqual(decoded.habitOccurrences, dates)
         XCTAssertEqual(decoded.habitCurrentStreak, task.habitCurrentStreak)
         XCTAssertEqual(decoded.habitLongestStreak, task.habitLongestStreak)
+    }
+
+    func testIsAllDayRoundTripsWhenSet() throws {
+        let due = Date(timeIntervalSince1970: 1_710_000_000)
+        let fixed = Date(timeIntervalSince1970: 1_700_000_000)
+        let task = TaskItem(
+            id: "ad1", title: "All-day thing",
+            createdAt: fixed, modifiedAt: fixed,
+            body: .task(due: due, estimatedMinutes: nil),
+            isAllDay: true
+        )
+        let decoded = try makeDecoder().decode(TaskItem.self, from: makeEncoder().encode(task))
+        XCTAssertEqual(decoded.isAllDay, true)
+        XCTAssertTrue(decoded.resolvedIsAllDay)
+    }
+
+    func testIsAllDayOmittedFromJSONWhenNil() throws {
+        let task = TaskItem(
+            id: "ad0", title: "no flag",
+            body: .task(due: Date(timeIntervalSince1970: 1_710_000_000), estimatedMinutes: nil)
+        )
+        let data = try makeEncoder().encode(task)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertNil(json["isAllDay"], "nil isAllDay must be omitted so old readers stay valid")
+    }
+
+    func testResolvedIsAllDayFallsBackToSentinelWhenFlagAbsent() throws {
+        let cal = Calendar.current
+        let eod = cal.date(bySettingHour: 23, minute: 59, second: 0, of: Date(timeIntervalSince1970: 1_710_000_000))!
+        let sentinelTask = TaskItem(id: "s1", title: "date-only", body: .task(due: eod, estimatedMinutes: nil))
+        XCTAssertNil(sentinelTask.isAllDay)
+        XCTAssertTrue(sentinelTask.resolvedIsAllDay, "local end-of-day sentinel → all-day (backward compat)")
+
+        let timed = cal.date(bySettingHour: 14, minute: 50, second: 0, of: Date(timeIntervalSince1970: 1_710_000_000))!
+        let timedTask = TaskItem(id: "s2", title: "timed", body: .task(due: timed, estimatedMinutes: nil))
+        XCTAssertFalse(timedTask.resolvedIsAllDay)
+    }
+
+    func testExplicitIsAllDayFalseOverridesSentinel() throws {
+        let cal = Calendar.current
+        let eod = cal.date(bySettingHour: 23, minute: 59, second: 0, of: Date(timeIntervalSince1970: 1_710_000_000))!
+        let task = TaskItem(id: "s3", title: "explicit timed at 23:59", body: .task(due: eod, estimatedMinutes: nil), isAllDay: false)
+        XCTAssertFalse(task.resolvedIsAllDay, "explicit flag wins over the sentinel heuristic")
     }
 }

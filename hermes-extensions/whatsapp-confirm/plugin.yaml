@@ -1,6 +1,6 @@
 name: whatsapp-confirm
 version: 0.1.0
 description: "Block agent-initiated WhatsApp sends until Gabriel approves via Telegram. Mirrors the geo destructive-confirm flow but on the send_message tool with target=whatsapp:*."
-author: ARC/Geo
+author: ARCA/Geo
 kind: standalone
 provides_tools: []

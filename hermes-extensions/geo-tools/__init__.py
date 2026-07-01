@@ -7,9 +7,9 @@ day/tag reads come from the read-only ``Index/blocks.sqlite`` cache via ``reads`
 ``tasks_fs`` over ``Tasks/*.json``. No HTTP, no Keychain — the Geo.app FileWatcher
 reconciles the derived index after any write.
 
-Destructive ops (`geo_delete_block`, `geo_delete_task`) gate on a Telegram
-confirm from Gabriel and are both native rm. See ``destructive.py`` for the
-confirm flow and the ``pre_gateway_dispatch`` hook that captures his replies.
+Destructive ops (`geo_delete_block`, `geo_delete_task`) gate on a two-phase
+confirm-token handshake (stage → Gabriel confirms in his next message →
+commit) and are both native rm. See ``destructive.py``.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from .destructive import DESTRUCTIVE_TOOLS, get_inbound_hook
+from .destructive import DESTRUCTIVE_TOOLS
 from .tools_read import READ_TOOLS
 from .tools_write import WRITE_TOOLS
 
@@ -27,7 +27,7 @@ TOOLSET = "geo"
 
 _DISABLED = frozenset({
     "geo_move_block", "geo_link_block_to_day", "geo_update_task",
-    "geo_add_reminder", "geo_record_habit_occurrence",
+    "geo_add_reminder", "geo_create_task",
 })
 
 
@@ -55,7 +55,3 @@ def _register_all(ctx) -> None:
 
 def register(ctx) -> None:
     _register_all(ctx)
-    try:
-        ctx.register_hook("pre_gateway_dispatch", get_inbound_hook())
-    except Exception as e:
-        logger.warning("pre_gateway_dispatch hook registration failed: %s", e)

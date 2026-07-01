@@ -1,4 +1,5 @@
 import SwiftUI
+import GeoCore
 
 struct TaskFormHabit: View {
     @ObservedObject var viewModel: TaskFormViewModel
@@ -11,6 +12,8 @@ struct TaskFormHabit: View {
                     .datePickerStyle(.field)
                     .labelsHidden()
             }
+
+            TaskChecklistCard(viewModel: viewModel, availableBlocks: availableBlocks)
 
             TaskFormSectionCard(title: "Recurrence", icon: "repeat") {
                 RecurrenceEditor(viewModel: viewModel)
@@ -29,16 +32,6 @@ struct TaskFormHabit: View {
                         .pickerStyle(.segmented)
                     }
                 }
-            }
-
-            TaskFormSectionCard(title: "Notes", icon: "text.alignleft") {
-                TextField("Quick context (optional)", text: $viewModel.notes, axis: .vertical)
-                    .textFieldStyle(.roundedBorder)
-                    .lineLimit(2...4)
-            }
-
-            TaskFormSectionCard(title: "Block", icon: "doc.text") {
-                LinkedBlockPicker(viewModel: viewModel, availableBlocks: availableBlocks)
             }
         }
         .onAppear {

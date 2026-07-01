@@ -35,7 +35,7 @@ const bundleInstr = bundleId
 phase('Fix')
 
 const xcodeSuite = () => agent(
-  `You are fixing the Geo macOS app test suite so it compiles and runs. Repo root: /Users/biel/ARC/Forge/Geo. Project rule: NO comments in code; surgical changes only.
+  `You are fixing the Geo macOS app test suite so it compiles and runs. Repo root: /Users/biel/ARCA/Forge/Geo. Project rule: NO comments in code; surgical changes only.
 
 VERIFY each finding still holds (line numbers may have drifted) BEFORE editing, then fix:
 1. In Geo.xcodeproj/project.pbxproj the "Tests" PBXGroup has \`path = Tests\` but the files live in Geo/Tests. Change that group's path to \`Geo/Tests\` (or reparent under the Geo group) so the 26 referenced test files resolve.
@@ -51,7 +51,7 @@ OUTPUT: the StructuredOutput tool matching the schema. SCOPE: only project.pbxpr
 )
 
 const crashVectors = () => agent(
-  `You are eliminating three crash vectors in the Geo macOS app with minimal edits, keeping the build green. Repo root: /Users/biel/ARC/Forge/Geo. Project rule: NO comments; surgical changes; match surrounding style.
+  `You are eliminating three crash vectors in the Geo macOS app with minimal edits, keeping the build green. Repo root: /Users/biel/ARCA/Forge/Geo. Project rule: NO comments; surgical changes; match surrounding style.
 
 VERIFY each line still matches (lines may have drifted; grep for the construct) BEFORE editing, then fix:
 1. Geo/Shared/Infrastructure/Database/DatabaseService.swift ~line 565: a \`fatalError(...)\` in the in-memory database fallback path kills the whole app if DB init fails twice. Degrade gracefully instead (log and continue with a non-fatal empty/read-only path consistent with how the type already reports failures). Do not change behavior on the success path.
@@ -65,7 +65,7 @@ OUTPUT: the StructuredOutput tool matching the schema. SCOPE: only those three S
 )
 
 const hermesModels = () => agent(
-  `You are de-hardcoding model IDs in the hermes daemon so a model retirement does not break it. Repo root: /Users/biel/ARC/Forge/Geo. Keep it minimal; do NOT over-engineer.
+  `You are de-hardcoding model IDs in the hermes daemon so a model retirement does not break it. Repo root: /Users/biel/ARCA/Forge/Geo. Keep it minimal; do NOT over-engineer.
 
 VERIFY each location still holds, then make config.yaml the single source of truth for model IDs:
 - hermes/config.yaml ~lines 78-79: \`full: claude-opus-4-7\`, \`nano: claude-haiku-4-5\` (leave these as the canonical declarations).
@@ -81,7 +81,7 @@ OUTPUT: the StructuredOutput tool matching the schema; in notes, state the exact
 )
 
 const installDocs = () => agent(
-  `You are writing a concise INSTALL.md for Geo's 1.0.0 release. Repo root: /Users/biel/ARC/Forge/Geo. Create /Users/biel/ARC/Forge/Geo/INSTALL.md.
+  `You are writing a concise INSTALL.md for Geo's 1.0.0 release. Repo root: /Users/biel/ARCA/Forge/Geo. Create /Users/biel/ARCA/Forge/Geo/INSTALL.md.
 
 Pull facts from CLAUDE.md, Geo/README.md, Geo/App/Geo.entitlements, and Geo/App/Info.plist. Cover, briefly: building from source (xcodebuild commands), installing the hermes daemon (\`bash hermes/install.sh\`), the macOS permissions the app needs and why (Accessibility for the global hotkey/CGEventTap, Screen Recording for OCR, Input Monitoring), the Gatekeeper "unidentified developer" workaround for the currently UNSIGNED/ad-hoc build (right-click → Open), where data lives (~/Library/Application Support/Geo/ — Blocks/*.md, Tasks/*.md, tags.json, days.json) and a manual-backup tip (copy that folder). Do NOT invent a signing/notarization or auto-update story that does not exist — state plainly that the build is unsigned and there is no auto-updater yet.
 

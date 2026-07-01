@@ -8,20 +8,43 @@ final class HolidayService: HolidayServiceProviding, @unchecked Sendable {
     static let shared = HolidayService()
 
     private let calendar = Calendar.current
+    private var cache: [String: [Holiday]] = [:]
+    private let cacheLock = NSLock()
 
     func holidays(for year: Int, countries: [HolidayCountry] = [.brazil, .usa]) -> [Holiday] {
-        var result: [Holiday] = []
+        let key = "\(year)|" + countries.map { "\($0)" }.joined(separator: ",")
 
+        cacheLock.lock()
+        if let cached = cache[key] {
+            cacheLock.unlock()
+            return cached
+        }
+        cacheLock.unlock()
+
+        var merged: [Holiday] = []
         for country in countries {
             switch country {
             case .brazil:
-                result.append(contentsOf: brazilianHolidays(for: year))
+                merged.append(contentsOf: brazilianHolidays(for: year))
             case .usa:
-                result.append(contentsOf: americanHolidays(for: year))
+                merged.append(contentsOf: americanHolidays(for: year))
             }
         }
 
-        return result.sorted { $0.startDate < $1.startDate }
+        var seenDays: Set<Date> = []
+        var deduped: [Holiday] = []
+        for holiday in merged {
+            let day = calendar.startOfDay(for: holiday.startDate)
+            if seenDays.insert(day).inserted {
+                deduped.append(holiday)
+            }
+        }
+        deduped.sort { $0.startDate < $1.startDate }
+
+        cacheLock.lock()
+        cache[key] = deduped
+        cacheLock.unlock()
+        return deduped
     }
 
     private func brazilianHolidays(for year: Int) -> [Holiday] {

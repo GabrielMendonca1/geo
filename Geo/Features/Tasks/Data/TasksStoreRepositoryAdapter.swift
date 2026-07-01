@@ -1,4 +1,5 @@
 import Foundation
+import GeoCore
 import Combine
 
 protocol TasksStoreAccess: Sendable {
@@ -67,7 +68,6 @@ final class LiveTasksStoreAccess: TasksStoreAccess, @unchecked Sendable {
         await MainActor.run {
             tasksStore.createTask(
                 title: draft.title,
-                notes: draft.notes,
                 linkedBlockId: draft.linkedBlockId,
                 body: draft.body,
                 reminders: draft.reminders,
@@ -84,7 +84,6 @@ final class LiveTasksStoreAccess: TasksStoreAccess, @unchecked Sendable {
             tasksStore.updateTask(
                 id: task.id,
                 title: task.title,
-                notes: task.notes,
                 linkedBlockId: task.linkedBlockId,
                 body: task.body,
                 reminders: task.reminders,

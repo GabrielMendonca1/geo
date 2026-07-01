@@ -50,6 +50,8 @@ enum GeoStyle {
         static let aestheticCursor = Color(red: 0.2, green: 0.5, blue: 1.0)
         static let geoBlue = Color(red: 0.0, green: 0.33, blue: 1.0)
         static let geoBlueDark = Color(red: 0.1, green: 0.42, blue: 1.0)
+        static let todayRed = Color(red: 0.86, green: 0.20, blue: 0.18)
+        static let todayRedDark = Color(red: 1.0, green: 0.27, blue: 0.23)
 
         static var cursorColor: NSColor {
             NSColor.green
@@ -128,6 +130,7 @@ struct PlainNoFocusButton: ViewModifier {
     func body(content: Content) -> some View {
         content
             .buttonStyle(.plain)
+            .contentShape(Rectangle())
             .focusEffectDisabled()
             .pointingHandCursor()
     }

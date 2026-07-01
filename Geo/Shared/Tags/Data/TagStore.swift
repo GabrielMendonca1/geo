@@ -52,11 +52,7 @@ class TagStore: ObservableObject {
         let tag = Tag(id: UUID().uuidString, name: trimmed, color: color)
         tags.append(tag)
 
-        lastWriteTime = Date()
-        let snapshot = tags
-        queue.async {
-            self.saveTags(snapshot)
-        }
+        persist()
 
         return .success(tag)
     }
@@ -69,11 +65,7 @@ class TagStore: ObservableObject {
         guard let index = tags.firstIndex(where: { $0.id == id }) else { return false }
         tags.remove(at: index)
 
-        lastWriteTime = Date()
-        let snapshot = tags
-        queue.async {
-            self.saveTags(snapshot)
-        }
+        persist()
 
         return true
     }
@@ -91,11 +83,7 @@ class TagStore: ObservableObject {
         tags[index].name = trimmed
         tags[index].color = color
 
-        lastWriteTime = Date()
-        let snapshot = tags
-        queue.async {
-            self.saveTags(snapshot)
-        }
+        persist()
 
         return .success(tags[index])
     }
@@ -122,9 +110,7 @@ class TagStore: ObservableObject {
         }
         let tag = Tag(id: UUID().uuidString, name: canonical, color: Self.defaultColor(forName: canonical))
         tags.append(tag)
-        lastWriteTime = Date()
-        let snapshot = tags
-        queue.async { self.saveTags(snapshot) }
+        persist()
         return tag
     }
 
@@ -137,6 +123,14 @@ class TagStore: ObservableObject {
             blue: Double(nsColor.blueComponent),
             alpha: 1.0
         )
+    }
+
+    private func persist() {
+        lastWriteTime = Date()
+        let snapshot = tags
+        queue.async {
+            self.saveTags(snapshot)
+        }
     }
 
     private func loadTags() {

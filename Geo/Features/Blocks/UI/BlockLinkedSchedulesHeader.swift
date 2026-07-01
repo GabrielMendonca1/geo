@@ -1,4 +1,5 @@
 import SwiftUI
+import GeoCore
 
 struct BlockLinkedSchedulesHeader: View {
     let blockId: String
@@ -193,7 +194,6 @@ private struct ScheduleChip: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(task.title)
                         .font(.system(size: 12, weight: .semibold))
-                        .strikethrough(isCompleted)
                         .foregroundStyle(titleColor)
                         .lineLimit(1)
 

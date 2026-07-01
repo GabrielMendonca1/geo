@@ -85,11 +85,10 @@ final class Phase2TagInlineReadTests: XCTestCase {
             debouncedSearchText: "",
             searchResults: [],
             selectedTagFilter: "arc",
-            hasTasksOnly: false,
+            taskFilter: nil,
             statusFilter: .all,
             sortField: .created,
-            sortOrder: .newest,
-            linkedPendingBlockIds: []
+            sortOrder: .newest
         )
         XCTAssertEqual(filtered.map(\.id), ["name"])
     }
@@ -103,11 +102,10 @@ final class Phase2TagInlineReadTests: XCTestCase {
             debouncedSearchText: "",
             searchResults: [],
             selectedTagFilter: "untagged",
-            hasTasksOnly: false,
+            taskFilter: nil,
             statusFilter: .all,
             sortField: .created,
-            sortOrder: .newest,
-            linkedPendingBlockIds: []
+            sortOrder: .newest
         )
         XCTAssertEqual(filtered.map(\.id), ["n"])
     }

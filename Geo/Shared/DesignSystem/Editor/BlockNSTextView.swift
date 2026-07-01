@@ -271,22 +271,10 @@ final class BlockNSTextView: NSTextView {
         var state = ActiveFormattingState()
 
         if let font = ts.attribute(.font, at: checkPos, effectiveRange: nil) as? NSFont {
-            let boldFont = SpanStyler.boldFont(for: baseFont)
-            let ctFont = font as CTFont
-            let matrix = CTFontGetMatrix(ctFont)
-            let isOblique = matrix.c != 0
-
-            if font.fontName == boldFont.fontName {
-                state.isBold = true
-                if isOblique { state.isItalic = true }
-            } else if isOblique {
-                state.isItalic = true
-            }
-
-            let codeFont = EditorFontCache.shared.font(for: baseFont, style: .code)
-            if font.fontName == codeFont.fontName && font.pointSize == codeFont.pointSize {
-                state.isCode = true
-            }
+            let styles = SpanStyler.styles(of: font, base: baseFont)
+            state.isBold = styles.contains(.bold)
+            state.isItalic = styles.contains(.italic)
+            state.isCode = styles.contains(.code)
         }
 
         if let strike = ts.attribute(.strikethroughStyle, at: checkPos, effectiveRange: nil) as? Int,
@@ -533,25 +521,9 @@ final class BlockNSTextView: NSTextView {
            let markdown = HTMLToMarkdown.convert(htmlString) {
             if allowsInternalNewlines {
                 insertText(markdown, replacementRange: selectedRange())
-                return
+            } else if !emitPasteLines(from: markdown) {
+                insertText(markdown.components(separatedBy: .newlines).first ?? "", replacementRange: selectedRange())
             }
-            var rawLines = markdown.components(separatedBy: .newlines)
-            while rawLines.last?.isEmpty == true && rawLines.count > 1 {
-                rawLines.removeLast()
-            }
-            if rawLines.count <= 1 {
-                insertText(rawLines.first ?? "", replacementRange: selectedRange())
-                return
-            }
-            let sel = selectedRange()
-            let ns = string as NSString
-            let before = ns.substring(to: sel.location)
-            let after = ns.substring(from: NSMaxRange(sel))
-            rawLines[0] = before + rawLines[0]
-            rawLines[rawLines.count - 1] = rawLines[rawLines.count - 1] + after
-            string = rawLines[0]
-            invalidateIntrinsicContentSize()
-            onEvent?(.pasteLines(rawLines))
             return
         }
         guard let pasteString = NSPasteboard.general.string(forType: .string) else {
@@ -562,14 +534,17 @@ final class BlockNSTextView: NSTextView {
             insertText(pasteString, replacementRange: selectedRange())
             return
         }
-        var rawLines = pasteString.components(separatedBy: .newlines)
+        if !emitPasteLines(from: pasteString) {
+            super.paste(sender)
+        }
+    }
+
+    private func emitPasteLines(from raw: String) -> Bool {
+        var rawLines = raw.components(separatedBy: .newlines)
         while rawLines.last?.isEmpty == true && rawLines.count > 1 {
             rawLines.removeLast()
         }
-        if rawLines.count <= 1 {
-            super.paste(sender)
-            return
-        }
+        guard rawLines.count > 1 else { return false }
 
         let sel = selectedRange()
         let ns = string as NSString
@@ -582,6 +557,7 @@ final class BlockNSTextView: NSTextView {
         string = rawLines[0]
         invalidateIntrinsicContentSize()
         onEvent?(.pasteLines(rawLines))
+        return true
     }
 
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
@@ -826,20 +802,11 @@ final class BlockNSTextView: NSTextView {
         var allHaveStyle = true
         ts.enumerateAttributes(in: range) { attrs, _, stop in
             switch style {
-            case .bold:
+            case .bold, .italic, .code:
                 guard let font = attrs[.font] as? NSFont else { allHaveStyle = false; stop.pointee = true; return }
-                let boldFont = SpanStyler.boldFont(for: baseFont)
-                if font.fontName != boldFont.fontName { allHaveStyle = false; stop.pointee = true }
-            case .italic:
-                guard let font = attrs[.font] as? NSFont else { allHaveStyle = false; stop.pointee = true; return }
-                let matrix = CTFontGetMatrix(font as CTFont)
-                if matrix.c == 0 { allHaveStyle = false; stop.pointee = true }
+                if !SpanStyler.styles(of: font, base: baseFont).contains(style) { allHaveStyle = false; stop.pointee = true }
             case .strikethrough:
                 guard let strike = attrs[.strikethroughStyle] as? Int, strike != 0 else { allHaveStyle = false; stop.pointee = true; return }
-            case .code:
-                guard let font = attrs[.font] as? NSFont else { allHaveStyle = false; stop.pointee = true; return }
-                let codeFont = SpanStyler.codeFont(for: baseFont)
-                if font.fontName != codeFont.fontName || font.pointSize != codeFont.pointSize { allHaveStyle = false; stop.pointee = true }
             case .highlight:
                 guard let isHighlight = attrs[.geoHighlight] as? Bool, isHighlight else { allHaveStyle = false; stop.pointee = true; return }
             case .wikiLink:
@@ -946,26 +913,21 @@ final class BlockNSTextView: NSTextView {
         var attrs = typingAttributes
         switch style {
         case .bold:
-            let boldFont = SpanStyler.boldFont(for: baseFont)
-            if let current = attrs[.font] as? NSFont, current.fontName == boldFont.fontName {
-                let matrix = CTFontGetMatrix(current as CTFont)
-                let isItalic = matrix.c != 0
+            let current = attrs[.font] as? NSFont ?? baseFont
+            let styles = SpanStyler.styles(of: current, base: baseFont)
+            let isItalic = styles.contains(.italic)
+            if styles.contains(.bold) {
                 attrs[.font] = isItalic ? SpanStyler.italicFont(for: baseFont) : baseFont
             } else {
-                let current = attrs[.font] as? NSFont ?? baseFont
-                let matrix = CTFontGetMatrix(current as CTFont)
-                let isItalic = matrix.c != 0
-                attrs[.font] = isItalic ? SpanStyler.boldItalicFont(for: baseFont) : boldFont
+                attrs[.font] = isItalic ? SpanStyler.boldItalicFont(for: baseFont) : SpanStyler.boldFont(for: baseFont)
             }
         case .italic:
             let current = attrs[.font] as? NSFont ?? baseFont
-            let matrix = CTFontGetMatrix(current as CTFont)
-            if matrix.c != 0 {
-                let isBold = current.fontName == SpanStyler.boldFont(for: baseFont).fontName ||
-                             current.fontName == SpanStyler.boldItalicFont(for: baseFont).fontName
+            let styles = SpanStyler.styles(of: current, base: baseFont)
+            let isBold = styles.contains(.bold)
+            if styles.contains(.italic) {
                 attrs[.font] = isBold ? SpanStyler.boldFont(for: baseFont) : baseFont
             } else {
-                let isBold = current.fontName == SpanStyler.boldFont(for: baseFont).fontName
                 attrs[.font] = isBold ? SpanStyler.boldItalicFont(for: baseFont) : SpanStyler.italicFont(for: baseFont)
             }
         case .strikethrough:
@@ -975,12 +937,12 @@ final class BlockNSTextView: NSTextView {
                 attrs[.strikethroughStyle] = NSUnderlineStyle.single.rawValue
             }
         case .code:
-            let codeFont = SpanStyler.codeFont(for: baseFont)
-            if let current = attrs[.font] as? NSFont, current.fontName == codeFont.fontName && current.pointSize == codeFont.pointSize {
+            let current = attrs[.font] as? NSFont ?? baseFont
+            if SpanStyler.styles(of: current, base: baseFont).contains(.code) {
                 attrs[.font] = baseFont
                 attrs.removeValue(forKey: .backgroundColor)
             } else {
-                attrs[.font] = codeFont
+                attrs[.font] = SpanStyler.codeFont(for: baseFont)
                 attrs[.backgroundColor] = NSColor.quaternaryLabelColor
             }
         case .highlight:

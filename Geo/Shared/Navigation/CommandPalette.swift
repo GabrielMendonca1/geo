@@ -335,7 +335,6 @@ struct CommandPaletteOverlay: View {
 
     private func buildNavigationItems() -> [CommandPaletteItem] {
         let tabs: [(AppTab, String)] = [
-            (.home, "calendar"),
             (.tasks, "checklist.unchecked"),
             (.nodes, "point.3.connected.trianglepath.dotted"),
             (.nano, "rectangle.grid.2x2.fill"),

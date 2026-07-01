@@ -87,6 +87,8 @@ private struct CronRow: View {
             Button(role: .destructive, action: onRemove) {
                 Image(systemName: "trash")
                     .font(.system(size: 9))
+                    .frame(width: 24, height: 24)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
@@ -178,8 +180,4 @@ private struct CronAddSheet: View {
             saveError = error.localizedDescription
         }
     }
-}
-
-struct JobSelection: Identifiable, Equatable {
-    let id: String
 }

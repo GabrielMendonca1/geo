@@ -168,8 +168,7 @@ class ScreenshotWatcher: ObservableObject {
                 self?.detectNewFiles()
             }
         }
-        startSafetyPoll()
-        startCleanupTimer()
+        startTimers()
     }
 
     func stopWatching() {
@@ -223,32 +222,29 @@ class ScreenshotWatcher: ObservableObject {
             }
         }
 
-        startSafetyPoll()
-        startCleanupTimer()
+        startTimers()
     }
 
-    private func startSafetyPoll() {
+    private func startTimers() {
         safetyPollTimer?.cancel()
-        let timer = DispatchSource.makeTimerSource(queue: scanQueue)
-        timer.schedule(deadline: .now() + safetyPollInterval, repeating: safetyPollInterval, leeway: .milliseconds(500))
-        timer.setEventHandler { [weak self] in
+        let safety = DispatchSource.makeTimerSource(queue: scanQueue)
+        safety.schedule(deadline: .now() + safetyPollInterval, repeating: safetyPollInterval, leeway: .milliseconds(500))
+        safety.setEventHandler { [weak self] in
             guard let self else { return }
             self.reconcileWatchedDirectoryIfNeeded()
             self.detectNewFiles()
         }
-        safetyPollTimer = timer
-        timer.resume()
-    }
+        safetyPollTimer = safety
+        safety.resume()
 
-    private func startCleanupTimer() {
         cleanupTimer?.cancel()
-        let timer = DispatchSource.makeTimerSource(queue: scanQueue)
-        timer.schedule(deadline: .now() + 30, repeating: cleanupCheckInterval, leeway: .seconds(60))
-        timer.setEventHandler { [weak self] in
+        let cleanup = DispatchSource.makeTimerSource(queue: scanQueue)
+        cleanup.schedule(deadline: .now() + 30, repeating: cleanupCheckInterval, leeway: .seconds(60))
+        cleanup.setEventHandler { [weak self] in
             self?.performCleanup()
         }
-        cleanupTimer = timer
-        timer.resume()
+        cleanupTimer = cleanup
+        cleanup.resume()
     }
 
     private func observeWorkspace() {

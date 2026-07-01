@@ -118,5 +118,5 @@ for plist in "$SRC_DIR"/launch-agents/*.plist; do
 done
 echo "  5. ONE-TIME (lid-closed survival on AC power): sudo pmset -a disablesleep 1"
 echo "     Required for clamshell/lid-closed running; caffeinate -s alone is not enough."
-echo "  7. (If switching from geo-claw) stop the old daemon first:"
+echo "  6. (If switching from geo-claw) stop the old daemon first:"
 echo "     launchctl bootout gui/\$(id -u) ~/Library/LaunchAgents/ai.geo.claw.plist"

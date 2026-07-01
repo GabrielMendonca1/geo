@@ -1,4 +1,5 @@
 import Foundation
+import GeoCore
 
 extension Notification.Name {
     static let taskMaybeComplete = Notification.Name("taskMaybeComplete")

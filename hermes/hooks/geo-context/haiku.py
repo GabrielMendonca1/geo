@@ -150,12 +150,102 @@ def load_oauth_token() -> Optional[str]:
     return _keychain_oauth_token() or _authjson_oauth_token()
 
 
+RANK_PROMPT = """Você é o roteador semântico do cérebro do Gabriel. Dada a mensagem atual dele e um manifesto de blocks do Geo, escolha APENAS os blocks que provavelmente ajudam a responder/agir nesse turno.
+
+Regras:
+- Entenda sinônimos e contexto, não só palavras iguais.
+- Seja conservador: retorne no máximo {limit} blocks.
+- Se nada tiver relação real, retorne [].
+- Responda SOMENTE JSON estrito, sem markdown: {{"ids":["arquivo.md"]}}
+
+Mensagem: {query}
+
+Manifesto de blocks:
+{manifest}"""
+
 EXTRACT_PROMPT = """Você está consultando o "cérebro" do Gabriel — os blocks (notas) pessoais dele abaixo. Sua única tarefa: extrair APENAS o que responde à pergunta. Não resuma tudo, não invente nada fora dos blocks. Cite cada fato com o título do block entre [[colchetes duplos]]. Reproduza valores exatos (nomes, números, datas) literalmente. Se a resposta não estiver nos blocks, responda exatamente: "Não encontrei isso nos blocks do Gabriel." Seja telegráfico, sem preâmbulo, sem cabeçalhos markdown.
 
 Pergunta: {query}
 
 Blocks:
 {context}"""
+
+
+def _text_from_response(resp) -> str:
+    return "".join(b.text for b in resp.content if getattr(b, "type", None) == "text").strip()
+
+
+async def rank_blocks(query: str, candidates: list[dict], limit: int = 4) -> Optional[list[str]]:
+    """Semantically pick relevant Geo block ids from a compact manifest.
+
+    Uses the same Claude Max OAuth + model.nano path as whatsapp-extractor.
+    Returns None on failure so caller can fall back to lexical ranking.
+    """
+    if not (query or "").strip() or not candidates:
+        return None
+    token = load_oauth_token()
+    if not token:
+        _log("no anthropic OAuth token (keychain/auth.json)")
+        return None
+    try:
+        from anthropic import AsyncAnthropic
+    except Exception as e:
+        _log(f"anthropic sdk import failed: {e}")
+        return None
+
+    rows = []
+    for c in candidates:
+        rows.append(
+            json.dumps(
+                {
+                    "id": c.get("id"),
+                    "title": c.get("title"),
+                    "excerpt": (c.get("excerpt") or "")[:260],
+                },
+                ensure_ascii=False,
+            )
+        )
+    manifest = "\n".join(rows)
+    prompt = RANK_PROMPT.format(query=query, manifest=manifest, limit=limit)
+    client = AsyncAnthropic(
+        auth_token=token,
+        default_headers={
+            "anthropic-beta": OAUTH_BETA,
+            "user-agent": CLAUDE_CODE_USER_AGENT,
+            "x-app": "cli",
+        },
+    )
+    try:
+        resp = await asyncio.wait_for(
+            client.messages.create(
+                model=_nano_model(),
+                max_tokens=350,
+                messages=[{"role": "user", "content": prompt}],
+            ),
+            timeout=PER_CALL_TIMEOUT_S,
+        )
+    except Exception as e:
+        _log(f"rank_blocks failed: {type(e).__name__}: {str(e)[:160]}")
+        return None
+    text = _text_from_response(resp)
+    try:
+        raw = text.strip()
+        if raw.startswith("```"):
+            raw = raw.strip("`").strip()
+            if raw.lower().startswith("json"):
+                raw = raw[4:].strip()
+        if "{" in raw and "}" in raw:
+            raw = raw[raw.find("{"): raw.rfind("}") + 1]
+        data = json.loads(raw)
+        ids = data.get("ids") if isinstance(data, dict) else data
+        if not isinstance(ids, list):
+            return None
+        known = {str(c.get("id")) for c in candidates}
+        out = [str(x) for x in ids if str(x) in known]
+        return out[:limit]
+    except Exception as e:
+        _log(f"rank_blocks non-json response: {e}: {text[:160]}")
+        return None
 
 
 async def extract(query: str, context_text: str) -> Optional[str]:

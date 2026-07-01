@@ -96,6 +96,7 @@ struct BlockListView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
+                        SlimWhiteScroller().frame(width: 0, height: 0)
                         let highlightsByBlock = Dictionary(grouping: findMatches, by: \.blockIndex).mapValues { $0.map(\.range) }
                         let activeMatch = findCurrentMatch < findMatches.count ? findMatches[findCurrentMatch] : nil
                         let parentIds = Set(document.blocks.compactMap { $0.parentId })
@@ -400,5 +401,29 @@ struct BlockListView: View {
             }
         }
         computeFindMatches(query: findSearchText)
+    }
+}
+
+// Slim, white scroll knob for the editor. Configures the enclosing NSScrollView INSTANCE (overlay
+// style + light knob) — deliberately NOT a global NSScroller method swizzle, which froze the text
+// system app-wide. Instance appearance config never touches text-view events.
+private struct SlimWhiteScroller: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView { StylerView() }
+    func updateNSView(_ nsView: NSView, context: Context) { (nsView as? StylerView)?.applyStyle() }
+
+    final class StylerView: NSView {
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            applyStyle()
+        }
+
+        func applyStyle() {
+            DispatchQueue.main.async { [weak self] in
+                guard let scrollView = self?.enclosingScrollView else { return }
+                scrollView.scrollerStyle = .overlay
+                scrollView.verticalScroller?.knobStyle = .light
+                scrollView.horizontalScroller?.knobStyle = .light
+            }
+        }
     }
 }

@@ -31,7 +31,6 @@ struct ParsedTaskJSON: Codable, Sendable {
     let end_time_iso: String?
     let tag_names: [String]?
     let horizon: String?
-    let notes: String?
 }
 
 enum AnthropicClient {
@@ -270,8 +269,7 @@ enum AnthropicClient {
           "start_time_iso": string|null,
           "end_time_iso": string|null,
           "tag_names": [string]|null,
-          "horizon": "day"|"week"|"month"|"none",
-          "notes": string|null
+          "horizon": "day"|"week"|"month"|"none"
         }
 
         Rules:

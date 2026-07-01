@@ -121,10 +121,15 @@ struct OnboardingPermissionsView: View {
         VStack(spacing: 10) {
             primaryButton
             if !currentState.isGranted {
-                Button("Skip") { advance() }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 13))
-                    .foregroundColor(.white.opacity(0.5))
+                Button { advance() } label: {
+                    Text("Skip")
+                        .font(.system(size: 13))
+                        .foregroundColor(.white.opacity(0.5))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
             }
         }
         .padding(.bottom, 32)

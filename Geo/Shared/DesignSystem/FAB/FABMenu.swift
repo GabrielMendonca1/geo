@@ -71,14 +71,7 @@ struct FABMenu: View {
                         isExpanded: isExpanded,
                         isFocused: focusedActionIndex == index,
                         onExecute: {
-                            if enableUsageTracking {
-                                appEnvironment.usageTracker.track(action.label, in: paneIdentifier)
-                            }
-                            action.action()
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-                                isExpanded = false
-                            }
-                            focusedActionIndex = nil
+                            executeAction(action)
                         }
                     )
                     .opacity(isExpanded ? 1 : 0)
@@ -241,16 +234,7 @@ struct FABMenu: View {
 
         performHaptic(.generic)
 
-        let action = sortedActions[focusedIndex]
-        if enableUsageTracking {
-            appEnvironment.usageTracker.track(action.label, in: paneIdentifier)
-        }
-        action.action()
-
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-            isExpanded = false
-        }
-        focusedActionIndex = nil
+        executeAction(sortedActions[focusedIndex])
     }
 
     private func executeActionByNumber(_ number: String) {
@@ -263,7 +247,10 @@ struct FABMenu: View {
 
         performHaptic(.generic)
 
-        let action = sortedActions[num - 1]
+        executeAction(sortedActions[num - 1])
+    }
+
+    private func executeAction(_ action: FABActionItem) {
         if enableUsageTracking {
             appEnvironment.usageTracker.track(action.label, in: paneIdentifier)
         }

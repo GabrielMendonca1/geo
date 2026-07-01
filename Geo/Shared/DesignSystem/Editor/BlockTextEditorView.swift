@@ -19,6 +19,13 @@ struct BlockTextEditorView: NSViewRepresentable {
     let onEvent: (BlockEditorEvent) -> Void
     var onDragOutside: ((NSPoint) -> Void)?
 
+    private var resolvedBaseForeground: NSColor {
+        if case .checkboxItem(let checked, _) = kind, checked {
+            return NSColor(Palette.tertiaryForeground)
+        }
+        return Palette.editorForeground
+    }
+
     func makeNSView(context: Context) -> BlockNSTextView {
         let textStorage = NSTextStorage()
         let layoutManager = NSLayoutManager()
@@ -54,9 +61,9 @@ struct BlockTextEditorView: NSViewRepresentable {
         let font = EditorTypography.fontForKind(kind, baseSize: fontSize)
         tv.font = font
         tv.baseFont = font
-        tv.baseForeground = Palette.editorForeground
+        tv.baseForeground = resolvedBaseForeground
         tv.lineHeightMultiple = EditorTypography.lineHeightForKind(kind)
-        tv.textColor = Palette.editorForeground
+        tv.textColor = resolvedBaseForeground
         tv.string = content
         let ts = tv.textStorage!
         ts.setAttributes(tv.baseAttributes, range: NSRange(location: 0, length: ts.length))
@@ -98,13 +105,13 @@ struct BlockTextEditorView: NSViewRepresentable {
             tv.lineHeightMultiple = EditorTypography.lineHeightForKind(kind)
             context.coordinator.lastAppliedKind = kind
         }
-        let foregroundChanged = tv.baseForeground != Palette.editorForeground
-        tv.baseForeground = Palette.editorForeground
+        let foregroundChanged = tv.baseForeground != resolvedBaseForeground
+        tv.baseForeground = resolvedBaseForeground
 
         let isCodeBlock = { if case .codeBlock = kind { return true }; return false }()
 
         if foregroundChanged || kindChanged {
-            tv.textColor = Palette.editorForeground
+            tv.textColor = resolvedBaseForeground
             tv.typingAttributes = tv.baseAttributes
             let ts = tv.textStorage!
             ts.beginEditing()

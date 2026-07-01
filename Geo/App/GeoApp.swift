@@ -1,4 +1,5 @@
 import SwiftUI
+import GeoCore
 import AppKit
 import Combine
 import os.log
@@ -13,6 +14,7 @@ final class FileOpenCoordinator {
     private var pending: [OpenFileRouter.Outcome] = []
     private var externalWindows: [String: NSWindow] = [:]
     private var externalInFlight: Set<String> = []
+    private var blockWindows: [String: NSWindow] = [:]   // blockId → detached editor window (one-editor-per-block dedup)
 
     func setOpener(_ action: OpenWindowAction) {
         openWindow = action
@@ -26,6 +28,7 @@ final class FileOpenCoordinator {
         guard let openWindow else { pending.append(outcome); return }
         switch outcome {
         case .openExisting(let blockId):
+            if focusBlockWindow(blockId) { return }
             openWindow(id: "editor", value: blockId)
             NSApp.activate(ignoringOtherApps: true)
         case .external(let url):
@@ -52,6 +55,24 @@ final class FileOpenCoordinator {
     func unregisterExternalWindow(_ url: URL) {
         externalWindows.removeValue(forKey: url.path)
         externalInFlight.remove(url.path)
+    }
+
+    // A block is edited in EITHER an embedded tab OR a detached window — never both at once.
+    // The tab opener (NodesPane) calls focusBlockWindow first; if a window owns the block, it wins.
+    func registerBlockWindow(_ blockId: String, _ window: NSWindow) {
+        blockWindows[blockId] = window
+    }
+
+    func unregisterBlockWindow(_ blockId: String) {
+        blockWindows.removeValue(forKey: blockId)
+    }
+
+    @discardableResult
+    func focusBlockWindow(_ blockId: String) -> Bool {
+        guard let window = blockWindows[blockId] else { return false }
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        return true
     }
 }
 
@@ -107,6 +128,7 @@ final class AppContainer {
     let dayManager: DayManager
     let templateService: TemplateService
     let nanoHermesService: HermesStatusService
+    let eventKitSyncCoordinator: EventKitSyncCoordinator
     let environment: AppEnvironment
 
     init() {
@@ -141,6 +163,10 @@ final class AppContainer {
 
         let watcher = ScreenshotWatcher(logStore: logStore, ocrService: ocrService)
         let shelfStoreAdapter = ShelfStoreRepositoryAdapter(shelfStore: shelfStore)
+
+        let eventKitSyncCoordinator = MainActor.assumeIsolated {
+            EventKitSyncCoordinator(tasksStore: tasksStore)
+        }
 
         let hotkeyManager = GlobalHotkeyManager(screenshotWatcher: watcher, logStore: logStore) { [navigationStore] tab in
             navigationStore.selectTab(tab)
@@ -204,6 +230,7 @@ final class AppContainer {
         self.dayManager = dayManager
         self.templateService = templateService
         self.nanoHermesService = nanoHermesService
+        self.eventKitSyncCoordinator = eventKitSyncCoordinator
         self.environment = appEnvironment
     }
 }
@@ -311,6 +338,7 @@ struct BlockEditorWindowWrapper: View {
     @Environment(\.dismissWindow) private var dismissWindow
     @EnvironmentObject private var viewModel: BlocksViewModel
     @State private var forceRawEditor: Bool = false
+    @State private var window: NSWindow?
     @StateObject private var actionsHolder = BlockEditorActionsHolder()
 
     var body: some View {
@@ -342,6 +370,18 @@ struct BlockEditorWindowWrapper: View {
             if isMissing, viewModel.hasLoadedInitialSnapshot {
                 dismissWindow()
             }
+        }
+        .background(WindowReflection(window: $window))
+        .onChange(of: window) { _, newWindow in
+            guard let newWindow else { return }
+            if let blockId { FileOpenCoordinator.shared.registerBlockWindow(blockId, newWindow) }
+            // Detached editor windows always open filling the screen.
+            if let frame = (newWindow.screen ?? NSScreen.main)?.visibleFrame {
+                newWindow.setFrame(frame, display: true)
+            }
+        }
+        .onDisappear {
+            if let blockId { FileOpenCoordinator.shared.unregisterBlockWindow(blockId) }
         }
         .frame(
             minWidth: 280,
@@ -395,6 +435,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         container.notificationManager.startMonitoring()
         container.watcher.startWatching()
         Task { @MainActor in container.nanoHermesService.start() }
+        Task { @MainActor in container.eventKitSyncCoordinator.start() }
 
         PermissionRegistry.shared.refreshAll()
         Task { @MainActor in
@@ -480,6 +521,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         container.notificationManager.stopMonitoring()
         container.watcher.stopWatching()
         MainActor.assumeIsolated { container.nanoHermesService.stop() }
+        MainActor.assumeIsolated { container.eventKitSyncCoordinator.stop() }
     }
 
     @MainActor

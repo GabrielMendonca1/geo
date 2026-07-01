@@ -1,14 +1,13 @@
 import SwiftUI
 
 enum AppTab: String, CaseIterable {
-    case home = "Home"
     case tasks = "Tasks"
     case nodes = "Nodes"
     case nano = "Nano"
     case brains = "Brains"
     case settings = "Settings"
 
-    static let defaultNavigationOrder: [AppTab] = [.nodes, .home, .nano, .tasks, .brains]
+    static let defaultNavigationOrder: [AppTab] = [.nodes, .nano, .tasks, .brains]
 
     func nextTab() -> AppTab? {
         let order = Self.defaultNavigationOrder
@@ -26,7 +25,6 @@ enum AppTab: String, CaseIterable {
 
     var displayTitle: String {
         switch self {
-        case .home: return "Calendar"
         case .tasks: return "Tasks"
         case .nodes: return "Brain"
         case .nano: return "Agent"
@@ -37,7 +35,6 @@ enum AppTab: String, CaseIterable {
 
     var icon: String {
         switch self {
-        case .home: return "calendar"
         case .tasks: return "checklist.unchecked"
         case .nodes: return "brain.head.profile"
         case .nano: return "sparkles"
@@ -64,8 +61,6 @@ extension AppTab {
     @ViewBuilder
     var destinationView: some View {
         switch self {
-        case .home:
-            HomePane()
         case .tasks:
             TasksPane()
         case .nodes:

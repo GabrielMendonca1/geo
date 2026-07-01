@@ -36,6 +36,7 @@ struct TaskFormFooter: View {
             }
             .keyboardShortcut(.defaultAction)
             .buttonStyle(.borderedProminent)
+            .tint(TaskFormStyle.accent)
             .disabled(!viewModel.canSave || viewModel.isSaving)
         }
         .padding(.horizontal, 20)

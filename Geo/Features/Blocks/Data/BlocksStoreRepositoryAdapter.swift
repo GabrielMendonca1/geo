@@ -46,13 +46,6 @@ private final class BlocksObservationBox: @unchecked Sendable {
     var cancellable: AnyCancellable?
 }
 
-private struct BlockFingerprint: Equatable {
-    let id: String
-    let title: String
-    let lastEdited: Date
-    let tagName: String?
-}
-
 final class LiveBlocksStoreAccess: BlocksStoreAccess, @unchecked Sendable {
     private let blocksStore: BlocksStore
 
@@ -65,11 +58,14 @@ final class LiveBlocksStoreAccess: BlocksStoreAccess, @unchecked Sendable {
             let box = BlocksObservationBox()
             let setupTask = Task { @MainActor [blocksStore] in
                 continuation.yield(blocksStore.blocks)
-                var lastFingerprint = blocksStore.blocks.map { BlockFingerprint(id: $0.id, title: $0.title, lastEdited: $0.lastEdited, tagName: $0.metadata.tagName) }
+                let fingerprint = { (block: BlocksStore.Block) in
+                    BlocksStore.Block.ObservationFingerprint(block)
+                }
+                var lastFingerprint = blocksStore.blocks.map(fingerprint)
                 box.cancellable = blocksStore.$blocks
                     .dropFirst()
                     .sink { blocks in
-                        let newFingerprint = blocks.map { BlockFingerprint(id: $0.id, title: $0.title, lastEdited: $0.lastEdited, tagName: $0.metadata.tagName) }
+                        let newFingerprint = blocks.map(fingerprint)
                         if newFingerprint != lastFingerprint {
                             lastFingerprint = newFingerprint
                             continuation.yield(blocks)

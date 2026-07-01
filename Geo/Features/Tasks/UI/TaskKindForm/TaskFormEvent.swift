@@ -1,4 +1,5 @@
 import SwiftUI
+import GeoCore
 
 struct TaskFormEvent: View {
     @ObservedObject var viewModel: TaskFormViewModel
@@ -66,10 +67,7 @@ struct TaskFormEvent: View {
                 }
             }
 
-            TaskFormSectionCard(title: "Location", icon: "mappin.and.ellipse") {
-                TextField("Where is it? (optional)", text: $viewModel.location)
-                    .textFieldStyle(.roundedBorder)
-            }
+            TaskChecklistCard(viewModel: viewModel, availableBlocks: availableBlocks)
 
             TaskFormCollapsibleCard(
                 title: "Repeat",
@@ -86,16 +84,6 @@ struct TaskFormEvent: View {
                     Text("Completed").tag(TaskStatus.completed)
                 }
                 .pickerStyle(.segmented)
-            }
-
-            TaskFormSectionCard(title: "Notes", icon: "text.alignleft") {
-                TextField("Agenda notes (optional)", text: $viewModel.notes, axis: .vertical)
-                    .textFieldStyle(.roundedBorder)
-                    .lineLimit(2...5)
-            }
-
-            TaskFormSectionCard(title: "Block", icon: "doc.text") {
-                LinkedBlockPicker(viewModel: viewModel, availableBlocks: availableBlocks)
             }
         }
         .onChange(of: viewModel.isAllDay) { _, allDay in

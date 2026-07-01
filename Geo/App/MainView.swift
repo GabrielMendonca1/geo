@@ -34,20 +34,35 @@ struct MainView: View {
             }
         }
         .background {
-            ZStack {
-                Button("") { commandPalette.toggle() }
-                    .keyboardShortcut("k", modifiers: [.command, .shift])
-                Button("") {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-                        navigationStore.fabExpanded.toggle()
-                    }
-                }
-                .keyboardShortcut("k", modifiers: .command)
-            }
-            .hidden()
+            NavigationShortcutSink(commandPalette: commandPalette)
         }
     }
 
+}
+
+private struct NavigationShortcutSink: View {
+    @Environment(\.navigationStore) private var navigationStore
+    let commandPalette: CommandPaletteViewModel
+
+    var body: some View {
+        ZStack {
+            Button("", action: toggleCommandPalette)
+                .keyboardShortcut("k", modifiers: [.command, .shift])
+            Button("", action: toggleFAB)
+                .keyboardShortcut("k", modifiers: .command)
+        }
+        .hidden()
+    }
+
+    private func toggleCommandPalette() {
+        commandPalette.toggle()
+    }
+
+    private func toggleFAB() {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+            navigationStore.fabExpanded.toggle()
+        }
+    }
 }
 
 private struct NavigationChrome: View {

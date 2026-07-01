@@ -439,30 +439,9 @@ final class BlockEditOpsStressTests: XCTestCase {
     /// edits. If a slash command was open and the user types content that is
     /// detected as a code-block fence, the slash state is preserved (it lives
     /// on the router, not the textview). The activated slash menu may appear
-    /// over a now-replaced code block.
-    func testSlashStateClearedByAutoFormat() throws {
-        throw XCTSkip("pending: .slashActivated event case not implemented")
-    }
-
-    func testMentionStateClearedByAutoFormat() throws {
-        throw XCTSkip("pending: .mentionActivated event case not implemented")
-    }
-
-    func testMentionStateClearedOnFocusChange() throws {
-        throw XCTSkip("pending: .mentionActivated event case not implemented")
-    }
-
-    func testSlashStateClearedOnFocusChange() throws {
-        throw XCTSkip("pending: .slashActivated event case not implemented")
-    }
-
-    func testMentionStateSurvivesSameBlockFocus() throws {
-        throw XCTSkip("pending: .mentionActivated event case not implemented")
-    }
-
-    func testMentionStateExplicitReset() throws {
-        throw XCTSkip("pending: .mentionActivated event case not implemented")
-    }
+    /// over a now-replaced code block. Real coverage waits on the
+    /// .slashActivated / .mentionActivated event cases landing on
+    /// BlockEditorEvent; until then this lives in SlashMentionIntegrationTests.
 
     // MARK: - 10. Paste lines
 

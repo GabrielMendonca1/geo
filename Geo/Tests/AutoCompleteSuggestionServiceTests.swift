@@ -1,4 +1,5 @@
 import XCTest
+import GeoCore
 @testable import Geo
 
 final class AutoCompleteSuggestionServiceTests: XCTestCase {
@@ -246,7 +247,7 @@ final class AutoCompleteSuggestionServiceTests: XCTestCase {
         let body: TaskBody
         switch kind {
         case .task: body = .task(due: anchor, estimatedMinutes: nil)
-        case .event: body = .event(start: anchor, end: anchor)
+        case .event: body = .event(start: anchor, end: anchor, externalEKEventID: nil)
         case .habit: body = .habit(rule: .daily, timeOfDay: anchor, occurrences: [])
         case .milestone: body = .milestone(target: anchor)
         }

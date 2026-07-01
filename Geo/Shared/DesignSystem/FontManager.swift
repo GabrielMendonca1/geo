@@ -34,7 +34,10 @@ enum FontManager {
         }
 
         var matrix = CGAffineTransform(scaleX: 1.0, y: lineHeightScale)
-        return CTFontCreateCopyWithAttributes(baseFont as CTFont, size, &matrix, nil) as NSFont
+        guard let scaledFont = CTFontCreateCopyWithAttributes(baseFont as CTFont, size, &matrix, nil) as NSFont? else {
+            return baseFont
+        }
+        return scaledFont
     }
 
     static func monaSansFont(size: CGFloat, weight: Font.Weight = .regular) -> Font {

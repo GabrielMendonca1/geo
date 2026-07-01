@@ -6,9 +6,10 @@ Claude Code account (Claude Max OAuth), like the brain-vault Haiku ingest.
 Pipeline (no gateway, no Codex, no agent phase):
   1. read the last 6h from ~/.hermes/wa_ingest.jsonl, bucket by chat
   2. CLASSIFY each bucket in parallel with Haiku (model.nano) → proposals
-  3. DECIDE with Opus (model.full) — one call, hermes choosing what is genuinely
-     worth keeping: dedup, drop noise, emit final {blocks, tasks, urgent}.
-     Patient rate-limit-aware retry (Claude Max OAuth throttles Opus).
+  3. DECIDE with Sonnet 5 by default (or HERMES_WA_DECIDE_MODEL) — one call,
+     hermes choosing what is genuinely worth keeping: dedup, drop noise, emit
+     final {blocks, tasks, urgent}.
+     Patient rate-limit-aware retry (Claude Max OAuth can throttle included usage).
   4. PERSIST (all file-native, works app-closed): facts → block .md files,
      commitments → Tasks/<UUID>.json task files; only urgent → a Telegram DM.
      Each block weaves [[wikilinks]] + a `Parte de [[MOC — X]]` home from the
@@ -71,11 +72,16 @@ def _nano_model() -> str:
     return _config_model("nano", "HERMES_NANO_MODEL", "claude-haiku-4-5")
 
 
-def _full_model() -> str:
-    return _config_model("full", "HERMES_FULL_MODEL", "claude-opus-4-8")
+def _decide_model() -> str:
+    # WhatsApp uses the direct Claude OAuth API, not the Claude Code CLI model alias.
+    # Keep this job independent from model.full because other standalone scripts
+    # (close-day, geo-context) may still want Opus/Haiku defaults.
+    return os.environ.get("HERMES_WA_DECIDE_MODEL") or "claude-sonnet-5"
 
 
-WINDOW_HOURS = int(os.environ.get("HERMES_WA_WINDOW_HOURS", "6"))
+# The extractor keeps a durable watermark, so the nominal window can stay tight:
+# enough context for fresh conversations without repeatedly paying for a 6h sweep.
+WINDOW_HOURS = int(os.environ.get("HERMES_WA_WINDOW_HOURS", "2"))
 HAIKU_MODEL = _nano_model()
 MAX_CONCURRENT = 6
 PER_CALL_TIMEOUT_S = 45.0
@@ -139,15 +145,19 @@ DECIDE_PROMPT_TEMPLATE = """Você é o segundo cérebro do Gabriel (hermes). Aba
 CONTEXTO DO CÉREBRO (vault real do Gabriel, files-are-truth — use para LINKAR e DEDUPLICAR):
 {brain_context}
 
+TASKS EXISTENTES NO GEO (ativas + concluídas recentes — NÃO duplique compromissos que já estão aqui):
+{tasks_context}
+
 PROPOSTAS (JSON, uma entrada por chat):
 {proposals_json}
 
 Como decidir:
 - FATO durável sobre pessoa/projeto/decisão/preferência → um bloco. layer "agent" se é fato sólido e auto-evidente; layer "review" se merece o olhar dele antes de virar canônico. Auto-extraído de chat tende a "review".
-- COMPROMISSO/algo a fazer → uma task. title curto e acionável, notes com o contexto. Toda task no Geo TEM prazo: due em ISO 8601 UTC (ex: 2026-06-10T13:00:00Z). Sem prazo claro no contexto, escolha uma data-alvo razoável — nunca null.
+- COMPROMISSO/algo a fazer → uma task. title curto e acionável; tasks não carregam prosa — contexto durável vira bloco. PRAZO (due): NÃO invente horário. Se a conversa dá dia E hora explícitos → due em hora LOCAL naive, SEM 'Z' (ex: 2026-06-22T13:00:00) — NÃO converta pra UTC, o código faz isso. Se dá só o dia, ou nenhum horário → due como SÓ DATA (ex: 2026-06-22), sem hora — o sistema põe no fim daquele dia. Sem prazo claro no contexto → use a data de hoje ou um dia desta semana. NUNCA data no passado, NUNCA horário aleatório.
 - URGENTE: alguém esperando ele agora, decisão/deadline batendo → urgent (ele recebe no Telegram).
 - Conversa fiada, piada, combinado vago, fofoca, novidade qualquer → descarta.
 - DEDUP CONTRA O VAULT: se o CONTEXTO já tem um bloco ou task sobre o mesmo assunto, NÃO recrie — descarta. Só cria se acrescenta algo genuinamente novo.
+- DEDUP CONTRA TASKS EXISTENTES: se uma TASK EXISTENTE (ativa OU concluída recente) já cobre o mesmo compromisso, NÃO recrie a task — descarta. Algo já concluído só vira task nova se for claramente um novo ciclo/pedido.
 - Não invente nada fora das propostas. Dúvida = não guarda.
 
 Para cada bloco:
@@ -158,7 +168,7 @@ Para cada bloco:
   2) envolve cada pessoa/projeto/conceito saliente em [[wikilinks]]. Linke para títulos REAIS do contexto quando existirem; nunca invente um título de MOC fora da lista.
 
 Retorne JSON estrito (sem markdown, sem prefácio, sem ```):
-{{"blocks": [{{"title": "...", "body": "Parte de [[MOC — X]]\\n...com [[wikilinks]]...", "type": "fleeting", "layer": "review"}}], "tasks": [{{"title": "...", "notes": "...", "due": "2026-06-10T13:00:00Z"}}], "urgent": [{{"text": "...", "chat": "..."}}]}}
+{{"blocks": [{{"title": "...", "body": "Parte de [[MOC — X]]\\n...com [[wikilinks]]...", "type": "fleeting", "layer": "review"}}], "tasks": [{{"title": "...", "due": "2026-06-22"}}], "urgent": [{{"text": "...", "chat": "..."}}]}}
 
 Se nada vale: retorne as três listas vazias."""
 
@@ -514,7 +524,7 @@ def has_proposals(bucket_result: dict) -> bool:
     return any(p.get(k) for k in ("facts", "tasks", "reminders", "urgent"))
 
 
-async def decide(http: httpx.AsyncClient, headers: dict, kept: list[dict], brain_context: str) -> dict:
+async def decide(http: httpx.AsyncClient, headers: dict, kept: list[dict], brain_context: str, tasks_context: str) -> dict:
     payload = [
         {"chat": k.get("chat"), "is_group": k.get("is_group"), "proposals": k.get("proposals")}
         for k in kept
@@ -522,11 +532,13 @@ async def decide(http: httpx.AsyncClient, headers: dict, kept: list[dict], brain
     prompt = DECIDE_PROMPT_TEMPLATE.format(
         window=WINDOW_HOURS,
         brain_context=brain_context,
+        tasks_context=tasks_context,
         proposals_json=json.dumps(payload, ensure_ascii=False, indent=2),
     )
-    raw = await _call_model(http, headers, _full_model(), prompt, DECIDE_MAX_TOKENS_OUT, DECIDE_TIMEOUT_S, attempts=DECIDE_ATTEMPTS)
+    decide_model = _decide_model()
+    raw = await _call_model(http, headers, decide_model, prompt, DECIDE_MAX_TOKENS_OUT, DECIDE_TIMEOUT_S, attempts=DECIDE_ATTEMPTS)
     if raw is None:
-        log(f"Opus decide unavailable (rate-limited) — falling back to {HAIKU_MODEL} this run")
+        log(f"{decide_model} decide unavailable — falling back to {HAIKU_MODEL} this run")
         raw = await _call_model(http, headers, HAIKU_MODEL, prompt, DECIDE_MAX_TOKENS_OUT, DECIDE_TIMEOUT_S)
     empty = {"blocks": [], "tasks": [], "urgent": []}
     if raw is None:
@@ -599,15 +611,43 @@ def _now_z() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def _normalize_due(due) -> str | None:
-    if not due or not isinstance(due, str):
-        return None
-    try:
-        dt = datetime.fromisoformat(due.strip().replace("Z", "+00:00"))
-    except Exception:
-        return None
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+def _local_tz():
+    return datetime.now(timezone.utc).astimezone().tzinfo
+
+
+def _end_of_day_local(year: int, month: int, day: int) -> datetime:
+    return datetime(year, month, day, 23, 59, tzinfo=_local_tz())
+
+
+def _resolve_due(due) -> str:
+    tz = _local_tz()
+    now_local = datetime.now(tz)
+    dt = None
+    if isinstance(due, str) and due.strip():
+        s = due.strip()
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", s):
+            try:
+                d = datetime.strptime(s, "%Y-%m-%d")
+                dt = _end_of_day_local(d.year, d.month, d.day)
+            except Exception:
+                dt = None
+        else:
+            try:
+                p = datetime.fromisoformat(s.replace("Z", "+00:00"))
+                if (p.hour == 0 and p.minute == 0) or (p.hour == 23 and p.minute == 59):
+                    dt = _end_of_day_local(p.year, p.month, p.day)
+                else:
+                    if p.tzinfo is None:
+                        p = p.replace(tzinfo=tz)
+                    dt = p.astimezone(tz)
+            except Exception:
+                dt = None
+    if dt is None:
+        dt = _end_of_day_local(now_local.year, now_local.month, now_local.day)
+    if dt < now_local:
+        dt = _end_of_day_local(now_local.year, now_local.month, now_local.day)
+        if dt < now_local:
+            dt = dt + timedelta(days=1)
     return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
@@ -621,15 +661,15 @@ def _as_text(v) -> str:
     return str(v)
 
 
-def write_task_file(title: str, notes: str, due) -> str:
+def write_task_file(title: str, due) -> str:
     task_id = str(uuid.uuid4()).upper()
     now = _now_z()
-    due_z = _normalize_due(due) or datetime.now(timezone.utc).strftime("%Y-%m-%dT23:59:00Z")
+    due_z = _resolve_due(due)
     task = {
         "id": task_id,
         "title": _as_text(title),
-        "notes": _as_text(notes),
         "body": {"kind": "task", "due": due_z},
+        "isAllDay": due_z.endswith(("23:59:00Z", "02:59:00Z")),
         "status": "pending",
         "priority": "unset",
         "tagIds": [],
@@ -640,6 +680,40 @@ def write_task_file(title: str, notes: str, due) -> str:
     }
     _atomic_write(TASKS_DIR / f"{task_id}.json", json.dumps(task, ensure_ascii=False))
     return f"{task_id}.json"
+
+
+def _recent_tasks_context(completed_days: int = 14) -> str:
+    cutoff = datetime.now(timezone.utc) - timedelta(days=completed_days)
+    active: list[str] = []
+    done: list[str] = []
+    for f in sorted(TASKS_DIR.glob("*.json")):
+        try:
+            t = json.loads(f.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        title = _as_text(t.get("title")).strip()
+        if not title:
+            continue
+        if t.get("status") == "completed":
+            try:
+                mod = datetime.fromisoformat((t.get("modifiedAt") or "").replace("Z", "+00:00"))
+            except Exception:
+                mod = None
+            if mod is not None and mod >= cutoff:
+                done.append(title)
+        else:
+            due = (t.get("body") or {}).get("due") or ""
+            active.append(f"{title} (due {due})" if due else title)
+    if not active and not done:
+        return "(nenhuma task ativa ou concluída recente)"
+    lines: list[str] = []
+    if active:
+        lines.append("ATIVAS (pendentes):")
+        lines.extend(f"- {a}" for a in active)
+    if done:
+        lines.append(f"CONCLUÍDAS nos últimos {completed_days}d:")
+        lines.extend(f"- {d}" for d in done)
+    return "\n".join(lines)
 
 
 async def send_telegram(text: str) -> bool:
@@ -685,7 +759,7 @@ async def persist(decided: dict) -> tuple[int, int, int]:
         if not title:
             continue
         try:
-            rid = write_task_file(title, _as_text(t.get("notes")), t.get("due"))
+            rid = write_task_file(title, t.get("due"))
             nt += 1
             log(f"task: {rid} [{title[:40]}]")
         except Exception as e:
@@ -735,7 +809,8 @@ async def main() -> int:
             return 0
 
         brain_context = render_brain_context()
-        decided = await decide(http, headers, keep, brain_context)
+        tasks_context = _recent_tasks_context()
+        decided = await decide(http, headers, keep, brain_context, tasks_context)
     log(
         f"decided: blocks={len(decided.get('blocks', []))} "
         f"tasks={len(decided.get('tasks', []))} urgent={len(decided.get('urgent', []))} "

@@ -79,4 +79,67 @@ final class BrainsTests: XCTestCase {
         XCTAssertNil(registry.manifest("nope"))
     }
 
+    // MARK: - Graph builder (local subgraph + backlinks)
+
+    private func note(_ id: String, links: [String] = []) -> BrainNote {
+        let body = "# \(id)\n\n" + links.map { "[[\($0)]]" }.joined(separator: " ")
+        return BrainNote(id: id, title: id, body: body, url: URL(fileURLWithPath: "/tmp/\(id).md"))
+    }
+
+    func testGraphBuildResolvesWikilinks() {
+        let notes = [note("a", links: ["b"]), note("b", links: ["c"]), note("c")]
+        let built = BrainGraphBuilder.build(notes: notes)
+        XCTAssertEqual(built.graph.nodes.count, 3)
+        // a->b and b->c are resolved edges
+        let resolved = built.graph.edges.filter { $0.targetId != nil }
+        XCTAssertEqual(resolved.count, 2)
+    }
+
+    func testLocalSubgraphIsOneHopNeighborhood() {
+        let notes = [note("a", links: ["b"]), note("b", links: ["c"]), note("c")]
+        let graph = BrainGraphBuilder.build(notes: notes).graph
+        let center = BrainGraphBuilder.nodeID(forNoteSlug: "a")
+        let local = BrainGraphBuilder.localSubgraph(graph, around: center, hops: 1)
+        let ids = Set(local.nodes.map(\.id))
+        XCTAssertTrue(ids.contains(BrainGraphBuilder.nodeID(forNoteSlug: "a")))
+        XCTAssertTrue(ids.contains(BrainGraphBuilder.nodeID(forNoteSlug: "b")))
+        XCTAssertFalse(ids.contains(BrainGraphBuilder.nodeID(forNoteSlug: "c")))  // 2 hops away
+    }
+
+    func testBacklinkCountCountsIncomingLinks() {
+        let notes = [note("a", links: ["c"]), note("b", links: ["c"]), note("c")]
+        let graph = BrainGraphBuilder.build(notes: notes).graph
+        XCTAssertEqual(BrainGraphBuilder.backlinkCount(graph, to: BrainGraphBuilder.nodeID(forNoteSlug: "c")), 2)
+        XCTAssertEqual(BrainGraphBuilder.backlinkCount(graph, to: BrainGraphBuilder.nodeID(forNoteSlug: "a")), 0)
+    }
+
+    func testNodeIDIsDeterministic() {
+        XCTAssertEqual(BrainGraphBuilder.nodeID(forNoteSlug: "immunology"),
+                       BrainGraphBuilder.nodeID(forNoteSlug: "immunology"))
+        XCTAssertNotEqual(BrainGraphBuilder.nodeID(forNoteSlug: "a"),
+                          BrainGraphBuilder.nodeID(forNoteSlug: "b"))
+    }
+
+    // MARK: - Note creation
+
+    @MainActor
+    func testCreateNoteWritesUniqueFileWithTitle() throws {
+        let root = tempRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let folder = root.appendingPathComponent("vault")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let vault = BrainVault(id: "vault", title: "Vault", gist: "", noteCount: 0, sourceCount: 0, folder: folder)
+        let store = BrainVaultStore()
+
+        let first = try store.createNote(in: vault, title: "My Idea")
+        XCTAssertEqual(first, "my-idea")
+        let body = try String(contentsOf: folder.appendingPathComponent("my-idea.md"), encoding: .utf8)
+        XCTAssertTrue(body.hasPrefix("# My Idea"))
+
+        // Same title again → a distinct, non-colliding id.
+        let second = try store.createNote(in: vault, title: "My Idea")
+        XCTAssertNotEqual(second, first)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: folder.appendingPathComponent("\(second).md").path))
+    }
+
 }

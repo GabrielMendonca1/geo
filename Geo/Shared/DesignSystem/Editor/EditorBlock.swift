@@ -174,14 +174,15 @@ struct EditorBlock: Identifiable, Equatable, Hashable {
         return copy
     }
 
+    private static let toggleTitleRegex = try! NSRegularExpression(pattern: "^>>\\s*\\[(>|v)\\]\\s*(.*)")
+
     var toggleTitle: String? {
         guard case .toggle = kind else { return nil }
         let lines = rawText.components(separatedBy: "\n")
         guard let first = lines.first else { return nil }
         let ns = first as NSString
         let range = NSRange(location: 0, length: ns.length)
-        let regex = try! NSRegularExpression(pattern: "^>>\\s*\\[(>|v)\\]\\s*(.*)")
-        guard let match = regex.firstMatch(in: first, range: range) else { return nil }
+        guard let match = Self.toggleTitleRegex.firstMatch(in: first, range: range) else { return nil }
         if match.range(at: 2).location != NSNotFound {
             return ns.substring(with: match.range(at: 2))
         }

@@ -5,7 +5,7 @@ import Combine
 final class PermissionRegistry: ObservableObject {
     static let shared = PermissionRegistry()
 
-    private static let defaultRequestOrder = ["accessibility", "inputMonitoring", "notifications"]
+    private static let defaultRequestOrder = ["accessibility", "inputMonitoring", "notifications", "calendar"]
 
     private var permissions: [String: any Permission] = [:]
     private let cache: PermissionCache
@@ -19,6 +19,7 @@ final class PermissionRegistry: ObservableObject {
     var accessibility: PermissionState { states["accessibility"] ?? .unknown }
     var inputMonitoring: PermissionState { states["inputMonitoring"] ?? .unknown }
     var notifications: PermissionState { states["notifications"] ?? .unknown }
+    var calendar: PermissionState { states["calendar"] ?? .unknown }
 
     private init(cache: PermissionCache = PermissionCache()) {
         self.cache = cache
@@ -36,6 +37,7 @@ final class PermissionRegistry: ObservableObject {
         register(AccessibilityPermission())
         register(InputMonitoringPermission())
         register(NotificationPermission())
+        register(CalendarPermission())
     }
 
     func register(_ permission: any Permission) {

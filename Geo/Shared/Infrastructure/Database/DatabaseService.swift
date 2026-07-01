@@ -26,6 +26,11 @@ struct BlockIndexEntry: Equatable {
     let dayIds: [String]
     let altId: String?
 
+    enum Columns: String {
+        case id, path, title, content, createdAt, modifiedAt, tagId, dayId
+        case openTaskCount, completedTaskCount, type, status, layer, isFullWidth, altId
+    }
+
     init(
         id: String,
         path: String,
@@ -62,6 +67,72 @@ struct BlockIndexEntry: Equatable {
         self.isFullWidth = isFullWidth
         self.dayIds = dayIds
         self.altId = altId
+    }
+
+    func withAssociations(tags: [String], dayIds: [String]) -> BlockIndexEntry {
+        BlockIndexEntry(
+            id: id,
+            path: path,
+            title: title,
+            content: content,
+            createdAt: createdAt,
+            modifiedAt: modifiedAt,
+            tagId: tagId,
+            dayId: dayId,
+            openTaskCount: openTaskCount,
+            completedTaskCount: completedTaskCount,
+            tags: tags,
+            type: type,
+            status: status,
+            layer: layer,
+            isFullWidth: isFullWidth,
+            dayIds: dayIds,
+            altId: altId
+        )
+    }
+}
+
+extension BlockIndexEntry: FetchableRecord, PersistableRecord {
+    static let databaseTableName = "blocks"
+
+    init(row: Row) throws {
+        self.init(
+            id: row[Columns.id.rawValue],
+            path: row[Columns.path.rawValue],
+            title: row[Columns.title.rawValue],
+            content: row[Columns.content.rawValue],
+            createdAt: row[Columns.createdAt.rawValue],
+            modifiedAt: row[Columns.modifiedAt.rawValue],
+            tagId: row[Columns.tagId.rawValue],
+            dayId: row[Columns.dayId.rawValue],
+            openTaskCount: row[Columns.openTaskCount.rawValue],
+            completedTaskCount: row[Columns.completedTaskCount.rawValue],
+            tags: [],
+            type: row[Columns.type.rawValue],
+            status: row[Columns.status.rawValue],
+            layer: row[Columns.layer.rawValue],
+            isFullWidth: row[Columns.isFullWidth.rawValue],
+            dayIds: [],
+            altId: row[Columns.altId.rawValue]
+        )
+    }
+
+    func encode(to container: inout PersistenceContainer) {
+        container[Columns.id.rawValue] = id
+        container[Columns.path.rawValue] = path
+        container[Columns.title.rawValue] = title
+        container[Columns.content.rawValue] = content
+        container[Columns.createdAt.rawValue] = createdAt
+        container[Columns.modifiedAt.rawValue] = modifiedAt
+        container[Columns.tagId.rawValue] = tagId
+        container[Columns.dayId.rawValue] = dayId
+        container[Columns.openTaskCount.rawValue] = openTaskCount
+        container[Columns.completedTaskCount.rawValue] = completedTaskCount
+        container[Columns.type.rawValue] = type
+        container[Columns.status.rawValue] = status
+        container[Columns.layer.rawValue] = layer
+        container[Columns.isFullWidth.rawValue] = isFullWidth
+        container[Columns.altId.rawValue] = altId
     }
 }
 
@@ -300,16 +371,29 @@ final class DatabaseService: @unchecked Sendable {
         }
     }
 
-    func blockIds(matchingTag tag: String) async throws -> [String] {
-        try await performRead { db in
-            try String.fetchAll(db, sql: "SELECT blockId FROM block_tags WHERE tag = ?", arguments: [tag.lowercased()])
+    private func blockIds(
+        selecting column: String,
+        from table: String,
+        whereColumn: String,
+        equals value: DatabaseValueConvertible,
+        orderBy: String? = nil
+    ) async throws -> [String] {
+        let orderClause = orderBy.map { " ORDER BY \($0)" } ?? ""
+        return try await performRead { db in
+            try String.fetchAll(
+                db,
+                sql: "SELECT \(column) FROM \(table) WHERE \(whereColumn) = ?\(orderClause)",
+                arguments: [value]
+            )
         }
     }
 
+    func blockIds(matchingTag tag: String) async throws -> [String] {
+        try await blockIds(selecting: "blockId", from: "block_tags", whereColumn: "tag", equals: tag.lowercased())
+    }
+
     func blockIds(matchingDay dayId: String) async throws -> [String] {
-        try await performRead { db in
-            try String.fetchAll(db, sql: "SELECT blockId FROM block_days WHERE dayId = ?", arguments: [dayId])
-        }
+        try await blockIds(selecting: "blockId", from: "block_days", whereColumn: "dayId", equals: dayId)
     }
 
     func blockId(forAltId altId: String) async throws -> String? {
@@ -365,12 +449,12 @@ final class DatabaseService: @unchecked Sendable {
         }
     }
 
-    func fetchBlocks(byType type: String) async throws -> [BlockIndexEntry] {
+    private func fetchBlocksOrdered(byColumn column: String, value: DatabaseValueConvertible) async throws -> [BlockIndexEntry] {
         try await performRead { db in
             let rows = try Row.fetchAll(
                 db,
-                sql: "SELECT id FROM blocks WHERE type = ? ORDER BY modifiedAt DESC",
-                arguments: [type]
+                sql: "SELECT id FROM blocks WHERE \(column) = ? ORDER BY modifiedAt DESC",
+                arguments: [value]
             )
             let ids = rows.map { row -> String in row["id"] }
             guard !ids.isEmpty else { return [] }
@@ -378,41 +462,22 @@ final class DatabaseService: @unchecked Sendable {
             let order = Dictionary(uniqueKeysWithValues: ids.enumerated().map { ($1, $0) })
             return entries.sorted { (order[$0.id] ?? 0) < (order[$1.id] ?? 0) }
         }
+    }
+
+    func fetchBlocks(byType type: String) async throws -> [BlockIndexEntry] {
+        try await fetchBlocksOrdered(byColumn: "type", value: type)
     }
 
     func fetchBlocks(byStatus status: String) async throws -> [BlockIndexEntry] {
-        try await performRead { db in
-            let rows = try Row.fetchAll(
-                db,
-                sql: "SELECT id FROM blocks WHERE status = ? ORDER BY modifiedAt DESC",
-                arguments: [status]
-            )
-            let ids = rows.map { row -> String in row["id"] }
-            guard !ids.isEmpty else { return [] }
-            let entries = try self.fetchBlocks(in: db, ids: ids)
-            let order = Dictionary(uniqueKeysWithValues: ids.enumerated().map { ($1, $0) })
-            return entries.sorted { (order[$0.id] ?? 0) < (order[$1.id] ?? 0) }
-        }
+        try await fetchBlocksOrdered(byColumn: "status", value: status)
     }
 
     func blockIds(matchingType type: String) async throws -> [String] {
-        try await performRead { db in
-            try String.fetchAll(
-                db,
-                sql: "SELECT id FROM blocks WHERE type = ? ORDER BY modifiedAt DESC",
-                arguments: [type]
-            )
-        }
+        try await blockIds(selecting: "id", from: "blocks", whereColumn: "type", equals: type, orderBy: "modifiedAt DESC")
     }
 
     func blockIds(matchingStatus status: String) async throws -> [String] {
-        try await performRead { db in
-            try String.fetchAll(
-                db,
-                sql: "SELECT id FROM blocks WHERE status = ? ORDER BY modifiedAt DESC",
-                arguments: [status]
-            )
-        }
+        try await blockIds(selecting: "id", from: "blocks", whereColumn: "status", equals: status, orderBy: "modifiedAt DESC")
     }
 
     private func sanitizeFTSQuery(_ query: String) -> String {
@@ -484,46 +549,7 @@ final class DatabaseService: @unchecked Sendable {
     }
 
     private func upsertBlock(_ entry: BlockIndexEntry, in db: Database) throws {
-        try db.execute(
-            sql: """
-            INSERT INTO blocks (
-                id, path, title, content, createdAt, modifiedAt, tagId, dayId,
-                openTaskCount, completedTaskCount, type, status, layer, isFullWidth, altId
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET
-                path = excluded.path,
-                title = excluded.title,
-                content = excluded.content,
-                createdAt = excluded.createdAt,
-                modifiedAt = excluded.modifiedAt,
-                tagId = excluded.tagId,
-                dayId = excluded.dayId,
-                openTaskCount = excluded.openTaskCount,
-                completedTaskCount = excluded.completedTaskCount,
-                type = excluded.type,
-                status = excluded.status,
-                layer = excluded.layer,
-                isFullWidth = excluded.isFullWidth,
-                altId = excluded.altId
-            """,
-            arguments: [
-                entry.id,
-                entry.path,
-                entry.title,
-                entry.content,
-                entry.createdAt,
-                entry.modifiedAt,
-                entry.tagId,
-                entry.dayId,
-                entry.openTaskCount,
-                entry.completedTaskCount,
-                entry.type,
-                entry.status,
-                entry.layer,
-                entry.isFullWidth ? 1 : 0,
-                entry.altId
-            ]
-        )
+        try entry.upsert(db)
 
         try db.execute(sql: "DELETE FROM block_tags WHERE blockId = ?", arguments: [entry.id])
         for tag in entry.tags {
@@ -585,38 +611,11 @@ final class DatabaseService: @unchecked Sendable {
             let dayId: String = row["dayId"]
             daysById[blockId, default: []].append(dayId)
         }
-        return rows.compactMap { row in
-            let id: String = row["id"]
-            let path: String = row["path"]
-            let title: String = row["title"]
-            let content: String = row["content"]
-            let createdAt: Date = row["createdAt"]
-            let modifiedAt: Date = row["modifiedAt"]
-            let dayId: String? = row["dayId"]
-            let openTaskCount: Int = row["openTaskCount"]
-            let completedTaskCount: Int = row["completedTaskCount"]
-            let type: String = row["type"]
-            let status: String? = row["status"]
-            let layer: String = row["layer"]
-            let isFullWidthInt: Int = row["isFullWidth"]
-            let altId: String? = row["altId"]
-            return BlockIndexEntry(
-                id: id,
-                path: path,
-                title: title,
-                content: content,
-                createdAt: createdAt,
-                modifiedAt: modifiedAt,
-                dayId: dayId,
-                openTaskCount: openTaskCount,
-                completedTaskCount: completedTaskCount,
-                tags: tagsById[id] ?? [],
-                type: type,
-                status: status,
-                layer: layer,
-                isFullWidth: isFullWidthInt != 0,
-                dayIds: daysById[id] ?? [],
-                altId: altId
+        return try rows.map { row in
+            let entry = try BlockIndexEntry(row: row)
+            return entry.withAssociations(
+                tags: tagsById[entry.id] ?? [],
+                dayIds: daysById[entry.id] ?? []
             )
         }
     }

@@ -212,9 +212,10 @@ struct NanoHermesSettingsView: View {
         if let resource = Bundle.main.resourceURL { roots.append(resource) }
         roots.append(URL(fileURLWithPath: fm.currentDirectoryPath, isDirectory: true))
         roots.append(Bundle.main.bundleURL.deletingLastPathComponent())
+        let maxSearchDepth = 8
         for root in roots {
             var current = root.standardizedFileURL
-            for _ in 0..<8 {
+            for _ in 0..<maxSearchDepth {
                 let candidate = current.appendingPathComponent("hermes/install.sh", isDirectory: false)
                 if fm.isReadableFile(atPath: candidate.path) { return candidate }
                 let parent = current.deletingLastPathComponent()

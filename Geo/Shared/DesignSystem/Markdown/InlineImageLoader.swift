@@ -28,12 +28,14 @@ enum InlineImageLoaderError: LocalizedError {
 }
 
 final class InlineImageLoader {
+    typealias Completion = (Result<NSImage, InlineImageLoaderError>) -> Void
+
     static let shared = InlineImageLoader()
 
     private let cache = NSCache<NSString, NSImage>()
     private let stateQueue = DispatchQueue(label: "com.geo.inline-image-loader.state", attributes: .concurrent)
     private let workQueue = DispatchQueue(label: "com.geo.inline-image-loader.work", qos: .userInitiated)
-    private var inFlight: [String: [(Result<NSImage, InlineImageLoaderError>) -> Void]] = [:]
+    private var inFlight: [String: [Completion]] = [:]
     private let session: URLSession
 
     init(session: URLSession = .shared) {
@@ -41,7 +43,7 @@ final class InlineImageLoader {
         cache.totalCostLimit = 50 * 1024 * 1024
     }
 
-    func loadImage(from url: URL, completion: @escaping (Result<NSImage, InlineImageLoaderError>) -> Void) {
+    func loadImage(from url: URL, completion: @escaping Completion) {
         let key = cacheKey(for: url)
 
         if let cached = cache.object(forKey: key as NSString) {
@@ -51,18 +53,7 @@ final class InlineImageLoader {
             return
         }
 
-        var shouldStartLoad = false
-        stateQueue.sync(flags: .barrier) {
-            if var callbacks = inFlight[key] {
-                callbacks.append(completion)
-                inFlight[key] = callbacks
-            } else {
-                inFlight[key] = [completion]
-                shouldStartLoad = true
-            }
-        }
-
-        guard shouldStartLoad else { return }
+        guard registerCallback(key, completion) else { return }
 
         if url.isFileURL {
             workQueue.async {
@@ -114,6 +105,28 @@ final class InlineImageLoader {
         return .success(image)
     }
 
+    private func registerCallback(_ key: String, _ callback: @escaping Completion) -> Bool {
+        var shouldStartLoad = false
+        stateQueue.sync(flags: .barrier) {
+            if var callbacks = inFlight[key] {
+                callbacks.append(callback)
+                inFlight[key] = callbacks
+            } else {
+                inFlight[key] = [callback]
+                shouldStartLoad = true
+            }
+        }
+        return shouldStartLoad
+    }
+
+    private func drainCallbacks(_ key: String) -> [Completion] {
+        var callbacks: [Completion] = []
+        stateQueue.sync(flags: .barrier) {
+            callbacks = inFlight.removeValue(forKey: key) ?? []
+        }
+        return callbacks
+    }
+
     private func complete(result: Result<NSImage, InlineImageLoaderError>, for key: String, url: URL) {
         if case .success(let image) = result {
             let cost = image.representations.reduce(0) { total, rep in
@@ -126,10 +139,7 @@ final class InlineImageLoader {
             logFailure(url: url, error: error)
         }
 
-        var callbacks: [(Result<NSImage, InlineImageLoaderError>) -> Void] = []
-        stateQueue.sync(flags: .barrier) {
-            callbacks = inFlight.removeValue(forKey: key) ?? []
-        }
+        let callbacks = drainCallbacks(key)
 
         guard !callbacks.isEmpty else { return }
 

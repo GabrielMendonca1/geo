@@ -3,7 +3,7 @@ import SwiftUI
 struct UnifiedNavigationContainer: View {
     @Environment(\.tabRouter) private var tabRouter
     @State private var lruOrder: [AppTab] = []
-    private let maxLiveTabs = AppTab.allCases.count
+    private let maxLiveTabs = 3
 
     private var liveTabs: Set<AppTab> {
         var tabs = Set<AppTab>()

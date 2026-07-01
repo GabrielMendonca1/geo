@@ -1,4 +1,5 @@
 import Foundation
+import GeoCore
 import os.log
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "geo", category: "TaskFormViewModel")
@@ -10,7 +11,6 @@ final class TaskFormViewModel: ObservableObject {
 
     @Published var kind: TaskKind = .task
     @Published var title: String = ""
-    @Published var notes: String = ""
     @Published var taskStatus: TaskStatus = .pending
     @Published var priority: TaskPriority = .unset
 
@@ -20,7 +20,6 @@ final class TaskFormViewModel: ObservableObject {
     @Published var endDate: Date
     @Published var endTime: Date
     @Published var isAllDay: Bool = false
-    @Published var location: String = ""
 
     @Published var hasEstimate: Bool = false
     @Published var estimatedMinutes: Int = 30
@@ -114,6 +113,13 @@ final class TaskFormViewModel: ObservableObject {
         return "Pending"
     }
 
+    func applyPrefillDate(_ prefill: Date) {
+        date = prefill
+        time = prefill
+        endDate = prefill
+        endTime = prefill.addingTimeInterval(3600)
+    }
+
     func loadEditingTaskIfNeeded(_ task: TaskItem?) {
         guard !didLoadEditingTask else { return }
         didLoadEditingTask = true
@@ -123,7 +129,6 @@ final class TaskFormViewModel: ObservableObject {
             return
         }
         title = task.title.trimmingCharacters(in: .whitespacesAndNewlines)
-        notes = task.notes
         taskStatus = task.status
         reminders = Set(task.reminders.compactMap { r -> ReminderOffset? in
             if case .offset(let off) = r.trigger { return off }
@@ -139,7 +144,7 @@ final class TaskFormViewModel: ObservableObject {
         case .task(let due, _):
             date = due
             time = due
-        case .event(let start, let end):
+        case .event(let start, let end, _):
             date = start
             time = start
             hasEndDate = true
@@ -237,11 +242,8 @@ final class TaskFormViewModel: ObservableObject {
         case .event:
             if force || !hasEndDate {
                 hasEndDate = true
-                let now = Date()
-                date = now
-                time = now
-                endDate = now
-                endTime = now.addingTimeInterval(3600)
+                endDate = date
+                endTime = time.addingTimeInterval(3600)
             }
         case .habit:
             if force || recurrenceType == .never {
@@ -272,7 +274,6 @@ final class TaskFormViewModel: ObservableObject {
         do {
             if var task = editingTask {
                 task.title = draft.title
-                task.notes = draft.notes
                 task.linkedBlockId = draft.linkedBlockId
                 task.status = taskStatus
                 task.body = preserveOccurrencesIfHabit(old: task.body, new: draft.body)
@@ -309,16 +310,8 @@ final class TaskFormViewModel: ObservableObject {
             effectiveReminders = reminders.map { Reminder(trigger: .offset($0)) }
         }
 
-        let trimmedNotes: String
-        if kind == .event, !location.isEmpty {
-            trimmedNotes = notes.isEmpty ? "Location: \(location)" : notes + "\n\nLocation: \(location)"
-        } else {
-            trimmedNotes = notes
-        }
-
         return TaskDraft(
             title: trimmedTitle,
-            notes: trimmedNotes,
             linkedBlockId: linkedBlockId,
             status: taskStatus,
             priority: priority,
@@ -335,7 +328,7 @@ final class TaskFormViewModel: ObservableObject {
             return .task(due: resolvedStartTime, estimatedMinutes: hasEstimate ? estimatedMinutes : nil)
         case .event:
             let end = resolvedEndTime ?? resolvedStartTime.addingTimeInterval(3600)
-            return .event(start: resolvedStartTime, end: max(end, resolvedStartTime))
+            return .event(start: resolvedStartTime, end: max(end, resolvedStartTime), externalEKEventID: nil)
         case .habit:
             let rule = buildRecurrenceRule()
             return .habit(rule: rule, timeOfDay: resolvedStartTime, occurrences: [])

@@ -30,12 +30,8 @@ final class JobStore: ObservableObject {
     @Published private(set) var jobs: [Job] = []
     @Published private(set) var lastError: String?
 
-    private nonisolated static let statusURL = FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent(".hermes/status.json")
-    private var pollTask: Task<Void, Never>?
-
-    init(runtimeLookup: ((String) -> JobRuntime?)? = nil) {
-        _ = runtimeLookup
+    private lazy var poller = Poller(interval: 5_000_000_000) { [weak self] in
+        await self?.runRefresh()
     }
 
     func refresh() {
@@ -45,18 +41,11 @@ final class JobStore: ObservableObject {
     }
 
     func startPolling() {
-        guard pollTask == nil else { return }
-        pollTask = Task { [weak self] in
-            while !Task.isCancelled {
-                await self?.runRefresh()
-                try? await Task.sleep(nanoseconds: 5_000_000_000)
-            }
-        }
+        poller.start()
     }
 
     func stopPolling() {
-        pollTask?.cancel()
-        pollTask = nil
+        poller.stop()
     }
 
     func add(_ spec: JobSpec) {
@@ -128,33 +117,25 @@ final class JobStore: ObservableObject {
     }
 
     private nonisolated static func readStatus() async -> Result<[Job], Error> {
-        await Task.detached(priority: .utility) {
-            guard FileManager.default.fileExists(atPath: statusURL.path),
-                  let data = try? Data(contentsOf: statusURL) else {
-                return .success([])
-            }
-            guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-                return .success([])
-            }
-            let arr = (obj["crons"] as? [[String: Any]]) ?? []
-            let jobs: [Job] = arr.compactMap { Self.parseJob($0) }
-            return .success(jobs)
-        }.value
+        let status = await HermesStatus.read()
+        let arr = status?.crons ?? []
+        let jobs: [Job] = arr.compactMap { Self.parseJob($0) }
+        return .success(jobs)
     }
 
-    private nonisolated static func parseJob(_ obj: [String: Any]) -> Job? {
-        let id = (obj["id"] as? String) ?? ""
+    private nonisolated static func parseJob(_ obj: HermesStatus.Cron) -> Job? {
+        let id = obj.id ?? ""
         guard !id.isEmpty else { return nil }
-        let title = (obj["title"] as? String) ?? id
-        let schedule = (obj["schedule"] as? String) ?? ""
-        let prompt = (obj["prompt"] as? String) ?? ""
+        let title = obj.title ?? id
+        let schedule = obj.schedule ?? ""
+        let prompt = obj.prompt ?? ""
         let spec = JobSpec(id: id, title: title, cron: schedule, prompt: prompt, sinks: [])
         var lastRun: Date?
-        if let s = obj["last_run_at"] as? String {
+        if let s = obj.last_run_at {
             lastRun = ISO8601DateFormatter().date(from: s)
         }
-        let lastStatus = (obj["last_status"] as? String) ?? ""
-        let lastError = obj["last_error"] as? String
+        let lastStatus = obj.last_status ?? ""
+        let lastError = obj.last_error
         let runtime: JobRuntime?
         if lastRun != nil || !lastStatus.isEmpty || lastError != nil {
             runtime = JobRuntime(id: id, lastRun: lastRun, lastStatus: lastStatus, error: lastError)

@@ -1,22 +1,22 @@
-"""Destructive Geo ops gated on a Telegram Y/N confirm.
-
-DM Gabriel → wait 30 s for Y/N → commit or abort.
+"""Destructive Geo ops gated on a two-phase confirm-token handshake.
 
 Blocks are files-are-truth, so a block delete is a native ``rm`` of its .md
 under the Geo vault (the app FileWatcher reconciles the derived index). A task
-delete stays KEEP-COMPUTE over HTTP — a plain ``DELETE /tasks/{id}`` (no
-two-phase prepare/commit; the /v1/destructive/* routes are gone).
+delete is likewise a native rm of its ``.json`` under ``Tasks/`` via tasks_fs.
 
-Confirmation mechanism (why this is self-contained):
-The agent's turn blocks inside the tool call awaiting Gabriel's reply. When his
-"Y" arrives the gateway fires the ``pre_gateway_dispatch`` hook BEFORE its
-"interrupt running agent" step (gateway/run.py). The hook resolves the pending
-confirmation and returns ``action="skip"``, which makes the gateway drop the
-reply early — so it does NOT interrupt/cancel the blocked turn (the old bug:
-"Y did nothing"). Resolution uses a module-level ``_pending`` + ``threading.Event``
-so it works regardless of event-loop/thread and needs no gateway session plumbing
-(the native approval queue's notifier is only registered by the TUI gateway, not
-the Telegram one — which is why the previous native bridge silently fell back).
+Confirmation mechanism (why two-phase, not a blocking wait):
+The old design blocked the agent's turn inside the tool call on a
+``threading.Event`` with a 30 s timeout, racing Gabriel's reply against
+Telegram's inbound batching + human latency — replies slower than ~25 s always
+timed out, and the late "Y" then started a fresh turn that re-triggered the
+same doomed wait (the "reply Y does nothing" loop). Now the first call stages
+the delete and returns immediately with a ``confirm_token``; the agent asks
+Gabriel in its normal reply and ends the turn. Gabriel's confirmation arrives
+as an ordinary new message, and the agent calls the tool again with the token
+to commit. No blocking, no timeout race, platform-agnostic (works the same on
+Telegram, WhatsApp and the TUI). Staged deletes expire after CONFIRM_TTL_S and
+die with the process — both fail safe (nothing is deleted without a live
+token round-trip).
 """
 
 from __future__ import annotations
@@ -24,10 +24,11 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import secrets
 import shutil
-import threading
+import time
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Optional
+from typing import Any, Awaitable, Callable
 
 from . import guard, tasks_fs
 from .client import GeoError
@@ -36,14 +37,9 @@ BLOCKS_DIR = (
     Path.home() / "Library" / "Application Support" / "Geo" / "Blocks"
 )
 
-GABRIEL_TELEGRAM_CHAT_ID = "5225262193"
-TELEGRAM_TARGET = f"telegram:{GABRIEL_TELEGRAM_CHAT_ID}"
-CONFIRM_TIMEOUT_S = 30.0
-REMINDER_AT_S = 25.0
+CONFIRM_TTL_S = 900.0
 
-# One in-flight confirmation at a time (deletes are rare; _confirm_gate serializes).
-_confirm_gate = asyncio.Lock()
-_pending: "Optional[_PendingConfirm]" = None
+_staged: dict[str, dict] = {}
 
 
 def _err(msg: str) -> str:
@@ -54,128 +50,77 @@ def _result(ok: bool, **fields: Any) -> str:
     return json.dumps({"ok": ok, **fields}, default=str)
 
 
-class _PendingConfirm:
-    """A delete awaiting Gabriel's Y/N. Resolved by the inbound hook from any
-    thread via a threading.Event; awaited on the loop via asyncio.to_thread."""
-
-    __slots__ = ("_event", "verdict")
-
-    def __init__(self) -> None:
-        self._event = threading.Event()
-        self.verdict = "timeout"
-
-    @property
-    def resolved(self) -> bool:
-        return self._event.is_set()
-
-    def resolve(self, verdict: str) -> None:
-        if not self._event.is_set():
-            self.verdict = verdict
-            self._event.set()
-
-    async def wait(self) -> str:
-        # Two-stage so we can nudge a reminder at REMINDER_AT_S without a reply.
-        got = await asyncio.to_thread(self._event.wait, REMINDER_AT_S)
-        if not got:
-            try:
-                await _send_telegram_sync("⏳ 5 s left — reply Y to delete, or it cancels.")
-            except Exception:
-                pass
-            await asyncio.to_thread(self._event.wait, CONFIRM_TIMEOUT_S - REMINDER_AT_S)
-        return self.verdict
+def _prune_staged() -> None:
+    now = time.monotonic()
+    for token in [t for t, e in _staged.items() if e["expires"] <= now]:
+        del _staged[token]
 
 
-def _classify_reply(text: str) -> Optional[str]:
-    norm = text.strip().lower()
-    if norm in ("y", "yes", "yeah", "yep", "confirm", "ok", "okay", "sim"):
-        return "yes"
-    if norm in ("n", "no", "nope", "deny", "cancel", "abort", "não", "nao"):
-        return "no"
-    return None
+def _stage(kind: str, target_id: str, title: str) -> str:
+    """Stage a delete and return its token; re-staging the same target
+    refreshes the TTL and reuses the existing token."""
+    _prune_staged()
+    for token, entry in _staged.items():
+        if entry["kind"] == kind and entry["id"] == target_id:
+            entry["expires"] = time.monotonic() + CONFIRM_TTL_S
+            return token
+    token = secrets.token_hex(4)
+    _staged[token] = {
+        "kind": kind,
+        "id": target_id,
+        "title": title,
+        "expires": time.monotonic() + CONFIRM_TTL_S,
+    }
+    return token
 
 
-def pre_gateway_dispatch_hook(event=None, **_kw: Any) -> Optional[dict]:
-    """Resolve a pending Geo delete from Gabriel's Telegram Y/N reply.
-
-    Returns ``action="skip"`` when the reply answers a pending confirmation, so
-    the gateway drops it before the interrupt step and the blocked delete turn
-    survives to commit. Returns ``None`` (allow) otherwise.
-    """
-    if event is None:
-        return None
-    try:
-        if _pending is None or _pending.resolved:
-            return None
-        source = getattr(event, "source", None)
-        if source is None:
-            return None
-        platform = getattr(source, "platform", None)
-        platform_name = getattr(platform, "value", str(platform) if platform else "")
-        if platform_name.lower() != "telegram":
-            return None
-        if str(getattr(source, "chat_id", "") or "") != GABRIEL_TELEGRAM_CHAT_ID:
-            return None
-        verdict = _classify_reply(getattr(event, "text", None) or "")
-        if verdict is None:
-            return None
-        _pending.resolve(verdict)
-        return {"action": "skip", "reason": "geo_destructive_confirmation"}
-    except Exception:
-        return None
-
-
-async def _send_telegram_sync(message: str) -> None:
-    """Dispatch via the in-process send_message tool registry entry."""
-    from tools.registry import registry
-
-    entry = registry.get_entry("send_message")
-    if entry is None:
-        raise RuntimeError("send_message tool not registered")
-    args = {"action": "send", "target": TELEGRAM_TARGET, "message": message}
-    if entry.is_async:
-        await entry.handler(args)
-    else:
-        await asyncio.to_thread(entry.handler, args)
-
-
-def _confirm_message(target_label: str) -> str:
-    return (
-        f"🗑️ Delete {target_label}?\n"
-        f"Reply Y to confirm — N or no reply cancels (30s)."
+def _pending(token: str, label: str, note: str = "") -> str:
+    return _result(
+        False,
+        pending_confirmation=True,
+        confirm_token=token,
+        expires_in_s=int(CONFIRM_TTL_S),
+        instruction=(
+            f"{note}NOTHING was deleted. Ask Gabriel to confirm deleting "
+            f"{label} in your reply and END YOUR TURN. Only after he explicitly "
+            f"confirms in his NEXT message, call this tool again with the same "
+            f"id plus this confirm_token. If he declines or doesn't answer, do "
+            f"nothing — the token expires on its own."
+        ),
     )
 
 
-async def _confirm_then(
-    target_label: str,
+async def _confirmed_delete(
+    kind: str,
+    args: dict,
     commit: Callable[[], Awaitable[Any]],
 ) -> str:
-    """DM Gabriel, wait for Y/N, then run ``commit`` on a 'yes'."""
-    global _pending
-    async with _confirm_gate:
-        pending = _PendingConfirm()
-        _pending = pending
-        try:
-            try:
-                await _send_telegram_sync(_confirm_message(target_label))
-            except Exception as e:
-                return _result(False, reason="telegram_send_failed", detail=str(e))
+    target_id = (args or {}).get("id")
+    if not target_id:
+        return _err("id is required")
+    title = (args or {}).get("title") or target_id
+    label = f"{kind} '{title}'"
+    token = (args or {}).get("confirm_token")
 
-            verdict = await pending.wait()
-            if verdict != "yes":
-                return _result(
-                    False,
-                    reason="user_denied" if verdict == "no" else "timeout",
-                )
+    if not token:
+        return _pending(_stage(kind, target_id, title), label)
 
-            try:
-                commit_result = await commit()
-            except GeoError as e:
-                return _result(False, reason="commit_failed", detail=str(e))
-            except Exception as e:
-                return _result(False, reason="commit_failed", detail=f"{type(e).__name__}: {e}")
-        finally:
-            _pending = None
+    _prune_staged()
+    entry = _staged.get(str(token))
+    if entry is None or entry["kind"] != kind or entry["id"] != target_id:
+        return _pending(
+            _stage(kind, target_id, title),
+            label,
+            note="confirm_token invalid or expired — restaged. ",
+        )
 
+    del _staged[str(token)]
+    try:
+        commit_result = await commit()
+    except GeoError as e:
+        return _result(False, reason="commit_failed", detail=str(e))
+    except Exception as e:
+        return _result(False, reason="commit_failed", detail=f"{type(e).__name__}: {e}")
     return _result(True, result=commit_result)
 
 
@@ -193,42 +138,41 @@ def _rm_block(block_id: str) -> dict:
 
 
 async def _delete_block(args: dict, **_kw: Any) -> str:
-    block_id = (args or {}).get("id")
-    if not block_id:
-        return _err("id is required")
-    label = f"block '{(args or {}).get('title') or block_id}'"
-
     async def commit() -> Any:
-        return await asyncio.to_thread(_rm_block, block_id)
+        return await asyncio.to_thread(_rm_block, args["id"])
 
-    return await _confirm_then(label, commit)
+    return await _confirmed_delete("block", args, commit)
 
 
 async def _delete_task(args: dict, **_kw: Any) -> str:
-    task_id = (args or {}).get("id")
-    if not task_id:
-        return _err("id is required")
-    label = f"task '{(args or {}).get('title') or task_id}'"
-
     async def commit() -> Any:
-        return await asyncio.to_thread(tasks_fs.delete_task, task_id)
+        return await asyncio.to_thread(tasks_fs.delete_task, args["id"])
 
-    return await _confirm_then(label, commit)
+    return await _confirmed_delete("task", args, commit)
 
+
+_CONFIRM_DOC = (
+    "Two-phase: the FIRST call (no confirm_token) deletes nothing — it stages "
+    "the delete and returns a confirm_token. Ask Gabriel for confirmation in "
+    "your reply and end the turn. Only after he explicitly confirms in a NEW "
+    "message, call again with the same id + confirm_token to commit. Never "
+    "pass a confirm_token Gabriel has not confirmed. Always pass `title` so "
+    "the confirmation question is readable."
+)
 
 DESTRUCTIVE_TOOLS: list[dict] = [
     {
         "name": "geo_delete_block",
         "description": (
             "DESTRUCTIVE: delete a block (native rm of its .md file; the app "
-            "reconciles). Requires Gabriel's Telegram Y confirm within 30 s. "
-            "Always pass `title` so the confirm DM is readable."
+            "reconciles). " + _CONFIRM_DOC
         ),
         "parameters": {
             "type": "object",
             "properties": {
                 "id": {"type": "string"},
-                "title": {"type": "string", "description": "Shown in the confirm DM. Always pass it."},
+                "title": {"type": "string", "description": "Shown in the confirmation question. Always pass it."},
+                "confirm_token": {"type": "string", "description": "Only on the second call, after Gabriel explicitly confirmed."},
             },
             "required": ["id"],
         },
@@ -237,21 +181,18 @@ DESTRUCTIVE_TOOLS: list[dict] = [
     {
         "name": "geo_delete_task",
         "description": (
-            "DESTRUCTIVE: delete a task (HTTP DELETE). Requires Gabriel's Telegram "
-            "Y confirm within 30 s. Always pass `title` so the confirm DM is readable."
+            "DESTRUCTIVE: delete a task (native rm of its .json under Tasks/; "
+            "the app reconciles). " + _CONFIRM_DOC
         ),
         "parameters": {
             "type": "object",
             "properties": {
                 "id": {"type": "string"},
-                "title": {"type": "string", "description": "Shown in the confirm DM. Always pass it."},
+                "title": {"type": "string", "description": "Shown in the confirmation question. Always pass it."},
+                "confirm_token": {"type": "string", "description": "Only on the second call, after Gabriel explicitly confirmed."},
             },
             "required": ["id"],
         },
         "handler": _delete_task,
     },
 ]
-
-
-def get_inbound_hook() -> Callable:
-    return pre_gateway_dispatch_hook

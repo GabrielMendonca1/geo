@@ -3,6 +3,71 @@ import AppKit
 import SwiftUI
 import os
 
+final class Poller {
+    private var task: Task<Void, Never>?
+    private let interval: UInt64
+    private let tick: @Sendable () async -> Void
+
+    init(interval: UInt64, tick: @escaping @Sendable () async -> Void) {
+        self.interval = interval
+        self.tick = tick
+    }
+
+    func start() {
+        guard task == nil else { return }
+        let interval = self.interval
+        let tick = self.tick
+        task = Task {
+            while !Task.isCancelled {
+                await tick()
+                try? await Task.sleep(nanoseconds: interval)
+            }
+        }
+    }
+
+    func stop() {
+        task?.cancel()
+        task = nil
+    }
+}
+
+struct HermesStatus: Codable {
+    struct Channel: Codable {
+        let state: String?
+        let detail: String?
+        let identity: String?
+        let last_seen_ms: Double?
+    }
+
+    struct Cron: Codable {
+        let id: String?
+        let title: String?
+        let schedule: String?
+        let prompt: String?
+        let last_run_at: String?
+        let last_status: String?
+        let last_error: String?
+    }
+
+    let provider: String?
+    let whatsapp_qr_path: String?
+    let channels: [String: Channel]?
+    let crons: [Cron]?
+
+    private nonisolated static let statusURL = FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent(".hermes/status.json")
+
+    nonisolated static func read() async -> HermesStatus? {
+        await Task.detached(priority: .utility) {
+            guard FileManager.default.fileExists(atPath: statusURL.path),
+                  let data = try? Data(contentsOf: statusURL) else {
+                return nil
+            }
+            return try? JSONDecoder().decode(HermesStatus.self, from: data)
+        }.value
+    }
+}
+
 enum HermesConnectionStatus: Equatable {
     case disconnected
     case connecting
@@ -65,7 +130,9 @@ final class HermesStatusService: ObservableObject {
     }
 
     private let logger = Logger(subsystem: "ai.geo", category: "HermesStatusService")
-    private var pollTask: Task<Void, Never>?
+    private lazy var poller = Poller(interval: Self.pollInterval) { [weak self] in
+        await self?.pollOnce()
+    }
     private static let launchAgentLabel = "ai.hermes.gateway"
     private static let pollInterval: UInt64 = 5_000_000_000
 
@@ -79,18 +146,11 @@ final class HermesStatusService: ObservableObject {
     ]
 
     func start() {
-        guard pollTask == nil else { return }
-        pollTask = Task { [weak self] in
-            while !Task.isCancelled {
-                await self?.pollOnce()
-                try? await Task.sleep(nanoseconds: HermesStatusService.pollInterval)
-            }
-        }
+        poller.start()
     }
 
     func stop() {
-        pollTask?.cancel()
-        pollTask = nil
+        poller.stop()
     }
 
     private func pollOnce() async {
@@ -101,13 +161,12 @@ final class HermesStatusService: ObservableObject {
         } else {
             daemonUp = false
         }
-        let statusData: Data?
+        let parsed: HermesStatus?
         if installed {
-            statusData = await Self.readStatusData()
+            parsed = await HermesStatus.read()
         } else {
-            statusData = nil
+            parsed = nil
         }
-        let parsed = statusData.flatMap { Self.parseStatusData($0) }
         self.binaryInstalled = installed
         self.applyDaemon(daemonUp: daemonUp)
         self.applyStatus(parsed)
@@ -193,31 +252,31 @@ final class HermesStatusService: ObservableObject {
         }
     }
 
-    private func applyStatus(_ obj: [String: Any]?) {
-        guard let obj else { return }
-        if let p = obj["provider"] as? String, !p.isEmpty {
+    private func applyStatus(_ status: HermesStatus?) {
+        guard let status else { return }
+        if let p = status.provider, !p.isEmpty {
             provider = p
         }
-        if let qrPath = obj["whatsapp_qr_path"] as? String,
+        if let qrPath = status.whatsapp_qr_path,
            !qrPath.isEmpty,
            FileManager.default.fileExists(atPath: qrPath),
            let img = NSImage(contentsOfFile: qrPath) {
             whatsappQR = img
-        } else if (obj["whatsapp_qr_path"] as? String).map({ $0.isEmpty }) ?? false {
+        } else if status.whatsapp_qr_path.map({ $0.isEmpty }) ?? false {
             whatsappQR = nil
         }
-        if let chans = obj["channels"] as? [String: Any] {
+        if let chans = status.channels {
             for i in connectors.indices {
                 let id = connectors[i].id
-                guard let entry = chans[id] as? [String: Any] else {
+                guard let entry = chans[id] else {
                     connectors[i].status = .disconnected
                     continue
                 }
-                let state = (entry["state"] as? String) ?? "disconnected"
-                connectors[i].status = Self.parseStatus(state, detail: entry["detail"] as? String)
-                connectors[i].identity = entry["identity"] as? String
-                connectors[i].detail = entry["detail"] as? String
-                if let lastMs = entry["last_seen_ms"] as? Double {
+                let state = entry.state ?? "disconnected"
+                connectors[i].status = Self.parseStatus(state, detail: entry.detail)
+                connectors[i].identity = entry.identity
+                connectors[i].detail = entry.detail
+                if let lastMs = entry.last_seen_ms {
                     connectors[i].lastSeen = Date(timeIntervalSince1970: lastMs / 1000)
                 }
             }
@@ -375,22 +434,6 @@ final class HermesStatusService: ObservableObject {
                 return false
             }
         }.value
-    }
-
-    private static func readStatusData() async -> Data? {
-        await Task.detached(priority: .utility) {
-            let url = FileManager.default.homeDirectoryForCurrentUser
-                .appendingPathComponent(".hermes/status.json")
-            guard FileManager.default.fileExists(atPath: url.path),
-                  let data = try? Data(contentsOf: url) else {
-                return nil
-            }
-            return data
-        }.value
-    }
-
-    private static func parseStatusData(_ data: Data) -> [String: Any]? {
-        (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
     }
 
     private static func openTerminal(command: String) {

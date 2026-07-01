@@ -37,7 +37,7 @@ final class SlashMenuPlugin: EditorPlugin {
 
     func onTransaction(_ transaction: EditorTransaction, oldContext: PluginContext, newContext: PluginContext) {
         guard let router else { return }
-        if (transaction.meta["composing"] as? Bool) == true { return }
+        if transaction.meta.composing { return }
 
         guard let focusedId = newContext.focusedBlockId,
               let index = newContext.blocks.firstIndex(where: { $0.id == focusedId })
@@ -53,7 +53,7 @@ final class SlashMenuPlugin: EditorPlugin {
         }
 
         let content = block.content
-        let metaCaret = transaction.meta["postEditCaret"] as? Int
+        let metaCaret = transaction.meta.postEditCaret
         let caret = metaCaret ?? cursorOffset(in: newContext.selection, for: focusedId) ?? content.count
         let ns = content as NSString
         let clamped = max(0, min(caret, ns.length))
@@ -86,7 +86,7 @@ final class MentionMenuPlugin: EditorPlugin {
 
     func onTransaction(_ transaction: EditorTransaction, oldContext: PluginContext, newContext: PluginContext) {
         guard let router else { return }
-        if (transaction.meta["composing"] as? Bool) == true { return }
+        if transaction.meta.composing { return }
 
         guard let focusedId = newContext.focusedBlockId,
               let index = newContext.blocks.firstIndex(where: { $0.id == focusedId })
@@ -97,7 +97,7 @@ final class MentionMenuPlugin: EditorPlugin {
 
         let block = newContext.blocks[index]
         let content = block.content
-        let metaCaret = transaction.meta["postEditCaret"] as? Int
+        let metaCaret = transaction.meta.postEditCaret
         let caret = metaCaret ?? cursorOffset(in: newContext.selection, for: focusedId) ?? content.count
         let ns = content as NSString
         let clamped = max(0, min(caret, ns.length))

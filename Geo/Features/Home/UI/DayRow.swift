@@ -1,4 +1,5 @@
 import SwiftUI
+import GeoCore
 
 struct DayRow: View {
     let day: Day

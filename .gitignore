@@ -50,3 +50,29 @@ Geo/build-iso/
 Geo/*.xcresult/
 Geo/default.profraw
 *.profraw
+
+### Secrets / credentials (never commit) ###
+.env
+*.env
+!*.env.template
+auth.json
+*credentials*
+*_priv.pem
+dsa_priv.pem
+sparkle_priv*
+*.p12
+
+### Personal vault / runtime data (lives outside the repo — guard against copy-in) ###
+Blocks/
+Captures/
+days.json
+tags.json
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+Index/
+status.json
+
+### Stray local artifacts ###
+test_hash
+.brain

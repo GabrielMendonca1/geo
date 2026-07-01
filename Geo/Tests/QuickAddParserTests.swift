@@ -1,4 +1,5 @@
 import XCTest
+import GeoCore
 @testable import Geo
 
 final class QuickAddParserTests: XCTestCase {
@@ -55,7 +56,7 @@ final class QuickAddParserTests: XCTestCase {
         XCTAssertEqual(result.kind, .event)
         XCTAssertEqual(result.confidence, .high)
         XCTAssertEqual(result.title, "Standup")
-        guard case .event(let date, let end) = result.body else {
+        guard case .event(let date, let end, _) = result.body else {
             return XCTFail("Expected .event body")
         }
         XCTAssertEqual(end.timeIntervalSince(date), 3600)
@@ -70,7 +71,7 @@ final class QuickAddParserTests: XCTestCase {
     func testTimeInPastBumpsToTomorrow() {
         let now = makeNow(hour: 14)
         let result = QuickAddParser.parse("Coffee at 10am", now: now, calendar: calendar)
-        guard case .event(let date, _) = result.body else {
+        guard case .event(let date, _, _) = result.body else {
             return XCTFail("Expected .event body")
         }
         let comps = components(date, [.day, .hour])
@@ -81,14 +82,14 @@ final class QuickAddParserTests: XCTestCase {
     func testEventAt3pm() {
         let result = QuickAddParser.parse("Call dentist at 3pm", now: makeNow(hour: 8), calendar: calendar)
         XCTAssertEqual(result.kind, .event)
-        guard case .event(let date, _) = result.body else { return XCTFail() }
+        guard case .event(let date, _, _) = result.body else { return XCTFail() }
         XCTAssertEqual(components(date, [.hour, .minute]).hour, 15)
     }
 
     func testEventWithMinutes10_30am() {
         let result = QuickAddParser.parse("Sync 10:30am", now: makeNow(hour: 8), calendar: calendar)
         XCTAssertEqual(result.kind, .event)
-        guard case .event(let date, _) = result.body else { return XCTFail() }
+        guard case .event(let date, _, _) = result.body else { return XCTFail() }
         let c = components(date, [.hour, .minute])
         XCTAssertEqual(c.hour, 10)
         XCTAssertEqual(c.minute, 30)
@@ -98,7 +99,7 @@ final class QuickAddParserTests: XCTestCase {
     func test24HourTime() {
         let result = QuickAddParser.parse("Standup at 14:30", now: makeNow(hour: 8), calendar: calendar)
         XCTAssertEqual(result.kind, .event)
-        guard case .event(let date, _) = result.body else { return XCTFail() }
+        guard case .event(let date, _, _) = result.body else { return XCTFail() }
         let c = components(date, [.hour, .minute])
         XCTAssertEqual(c.hour, 14)
         XCTAssertEqual(c.minute, 30)
@@ -107,26 +108,26 @@ final class QuickAddParserTests: XCTestCase {
     func testEventWithDuration1h() {
         let result = QuickAddParser.parse("Workshop at 2pm for 1 hour", now: makeNow(hour: 8), calendar: calendar)
         XCTAssertEqual(result.kind, .event)
-        guard case .event(let start, let end) = result.body else { return XCTFail() }
+        guard case .event(let start, let end, _) = result.body else { return XCTFail() }
         XCTAssertEqual(end.timeIntervalSince(start), 3600)
         XCTAssertEqual(result.title, "Workshop")
     }
 
     func testEventDuration30Min() {
         let result = QuickAddParser.parse("Quick call at 4pm for 30 min", now: makeNow(hour: 8), calendar: calendar)
-        guard case .event(let start, let end) = result.body else { return XCTFail() }
+        guard case .event(let start, let end, _) = result.body else { return XCTFail() }
         XCTAssertEqual(end.timeIntervalSince(start), 30 * 60)
     }
 
     func test12pmIsNoon() {
         let result = QuickAddParser.parse("Lunch at 12pm", now: makeNow(hour: 8), calendar: calendar)
-        guard case .event(let date, _) = result.body else { return XCTFail() }
+        guard case .event(let date, _, _) = result.body else { return XCTFail() }
         XCTAssertEqual(components(date, [.hour]).hour, 12)
     }
 
     func test12amIsMidnight() {
         let result = QuickAddParser.parse("Cron at 12am", now: makeNow(hour: 8), calendar: calendar)
-        guard case .event(let date, _) = result.body else { return XCTFail() }
+        guard case .event(let date, _, _) = result.body else { return XCTFail() }
         XCTAssertEqual(components(date, [.hour]).hour, 0)
     }
 
@@ -210,7 +211,7 @@ final class QuickAddParserTests: XCTestCase {
         XCTAssertEqual(rule.type, .custom)
         XCTAssertEqual(rule.customInterval, 2)
         XCTAssertEqual(rule.customFrequency, .daily)
-        XCTAssertEqual(components(timeOfDay, [.hour]).hour, 11)
+        XCTAssertEqual(timeOfDay, calendar.startOfDay(for: now))
         XCTAssertEqual(result.title, "Take meds")
     }
 
@@ -262,7 +263,7 @@ final class QuickAddParserTests: XCTestCase {
         let now = makeNow(year: 2025, month: 4, day: 16)
         let result = QuickAddParser.parse("1:1 with Sara Thursday 3pm for 1 hour", now: now, calendar: calendar)
         XCTAssertEqual(result.kind, .event)
-        guard case .event(let date, let end) = result.body else { return XCTFail() }
+        guard case .event(let date, let end, _) = result.body else { return XCTFail() }
         XCTAssertEqual(end.timeIntervalSince(date), 3600)
         let c = components(date, [.weekday, .hour, .minute, .day])
         XCTAssertEqual(c.weekday, 5)
@@ -300,7 +301,7 @@ final class QuickAddParserTests: XCTestCase {
         let now = makeNow(year: 2025, month: 4, day: 16)
         let result = QuickAddParser.parse("Standup next Monday at 10am", now: now, calendar: calendar)
         XCTAssertEqual(result.kind, .event)
-        guard case .event(let date, _) = result.body else { return XCTFail() }
+        guard case .event(let date, _, _) = result.body else { return XCTFail() }
         let c = components(date, [.weekday, .day])
         XCTAssertEqual(c.weekday, 2)
         XCTAssertEqual(c.day, 21)

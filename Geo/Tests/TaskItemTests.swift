@@ -1,4 +1,5 @@
 import XCTest
+import GeoCore
 @testable import Geo
 
 final class TaskItemTests: XCTestCase {
@@ -248,7 +249,7 @@ final class TaskItemTests: XCTestCase {
         if recurrence.isRepeating {
             body = .habit(rule: recurrence, timeOfDay: startTime, occurrences: [])
         } else if let endTime {
-            body = .event(start: startTime, end: endTime)
+            body = .event(start: startTime, end: endTime, externalEKEventID: nil)
         } else {
             body = .task(due: startTime, estimatedMinutes: nil)
         }
@@ -335,7 +336,6 @@ final class RepositoryAdapterTests: XCTestCase {
         let start = Date(timeIntervalSince1970: 1_700_000_000)
         let draft = TaskDraft(
             title: "Review PR",
-            notes: "adapter test",
             body: .task(due: start, estimatedMinutes: nil)
         )
 
@@ -845,7 +845,6 @@ private final class InMemoryTasksStoreAccess: TasksStoreAccess, @unchecked Senda
         let task = TaskItem(
             id: UUID().uuidString,
             title: trimmedTitle,
-            notes: draft.notes,
             linkedBlockId: draft.linkedBlockId,
             status: .pending,
             priority: draft.priority,

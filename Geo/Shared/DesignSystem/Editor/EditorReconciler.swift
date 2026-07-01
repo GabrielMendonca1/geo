@@ -10,10 +10,7 @@ final class EditorReconciler {
         excludingBlockId: UUID? = nil,
         postEditCaret: (blockId: UUID, caret: Int)? = nil
     ) {
-        guard let focusCoordinator else {
-            restoreCaret(postEditCaret)
-            return
-        }
+        guard let focusCoordinator else { return }
 
         var oldById: [UUID: EditorBlock] = [:]
         oldById.reserveCapacity(oldBlocks.count)

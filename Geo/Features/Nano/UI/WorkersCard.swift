@@ -134,6 +134,7 @@ private struct WorkerRow: View {
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                             .truncationMode(.head)
+                            .contentShape(Rectangle())
                             .onTapGesture { revealInFinder() }
                             .help(task.workspacePath ?? "")
                     }

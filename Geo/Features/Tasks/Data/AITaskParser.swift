@@ -1,4 +1,5 @@
 import Foundation
+import GeoCore
 import OSLog
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "geo", category: "AITaskParser")
@@ -76,14 +77,13 @@ enum AITaskParser {
 
         let startTime = parseISODate(json.start_time_iso) ?? now
         let endTime = parseISODate(json.end_time_iso)
-        let notes = json.notes ?? ""
         let tagIds = await resolveTagIds(names: json.tag_names ?? [])
 
         let body: TaskBody = {
             switch kind {
             case .event:
                 let end = endTime ?? startTime.addingTimeInterval(3600)
-                return .event(start: startTime, end: end)
+                return .event(start: startTime, end: end, externalEKEventID: nil)
             case .habit:
                 return .habit(rule: .daily, timeOfDay: startTime, occurrences: [])
             case .milestone:
@@ -93,7 +93,7 @@ enum AITaskParser {
             }
         }()
 
-        return TaskDraft(title: title, notes: notes, priority: priority, tagIds: tagIds, body: body)
+        return TaskDraft(title: title, priority: priority, tagIds: tagIds, body: body)
     }
 
     private static func parseISODate(_ string: String?) -> Date? {

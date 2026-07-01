@@ -32,6 +32,15 @@ struct GeoCommands: Commands {
             .keyboardShortcut("w", modifiers: [.command])
         }
 
+        CommandGroup(replacing: .textEditing) {
+            Button("Find") {
+                let store = AppContainer.live.navigationStore
+                guard store.selectedTab == .nodes else { return }
+                store.graphSearchPresented.toggle()
+            }
+            .keyboardShortcut("f", modifiers: [.command])
+        }
+
         CommandGroup(after: .toolbar) {
             Divider()
 

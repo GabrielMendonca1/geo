@@ -521,6 +521,9 @@ def get_day(day: str) -> dict:
 
 
 def get_today() -> dict:
-    from datetime import datetime, timezone
+    import os
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
 
-    return _day_record(datetime.now(timezone.utc).strftime("%Y-%m-%d"))
+    tz = ZoneInfo(os.environ.get("GEO_TZ", "America/Sao_Paulo"))
+    return _day_record(datetime.now(tz).strftime("%Y-%m-%d"))

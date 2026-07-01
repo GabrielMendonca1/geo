@@ -90,21 +90,33 @@ platforms:
 # Models
 # ---------------------------------------------------------------------------
 model:
-  # GATEWAY runs on gpt-5.5 via the openai-codex provider (sub-backed). default MUST
-  # be present: agent-mode crons resolve job.model -> model.default, and an empty
-  # default 400s the codex path ("model must be a non-empty string"). provider is
-  # set explicitly so the gateway never auto-resolves to anything else.
+  # GATEWAY runs on gpt-5.5 via openai-codex (native tool_calls, streaming, no
+  # subprocess per hop). The chat lane is latency/tool-reliability-bound, not
+  # intelligence-bound — heavy work goes to Claude via cc-dispatch workers.
+  # default MUST stay non-empty: agent-mode crons resolve job.model -> model.default.
   #
-  # NOT Claude: running the gateway on the Claude Max sub via OAuth was tried and
-  # abandoned. Anthropic meters ANY tool-bearing request on a subscription OAuth
-  # token to the (empty) extra-usage bucket -> 400 "out of extra usage" — by design,
-  # confirmed by the hermes maintainer (issue #28849) and others (#15080, #10575).
-  # The gateway always carries tools, so it can't run free on the sub. See memory
-  # hermes-model-provider for the full investigation.
+  # 2026-06-15 re-evaluation (Anthropic PAUSED the Agent-SDK credit change): the old
+  # "ANY tool-bearing OAuth request → 400 out-of-extra by design" wall is GONE —
+  # small tool-bearing calls on the Max-sub OAuth token now return 200 (verified:
+  # haiku/sonnet/opus, stop_reason=tool_use, service_tier=standard). hermes ALSO has
+  # full native support: `model.provider: anthropic` opens the credential-pool gate
+  # (PR #4210 is_provider_explicitly_configured) so _seed_from_singletons() seeds the
+  # Keychain "Claude Code-credentials" token live; anthropic_adapter sends the Claude
+  # Code identity block + anthropic-beta: oauth-2025-04-20.
+  #
+  # BUT switching the gateway to claude-sonnet-4-6 still 400s on real turns with
+  # "You're out of extra usage" — even on a clean window where a 24-token probe 200s
+  # the same instant. The Max sub's INCLUDED usage is depleted/contended on this Mac
+  # (Claude Code + cc-dispatch workers + bg agents share the pool); agent-sized turns
+  # (~15K sys+tools+ctx) overflow to the empty extra-usage bucket → 400. To run the
+  # gateway on Claude, FUND extra usage at claude.ai/settings/usage (then flip
+  # provider: anthropic / default: claude-sonnet-4-6). Until then, gpt-5.5 stays.
+  # The claude-code-local `claude -p` proxy lane stays retired regardless (CLAUDE.md
+  # leak per turn, regex text tool protocol, ~3-4s spawn/hop).
   provider: openai-codex
   default: gpt-5.5
   # full / nano = CLAUDE slugs the standalone scripts use directly (whatsapp-extractor
-  # Opus decide, day/close briefings, geo-context Haiku hook). Those calls are
+  # Opus decide, close-day briefing, geo-context Haiku hook). Those calls are
   # TOOL-FREE, so they DO bill against the included sub quota via the Max-OAuth
   # Keychain token — independent of the gateway provider.
   full: claude-opus-4-8
@@ -116,22 +128,21 @@ model:
 timezone: America/Sao_Paulo
 
 # ---------------------------------------------------------------------------
-# Slash commands / scheduled scripts
+# Quick commands / scheduled scripts
 # ---------------------------------------------------------------------------
-# Cron jobs live in the gateway DB (created via `hermes cron create`), not
-# inline here — this file only carries the global cron knobs upstream injects.
-# The /day briefing is registered the lowest-risk way: SOUL.md routes an
-# inbound "/day" to run scripts/day-command.py, which fetches the day record +
-# open tasks from Geo, runs model.nano, and DMs Gabriel itself.
-#
-# To ALSO get it on a schedule (e.g. 08:00 every day), register the same script
-# as a silent cron job — it delivers to Telegram on its own, so no --deliver:
-#
-#   hermes cron create "0 8 * * *" \
-#     "$HOME/.hermes/hermes-agent/venv/bin/python $HOME/.hermes/scripts/day-command.py" \
-#     --name day-briefing --no-agent
-#
-# `hermes cron list` to see it, `hermes cron remove day-briefing` to drop it.
+# Cron jobs live in ~/.hermes/cron/jobs.json (created via `hermes cron create`),
+# not inline here. Live set: whatsapp-extractor (6h, no-agent) ·
+# geo-morning-intention (8:30, priorities + open-todos list) ·
+# geo-midday-checkin (13:00) · geo-night-reflection (22:30) ·
+# geo-slipbox-tending (Sun 18:00, silent Zettelkasten maintenance).
+# /day was retired 2026-06-09: the morning cron pushes the briefing, /todo
+# covers on-demand pull. Quick commands run a script and relay its stdout to
+# the chat — they never reach the agent. This block MUST live in the repo:
+# template_config overwrites ~/.hermes/config.yaml from here.
+quick_commands:
+  todo:
+    type: exec
+    command: /Users/biel/.hermes/hermes-agent/venv/bin/python /Users/biel/.hermes/scripts/todo-command.py
 
 # ---------------------------------------------------------------------------
 # Approvals — FULL BYPASS (Gabriel runs the gateway hands-off)
@@ -148,3 +159,49 @@ approvals:
   cron_mode: approve
   mcp_reload_confirm: false
   destructive_slash_confirm: false
+
+# ---------------------------------------------------------------------------
+# Per-platform tool surface (pruned 2026-06-10)
+# ---------------------------------------------------------------------------
+# Usage-audited over 14 days of state.db history: cut delegation (1.7K tok,
+# 2 uses — delegation goes through cc-dispatch), browser (1.7K/11 tools, 11
+# uses — terminal curl covers fetch), memory (its MEMORY.md writes get
+# clobbered by the geo-context hook each session; durable memory = the "Memory"
+# Geo block), todo (second task system competing with geo tasks), clarify/
+# tts/image_gen/vision (zero-to-trace usage). 56→39 tools, ~15.8K→10.7K
+# schema tokens per turn. Re-enable: hermes tools enable <toolset> --platform <p>.
+# computer_use/kanban/web stay listed but register no tools (env/key-gated).
+platform_toolsets:
+  telegram:
+  - code_execution
+  - computer_use
+  - cronjob
+  - file
+  - geo
+  - geo_context
+  - kanban
+  - messaging
+  - session_search
+  - skills
+  - terminal
+  - web
+  cron:
+  - code_execution
+  - computer_use
+  - cronjob
+  - file
+  - geo
+  - geo_context
+  - kanban
+  - messaging
+  - session_search
+  - skills
+  - terminal
+  - web
+known_plugin_toolsets:
+  telegram:
+  - geo
+  - geo_context
+  cron:
+  - geo
+  - geo_context

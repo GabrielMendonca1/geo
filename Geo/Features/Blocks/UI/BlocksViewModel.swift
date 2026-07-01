@@ -170,6 +170,7 @@ final class BlocksViewModel: ObservableObject {
     @Published private(set) var tags: [Tag] = []
     @Published private(set) var hasLoadedInitialSnapshot = false
 
+    private var tagIndex: [String: Tag] = [:]
     private var observeBlocksTask: Task<Void, Never>?
     private var observeTagsTask: Task<Void, Never>?
     private var repository: (any BlocksRepository)?
@@ -207,10 +208,14 @@ final class BlocksViewModel: ObservableObject {
         observeBlocksTask = Task { [weak self] in
             var didReceiveInitialSnapshot = false
             for await observedBlocks in blocksRepository.observe() {
-                guard !Task.isCancelled else { break }
-                self?.blocks = observedBlocks
+                guard !Task.isCancelled, let self else { break }
+                self.blocks = observedBlocks
+                if !self.statusCache.isEmpty {
+                    let liveIds = Set(observedBlocks.map(\.id))
+                    self.statusCache = self.statusCache.filter { liveIds.contains($0.key) }
+                }
                 if !didReceiveInitialSnapshot {
-                    self?.hasLoadedInitialSnapshot = true
+                    self.hasLoadedInitialSnapshot = true
                     didReceiveInitialSnapshot = true
                 }
             }
@@ -218,8 +223,14 @@ final class BlocksViewModel: ObservableObject {
 
         observeTagsTask = Task { [weak self] in
             for await observedTags in tagsRepository.observe() {
-                guard !Task.isCancelled else { break }
-                self?.tags = observedTags
+                guard !Task.isCancelled, let self else { break }
+                self.tags = observedTags
+                var index: [String: Tag] = [:]
+                for tag in observedTags {
+                    let key = TagStore.canonicalName(tag.name)
+                    if index[key] == nil { index[key] = tag }
+                }
+                self.tagIndex = index
             }
         }
     }
@@ -236,7 +247,7 @@ final class BlocksViewModel: ObservableObject {
     func tag(forName name: String?) -> Tag? {
         guard let name else { return nil }
         let canonical = TagStore.canonicalName(name)
-        if let existing = tags.first(where: { TagStore.canonicalName($0.name) == canonical }) {
+        if let existing = tagIndex[canonical] {
             return existing
         }
         return Tag(id: canonical, name: name, color: TagStore.defaultColor(forName: canonical))
@@ -493,11 +504,10 @@ final class BlocksViewModel: ObservableObject {
         debouncedSearchText: String,
         searchResults: [BlockEntity],
         selectedTagFilter: String?,
-        hasTasksOnly: Bool,
+        taskFilter: Set<String>?,
         statusFilter: BlockStatusFilter,
         sortField: BlockSortField,
-        sortOrder: BlockSortOrder,
-        linkedPendingBlockIds: Set<String>
+        sortOrder: BlockSortOrder
     ) -> [BlockEntity] {
         let matches = debouncedSearchText.isEmpty ? blocks : searchResults
 
@@ -516,29 +526,34 @@ final class BlocksViewModel: ObservableObject {
             tagFiltered = matches
         }
 
-        let taskFiltered = hasTasksOnly
-            ? tagFiltered.filter { linkedPendingBlockIds.contains($0.id) }
-            : tagFiltered
+        let taskFiltered: [BlockEntity]
+        if let taskFilter {
+            taskFiltered = tagFiltered.filter { taskFilter.contains($0.id) }
+        } else {
+            taskFiltered = tagFiltered
+        }
 
         let statusFiltered = taskFiltered.filter { block in
-            statusFilter.includes(status: Self.resolvedStatus(for: block))
+            statusFilter.includes(status: resolvedStatus(for: block))
         }
 
         return statusFiltered.sorted { lhs, rhs in
-            let lhsHasTasks = linkedPendingBlockIds.contains(lhs.id)
-            let rhsHasTasks = linkedPendingBlockIds.contains(rhs.id)
-            if lhsHasTasks != rhsHasTasks {
-                return lhsHasTasks && !rhsHasTasks
-            }
-            return blockSortOrder(lhs, rhs, sortField: sortField, sortOrder: sortOrder)
+            blockSortOrder(lhs, rhs, sortField: sortField, sortOrder: sortOrder)
         }
     }
 
-    private static func resolvedStatus(for block: BlockEntity) -> String? {
+    private var statusCache: [String: (lastEdited: Date, status: String?)] = [:]
+
+    private func resolvedStatus(for block: BlockEntity) -> String? {
         if let metaStatus = block.metadata.status, !metaStatus.isEmpty {
             return metaStatus
         }
-        return MarkdownConverter.shared.status(in: block.markdown)
+        if let cached = statusCache[block.id], cached.lastEdited == block.lastEdited {
+            return cached.status
+        }
+        let status = MarkdownConverter.shared.status(in: block.markdown)
+        statusCache[block.id] = (block.lastEdited, status)
+        return status
     }
 
     func blockGroups(

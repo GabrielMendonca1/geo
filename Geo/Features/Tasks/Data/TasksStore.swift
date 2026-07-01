@@ -1,4 +1,5 @@
 import Foundation
+import GeoCore
 import Combine
 import os.log
 
@@ -12,6 +13,8 @@ final class TasksStore: ObservableObject {
 
     private var tasksById: [String: TaskItem] = [:]
     private var tasksByLinkedBlockId: [String: [String]] = [:]
+    private var taskIdsWithEventMirror: Set<String> = []
+    private var pendingMirrors: [String: Task<Void, Never>] = [:]
 
     private let tasksDirectory: URL
     private let fileManager = FileManager.default
@@ -33,6 +36,7 @@ final class TasksStore: ObservableObject {
             Task { [weak self] in
                 await self?.loadTasksAsync()
                 self?.startFileWatcher()
+                await self?.backfillEventKitMirrors()
             }
         } else {
             loadTasks()
@@ -64,6 +68,7 @@ final class TasksStore: ObservableObject {
         tasks.append(task)
         indexInsert(task)
         persist(task)
+        scheduleMirror(taskId: task.id)
     }
 
     func tasksLinked(to blockId: String) -> [TaskItem] {
@@ -91,7 +96,6 @@ final class TasksStore: ObservableObject {
     @discardableResult
     func createTask(
         title: String,
-        notes: String = "",
         linkedBlockId: String? = nil,
         body: TaskBody,
         reminders: [Reminder] = [.atTime()],
@@ -109,7 +113,6 @@ final class TasksStore: ObservableObject {
         let task = TaskItem(
             id: UUID().uuidString,
             title: trimmedTitle,
-            notes: notes,
             linkedBlockId: linkedBlockId,
             status: .pending,
             priority: priority,
@@ -124,13 +127,13 @@ final class TasksStore: ObservableObject {
         tasks.append(task)
         indexInsert(task)
         persist(task)
+        scheduleMirror(taskId: task.id)
         return task
     }
 
     func updateTask(
         id: String,
         title: String,
-        notes: String,
         linkedBlockId: String?,
         body: TaskBody,
         reminders: [Reminder],
@@ -150,7 +153,6 @@ final class TasksStore: ObservableObject {
         let updated = TaskItem(
             id: existing.id,
             title: trimmedTitle,
-            notes: notes,
             linkedBlockId: linkedBlockId,
             status: status,
             priority: priority,
@@ -160,12 +162,14 @@ final class TasksStore: ObservableObject {
             createdAt: existing.createdAt,
             modifiedAt: Date(),
             body: sanitize(body: newBody),
-            reminders: reminders
+            reminders: reminders,
+            externalEKEventID: existing.externalEKEventID
         )
         let previous = tasks[index]
         tasks[index] = updated
         indexReplace(previous: previous, updated: updated)
         persist(updated)
+        scheduleMirror(taskId: updated.id)
     }
 
     func tasksByKind(_ kind: TaskKind) -> [TaskItem] {
@@ -184,6 +188,9 @@ final class TasksStore: ObservableObject {
         let task = tasks.remove(at: index)
         indexRemove(task)
         deletePersistedTask(task)
+        pendingMirrors[id]?.cancel()
+        pendingMirrors[id] = nil
+        EventKitAdapter.shared.removeMirror(for: task)
     }
 
     func moveTask(from source: IndexSet, to destination: Int) {
@@ -233,6 +240,7 @@ final class TasksStore: ObservableObject {
         tasks[index] = updated
         indexReplace(previous: previous, updated: updated)
         persist(updated)
+        scheduleMirror(taskId: updated.id)
     }
 
     private func updateTaskField(id: String, apply: (inout TaskItem) -> Void) {
@@ -246,10 +254,106 @@ final class TasksStore: ObservableObject {
         persist(updated)
     }
 
+    @discardableResult
+    func applyInboundEventEdit(taskId: String, title: String?, start: Date?, end: Date?) -> Bool {
+        guard let index = tasks.firstIndex(where: { $0.id == taskId }) else { return false }
+        var updated = tasks[index]
+        var changed = false
+
+        if let title {
+            let trimmed = Self.strippingCompletionPrefix(title).trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty, trimmed != updated.title {
+                updated.title = trimmed
+                changed = true
+            }
+        }
+
+        if let start, let newBody = Self.bodyApplyingInboundDate(updated.body, start: start, end: end), newBody != updated.body {
+            updated.body = newBody
+            changed = true
+        }
+
+        guard changed else { return false }
+        updated.modifiedAt = Date()
+        let previous = tasks[index]
+        tasks[index] = updated
+        indexReplace(previous: previous, updated: updated)
+        persist(updated)
+        return true
+    }
+
+    private static func strippingCompletionPrefix(_ title: String) -> String {
+        title.hasPrefix("✓ ") ? String(title.dropFirst(2)) : title
+    }
+
+    private static func bodyApplyingInboundDate(_ body: TaskBody, start: Date, end: Date?) -> TaskBody? {
+        switch body {
+        case .event(_, let oldEnd, let id):
+            let newEnd = end ?? oldEnd
+            return .event(start: start, end: max(newEnd, start), externalEKEventID: id)
+        case .task(_, let est):
+            return .task(due: start, estimatedMinutes: est)
+        case .milestone:
+            return .milestone(target: start)
+        case .habit(let rule, _, let occurrences):
+            return .habit(rule: rule, timeOfDay: start, occurrences: occurrences)
+        }
+    }
+
+    func clearEventMirror(taskId: String) {
+        guard let index = tasks.firstIndex(where: { $0.id == taskId }),
+              tasks[index].externalEKEventID != nil else { return }
+        var updated = tasks[index]
+        updated.externalEKEventID = nil
+        updated.modifiedAt = Date()
+        let previous = tasks[index]
+        tasks[index] = updated
+        indexReplace(previous: previous, updated: updated)
+        persist(updated)
+    }
+
+    func tasksWithMirroredEvents() -> [TaskItem] {
+        taskIdsWithEventMirror.compactMap { tasksById[$0] }
+    }
+
+    private func scheduleMirror(taskId: String, debounce: TimeInterval = 0.02) {
+        guard EventKitAdapter.shared.isAuthorized else { return }
+        pendingMirrors[taskId]?.cancel()
+        pendingMirrors[taskId] = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(debounce * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            await self?.flushMirror(taskId: taskId)
+        }
+    }
+
+    private func flushMirror(taskId: String) async {
+        pendingMirrors[taskId] = nil
+        guard let task = tasksById[taskId] else { return }
+        let newID = EventKitAdapter.shared.mirror(task: task)
+        guard let index = tasks.firstIndex(where: { $0.id == taskId }),
+              tasks[index].externalEKEventID != newID else { return }
+        var updated = tasks[index]
+        updated.externalEKEventID = newID
+        let previous = tasks[index]
+        tasks[index] = updated
+        indexReplace(previous: previous, updated: updated)
+        persist(updated)
+    }
+
+    func backfillEventKitMirrors() async {
+        await EventKitAdapter.shared.requestAccess()
+        guard EventKitAdapter.shared.isAuthorized else { return }
+        let pending = tasks.filter { $0.externalEKEventID == nil }
+        guard !pending.isEmpty else { return }
+        for task in pending {
+            await flushMirror(taskId: task.id)
+        }
+    }
+
     private func sanitize(body: TaskBody) -> TaskBody {
         switch body {
-        case .event(let start, let end):
-            return .event(start: start, end: max(end, start))
+        case .event(let start, let end, let externalEKEventID):
+            return .event(start: start, end: max(end, start), externalEKEventID: externalEKEventID)
         case .habit(let rule, let tod, let occurrences):
             return .habit(rule: sanitizeRecurrence(rule), timeOfDay: tod, occurrences: occurrences)
         case .task, .milestone:
@@ -272,31 +376,42 @@ final class TasksStore: ObservableObject {
         return .custom(every: interval, frequency: frequency)
     }
 
-    private func loadTasksAsync() async {
-        let spStart = CFAbsoluteTimeGetCurrent()
-        let spID = PerformanceTracker.shared.beginStoreOperation("TasksStore", operation: "load")
-        defer { PerformanceTracker.shared.endStoreOperation("TasksStore", operation: "load", signpostID: spID, startTime: spStart) }
+    private func jsonURLs() -> [URL] {
         let urls: [URL]
         do {
             urls = try fileManager.contentsOfDirectory(at: tasksDirectory, includingPropertiesForKeys: nil)
         } catch {
             logger.error("Failed to list tasks directory: \(error.localizedDescription)")
-            return
+            return []
         }
-        let jsonURLs = urls.filter { $0.pathExtension == "json" }
+        return urls.filter { $0.pathExtension == "json" }
+    }
+
+    private nonisolated static func decodeTask(at url: URL) -> TaskItem? {
+        do {
+            let data = try Data(contentsOf: url)
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            return try decoder.decode(TaskItem.self, from: data)
+        } catch {
+            logger.error("Failed to load task at \(url.lastPathComponent): \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    private func applyLoaded(_ loaded: [TaskItem]) {
+        tasks = loaded.sorted { $0.createdAt < $1.createdAt }
+        rebuildIndices()
+    }
+
+    private func loadTasksAsync() async {
+        let spStart = CFAbsoluteTimeGetCurrent()
+        let spID = PerformanceTracker.shared.beginStoreOperation("TasksStore", operation: "load")
+        defer { PerformanceTracker.shared.endStoreOperation("TasksStore", operation: "load", signpostID: spID, startTime: spStart) }
+        let urls = jsonURLs()
         let loaded = await withTaskGroup(of: TaskItem?.self, returning: [TaskItem].self) { group in
-            for url in jsonURLs {
-                group.addTask {
-                    do {
-                        let data = try Data(contentsOf: url)
-                        let decoder = JSONDecoder()
-                        decoder.dateDecodingStrategy = .iso8601
-                        return try decoder.decode(TaskItem.self, from: data)
-                    } catch {
-                        logger.error("Failed to load task at \(url.lastPathComponent): \(error.localizedDescription)")
-                        return nil
-                    }
-                }
+            for url in urls {
+                group.addTask { Self.decodeTask(at: url) }
             }
             var results: [TaskItem] = []
             for await item in group {
@@ -304,10 +419,8 @@ final class TasksStore: ObservableObject {
             }
             return results
         }
-        let sorted = loaded.sorted { $0.createdAt < $1.createdAt }
         await MainActor.run {
-            self.tasks = sorted
-            self.rebuildIndices()
+            self.applyLoaded(loaded)
         }
     }
 
@@ -315,27 +428,7 @@ final class TasksStore: ObservableObject {
         let spStart = CFAbsoluteTimeGetCurrent()
         let spID = PerformanceTracker.shared.beginStoreOperation("TasksStore", operation: "load")
         defer { PerformanceTracker.shared.endStoreOperation("TasksStore", operation: "load", signpostID: spID, startTime: spStart) }
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        let urls: [URL]
-        do {
-            urls = try fileManager.contentsOfDirectory(at: tasksDirectory, includingPropertiesForKeys: nil)
-        } catch {
-            logger.error("Failed to list tasks directory: \(error.localizedDescription)")
-            return
-        }
-        let tasks = urls.compactMap { url -> TaskItem? in
-            guard url.pathExtension == "json" else { return nil }
-            do {
-                let data = try Data(contentsOf: url)
-                return try decoder.decode(TaskItem.self, from: data)
-            } catch {
-                logger.error("Failed to load task at \(url.lastPathComponent): \(error.localizedDescription)")
-                return nil
-            }
-        }
-        self.tasks = tasks.sorted { $0.createdAt < $1.createdAt }
-        rebuildIndices()
+        applyLoaded(jsonURLs().compactMap { Self.decodeTask(at: $0) })
     }
 
     private func taskURL(for id: String) -> URL {
@@ -381,6 +474,7 @@ final class TasksStore: ObservableObject {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         var changed = false
+        var mirrorIds: [String] = []
 
         for url in jsonURLs {
             let taskId = url.deletingPathExtension().lastPathComponent
@@ -406,6 +500,7 @@ final class TasksStore: ObservableObject {
                 } else {
                     tasks.append(decoded)
                 }
+                mirrorIds.append(decoded.id)
                 changed = true
             } else {
                 if let index = tasks.firstIndex(where: { $0.id == taskId }) {
@@ -418,16 +513,21 @@ final class TasksStore: ObservableObject {
         if changed {
             tasks.sort { $0.createdAt < $1.createdAt }
             rebuildIndices()
+            for id in mirrorIds { scheduleMirror(taskId: id) }
         }
     }
 
     private func rebuildIndices() {
         tasksById.removeAll(keepingCapacity: true)
         tasksByLinkedBlockId.removeAll(keepingCapacity: true)
+        taskIdsWithEventMirror.removeAll(keepingCapacity: true)
         for task in tasks {
             tasksById[task.id] = task
             if let blockId = task.linkedBlockId {
                 tasksByLinkedBlockId[blockId, default: []].append(task.id)
+            }
+            if task.externalEKEventID != nil {
+                taskIdsWithEventMirror.insert(task.id)
             }
         }
     }
@@ -437,10 +537,14 @@ final class TasksStore: ObservableObject {
         if let blockId = task.linkedBlockId {
             tasksByLinkedBlockId[blockId, default: []].append(task.id)
         }
+        if task.externalEKEventID != nil {
+            taskIdsWithEventMirror.insert(task.id)
+        }
     }
 
     private func indexRemove(_ task: TaskItem) {
         tasksById.removeValue(forKey: task.id)
+        taskIdsWithEventMirror.remove(task.id)
         if let blockId = task.linkedBlockId {
             removeLinkedId(task.id, from: blockId)
         }
@@ -448,6 +552,11 @@ final class TasksStore: ObservableObject {
 
     private func indexReplace(previous: TaskItem, updated: TaskItem) {
         tasksById[updated.id] = updated
+        if updated.externalEKEventID != nil {
+            taskIdsWithEventMirror.insert(updated.id)
+        } else {
+            taskIdsWithEventMirror.remove(updated.id)
+        }
         if previous.linkedBlockId != updated.linkedBlockId {
             if let oldBlockId = previous.linkedBlockId {
                 removeLinkedId(previous.id, from: oldBlockId)

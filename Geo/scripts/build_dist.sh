@@ -25,11 +25,18 @@ SPM_CACHE="$BUILD_DIR/spm-cache"
 
 DEVELOPER_ID_APP="${DEVELOPER_ID_APP:-}"
 TEAM_ID="${TEAM_ID:-}"
+LOCAL_SIGN_IDENTITY="${LOCAL_SIGN_IDENTITY:-Geo Local Signing}"
+LOCAL_SIGN_KEYCHAIN="${LOCAL_SIGN_KEYCHAIN:-$HOME/Library/Keychains/geo-signing.keychain-db}"
+LOCAL_SIGN_KEYCHAIN_PW="${LOCAL_SIGN_KEYCHAIN_PW:-geosign}"
 
 if [ -n "$DEVELOPER_ID_APP" ]; then
     : "${TEAM_ID:?Set TEAM_ID alongside DEVELOPER_ID_APP for Developer ID signing}"
     SIGN_MODE="developer-id"
     SIGN_IDENTITY="$DEVELOPER_ID_APP"
+elif security find-certificate -c "$LOCAL_SIGN_IDENTITY" "$LOCAL_SIGN_KEYCHAIN" >/dev/null 2>&1; then
+    SIGN_MODE="local"
+    SIGN_IDENTITY="$LOCAL_SIGN_IDENTITY"
+    security unlock-keychain -p "$LOCAL_SIGN_KEYCHAIN_PW" "$LOCAL_SIGN_KEYCHAIN" 2>/dev/null || true
 else
     SIGN_MODE="adhoc"
     SIGN_IDENTITY="-"
@@ -51,6 +58,8 @@ echo "==> Building archive ($SIGN_MODE signing)..."
 ARCHIVE_FLAGS=( CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="$SIGN_IDENTITY" PROVISIONING_PROFILE_SPECIFIER="" )
 if [ "$SIGN_MODE" = "developer-id" ]; then
     ARCHIVE_FLAGS+=( DEVELOPMENT_TEAM="$TEAM_ID" OTHER_CODE_SIGN_FLAGS="--timestamp --options runtime" )
+elif [ "$SIGN_MODE" = "local" ]; then
+    ARCHIVE_FLAGS+=( DEVELOPMENT_TEAM="" OTHER_CODE_SIGN_FLAGS="--options runtime" )
 else
     ARCHIVE_FLAGS+=( DEVELOPMENT_TEAM="" )
 fi
@@ -99,6 +108,8 @@ fi
 
 if [ "$SIGN_MODE" = "developer-id" ]; then
     SIGN_FLAGS=( --force --timestamp --options runtime )
+elif [ "$SIGN_MODE" = "local" ]; then
+    SIGN_FLAGS=( --force --options runtime )
 else
     SIGN_FLAGS=( --force )
 fi
@@ -120,7 +131,7 @@ codesign "${SIGN_FLAGS[@]}" \
 echo "==> Verifying signature..."
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 
-if [ "$SIGN_MODE" = "developer-id" ]; then
+if [ "$SIGN_MODE" = "developer-id" ] || [ "$SIGN_MODE" = "local" ]; then
     echo "==> Asserting hardened runtime is present..."
     if ! codesign -dvvv "$APP_PATH" 2>&1 | grep -q 'flags=.*runtime'; then
         echo "ERROR: hardened runtime flag missing from signed app" >&2

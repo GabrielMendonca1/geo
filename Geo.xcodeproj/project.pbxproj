@@ -7,11 +7,17 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		02F36029285BEDF824981C9D /* EventKitAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B993A1CF18AE10F04A083DF1 /* EventKitAdapter.swift */; };
+		0524EAA02C519E62C7DE431B /* PaneTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4103E3916ADED1B4EF2F7720 /* PaneTabBar.swift */; };
 		055140250E9F36D465B3559D /* AccessibilityPermission.swift in Sources */ = {isa = PBXBuildFile; fileRef = 143896D35F25EAC6E5ACD0F6 /* AccessibilityPermission.swift */; };
+		0670FC6DB0F37A9C628C2F67 /* BrainVaultStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9F6C9AD02B82AECE6B90309 /* BrainVaultStore.swift */; };
 		096BC358C743CB0D2A5C6A85 /* BrainsPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4809C353DD1223F3F3BFD9D /* BrainsPane.swift */; };
+		0FR00001BLD0000000000B /* OpenFileRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FR00001REF0000000000A /* OpenFileRouter.swift */; };
+		0FR00002BLD0000000000B /* OpenFileRouterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FR00002REF0000000000A /* OpenFileRouterTests.swift */; };
 		1296EE89188D23F2186C74A9 /* MonaSans-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = E26EB02C0E6128A33FAFD2D2 /* MonaSans-Regular.ttf */; };
-		190502e33b3a8bd183f29a9e /* TasksRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51151077d4c3fe112d1efd4f /* TasksRepository.swift */; };
+		184007E0CB9A2209D19ACF23 /* VaultIngest.swift in Sources */ = {isa = PBXBuildFile; fileRef = B31D301E5F41683CE13646C1 /* VaultIngest.swift */; };
 		1E7415C5CEDD8E811827E493 /* Brains.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D84ED1022631CB47574BEC6 /* Brains.swift */; };
+		1E92164F860209076244AF90 /* BrainSourceKind.swift in Sources */ = {isa = PBXBuildFile; fileRef = 167932D6D8604CBA55F68C9F /* BrainSourceKind.swift */; };
 		20943D24CA494042C2E5CB30B56C2B68 /* Day.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A9E1A59E92DF21CE147B80B19AF8492 /* Day.swift */; };
 		23F5C9A0056F7F524AE8C75D /* OnboardingPermissionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCA54DB582FE4756E44D8476 /* OnboardingPermissionsView.swift */; };
 		26965DF3ABCC0BE778A60F67 /* PermissionRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F45AFC5F8B851881212FCD8 /* PermissionRegistry.swift */; };
@@ -19,18 +25,16 @@
 		2BE41C1E1B10CCBD3958B62E /* InputMonitoringPermission.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AD5BE2F11A36A20C7AA5F9C /* InputMonitoringPermission.swift */; };
 		2D38899F7B26A6D05095074D /* Permission.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94BFD7572DD72A57E8E671F5 /* Permission.swift */; };
 		34D669BBA8B63078D8BBFA8849A6E487 /* DayStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEF5F4442557D5D84EA83D7D592223EA /* DayStore.swift */; };
+		3689A4E99A47592DBF217079 /* DayAgendaView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A9DA92FDE5D2F146A9368BF /* DayAgendaView.swift */; };
 		3805C22EEB66C878BD71A1B6 /* PermissionCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EEAD44ED75B4C6DF98C92F9 /* PermissionCache.swift */; };
 		3F07CC64AE2689F6C2C6DA0A9A6CF786 /* CurrentDayHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02097A30DAF122904836BF44001DF396 /* CurrentDayHeader.swift */; };
 		3F90C3B7981045B8A7BCC6C6 /* FontManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3853647B6F294A63B46B70FC /* FontManager.swift */; };
 		4180AEAE2839753E0054FEA9 /* GeoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4180AEAD2839753E0054FEA9 /* GeoApp.swift */; };
-		0FR00001BLD0000000000B /* OpenFileRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FR00001REF0000000000A /* OpenFileRouter.swift */; };
-		0FR00002BLD0000000000B /* OpenFileRouterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FR00002REF0000000000A /* OpenFileRouterTests.swift */; };
 		4180AEB22839753F0054FEA9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4180AEB12839753F0054FEA9 /* Assets.xcassets */; };
 		4180AEB52839753F0054FEA9 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4180AEB42839753F0054FEA9 /* Preview Assets.xcassets */; };
 		4180AEC0283976740054FEA9 /* SettingsWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4180AEBF283976740054FEA9 /* SettingsWindow.swift */; };
 		4180AEC2283976F80054FEA9 /* GeneralSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4180AEC1283976F80054FEA9 /* GeneralSettingsView.swift */; };
 		4180AEC4283979530054FEA9 /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4180AEC3283979530054FEA9 /* MainView.swift */; };
-		4180AECC28397C6F0054FEA9 /* HomePane.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4180AECB28397C6F0054FEA9 /* HomePane.swift */; };
 		4180AEE328398FE50054FEA9 /* Pane.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4180AEE228398FE50054FEA9 /* Pane.swift */; };
 		4180AEE728399E160054FEA9 /* MyCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4180AEE628399E160054FEA9 /* MyCommands.swift */; };
 		4180AEEB2839A0280054FEA9 /* AboutCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4180AEEA2839A0280054FEA9 /* AboutCommand.swift */; };
@@ -48,18 +52,21 @@
 		57A70FE9F2084D519E97BC5A /* ResponsiveLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2354A93AB8D6437E9D307C6E /* ResponsiveLayout.swift */; };
 		5B09B1517DADB36DA69BEFD6 /* TaskFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CBE3190120FF8FEFD73E798 /* TaskFormView.swift */; };
 		5C907D969F04663470C93161 /* brain.py in Resources */ = {isa = PBXBuildFile; fileRef = D67B597AD7299E41781494C9 /* brain.py */; };
+		5D2F4FDBAAF75353A9E9EC63 /* CreateBrainSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01AD5E50F7D2ACB94AD45014 /* CreateBrainSheet.swift */; };
+		5DE973927EC38DDD616491F7 /* BrainSidebar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F85005D9066232335D2DF0B /* BrainSidebar.swift */; };
 		6668456E982D2C659A36580A /* AppTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D9CAA77A7A6132F930F755B /* AppTab.swift */; };
+		72C88339883B424113EB9452 /* ResizableSplit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80551AF40C6DD6D61A858CE8 /* ResizableSplit.swift */; };
+		74A53D42DC0B5944DF8B9585 /* BrainGraphBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDF80B165C55D8964AAB677C /* BrainGraphBuilder.swift */; };
+		7530074903249DFAAB6DA6DE /* BrainGraphPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86FB87776BC32584989752AD /* BrainGraphPanel.swift */; };
 		77446AC211E5914F06B9682B /* BrainsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A78971EF5DCC3C31B9593FF /* BrainsTests.swift */; };
+		78A6D8EDEF7098536617F01D /* BrainWorkspaceModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4428703CD3C2CCC821ED62F2 /* BrainWorkspaceModel.swift */; };
 		7ff48d0e483d7dda070b7ca0 /* TasksViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06a7d6d6cba40c56c57ff2c7 /* TasksViewModel.swift */; };
 		922A364190AFE0DAB677C90C84C1BA2B /* DayRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF3BC6A1C82DBFD5E715587035021D4D /* DayRow.swift */; };
 		953ED1E92F14819800BA8D40 /* TimelinePopoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 953ED1E82F14819800BA8D40 /* TimelinePopoverView.swift */; };
 		95456C5D2ED3DA0F00EDB4A9 /* NavigationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95456C5C2ED3DA0F00EDB4A9 /* NavigationStore.swift */; };
 		95456C5F2ED4758300EDB4A9 /* GlobalHotkeyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95456C5E2ED4758300EDB4A9 /* GlobalHotkeyManager.swift */; };
 		95456C612ED47F2500EDB4A9 /* BlocksPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95456C602ED47F2500EDB4A9 /* BlocksPane.swift */; };
-		DCMPBLD00000000000000005 /* BlocksControlBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCMPREF00000000000000005 /* BlocksControlBar.swift */; };
-		DCMPBLD00000000000000006 /* BlocksPaneSubviews.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCMPREF00000000000000006 /* BlocksPaneSubviews.swift */; };
 		95456C632ED47F3400EDB4A9 /* BlocksStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95456C622ED47F3400EDB4A9 /* BlocksStore.swift */; };
-		DCMPBLD00000000000000004 /* BlocksStoreParsers.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCMPREF00000000000000004 /* BlocksStoreParsers.swift */; };
 		95574B2F2ED09F6C000C8978 /* LogStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95574B2E2ED09F56000C8978 /* LogStore.swift */; };
 		95574B312ED09F93000C8978 /* ScreenshotWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95574B302ED09F90000C8978 /* ScreenshotWatcher.swift */; };
 		95574B362ED0D514000C8978 /* OCRService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95574B342ED0CAC9000C8978 /* OCRService.swift */; };
@@ -67,42 +74,25 @@
 		958371A72F1D5C7000FB7A7C /* FABAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 958371A22F1D5C7000FB7A7C /* FABAction.swift */; };
 		958371A82F1D5C7000FB7A7C /* FABMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 958371A42F1D5C7000FB7A7C /* FABMenu.swift */; };
 		958371D42F210BB000FB7A7C /* Holiday.swift in Sources */ = {isa = PBXBuildFile; fileRef = 958371D32F210BB000FB7A7C /* Holiday.swift */; };
-		958371D52F210BB000FB7A7C /* CalendarEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 958371D22F210BB000FB7A7C /* CalendarEvent.swift */; };
 		958371D72F210BBD00FB7A7C /* HolidayService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 958371D62F210BBD00FB7A7C /* HolidayService.swift */; };
-		958371DF2F210EAA00FB7A7C /* CalendarWeekdayHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 958371DC2F210EAA00FB7A7C /* CalendarWeekdayHeader.swift */; };
-		958371E02F210EAA00FB7A7C /* CalendarEventPill.swift in Sources */ = {isa = PBXBuildFile; fileRef = 958371D92F210EAA00FB7A7C /* CalendarEventPill.swift */; };
-		958371E12F210EAA00FB7A7C /* MonthCalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 958371DD2F210EAA00FB7A7C /* MonthCalendarView.swift */; };
-		958371E22F210EAA00FB7A7C /* CalendarGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = 958371DA2F210EAA00FB7A7C /* CalendarGrid.swift */; };
-		958371E32F210EAA00FB7A7C /* CalendarDayCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 958371D82F210EAA00FB7A7C /* CalendarDayCell.swift */; };
-		CALNEW0000000000000001B1 /* CalendarRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CALNEW0000000000000001F1 /* CalendarRootView.swift */; };
-		CALNEW0000000000000001B2 /* CalendarFiltersModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CALNEW0000000000000001F2 /* CalendarFiltersModel.swift */; };
-		CALNEW0000000000000001B3 /* CalendarFilterChips.swift in Sources */ = {isa = PBXBuildFile; fileRef = CALNEW0000000000000001F3 /* CalendarFilterChips.swift */; };
-		CALNEW0000000000000001B4 /* WeekCalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CALNEW0000000000000001F4 /* WeekCalendarView.swift */; };
-		CALNEW0000000000000001B5 /* DayCalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CALNEW0000000000000001F5 /* DayCalendarView.swift */; };
-		CALNEW0000000000000001B6 /* CalendarTimeGridLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = CALNEW0000000000000001F6 /* CalendarTimeGridLayout.swift */; };
-		CALNEW0000000000000001B7 /* CalendarTimeGridEventCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = CALNEW0000000000000001F7 /* CalendarTimeGridEventCard.swift */; };
-		CALNEW0000000000000001B8 /* CalendarTimeGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = CALNEW0000000000000001F8 /* CalendarTimeGrid.swift */; };
-		CALNEW0000000000000001B9 /* CalendarDaySummaryCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = CALNEW0000000000000001F9 /* CalendarDaySummaryCards.swift */; };
 		958EBC142F9DA76C00F435DA /* BlockGraph.swift in Sources */ = {isa = PBXBuildFile; fileRef = 958EBC0F2F9DA76C00F435DA /* BlockGraph.swift */; };
 		958EBC152F9DA76C00F435DA /* GraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 958EBC112F9DA76C00F435DA /* GraphView.swift */; };
-		GRAPHSIMBLD000000000001 /* GraphSimulation.swift in Sources */ = {isa = PBXBuildFile; fileRef = GRAPHSIMREF000000000001 /* GraphSimulation.swift */; };
 		958EBC162F9DA76C00F435DA /* BlockGraphService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 958EBC0D2F9DA76C00F435DA /* BlockGraphService.swift */; };
 		958EBC1B2F9DB45100F435DA /* NodesPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = 958EBC1A2F9DB45100F435DA /* NodesPane.swift */; };
 		95BF1DA02ED489C00070D1F6 /* BlockEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95BF1D9F2ED489C00070D1F6 /* BlockEditor.swift */; };
-		DCMPBLD00000000000000007 /* BlockEditorSubviews.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCMPREF00000000000000007 /* BlockEditorSubviews.swift */; };
-		DCMPBLD00000000000000008 /* BlockEditorAutosaveController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCMPREF00000000000000008 /* BlockEditorAutosaveController.swift */; };
-		EXTFILE0001BFIL0001 /* ExternalFileEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EXTFILE0001FREF0001 /* ExternalFileEditorView.swift */; };
 		95ED67512F05D40E00463159 /* ArtifactRows.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95ED674C2F05D40E00463159 /* ArtifactRows.swift */; };
 		977791C379F78336E0BF892B /* ShelfStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A300000000000000000012 /* ShelfStore.swift */; };
+		9A167649FA92EC956AB982A8 /* DocTabs.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5390B072ADF138F3AF0A88B /* DocTabs.swift */; };
 		9B8EFD539426AD59CE87403A /* GeistMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 17EC2E069A6DCF2DF7E7CF7E /* GeistMono-Regular.ttf */; };
+		9F38D33D94FA237655FE0267 /* GeoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 53A52B149F1208DFBE9F75D0 /* GeoCore */; };
 		A10000000000000000000011 /* MarkdownIndexingServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000003 /* MarkdownIndexingServiceTests.swift */; };
 		A10000000000000000000012 /* TaskItemTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000004 /* TaskItemTests.swift */; };
 		A10000000000000000000013 /* TagTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000005 /* TagTests.swift */; };
 		A10000000000000000000016 /* BlockModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000008 /* BlockModelTests.swift */; };
 		A4A384CF1B136CF1227F8E4A /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9937952854366473575ED09 /* NotificationManager.swift */; };
+		A7B6C31A723F79B6A98417EC /* CalendarPermission.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AC65BCA67C8D8DF67D5EE74 /* CalendarPermission.swift */; };
 		A908BF03CC92B0BAD6952899 /* TrafficLightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDDA921F883358420228E3B4 /* TrafficLightsView.swift */; };
 		AA00002FEED900000000001 /* GeoStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00002FEED900000000002 /* GeoStyle.swift */; };
-		AAAA000100000001 /* TaskItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAAA000100000002 /* TaskItem.swift */; };
 		AAAA000200000001 /* Tag.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAAA000200000002 /* Tag.swift */; };
 		AAAA000300000001 /* TasksStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAAA000300000002 /* TasksStore.swift */; };
 		AAAA000400000001 /* TagStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAAA000400000002 /* TagStore.swift */; };
@@ -113,6 +103,7 @@
 		AITP00000000000000001B /* AITaskParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = AITP00000000000000001A /* AITaskParser.swift */; };
 		AOTCMD0001BFIL /* AlwaysOnTopCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = AOTCMD0001FREF /* AlwaysOnTopCommand.swift */; };
 		ATTACH0001BFIL0001 /* AttachmentHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = ATTACH0001FREF0002 /* AttachmentHandler.swift */; };
+		B08901A3F5703C171D0BB0DE /* DayAgendaViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 183C3CC20994334F2CCA7C6F /* DayAgendaViewModel.swift */; };
 		B10C00000000000300000001 /* BlockEntity.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10C00000000000200000001 /* BlockEntity.swift */; };
 		B10C00000000000300000002 /* BlocksRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10C00000000000200000002 /* BlocksRepository.swift */; };
 		B10C00000000000300000003 /* BlocksStoreRepositoryAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10C00000000000200000004 /* BlocksStoreRepositoryAdapter.swift */; };
@@ -134,19 +125,23 @@
 		B1C2D3E4F5061728394B0010 /* InlineImageLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A0010 /* InlineImageLoader.swift */; };
 		B1C2D3E4F5A6B1C2D3E4F5A6 /* MonaSans-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A1B2C3D4E5F6 /* MonaSans-Medium.ttf */; };
 		BEA00000000000000000001 /* BlockEditorActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEA00000000000000000002 /* BlockEditorActions.swift */; };
+		BERCC0001BLD0000000000B /* BlockEventRouter+ContentChange.swift in Sources */ = {isa = PBXBuildFile; fileRef = BERCC0001REF0000000000A /* BlockEventRouter+ContentChange.swift */; };
+		BERCV0001BLD0000000000B /* BlockEventRouter+Convert.swift in Sources */ = {isa = PBXBuildFile; fileRef = BERCV0001REF0000000000A /* BlockEventRouter+Convert.swift */; };
+		BERMN0001BLD0000000000B /* BlockEventRouter+Menus.swift in Sources */ = {isa = PBXBuildFile; fileRef = BERMN0001REF0000000000A /* BlockEventRouter+Menus.swift */; };
+		BERST0001BLD0000000000B /* BlockEventRouter+Structural.swift in Sources */ = {isa = PBXBuildFile; fileRef = BERST0001REF0000000000A /* BlockEventRouter+Structural.swift */; };
 		BKP000000000000000001BLD /* BackupService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BKP000000000000000001REF /* BackupService.swift */; };
 		BKP000000000000000002BLD /* BackupServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BKP000000000000000002REF /* BackupServiceTests.swift */; };
 		BLKIDXSCHEMA0000BLD /* BlockIndexSchemaTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BLKIDXSCHEMA0000REF /* BlockIndexSchemaTests.swift */; };
 		BLKLAYERFOLD0000BLD /* BlockLayerFolderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BLKLAYERFOLD0000REF /* BlockLayerFolderTests.swift */; };
 		C11A00000000000000000021 /* DayRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = C11A00000000000000000011 /* DayRepository.swift */; };
 		C11A00000000000000000022 /* DayStoreRepositoryAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C11A00000000000000000012 /* DayStoreRepositoryAdapter.swift */; };
-		C11A00000000000000000023 /* CalendarViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C11A00000000000000000013 /* CalendarViewModel.swift */; };
 		C43A609C276948AA903749B3 /* Fonts in Resources */ = {isa = PBXBuildFile; fileRef = 5742DF9D235C487483B5A35B /* Fonts */; };
 		C4A100000000000000000021 /* CaptureItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4A100000000000000000011 /* CaptureItem.swift */; };
 		C4A100000000000000000022 /* CaptureRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4A100000000000000000012 /* CaptureRepository.swift */; };
 		C4A100000000000000000023 /* CaptureStoreRepositoryAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4A100000000000000000013 /* CaptureStoreRepositoryAdapter.swift */; };
 		C4A100000000000000000024 /* CaptureViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4A100000000000000000014 /* CaptureViewModel.swift */; };
 		C4DE45CE9E8EEE050CE9BCA8 /* BlockGraphServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CE06F10D6B1A513C3381BD0 /* BlockGraphServiceTests.swift */; };
+		C6560D3B1F9DFA410A33837F /* DocTabsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EE1B88245C46108E6B2ABDD /* DocTabsTests.swift */; };
 		CA72DE266C2D644ABFCAE10C02A2ACC1 /* DayManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EF96EE23544AAE820F24C7E344A40BF /* DayManager.swift */; };
 		CAP0A1B2C3D4E5F6080009 /* OCRsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAP0A1B2C3D4E5F6070009 /* OCRsListView.swift */; };
 		CD093D075F2FD5FF3611FA99 /* ShelfItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A300000000000000000011 /* ShelfItem.swift */; };
@@ -156,7 +151,18 @@
 		D0A1B2C3D4E5F60718000002 /* TagStoreRepositoryAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0A1B2C3D4E5F60718000012 /* TagStoreRepositoryAdapter.swift */; };
 		D1E2F3A4B5C6D1E2F3A4B5C6 /* GeistMono-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C1D2E3F4A5B6C1D2E3F4A5B6 /* GeistMono-Medium.ttf */; };
 		D8AA16F46AAE9B8645168397 /* TasksPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5C5116E16B8C749E689BD22 /* TasksPane.swift */; };
+		DCMPBLD00000000000000000 /* NanoDashShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCMPREF00000000000000000 /* NanoDashShared.swift */; };
+		DCMPBLD00000000000000001 /* NanoChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCMPREF00000000000000001 /* NanoChrome.swift */; };
+		DCMPBLD00000000000000002 /* NanoCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCMPREF00000000000000002 /* NanoCards.swift */; };
+		DCMPBLD00000000000000003 /* TodayInsightsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCMPREF00000000000000003 /* TodayInsightsService.swift */; };
+		DCMPBLD00000000000000004 /* BlocksStoreParsers.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCMPREF00000000000000004 /* BlocksStoreParsers.swift */; };
+		DCMPBLD00000000000000005 /* BlocksControlBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCMPREF00000000000000005 /* BlocksControlBar.swift */; };
+		DCMPBLD00000000000000006 /* BlocksPaneSubviews.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCMPREF00000000000000006 /* BlocksPaneSubviews.swift */; };
+		DCMPBLD00000000000000007 /* BlockEditorSubviews.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCMPREF00000000000000007 /* BlockEditorSubviews.swift */; };
+		DCMPBLD00000000000000008 /* BlockEditorAutosaveController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCMPREF00000000000000008 /* BlockEditorAutosaveController.swift */; };
 		DF4243497589DCE9D4E1D84A /* NavigationSegmentedControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58AE379798B38A5A3ECAA419 /* NavigationSegmentedControl.swift */; };
+		E05B88D30B1C3BF6CBD64EA3 /* BrainComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B840CF4243EC11B962DB8F9 /* BrainComponents.swift */; };
+		E120E80AF425AAD0292F5961 /* BrainSourcesSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 396B21B232FBBB8C4D3943D7 /* BrainSourcesSheet.swift */; };
 		EDITOR0009BFIL0001 /* BlockTextEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDITOR0009FREF0002 /* BlockTextEditor.swift */; };
 		EDITOR0010BFIL0001 /* BlockListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDITOR0010FREF0002 /* BlockListView.swift */; };
 		EDITOR0011BFIL0001 /* FloatingToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDITOR0011FREF0002 /* FloatingToolbar.swift */; };
@@ -172,29 +178,25 @@
 		EDITOROVERLAYLAYER001B /* EditorOverlayLayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDITOROVERLAYLAYER001A /* EditorOverlayLayer.swift */; };
 		EDITORPLUGIN001B /* EditorPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDITORPLUGIN001A /* EditorPlugin.swift */; };
 		EDITORRECONCILER001B /* EditorReconciler.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDITORRECONCILER001A /* EditorReconciler.swift */; };
-		BERCC0001BLD0000000000B /* BlockEventRouter+ContentChange.swift in Sources */ = {isa = PBXBuildFile; fileRef = BERCC0001REF0000000000A /* BlockEventRouter+ContentChange.swift */; };
-		BERST0001BLD0000000000B /* BlockEventRouter+Structural.swift in Sources */ = {isa = PBXBuildFile; fileRef = BERST0001REF0000000000A /* BlockEventRouter+Structural.swift */; };
-		BERCV0001BLD0000000000B /* BlockEventRouter+Convert.swift in Sources */ = {isa = PBXBuildFile; fileRef = BERCV0001REF0000000000A /* BlockEventRouter+Convert.swift */; };
-		BERMN0001BLD0000000000B /* BlockEventRouter+Menus.swift in Sources */ = {isa = PBXBuildFile; fileRef = BERMN0001REF0000000000A /* BlockEventRouter+Menus.swift */; };
 		EDITORTRANSACTION001B /* EditorTransaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDITORTRANSACTION001A /* EditorTransaction.swift */; };
+		EVNTSYNC00000000000BLD01 /* EventKitSyncCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = EVNTSYNC00000000000FILE1 /* EventKitSyncCoordinator.swift */; };
+		EXTFILE0001BFIL0001 /* ExternalFileEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EXTFILE0001FREF0001 /* ExternalFileEditorView.swift */; };
 		F5A300000000000000000031 /* ShelfRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A300000000000000000016 /* ShelfRepository.swift */; };
 		F5A300000000000000000032 /* ShelfStoreRepositoryAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A300000000000000000017 /* ShelfStoreRepositoryAdapter.swift */; };
 		F647E355467B97D72E413A2C /* NotificationPermission.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C3CB90D04F01EBFC5D01BF5 /* NotificationPermission.swift */; };
 		F77465EAD9372EFBA8B9F8EE /* UnifiedNavigationContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07C169CCA397394AAAC487B6 /* UnifiedNavigationContainer.swift */; };
 		FW4INLNTST0002BLD /* BlocksStoreFullWidthInlineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FW4INLNTST0002REF /* BlocksStoreFullWidthInlineTests.swift */; };
 		FW4READTST0001BLD /* MarkdownConverterFullWidthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FW4READTST0001REF /* MarkdownConverterFullWidthTests.swift */; };
+		GEOCORETESTBLD0000000001 /* GeoCore in Frameworks */ = {isa = PBXBuildFile; productRef = GEOCORETESTDEP0000000001 /* GeoCore */; };
+		GRAPHSIMBLD000000000001 /* GraphSimulation.swift in Sources */ = {isa = PBXBuildFile; fileRef = GRAPHSIMREF000000000001 /* GraphSimulation.swift */; };
 		GST00BLDR000000000001 /* GraphStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = GST00REFR000000000001 /* GraphStore.swift */; };
 		HRMSBLD0000000005 /* HermesEnv.swift in Sources */ = {isa = PBXBuildFile; fileRef = HRMSREF0000000005 /* HermesEnv.swift */; };
 		HRMSSETT0000000001 /* NanoHermesSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = HRMSSETT0000000002 /* NanoHermesSettingsView.swift */; };
 		HRMSSTAT0000000001 /* HermesStatusService.swift in Sources */ = {isa = PBXBuildFile; fileRef = HRMSSTAT0000000002 /* HermesStatusService.swift */; };
-		DCMPBLD00000000000000003 /* TodayInsightsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCMPREF00000000000000003 /* TodayInsightsService.swift */; };
 		KANBSVC00000000001 /* HermesKanbanService.swift in Sources */ = {isa = PBXBuildFile; fileRef = KANBSVC00000000002 /* HermesKanbanService.swift */; };
 		MACT000000000000000B /* MenuActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = MACT000000000000000R /* MenuActions.swift */; };
 		MATH0001BFIL0001 /* MathRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = MATH0001FREF0001 /* MathRenderer.swift */; };
 		NANO00BLD0000000001 /* NanoPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = NANO00REF0000000001 /* NanoPane.swift */; };
-		DCMPBLD00000000000000000 /* NanoDashShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCMPREF00000000000000000 /* NanoDashShared.swift */; };
-		DCMPBLD00000000000000001 /* NanoChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCMPREF00000000000000001 /* NanoChrome.swift */; };
-		DCMPBLD00000000000000002 /* NanoCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCMPREF00000000000000002 /* NanoCards.swift */; };
 		NANO00BLD0000000005 /* ConnectorDrawer.swift in Sources */ = {isa = PBXBuildFile; fileRef = NANO00REF0000000005 /* ConnectorDrawer.swift */; };
 		NANO00BLD0000000007 /* JobStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = NANO00REF0000000007 /* JobStore.swift */; };
 		NANO00BLD0000000019 /* HermesCronsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = NANO00REF0000000019 /* HermesCronsSection.swift */; };
@@ -281,7 +283,6 @@
 		TBLM0001BFIL0001 /* TableModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBLM0001FREF0001 /* TableModel.swift */; };
 		TBMETR00001BFIL /* TitleBarMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBMETR00001FREF /* TitleBarMetrics.swift */; };
 		TBOVRL00001BFIL /* TitleBarOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBOVRL00001FREF /* TitleBarOverlay.swift */; };
-		TBU000004BLD /* QuickAddParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBU000004REF /* QuickAddParser.swift */; };
 		TBU000005BLD /* TasksStore+HabitCompletion.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBU000005REF /* TasksStore+HabitCompletion.swift */; };
 		TBU000006BLD /* AutoCompleteSuggestionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBU000006REF /* AutoCompleteSuggestionService.swift */; };
 		TBU000008BLD /* BlockLinkedSchedulesHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = TBU000008REF /* BlockLinkedSchedulesHeader.swift */; };
@@ -319,28 +320,35 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		01AD5E50F7D2ACB94AD45014 /* CreateBrainSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CreateBrainSheet.swift; path = Geo/Features/Brains/UI/CreateBrainSheet.swift; sourceTree = "<group>"; };
 		02097A30DAF122904836BF44001DF396 /* CurrentDayHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrentDayHeader.swift; sourceTree = "<group>"; };
 		06a7d6d6cba40c56c57ff2c7 /* TasksViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TasksViewModel.swift; sourceTree = "<group>"; };
 		07C169CCA397394AAAC487B6 /* UnifiedNavigationContainer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = UnifiedNavigationContainer.swift; sourceTree = "<group>"; };
-		143896D35F25EAC6E5ACD0F6 /* AccessibilityPermission.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccessibilityPermission.swift; sourceTree = "<group>"; };
-		17EC2E069A6DCF2DF7E7CF7E /* GeistMono-Regular.ttf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; name = "GeistMono-Regular.ttf"; path = "Geo/Resources/Fonts/GeistMono-Regular.ttf"; sourceTree = SOURCE_ROOT; };
-		2354A93AB8D6437E9D307C6E /* ResponsiveLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResponsiveLayout.swift; sourceTree = "<group>"; };
-		2A78971EF5DCC3C31B9593FF /* BrainsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BrainsTests.swift; path = Geo/Tests/BrainsTests.swift; sourceTree = "<group>"; };
-		3853647B6F294A63B46B70FC /* FontManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FontManager.swift; sourceTree = "<group>"; };
-		3C3CB90D04F01EBFC5D01BF5 /* NotificationPermission.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationPermission.swift; sourceTree = "<group>"; };
-		3EEAD44ED75B4C6DF98C92F9 /* PermissionCache.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PermissionCache.swift; sourceTree = "<group>"; };
-		3EF96EE23544AAE820F24C7E344A40BF /* DayManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayManager.swift; sourceTree = "<group>"; };
-		4180AEAA2839753E0054FEA9 /* Geo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Geo.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		4180AEAD2839753E0054FEA9 /* GeoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeoApp.swift; sourceTree = "<group>"; };
 		0FR00001REF0000000000A /* OpenFileRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenFileRouter.swift; sourceTree = "<group>"; };
 		0FR00002REF0000000000A /* OpenFileRouterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenFileRouterTests.swift; sourceTree = "<group>"; };
+		143896D35F25EAC6E5ACD0F6 /* AccessibilityPermission.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccessibilityPermission.swift; sourceTree = "<group>"; };
+		167932D6D8604CBA55F68C9F /* BrainSourceKind.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BrainSourceKind.swift; path = Geo/Features/Brains/Domain/BrainSourceKind.swift; sourceTree = "<group>"; };
+		17EC2E069A6DCF2DF7E7CF7E /* GeistMono-Regular.ttf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; name = "GeistMono-Regular.ttf"; path = "Geo/Resources/Fonts/GeistMono-Regular.ttf"; sourceTree = SOURCE_ROOT; };
+		183C3CC20994334F2CCA7C6F /* DayAgendaViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DayAgendaViewModel.swift; sourceTree = "<group>"; };
+		1B840CF4243EC11B962DB8F9 /* BrainComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BrainComponents.swift; path = Geo/Features/Brains/UI/BrainComponents.swift; sourceTree = "<group>"; };
+		2354A93AB8D6437E9D307C6E /* ResponsiveLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResponsiveLayout.swift; sourceTree = "<group>"; };
+		2A78971EF5DCC3C31B9593FF /* BrainsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BrainsTests.swift; path = Geo/Tests/BrainsTests.swift; sourceTree = "<group>"; };
+		2A9DA92FDE5D2F146A9368BF /* DayAgendaView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DayAgendaView.swift; sourceTree = "<group>"; };
+		3853647B6F294A63B46B70FC /* FontManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FontManager.swift; sourceTree = "<group>"; };
+		396B21B232FBBB8C4D3943D7 /* BrainSourcesSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BrainSourcesSheet.swift; path = Geo/Features/Brains/UI/BrainSourcesSheet.swift; sourceTree = "<group>"; };
+		3C3CB90D04F01EBFC5D01BF5 /* NotificationPermission.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationPermission.swift; sourceTree = "<group>"; };
+		3EE1B88245C46108E6B2ABDD /* DocTabsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DocTabsTests.swift; path = Geo/Tests/DocTabsTests.swift; sourceTree = "<group>"; };
+		3EEAD44ED75B4C6DF98C92F9 /* PermissionCache.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PermissionCache.swift; sourceTree = "<group>"; };
+		3EF96EE23544AAE820F24C7E344A40BF /* DayManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayManager.swift; sourceTree = "<group>"; };
+		4103E3916ADED1B4EF2F7720 /* PaneTabBar.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PaneTabBar.swift; path = Geo/Shared/DesignSystem/Panes/PaneTabBar.swift; sourceTree = "<group>"; };
+		4180AEAA2839753E0054FEA9 /* Geo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Geo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		4180AEAD2839753E0054FEA9 /* GeoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeoApp.swift; sourceTree = "<group>"; };
 		4180AEB12839753F0054FEA9 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		4180AEB42839753F0054FEA9 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		4180AEB62839753F0054FEA9 /* Geo.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Geo.entitlements; sourceTree = "<group>"; };
 		4180AEBF283976740054FEA9 /* SettingsWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindow.swift; sourceTree = "<group>"; };
 		4180AEC1283976F80054FEA9 /* GeneralSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneralSettingsView.swift; sourceTree = "<group>"; };
 		4180AEC3283979530054FEA9 /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
-		4180AECB28397C6F0054FEA9 /* HomePane.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomePane.swift; sourceTree = "<group>"; };
 		4180AEE228398FE50054FEA9 /* Pane.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Pane.swift; sourceTree = "<group>"; };
 		4180AEE628399E160054FEA9 /* MyCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyCommands.swift; sourceTree = "<group>"; };
 		4180AEEA2839A0280054FEA9 /* AboutCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutCommand.swift; sourceTree = "<group>"; };
@@ -353,57 +361,39 @@
 		4180AEFD2839A3B30054FEA9 /* AttributionsWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttributionsWindow.swift; sourceTree = "<group>"; };
 		4180AF012839A4BA0054FEA9 /* AttributionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttributionsView.swift; sourceTree = "<group>"; };
 		4180AF062839AF320054FEA9 /* WindowReflection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowReflection.swift; sourceTree = "<group>"; };
+		4428703CD3C2CCC821ED62F2 /* BrainWorkspaceModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BrainWorkspaceModel.swift; path = Geo/Features/Brains/Data/BrainWorkspaceModel.swift; sourceTree = "<group>"; };
 		4AD5BE2F11A36A20C7AA5F9C /* InputMonitoringPermission.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = InputMonitoringPermission.swift; sourceTree = "<group>"; };
 		4CE06F10D6B1A513C3381BD0 /* BlockGraphServiceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BlockGraphServiceTests.swift; sourceTree = "<group>"; };
-		51151077d4c3fe112d1efd4f /* TasksRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TasksRepository.swift; sourceTree = "<group>"; };
+		4F85005D9066232335D2DF0B /* BrainSidebar.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BrainSidebar.swift; path = Geo/Features/Brains/UI/BrainSidebar.swift; sourceTree = "<group>"; };
 		5742DF9D235C487483B5A35B /* Fonts */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Fonts; sourceTree = "<group>"; };
 		58AE379798B38A5A3ECAA419 /* NavigationSegmentedControl.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NavigationSegmentedControl.swift; sourceTree = "<group>"; };
 		5D84ED1022631CB47574BEC6 /* Brains.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Brains.swift; path = Geo/Shared/Infrastructure/Brains/Brains.swift; sourceTree = "<group>"; };
 		6A9E1A59E92DF21CE147B80B19AF8492 /* Day.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Day.swift; sourceTree = "<group>"; };
 		6D9CAA77A7A6132F930F755B /* AppTab.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppTab.swift; sourceTree = "<group>"; };
 		7478191EC32403DE09A0860E /* MonaSans-SemiBold.ttf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; name = "MonaSans-SemiBold.ttf"; path = "Geo/Resources/Fonts/MonaSans-SemiBold.ttf"; sourceTree = SOURCE_ROOT; };
+		7AC65BCA67C8D8DF67D5EE74 /* CalendarPermission.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CalendarPermission.swift; sourceTree = "<group>"; };
 		7F45AFC5F8B851881212FCD8 /* PermissionRegistry.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PermissionRegistry.swift; sourceTree = "<group>"; };
+		80551AF40C6DD6D61A858CE8 /* ResizableSplit.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ResizableSplit.swift; path = Geo/Shared/DesignSystem/Panes/ResizableSplit.swift; sourceTree = "<group>"; };
+		86FB87776BC32584989752AD /* BrainGraphPanel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BrainGraphPanel.swift; path = Geo/Features/Brains/UI/BrainGraphPanel.swift; sourceTree = "<group>"; };
 		94BFD7572DD72A57E8E671F5 /* Permission.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Permission.swift; sourceTree = "<group>"; };
 		953ED1E82F14819800BA8D40 /* TimelinePopoverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelinePopoverView.swift; sourceTree = "<group>"; };
 		95456C5C2ED3DA0F00EDB4A9 /* NavigationStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationStore.swift; sourceTree = "<group>"; };
 		95456C5E2ED4758300EDB4A9 /* GlobalHotkeyManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalHotkeyManager.swift; sourceTree = "<group>"; };
 		95456C602ED47F2500EDB4A9 /* BlocksPane.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Geo/Features/Blocks/UI/BlocksPane.swift; sourceTree = SOURCE_ROOT; };
-		DCMPREF00000000000000005 /* BlocksControlBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlocksControlBar.swift; sourceTree = "<group>"; };
-		DCMPREF00000000000000006 /* BlocksPaneSubviews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlocksPaneSubviews.swift; sourceTree = "<group>"; };
 		95456C622ED47F3400EDB4A9 /* BlocksStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Geo/Features/Blocks/Data/BlocksStore.swift; sourceTree = SOURCE_ROOT; };
-		DCMPREF00000000000000004 /* BlocksStoreParsers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlocksStoreParsers.swift; sourceTree = "<group>"; };
 		95574B2E2ED09F56000C8978 /* LogStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Geo/Features/Capture/Data/LogStore.swift; sourceTree = SOURCE_ROOT; };
 		95574B302ED09F90000C8978 /* ScreenshotWatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Geo/Features/Capture/Data/ScreenshotWatcher.swift; sourceTree = SOURCE_ROOT; };
 		95574B342ED0CAC9000C8978 /* OCRService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OCRService.swift; sourceTree = "<group>"; };
 		958371A22F1D5C7000FB7A7C /* FABAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FABAction.swift; sourceTree = "<group>"; };
 		958371A32F1D5C7000FB7A7C /* FABConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FABConfiguration.swift; sourceTree = "<group>"; };
 		958371A42F1D5C7000FB7A7C /* FABMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FABMenu.swift; sourceTree = "<group>"; };
-		958371D22F210BB000FB7A7C /* CalendarEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarEvent.swift; sourceTree = "<group>"; };
 		958371D32F210BB000FB7A7C /* Holiday.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Holiday.swift; sourceTree = "<group>"; };
 		958371D62F210BBD00FB7A7C /* HolidayService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HolidayService.swift; sourceTree = "<group>"; };
-		958371D82F210EAA00FB7A7C /* CalendarDayCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarDayCell.swift; sourceTree = "<group>"; };
-		958371D92F210EAA00FB7A7C /* CalendarEventPill.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarEventPill.swift; sourceTree = "<group>"; };
-		958371DA2F210EAA00FB7A7C /* CalendarGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarGrid.swift; sourceTree = "<group>"; };
-		CALNEW0000000000000001F1 /* CalendarRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarRootView.swift; sourceTree = "<group>"; };
-		CALNEW0000000000000001F2 /* CalendarFiltersModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarFiltersModel.swift; sourceTree = "<group>"; };
-		CALNEW0000000000000001F3 /* CalendarFilterChips.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarFilterChips.swift; sourceTree = "<group>"; };
-		CALNEW0000000000000001F4 /* WeekCalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeekCalendarView.swift; sourceTree = "<group>"; };
-		CALNEW0000000000000001F5 /* DayCalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayCalendarView.swift; sourceTree = "<group>"; };
-		CALNEW0000000000000001F6 /* CalendarTimeGridLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarTimeGridLayout.swift; sourceTree = "<group>"; };
-		CALNEW0000000000000001F7 /* CalendarTimeGridEventCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarTimeGridEventCard.swift; sourceTree = "<group>"; };
-		CALNEW0000000000000001F8 /* CalendarTimeGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarTimeGrid.swift; sourceTree = "<group>"; };
-		CALNEW0000000000000001F9 /* CalendarDaySummaryCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarDaySummaryCards.swift; sourceTree = "<group>"; };
-		958371DC2F210EAA00FB7A7C /* CalendarWeekdayHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarWeekdayHeader.swift; sourceTree = "<group>"; };
-		958371DD2F210EAA00FB7A7C /* MonthCalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonthCalendarView.swift; sourceTree = "<group>"; };
 		958EBC0D2F9DA76C00F435DA /* BlockGraphService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockGraphService.swift; sourceTree = "<group>"; };
 		958EBC0F2F9DA76C00F435DA /* BlockGraph.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockGraph.swift; sourceTree = "<group>"; };
 		958EBC112F9DA76C00F435DA /* GraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphView.swift; sourceTree = "<group>"; };
-		GRAPHSIMREF000000000001 /* GraphSimulation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphSimulation.swift; sourceTree = "<group>"; };
 		958EBC1A2F9DB45100F435DA /* NodesPane.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodesPane.swift; sourceTree = "<group>"; };
 		95BF1D9F2ED489C00070D1F6 /* BlockEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Geo/Features/Blocks/UI/BlockEditor.swift; sourceTree = SOURCE_ROOT; };
-		DCMPREF00000000000000007 /* BlockEditorSubviews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockEditorSubviews.swift; sourceTree = "<group>"; };
-		DCMPREF00000000000000008 /* BlockEditorAutosaveController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockEditorAutosaveController.swift; sourceTree = "<group>"; };
-		EXTFILE0001FREF0001 /* ExternalFileEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Geo/Features/Blocks/UI/ExternalFileEditorView.swift; sourceTree = SOURCE_ROOT; };
 		95ED674C2F05D40E00463159 /* ArtifactRows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtifactRows.swift; sourceTree = "<group>"; };
 		9CBE3190120FF8FEFD73E798 /* TaskFormView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Geo/Features/Tasks/UI/TaskFormView.swift; sourceTree = SOURCE_ROOT; };
 		A10000000000000000000001 /* GeoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GeoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -420,7 +410,6 @@
 		A1B2C3D4E5F6A1B2C3D4E5F6 /* MonaSans-Medium.ttf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; name = "MonaSans-Medium.ttf"; path = "Geo/Resources/Fonts/MonaSans-Medium.ttf"; sourceTree = SOURCE_ROOT; };
 		A9937952854366473575ED09 /* NotificationManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		AA00002FEED900000000002 /* GeoStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeoStyle.swift; sourceTree = "<group>"; };
-		AAAA000100000002 /* TaskItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Geo/Features/Tasks/Domain/TaskItem.swift; sourceTree = SOURCE_ROOT; };
 		AAAA000200000002 /* Tag.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tag.swift; sourceTree = "<group>"; };
 		AAAA000300000002 /* TasksStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Geo/Features/Tasks/Data/TasksStore.swift; sourceTree = SOURCE_ROOT; };
 		AAAA000400000002 /* TagStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagStore.swift; sourceTree = "<group>"; };
@@ -442,14 +431,20 @@
 		B10C00000000000200000020 /* WikiLinkSuggestionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WikiLinkSuggestionsView.swift; sourceTree = "<group>"; };
 		B10C00000000000200000021 /* NoteTemplates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteTemplates.swift; sourceTree = "<group>"; };
 		B10C00000000000200000030 /* BlockStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockStatus.swift; sourceTree = "<group>"; };
+		B31D301E5F41683CE13646C1 /* VaultIngest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = VaultIngest.swift; path = Geo/Features/Brains/Data/VaultIngest.swift; sourceTree = "<group>"; };
+		B5390B072ADF138F3AF0A88B /* DocTabs.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DocTabs.swift; path = Geo/Shared/DesignSystem/Panes/DocTabs.swift; sourceTree = "<group>"; };
+		B993A1CF18AE10F04A083DF1 /* EventKitAdapter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EventKitAdapter.swift; sourceTree = "<group>"; };
 		BEA00000000000000000002 /* BlockEditorActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockEditorActions.swift; sourceTree = "<group>"; };
+		BERCC0001REF0000000000A /* BlockEventRouter+ContentChange.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BlockEventRouter+ContentChange.swift"; sourceTree = "<group>"; };
+		BERCV0001REF0000000000A /* BlockEventRouter+Convert.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BlockEventRouter+Convert.swift"; sourceTree = "<group>"; };
+		BERMN0001REF0000000000A /* BlockEventRouter+Menus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BlockEventRouter+Menus.swift"; sourceTree = "<group>"; };
+		BERST0001REF0000000000A /* BlockEventRouter+Structural.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BlockEventRouter+Structural.swift"; sourceTree = "<group>"; };
 		BKP000000000000000001REF /* BackupService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupService.swift; sourceTree = "<group>"; };
 		BKP000000000000000002REF /* BackupServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupServiceTests.swift; sourceTree = "<group>"; };
 		BLKIDXSCHEMA0000REF /* BlockIndexSchemaTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockIndexSchemaTests.swift; sourceTree = "<group>"; };
 		BLKLAYERFOLD0000REF /* BlockLayerFolderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockLayerFolderTests.swift; sourceTree = "<group>"; };
 		C11A00000000000000000011 /* DayRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayRepository.swift; sourceTree = "<group>"; };
 		C11A00000000000000000012 /* DayStoreRepositoryAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayStoreRepositoryAdapter.swift; sourceTree = "<group>"; };
-		C11A00000000000000000013 /* CalendarViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarViewModel.swift; sourceTree = "<group>"; };
 		C1D2E3F4A5B6C1D2E3F4A5B6 /* GeistMono-Medium.ttf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = file; name = "GeistMono-Medium.ttf"; path = "Geo/Resources/Fonts/GeistMono-Medium.ttf"; sourceTree = SOURCE_ROOT; };
 		C4A100000000000000000011 /* CaptureItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureItem.swift; sourceTree = "<group>"; };
 		C4A100000000000000000012 /* CaptureRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureRepository.swift; sourceTree = "<group>"; };
@@ -457,11 +452,21 @@
 		C4A100000000000000000014 /* CaptureViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureViewModel.swift; sourceTree = "<group>"; };
 		C5C5116E16B8C749E689BD22 /* TasksPane.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Geo/Features/Tasks/UI/TasksPane.swift; sourceTree = SOURCE_ROOT; };
 		CAP0A1B2C3D4E5F6070009 /* OCRsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OCRsListView.swift; sourceTree = "<group>"; };
+		CDF80B165C55D8964AAB677C /* BrainGraphBuilder.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BrainGraphBuilder.swift; path = Geo/Features/Brains/Domain/BrainGraphBuilder.swift; sourceTree = "<group>"; };
 		CMDP0001FREF0001 /* CommandPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPalette.swift; sourceTree = "<group>"; };
 		CMDP0002FREF0001 /* CommandPaletteViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteViewModel.swift; sourceTree = "<group>"; };
 		D0A1B2C3D4E5F60718000011 /* TagsRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagsRepository.swift; sourceTree = "<group>"; };
 		D0A1B2C3D4E5F60718000012 /* TagStoreRepositoryAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagStoreRepositoryAdapter.swift; sourceTree = "<group>"; };
 		D67B597AD7299E41781494C9 /* brain.py */ = {isa = PBXFileReference; includeInIndex = 1; name = brain.py; path = "hermes-extensions/brain-vault/brain.py"; sourceTree = "<group>"; };
+		DCMPREF00000000000000000 /* NanoDashShared.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoDashShared.swift; sourceTree = "<group>"; };
+		DCMPREF00000000000000001 /* NanoChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoChrome.swift; sourceTree = "<group>"; };
+		DCMPREF00000000000000002 /* NanoCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoCards.swift; sourceTree = "<group>"; };
+		DCMPREF00000000000000003 /* TodayInsightsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Geo/Features/Nano/Data/TodayInsightsService.swift; sourceTree = SOURCE_ROOT; };
+		DCMPREF00000000000000004 /* BlocksStoreParsers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlocksStoreParsers.swift; sourceTree = "<group>"; };
+		DCMPREF00000000000000005 /* BlocksControlBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlocksControlBar.swift; sourceTree = "<group>"; };
+		DCMPREF00000000000000006 /* BlocksPaneSubviews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlocksPaneSubviews.swift; sourceTree = "<group>"; };
+		DCMPREF00000000000000007 /* BlockEditorSubviews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockEditorSubviews.swift; sourceTree = "<group>"; };
+		DCMPREF00000000000000008 /* BlockEditorAutosaveController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockEditorAutosaveController.swift; sourceTree = "<group>"; };
 		DF3BC6A1C82DBFD5E715587035021D4D /* DayRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayRow.swift; sourceTree = "<group>"; };
 		E26EB02C0E6128A33FAFD2D2 /* MonaSans-Regular.ttf */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; name = "MonaSans-Regular.ttf"; path = "Geo/Resources/Fonts/MonaSans-Regular.ttf"; sourceTree = SOURCE_ROOT; };
 		E4809C353DD1223F3F3BFD9D /* BrainsPane.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BrainsPane.swift; path = Geo/Features/Brains/UI/BrainsPane.swift; sourceTree = "<group>"; };
@@ -481,31 +486,27 @@
 		EDITOROVERLAYLAYER001A /* EditorOverlayLayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorOverlayLayer.swift; sourceTree = "<group>"; };
 		EDITORPLUGIN001A /* EditorPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorPlugin.swift; sourceTree = "<group>"; };
 		EDITORRECONCILER001A /* EditorReconciler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorReconciler.swift; sourceTree = "<group>"; };
-		BERCC0001REF0000000000A /* BlockEventRouter+ContentChange.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BlockEventRouter+ContentChange.swift"; sourceTree = "<group>"; };
-		BERST0001REF0000000000A /* BlockEventRouter+Structural.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BlockEventRouter+Structural.swift"; sourceTree = "<group>"; };
-		BERCV0001REF0000000000A /* BlockEventRouter+Convert.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BlockEventRouter+Convert.swift"; sourceTree = "<group>"; };
-		BERMN0001REF0000000000A /* BlockEventRouter+Menus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BlockEventRouter+Menus.swift"; sourceTree = "<group>"; };
 		EDITORTRANSACTION001A /* EditorTransaction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorTransaction.swift; sourceTree = "<group>"; };
+		EVNTSYNC00000000000FILE1 /* EventKitSyncCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EventKitSyncCoordinator.swift; sourceTree = "<group>"; };
+		EXTFILE0001FREF0001 /* ExternalFileEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Geo/Features/Blocks/UI/ExternalFileEditorView.swift; sourceTree = SOURCE_ROOT; };
 		F5A300000000000000000011 /* ShelfItem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShelfItem.swift; sourceTree = "<group>"; };
 		F5A300000000000000000012 /* ShelfStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShelfStore.swift; sourceTree = "<group>"; };
 		F5A300000000000000000016 /* ShelfRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShelfRepository.swift; sourceTree = "<group>"; };
 		F5A300000000000000000017 /* ShelfStoreRepositoryAdapter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShelfStoreRepositoryAdapter.swift; sourceTree = "<group>"; };
+		F9F6C9AD02B82AECE6B90309 /* BrainVaultStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BrainVaultStore.swift; path = Geo/Features/Brains/Data/BrainVaultStore.swift; sourceTree = "<group>"; };
 		FCA54DB582FE4756E44D8476 /* OnboardingPermissionsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OnboardingPermissionsView.swift; sourceTree = "<group>"; };
 		FEF5F4442557D5D84EA83D7D592223EA /* DayStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayStore.swift; sourceTree = "<group>"; };
 		FW4INLNTST0002REF /* BlocksStoreFullWidthInlineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlocksStoreFullWidthInlineTests.swift; sourceTree = "<group>"; };
 		FW4READTST0001REF /* MarkdownConverterFullWidthTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownConverterFullWidthTests.swift; sourceTree = "<group>"; };
+		GRAPHSIMREF000000000001 /* GraphSimulation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphSimulation.swift; sourceTree = "<group>"; };
 		GST00REFR000000000001 /* GraphStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphStore.swift; sourceTree = "<group>"; };
 		HRMSREF0000000005 /* HermesEnv.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HermesEnv.swift; sourceTree = "<group>"; };
 		HRMSSETT0000000002 /* NanoHermesSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NanoHermesSettingsView.swift; sourceTree = "<group>"; };
 		HRMSSTAT0000000002 /* HermesStatusService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Geo/Features/Nano/Data/HermesStatusService.swift; sourceTree = SOURCE_ROOT; };
-		DCMPREF00000000000000003 /* TodayInsightsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Geo/Features/Nano/Data/TodayInsightsService.swift; sourceTree = SOURCE_ROOT; };
 		KANBSVC00000000002 /* HermesKanbanService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HermesKanbanService.swift; sourceTree = "<group>"; };
 		MACT000000000000000R /* MenuActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuActions.swift; sourceTree = "<group>"; };
 		MATH0001FREF0001 /* MathRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MathRenderer.swift; sourceTree = "<group>"; };
 		NANO00REF0000000001 /* NanoPane.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NanoPane.swift; sourceTree = "<group>"; };
-		DCMPREF00000000000000000 /* NanoDashShared.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoDashShared.swift; sourceTree = "<group>"; };
-		DCMPREF00000000000000001 /* NanoChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoChrome.swift; sourceTree = "<group>"; };
-		DCMPREF00000000000000002 /* NanoCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanoCards.swift; sourceTree = "<group>"; };
 		NANO00REF0000000005 /* ConnectorDrawer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ConnectorDrawer.swift; sourceTree = "<group>"; };
 		NANO00REF0000000007 /* JobStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = JobStore.swift; sourceTree = "<group>"; };
 		NANO00REF0000000019 /* HermesCronsSection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HermesCronsSection.swift; sourceTree = "<group>"; };
@@ -592,7 +593,6 @@
 		TBLM0001FREF0001 /* TableModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TableModel.swift; sourceTree = "<group>"; };
 		TBMETR00001FREF /* TitleBarMetrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TitleBarMetrics.swift; sourceTree = "<group>"; };
 		TBOVRL00001FREF /* TitleBarOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TitleBarOverlay.swift; sourceTree = "<group>"; };
-		TBU000004REF /* QuickAddParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Geo/Features/Tasks/Domain/QuickAddParser.swift; sourceTree = SOURCE_ROOT; };
 		TBU000005REF /* TasksStore+HabitCompletion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Geo/Features/Tasks/Data/TasksStore+HabitCompletion.swift"; sourceTree = SOURCE_ROOT; };
 		TBU000006REF /* AutoCompleteSuggestionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Geo/Features/Tasks/Data/AutoCompleteSuggestionService.swift; sourceTree = SOURCE_ROOT; };
 		TBU000008REF /* BlockLinkedSchedulesHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Geo/Features/Blocks/UI/BlockLinkedSchedulesHeader.swift; sourceTree = SOURCE_ROOT; };
@@ -628,6 +628,7 @@
 			files = (
 				B1C2D3E4F5061728394B0006 /* GRDB in Frameworks */,
 				B1C2D3E4F5061728394B000A /* Markdown in Frameworks */,
+				9F38D33D94FA237655FE0267 /* GeoCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -635,6 +636,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				GEOCORETESTBLD0000000001 /* GeoCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -649,6 +651,8 @@
 				TBU000005REF /* TasksStore+HabitCompletion.swift */,
 				TBU000006REF /* AutoCompleteSuggestionService.swift */,
 				AITP00000000000000001A /* AITaskParser.swift */,
+				B993A1CF18AE10F04A083DF1 /* EventKitAdapter.swift */,
+				EVNTSYNC00000000000FILE1 /* EventKitSyncCoordinator.swift */,
 			);
 			path = Data;
 			sourceTree = "<group>";
@@ -662,6 +666,7 @@
 				3EEAD44ED75B4C6DF98C92F9 /* PermissionCache.swift */,
 				7F45AFC5F8B851881212FCD8 /* PermissionRegistry.swift */,
 				3C3CB90D04F01EBFC5D01BF5 /* NotificationPermission.swift */,
+				7AC65BCA67C8D8DF67D5EE74 /* CalendarPermission.swift */,
 			);
 			path = Permissions;
 			sourceTree = "<group>";
@@ -677,6 +682,20 @@
 				2A78971EF5DCC3C31B9593FF /* BrainsTests.swift */,
 				E4809C353DD1223F3F3BFD9D /* BrainsPane.swift */,
 				D67B597AD7299E41781494C9 /* brain.py */,
+				F9F6C9AD02B82AECE6B90309 /* BrainVaultStore.swift */,
+				B31D301E5F41683CE13646C1 /* VaultIngest.swift */,
+				167932D6D8604CBA55F68C9F /* BrainSourceKind.swift */,
+				CDF80B165C55D8964AAB677C /* BrainGraphBuilder.swift */,
+				1B840CF4243EC11B962DB8F9 /* BrainComponents.swift */,
+				396B21B232FBBB8C4D3943D7 /* BrainSourcesSheet.swift */,
+				01AD5E50F7D2ACB94AD45014 /* CreateBrainSheet.swift */,
+				4103E3916ADED1B4EF2F7720 /* PaneTabBar.swift */,
+				80551AF40C6DD6D61A858CE8 /* ResizableSplit.swift */,
+				4428703CD3C2CCC821ED62F2 /* BrainWorkspaceModel.swift */,
+				4F85005D9066232335D2DF0B /* BrainSidebar.swift */,
+				86FB87776BC32584989752AD /* BrainGraphPanel.swift */,
+				B5390B072ADF138F3AF0A88B /* DocTabs.swift */,
+				3EE1B88245C46108E6B2ABDD /* DocTabsTests.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -732,6 +751,8 @@
 				TBU000012REF /* TaskFormEvent.swift */,
 				TBU000013REF /* TaskFormHabit.swift */,
 				TBU000014REF /* TaskFormMilestone.swift */,
+				183C3CC20994334F2CCA7C6F /* DayAgendaViewModel.swift */,
+				2A9DA92FDE5D2F146A9368BF /* DayAgendaView.swift */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -1012,7 +1033,6 @@
 			isa = PBXGroup;
 			children = (
 				6A9E1A59E92DF21CE147B80B19AF8492 /* Day.swift */,
-				958371D22F210BB000FB7A7C /* CalendarEvent.swift */,
 				958371D32F210BB000FB7A7C /* Holiday.swift */,
 				C11A00000000000000000011 /* DayRepository.swift */,
 			);
@@ -1033,21 +1053,6 @@
 		C11A00000000000000000004 /* UI */ = {
 			isa = PBXGroup;
 			children = (
-				958371DD2F210EAA00FB7A7C /* MonthCalendarView.swift */,
-				958371DA2F210EAA00FB7A7C /* CalendarGrid.swift */,
-				958371D82F210EAA00FB7A7C /* CalendarDayCell.swift */,
-				958371DC2F210EAA00FB7A7C /* CalendarWeekdayHeader.swift */,
-				958371D92F210EAA00FB7A7C /* CalendarEventPill.swift */,
-				C11A00000000000000000013 /* CalendarViewModel.swift */,
-				CALNEW0000000000000001F1 /* CalendarRootView.swift */,
-				CALNEW0000000000000001F2 /* CalendarFiltersModel.swift */,
-				CALNEW0000000000000001F3 /* CalendarFilterChips.swift */,
-				CALNEW0000000000000001F4 /* WeekCalendarView.swift */,
-				CALNEW0000000000000001F5 /* DayCalendarView.swift */,
-				CALNEW0000000000000001F6 /* CalendarTimeGridLayout.swift */,
-				CALNEW0000000000000001F7 /* CalendarTimeGridEventCard.swift */,
-				CALNEW0000000000000001F8 /* CalendarTimeGrid.swift */,
-				CALNEW0000000000000001F9 /* CalendarDaySummaryCards.swift */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -1203,7 +1208,6 @@
 		HOME000GRP00002 /* UI */ = {
 			isa = PBXGroup;
 			children = (
-				4180AECB28397C6F0054FEA9 /* HomePane.swift */,
 				DF3BC6A1C82DBFD5E715587035021D4D /* DayRow.swift */,
 				95ED674C2F05D40E00463159 /* ArtifactRows.swift */,
 				02097A30DAF122904836BF44001DF396 /* CurrentDayHeader.swift */,
@@ -1606,9 +1610,6 @@
 		e317416a35c372682e3ce0a2 /* Domain */ = {
 			isa = PBXGroup;
 			children = (
-				AAAA000100000002 /* TaskItem.swift */,
-				51151077d4c3fe112d1efd4f /* TasksRepository.swift */,
-				TBU000004REF /* QuickAddParser.swift */,
 			);
 			path = Domain;
 			sourceTree = "<group>";
@@ -1632,6 +1633,7 @@
 			packageProductDependencies = (
 				AABBCCDD0011223344556688 /* GRDB */,
 				AABBCCDD00112233445566AA /* Markdown */,
+				53A52B149F1208DFBE9F75D0 /* GeoCore */,
 			);
 			productName = SidebarApp;
 			productReference = 4180AEAA2839753E0054FEA9 /* Geo.app */;
@@ -1651,6 +1653,9 @@
 				A10000000000000000000051 /* PBXTargetDependency */,
 			);
 			name = GeoTests;
+			packageProductDependencies = (
+				GEOCORETESTDEP0000000001 /* GeoCore */,
+			);
 			productName = GeoTests;
 			productReference = A10000000000000000000001 /* GeoTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -1686,6 +1691,7 @@
 			packageReferences = (
 				AABBCCDD0011223344556677 /* XCRemoteSwiftPackageReference "GRDB.swift" */,
 				AABBCCDD0011223344556699 /* XCRemoteSwiftPackageReference "swift-markdown" */,
+				200889E973932C69754DB521 /* XCLocalSwiftPackageReference "GeoCore" */,
 			);
 			productRefGroup = 4180AEAB2839753E0054FEA9 /* Products */;
 			projectDirPath = "";
@@ -1793,21 +1799,6 @@
 				4180AEF52839A1370054FEA9 /* NSWindow+AlwaysOnTop.swift in Sources */,
 				AB47959E2D9B4A1D98CB44A0 /* ProcessInfo+Testing.swift in Sources */,
 				4180AEF92839A21F0054FEA9 /* AboutWindow.swift in Sources */,
-				958371DF2F210EAA00FB7A7C /* CalendarWeekdayHeader.swift in Sources */,
-				958371E02F210EAA00FB7A7C /* CalendarEventPill.swift in Sources */,
-				958371E12F210EAA00FB7A7C /* MonthCalendarView.swift in Sources */,
-				958371E22F210EAA00FB7A7C /* CalendarGrid.swift in Sources */,
-				958371E32F210EAA00FB7A7C /* CalendarDayCell.swift in Sources */,
-				C11A00000000000000000023 /* CalendarViewModel.swift in Sources */,
-				CALNEW0000000000000001B1 /* CalendarRootView.swift in Sources */,
-				CALNEW0000000000000001B2 /* CalendarFiltersModel.swift in Sources */,
-				CALNEW0000000000000001B3 /* CalendarFilterChips.swift in Sources */,
-				CALNEW0000000000000001B4 /* WeekCalendarView.swift in Sources */,
-				CALNEW0000000000000001B5 /* DayCalendarView.swift in Sources */,
-				CALNEW0000000000000001B6 /* CalendarTimeGridLayout.swift in Sources */,
-				CALNEW0000000000000001B7 /* CalendarTimeGridEventCard.swift in Sources */,
-				CALNEW0000000000000001B8 /* CalendarTimeGrid.swift in Sources */,
-				CALNEW0000000000000001B9 /* CalendarDaySummaryCards.swift in Sources */,
 				95574B362ED0D514000C8978 /* OCRService.swift in Sources */,
 				4180AEF32839A0950054FEA9 /* Bundle+Copyright.swift in Sources */,
 				95456C612ED47F2500EDB4A9 /* BlocksPane.swift in Sources */,
@@ -1844,7 +1835,6 @@
 				958371A82F1D5C7000FB7A7C /* FABMenu.swift in Sources */,
 				SHAREDDATEFMT0001 /* DateFormatters.swift in Sources */,
 				SHARED000000000000000111 /* FABUsageTracker.swift in Sources */,
-				4180AECC28397C6F0054FEA9 /* HomePane.swift in Sources */,
 				AA00002FEED900000000001 /* GeoStyle.swift in Sources */,
 				3F90C3B7981045B8A7BCC6C6 /* FontManager.swift in Sources */,
 				57A70FE9F2084D519E97BC5A /* ResponsiveLayout.swift in Sources */,
@@ -1865,7 +1855,6 @@
 				C11A00000000000000000022 /* DayStoreRepositoryAdapter.swift in Sources */,
 				CA72DE266C2D644ABFCAE10C02A2ACC1 /* DayManager.swift in Sources */,
 				958371D42F210BB000FB7A7C /* Holiday.swift in Sources */,
-				958371D52F210BB000FB7A7C /* CalendarEvent.swift in Sources */,
 				3F07CC64AE2689F6C2C6DA0A9A6CF786 /* CurrentDayHeader.swift in Sources */,
 				922A364190AFE0DAB677C90C84C1BA2B /* DayRow.swift in Sources */,
 				6668456E982D2C659A36580A /* AppTab.swift in Sources */,
@@ -1879,7 +1868,6 @@
 				PLAT00000000000000000112 /* NotificationService.swift in Sources */,
 				A4A384CF1B136CF1227F8E4A /* NotificationManager.swift in Sources */,
 				D8AA16F46AAE9B8645168397 /* TasksPane.swift in Sources */,
-				190502e33b3a8bd183f29a9e /* TasksRepository.swift in Sources */,
 				27c37d112a9faac05b5a6d31 /* TasksStoreRepositoryAdapter.swift in Sources */,
 				D0A1B2C3D4E5F60718000001 /* TagsRepository.swift in Sources */,
 				D0A1B2C3D4E5F60718000002 /* TagStoreRepositoryAdapter.swift in Sources */,
@@ -1901,7 +1889,6 @@
 				TBU000014BLD /* TaskFormMilestone.swift in Sources */,
 				A908BF03CC92B0BAD6952899 /* TrafficLightsView.swift in Sources */,
 				953ED1E92F14819800BA8D40 /* TimelinePopoverView.swift in Sources */,
-				AAAA000100000001 /* TaskItem.swift in Sources */,
 				TYPO00010000001 /* EditorTypographyPreferences.swift in Sources */,
 				AAAA000200000001 /* Tag.swift in Sources */,
 				THEME00020000001 /* ThemePalette.swift in Sources */,
@@ -1963,7 +1950,6 @@
 				GRAPHSIMBLD000000000001 /* GraphSimulation.swift in Sources */,
 				958EBC162F9DA76C00F435DA /* BlockGraphService.swift in Sources */,
 				GST00BLDR000000000001 /* GraphStore.swift in Sources */,
-				TBU000004BLD /* QuickAddParser.swift in Sources */,
 				TBU000005BLD /* TasksStore+HabitCompletion.swift in Sources */,
 				TBU000006BLD /* AutoCompleteSuggestionService.swift in Sources */,
 				NANO00BLD0000000001 /* NanoPane.swift in Sources */,
@@ -1980,6 +1966,24 @@
 				23F5C9A0056F7F524AE8C75D /* OnboardingPermissionsView.swift in Sources */,
 				1E7415C5CEDD8E811827E493 /* Brains.swift in Sources */,
 				096BC358C743CB0D2A5C6A85 /* BrainsPane.swift in Sources */,
+				0670FC6DB0F37A9C628C2F67 /* BrainVaultStore.swift in Sources */,
+				184007E0CB9A2209D19ACF23 /* VaultIngest.swift in Sources */,
+				1E92164F860209076244AF90 /* BrainSourceKind.swift in Sources */,
+				74A53D42DC0B5944DF8B9585 /* BrainGraphBuilder.swift in Sources */,
+				E05B88D30B1C3BF6CBD64EA3 /* BrainComponents.swift in Sources */,
+				E120E80AF425AAD0292F5961 /* BrainSourcesSheet.swift in Sources */,
+				5D2F4FDBAAF75353A9E9EC63 /* CreateBrainSheet.swift in Sources */,
+				0524EAA02C519E62C7DE431B /* PaneTabBar.swift in Sources */,
+				72C88339883B424113EB9452 /* ResizableSplit.swift in Sources */,
+				78A6D8EDEF7098536617F01D /* BrainWorkspaceModel.swift in Sources */,
+				5DE973927EC38DDD616491F7 /* BrainSidebar.swift in Sources */,
+				7530074903249DFAAB6DA6DE /* BrainGraphPanel.swift in Sources */,
+				9A167649FA92EC956AB982A8 /* DocTabs.swift in Sources */,
+				A7B6C31A723F79B6A98417EC /* CalendarPermission.swift in Sources */,
+				02F36029285BEDF824981C9D /* EventKitAdapter.swift in Sources */,
+				EVNTSYNC00000000000BLD01 /* EventKitSyncCoordinator.swift in Sources */,
+				B08901A3F5703C171D0BB0DE /* DayAgendaViewModel.swift in Sources */,
+				3689A4E99A47592DBF217079 /* DayAgendaView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2023,6 +2027,7 @@
 				BLKLAYERFOLD0000BLD /* BlockLayerFolderTests.swift in Sources */,
 				BKP000000000000000002BLD /* BackupServiceTests.swift in Sources */,
 				77446AC211E5914F06B9682B /* BrainsTests.swift in Sources */,
+				C6560D3B1F9DFA410A33837F /* DocTabsTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2169,11 +2174,11 @@
 				CODE_SIGN_IDENTITY = "Geo Local Signing";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Geo Local Signing";
 				CODE_SIGN_STYLE = Manual;
-				DEVELOPMENT_TEAM = "";
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"Geo/Resources/Preview Content\"";
+				DEVELOPMENT_TEAM = "";
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_DEBUG_DYLIB = NO;
 				ENABLE_HARDENED_RUNTIME = NO;
@@ -2185,12 +2190,14 @@
 				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
 				ENABLE_RESOURCE_ACCESS_PHOTO_LIBRARY = NO;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "Geo/App/Info.plist";
+				INFOPLIST_FILE = Geo/App/Info.plist;
 				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Geo needs to send Apple Events to automate tasks and manage system functionality.";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "O Geo precisa de acesso ao seu calendário para mostrar e gerenciar seus eventos junto com suas tarefas.";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "O Geo precisa de acesso ao seu calendário para mostrar e gerenciar seus eventos junto com suas tarefas.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Geo needs camera access to capture screenshots and images.";
 				INFOPLIST_KEY_NSDesktopFolderUsageDescription = "Geo needs access to your Desktop folder to save and organize captured files.";
-				INFOPLIST_KEY_NSInputMonitoringUsageDescription = "Geo needs input monitoring to provide global keyboard shortcuts and capture assistance.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSInputMonitoringUsageDescription = "Geo needs input monitoring to provide global keyboard shortcuts and capture assistance.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -2222,11 +2229,11 @@
 				CODE_SIGN_IDENTITY = "Geo Local Signing";
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Geo Local Signing";
 				CODE_SIGN_STYLE = Manual;
-				DEVELOPMENT_TEAM = "";
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_ASSET_PATHS = "\"Geo/Resources/Preview Content\"";
+				DEVELOPMENT_TEAM = "";
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
@@ -2237,12 +2244,14 @@
 				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
 				ENABLE_RESOURCE_ACCESS_PHOTO_LIBRARY = NO;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "Geo/App/Info.plist";
+				INFOPLIST_FILE = Geo/App/Info.plist;
 				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Geo needs to send Apple Events to automate tasks and manage system functionality.";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "O Geo precisa de acesso ao seu calendário para mostrar e gerenciar seus eventos junto com suas tarefas.";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "O Geo precisa de acesso ao seu calendário para mostrar e gerenciar seus eventos junto com suas tarefas.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Geo needs camera access to capture screenshots and images.";
 				INFOPLIST_KEY_NSDesktopFolderUsageDescription = "Geo needs access to your Desktop folder to save and organize captured files.";
-				INFOPLIST_KEY_NSInputMonitoringUsageDescription = "Geo needs input monitoring to provide global keyboard shortcuts and capture assistance.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSInputMonitoringUsageDescription = "Geo needs input monitoring to provide global keyboard shortcuts and capture assistance.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -2339,6 +2348,13 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		200889E973932C69754DB521 /* XCLocalSwiftPackageReference "GeoCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = GeoCore;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		AABBCCDD0011223344556677 /* XCRemoteSwiftPackageReference "GRDB.swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -2359,6 +2375,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		53A52B149F1208DFBE9F75D0 /* GeoCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 200889E973932C69754DB521 /* XCLocalSwiftPackageReference "GeoCore" */;
+			productName = GeoCore;
+		};
 		AABBCCDD0011223344556688 /* GRDB */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = AABBCCDD0011223344556677 /* XCRemoteSwiftPackageReference "GRDB.swift" */;
@@ -2368,6 +2389,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = AABBCCDD0011223344556699 /* XCRemoteSwiftPackageReference "swift-markdown" */;
 			productName = Markdown;
+		};
+		GEOCORETESTDEP0000000001 /* GeoCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 200889E973932C69754DB521 /* XCLocalSwiftPackageReference "GeoCore" */;
+			productName = GeoCore;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

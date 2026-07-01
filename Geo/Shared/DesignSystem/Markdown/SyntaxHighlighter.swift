@@ -48,38 +48,24 @@ struct SyntaxHighlighter {
         return tokens
     }
 
+    private static let tokenColors: [TokenType: (dark: NSColor, light: NSColor)] = [
+        .keyword:     (NSColor(red: 0.776, green: 0.471, blue: 0.867, alpha: 1), NSColor(red: 0.651, green: 0.149, blue: 0.643, alpha: 1)),
+        .type:        (NSColor(red: 0.898, green: 0.753, blue: 0.482, alpha: 1), NSColor(red: 0.757, green: 0.514, blue: 0.004, alpha: 1)),
+        .string:      (NSColor(red: 0.596, green: 0.765, blue: 0.475, alpha: 1), NSColor(red: 0.314, green: 0.631, blue: 0.310, alpha: 1)),
+        .number:      (NSColor(red: 0.820, green: 0.604, blue: 0.400, alpha: 1), NSColor(red: 0.596, green: 0.408, blue: 0.004, alpha: 1)),
+        .comment:     (NSColor(red: 0.361, green: 0.388, blue: 0.439, alpha: 1), NSColor(red: 0.627, green: 0.631, blue: 0.655, alpha: 1)),
+        .attribute:   (NSColor(red: 0.820, green: 0.604, blue: 0.400, alpha: 1), NSColor(red: 0.596, green: 0.408, blue: 0.004, alpha: 1)),
+        .tag:         (NSColor(red: 0.878, green: 0.424, blue: 0.459, alpha: 1), NSColor(red: 0.894, green: 0.337, blue: 0.286, alpha: 1)),
+        .property:    (NSColor(red: 0.380, green: 0.686, blue: 0.937, alpha: 1), NSColor(red: 0.251, green: 0.471, blue: 0.949, alpha: 1)),
+        .builtin:     (NSColor(red: 0.337, green: 0.714, blue: 0.761, alpha: 1), NSColor(red: 0.004, green: 0.518, blue: 0.737, alpha: 1)),
+        .variable:    (NSColor(red: 0.878, green: 0.424, blue: 0.459, alpha: 1), NSColor(red: 0.894, green: 0.337, blue: 0.286, alpha: 1)),
+        .punctuation: (NSColor(red: 0.671, green: 0.698, blue: 0.749, alpha: 1), NSColor(red: 0.220, green: 0.227, blue: 0.259, alpha: 1)),
+        .operator_:   (NSColor(red: 0.337, green: 0.714, blue: 0.761, alpha: 1), NSColor(red: 0.004, green: 0.518, blue: 0.737, alpha: 1)),
+    ]
+
     static func colorForToken(_ type: TokenType, isDark: Bool) -> NSColor {
-        if isDark {
-            switch type {
-            case .keyword:     return NSColor(red: 0.776, green: 0.471, blue: 0.867, alpha: 1)
-            case .type:        return NSColor(red: 0.898, green: 0.753, blue: 0.482, alpha: 1)
-            case .string:      return NSColor(red: 0.596, green: 0.765, blue: 0.475, alpha: 1)
-            case .number:      return NSColor(red: 0.820, green: 0.604, blue: 0.400, alpha: 1)
-            case .comment:     return NSColor(red: 0.361, green: 0.388, blue: 0.439, alpha: 1)
-            case .attribute:   return NSColor(red: 0.820, green: 0.604, blue: 0.400, alpha: 1)
-            case .tag:         return NSColor(red: 0.878, green: 0.424, blue: 0.459, alpha: 1)
-            case .property:    return NSColor(red: 0.380, green: 0.686, blue: 0.937, alpha: 1)
-            case .builtin:     return NSColor(red: 0.337, green: 0.714, blue: 0.761, alpha: 1)
-            case .variable:    return NSColor(red: 0.878, green: 0.424, blue: 0.459, alpha: 1)
-            case .punctuation: return NSColor(red: 0.671, green: 0.698, blue: 0.749, alpha: 1)
-            case .operator_:   return NSColor(red: 0.337, green: 0.714, blue: 0.761, alpha: 1)
-            }
-        } else {
-            switch type {
-            case .keyword:     return NSColor(red: 0.651, green: 0.149, blue: 0.643, alpha: 1)
-            case .type:        return NSColor(red: 0.757, green: 0.514, blue: 0.004, alpha: 1)
-            case .string:      return NSColor(red: 0.314, green: 0.631, blue: 0.310, alpha: 1)
-            case .number:      return NSColor(red: 0.596, green: 0.408, blue: 0.004, alpha: 1)
-            case .comment:     return NSColor(red: 0.627, green: 0.631, blue: 0.655, alpha: 1)
-            case .attribute:   return NSColor(red: 0.596, green: 0.408, blue: 0.004, alpha: 1)
-            case .tag:         return NSColor(red: 0.894, green: 0.337, blue: 0.286, alpha: 1)
-            case .property:    return NSColor(red: 0.251, green: 0.471, blue: 0.949, alpha: 1)
-            case .builtin:     return NSColor(red: 0.004, green: 0.518, blue: 0.737, alpha: 1)
-            case .variable:    return NSColor(red: 0.894, green: 0.337, blue: 0.286, alpha: 1)
-            case .punctuation: return NSColor(red: 0.220, green: 0.227, blue: 0.259, alpha: 1)
-            case .operator_:   return NSColor(red: 0.004, green: 0.518, blue: 0.737, alpha: 1)
-            }
-        }
+        let colors = tokenColors[type]!
+        return isDark ? colors.dark : colors.light
     }
 
     static var codeBlockBackground: (dark: NSColor, light: NSColor) {
@@ -105,6 +91,26 @@ struct SyntaxHighlighter {
             guard occupied.intersection(IndexSet(integersIn: intRange)).isEmpty else { return }
             tokens.append(Token(range: matchRange, type: type))
             occupied.insert(integersIn: intRange)
+        }
+    }
+
+    private struct Rule {
+        let regex: NSRegularExpression
+        let type: TokenType
+        let captureGroup: Int
+        init(_ regex: NSRegularExpression, _ type: TokenType, captureGroup: Int = 0) {
+            self.regex = regex
+            self.type = type
+            self.captureGroup = captureGroup
+        }
+    }
+
+    private static func applyRules(
+        _ rules: [Rule], _ range: NSRange, _ code: String,
+        _ tokens: inout [Token], _ occupied: inout IndexSet
+    ) {
+        for rule in rules {
+            addMatches(rule.regex, range, code, rule.type, &tokens, &occupied, captureGroup: rule.captureGroup)
         }
     }
 
@@ -173,32 +179,47 @@ struct SyntaxHighlighter {
         "Uint8Array", "Int32Array", "Float64Array", "ArrayBuffer"
     ]
 
-    private static var keywordRegexCache: [String: NSRegularExpression] = [:]
-    private static var builtinRegexCache: [String: NSRegularExpression] = [:]
+    private static let keywordLangs: [String] = [
+        "swift", "javascript", "js", "jsx", "typescript", "ts", "tsx",
+        "python", "py", "go", "rust", "rs", "java", "kotlin", "kt",
+        "c", "cpp", "c++", "h", "hpp", "ruby", "rb",
+        "shell", "sh", "bash", "zsh", "json", "jsonc"
+    ]
+
+    private static func keywordRegex(from words: [String]) -> NSRegularExpression? {
+        guard !words.isEmpty else { return nil }
+        return try? NSRegularExpression(pattern: "\\b(" + words.joined(separator: "|") + ")\\b")
+    }
+
+    private static let keywordRegexCache: [String: NSRegularExpression] = {
+        var dict: [String: NSRegularExpression] = [:]
+        for lang in keywordLangs {
+            if let regex = keywordRegex(from: keywords(for: lang)) { dict[lang] = regex }
+        }
+        return dict
+    }()
+
+    private static let defaultKeywordRegex: NSRegularExpression? = keywordRegex(from: keywords(for: ""))
+
+    private static let builtinRegexCache: [String: NSRegularExpression] = {
+        var dict: [String: NSRegularExpression] = [:]
+        let groups: [(builtins: Set<String>, langs: [String])] = [
+            (pythonBuiltins, ["python", "py"]),
+            (jsBuiltins, ["javascript", "js", "typescript", "ts", "jsx", "tsx"])
+        ]
+        for group in groups {
+            guard let regex = keywordRegex(from: Array(group.builtins)) else { continue }
+            for lang in group.langs { dict[lang] = regex }
+        }
+        return dict
+    }()
 
     private static func cachedKeywordRegex(for lang: String) -> NSRegularExpression? {
-        if let cached = keywordRegexCache[lang] { return cached }
-        let kws = keywords(for: lang)
-        guard !kws.isEmpty else { return nil }
-        let pattern = "\\b(" + kws.joined(separator: "|") + ")\\b"
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
-        keywordRegexCache[lang] = regex
-        return regex
+        keywordRegexCache[lang] ?? defaultKeywordRegex
     }
 
     private static func cachedBuiltinRegex(for lang: String) -> NSRegularExpression? {
-        if let cached = builtinRegexCache[lang] { return cached }
-        let builtins: Set<String>
-        switch lang {
-        case "python", "py": builtins = pythonBuiltins
-        case "javascript", "js", "typescript", "ts", "jsx", "tsx": builtins = jsBuiltins
-        default: return nil
-        }
-        guard !builtins.isEmpty else { return nil }
-        let pattern = "\\b(" + builtins.joined(separator: "|") + ")\\b"
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
-        builtinRegexCache[lang] = regex
-        return regex
+        builtinRegexCache[lang]
     }
 
     private static func tokenizeGeneric(
@@ -249,62 +270,82 @@ struct SyntaxHighlighter {
         addMatches(typeRegex, range, code, .type, &tokens, &occupied)
     }
 
+    private static let htmlRules: [Rule] = [
+        Rule(htmlCommentRegex, .comment),
+        Rule(doubleStringRegex, .string),
+        Rule(singleStringRegex, .string),
+        Rule(htmlTagRegex, .tag, captureGroup: 1),
+        Rule(htmlAttrRegex, .property, captureGroup: 1),
+    ]
+
     private static func tokenizeHTML(
         _ code: String, _ range: NSRange,
         _ tokens: inout [Token], _ occupied: inout IndexSet
     ) {
-        addMatches(htmlCommentRegex, range, code, .comment, &tokens, &occupied)
-        addMatches(doubleStringRegex, range, code, .string, &tokens, &occupied)
-        addMatches(singleStringRegex, range, code, .string, &tokens, &occupied)
-        addMatches(htmlTagRegex, range, code, .tag, &tokens, &occupied, captureGroup: 1)
-        addMatches(htmlAttrRegex, range, code, .property, &tokens, &occupied, captureGroup: 1)
+        applyRules(htmlRules, range, code, &tokens, &occupied)
     }
+
+    private static let cssRules: [Rule] = [
+        Rule(cssCommentRegex, .comment),
+        Rule(doubleStringRegex, .string),
+        Rule(singleStringRegex, .string),
+        Rule(cssColorRegex, .number),
+        Rule(cssSelectorRegex, .tag, captureGroup: 1),
+        Rule(cssPropertyRegex, .property, captureGroup: 1),
+        Rule(numberRegex, .number),
+    ]
 
     private static func tokenizeCSS(
         _ code: String, _ range: NSRange,
         _ tokens: inout [Token], _ occupied: inout IndexSet
     ) {
-        addMatches(cssCommentRegex, range, code, .comment, &tokens, &occupied)
-        addMatches(doubleStringRegex, range, code, .string, &tokens, &occupied)
-        addMatches(singleStringRegex, range, code, .string, &tokens, &occupied)
-        addMatches(cssColorRegex, range, code, .number, &tokens, &occupied)
-        addMatches(cssSelectorRegex, range, code, .tag, &tokens, &occupied, captureGroup: 1)
-        addMatches(cssPropertyRegex, range, code, .property, &tokens, &occupied, captureGroup: 1)
-        addMatches(numberRegex, range, code, .number, &tokens, &occupied)
+        applyRules(cssRules, range, code, &tokens, &occupied)
     }
+
+    private static let jsonRules: [Rule] = [
+        Rule(jsonKeyRegex, .property),
+        Rule(jsonStringRegex, .string, captureGroup: 1),
+        Rule(numberRegex, .number),
+        Rule(jsonBoolNullRegex, .keyword),
+    ]
 
     private static func tokenizeJSON(
         _ code: String, _ range: NSRange,
         _ tokens: inout [Token], _ occupied: inout IndexSet
     ) {
-        addMatches(jsonKeyRegex, range, code, .property, &tokens, &occupied)
-        addMatches(jsonStringRegex, range, code, .string, &tokens, &occupied, captureGroup: 1)
-        addMatches(numberRegex, range, code, .number, &tokens, &occupied)
-        addMatches(jsonBoolNullRegex, range, code, .keyword, &tokens, &occupied)
+        applyRules(jsonRules, range, code, &tokens, &occupied)
     }
+
+    private static let markdownRules: [Rule] = [
+        Rule(mdHeaderRegex, .keyword),
+        Rule(mdCodeRegex, .string),
+        Rule(mdBoldRegex, .type),
+        Rule(mdItalicRegex, .attribute),
+        Rule(mdLinkRegex, .property),
+    ]
 
     private static func tokenizeMarkdown(
         _ code: String, _ range: NSRange,
         _ tokens: inout [Token], _ occupied: inout IndexSet
     ) {
-        addMatches(mdHeaderRegex, range, code, .keyword, &tokens, &occupied)
-        addMatches(mdCodeRegex, range, code, .string, &tokens, &occupied)
-        addMatches(mdBoldRegex, range, code, .type, &tokens, &occupied)
-        addMatches(mdItalicRegex, range, code, .attribute, &tokens, &occupied)
-        addMatches(mdLinkRegex, range, code, .property, &tokens, &occupied)
+        applyRules(markdownRules, range, code, &tokens, &occupied)
     }
+
+    private static let sqlRules: [Rule] = [
+        Rule(sqlCommentRegex, .comment),
+        Rule(multiLineCommentRegex, .comment),
+        Rule(singleStringRegex, .string),
+        Rule(doubleStringRegex, .string),
+        Rule(numberRegex, .number),
+        Rule(sqlKeywordRegex, .keyword),
+        Rule(typeRegex, .type),
+    ]
 
     private static func tokenizeSQL(
         _ code: String, _ range: NSRange,
         _ tokens: inout [Token], _ occupied: inout IndexSet
     ) {
-        addMatches(sqlCommentRegex, range, code, .comment, &tokens, &occupied)
-        addMatches(multiLineCommentRegex, range, code, .comment, &tokens, &occupied)
-        addMatches(singleStringRegex, range, code, .string, &tokens, &occupied)
-        addMatches(doubleStringRegex, range, code, .string, &tokens, &occupied)
-        addMatches(numberRegex, range, code, .number, &tokens, &occupied)
-        addMatches(sqlKeywordRegex, range, code, .keyword, &tokens, &occupied)
-        addMatches(typeRegex, range, code, .type, &tokens, &occupied)
+        applyRules(sqlRules, range, code, &tokens, &occupied)
     }
 
     private static func keywords(for lang: String) -> [String] {

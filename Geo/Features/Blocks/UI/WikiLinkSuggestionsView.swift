@@ -395,6 +395,9 @@ struct WikiLinkAutocompleteAttachment: NSViewRepresentable {
         private weak var boundTextView: NSTextView?
         private var pollTask: Task<Void, Never>?
 
+        private static let maxPollIterations = 40
+        private static let pollIntervalNanoseconds: UInt64 = 150_000_000
+
         func bindIfNeeded(in window: NSWindow, titles: [WikiLinkSuggestionItem]) {
             if let existing = boundTextView, existing.window === window {
                 WikiLinkAutocompleteController.shared.updateTitles(titles)
@@ -403,14 +406,14 @@ struct WikiLinkAutocompleteAttachment: NSViewRepresentable {
             pollTask?.cancel()
             pollTask = Task { @MainActor [weak self] in
                 guard let self else { return }
-                for _ in 0..<40 {
+                for _ in 0..<Self.maxPollIterations {
                     if Task.isCancelled { return }
                     if let tv = Self.findTextView(in: window) {
                         WikiLinkAutocompleteController.shared.attach(to: tv, titles: titles)
                         self.boundTextView = tv
                         return
                     }
-                    try? await Task.sleep(nanoseconds: 150_000_000)
+                    try? await Task.sleep(nanoseconds: Self.pollIntervalNanoseconds)
                 }
             }
         }

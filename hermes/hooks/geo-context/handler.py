@@ -34,6 +34,7 @@ import haiku
 
 HERMES_HOME = Path(os.path.expanduser("~/.hermes"))
 MEMORY_PATH = HERMES_HOME / "memories" / "MEMORY.md"
+TURN_CONTEXT_DIR = HERMES_HOME / "runtime" / "geo-context"
 STATE_PATH = Path(__file__).parent / ".state.json"
 CONFIG_PATH = Path(__file__).parent.parent.parent / "config.yaml"
 
@@ -62,10 +63,56 @@ TODAY_SUMMARIZE_THRESHOLD = 600
 MAX_MEMORY_BODY = 5000
 TTL_SECONDS = 60.0
 TASKS_MAX = 12
+TURN_CONTEXT_MAX_CHARS = 1200
+TURN_CONTEXT_TOPK = 4
+TURN_CONTEXT_SEMANTIC_CANDIDATES = 80
+SEARCH_STOPWORDS = {
+    "a", "as", "o", "os", "um", "uma", "uns", "umas", "de", "do", "da", "dos", "das",
+    "em", "no", "na", "nos", "nas", "por", "para", "pra", "com", "sem", "que", "qual",
+    "quais", "como", "quando", "onde", "porque", "porquê", "e", "ou", "mas", "se", "isso",
+    "isto", "esse", "essa", "este", "esta", "ele", "ela", "eu", "me", "meu", "minha", "seu",
+    "sua", "estou", "esta", "está", "tô", "to", "fazendo", "hoje", "agora", "sobre",
+    "the", "and", "or", "for", "with", "what", "when", "where", "how", "today", "now",
+}
 
 
 def _log(msg: str) -> None:
     print(f"[geo-context] {msg}", flush=True)
+
+
+def _local_tz():
+    from zoneinfo import ZoneInfo
+
+    tz_name = "America/Sao_Paulo"
+    try:
+        import yaml
+
+        data = yaml.safe_load(CONFIG_PATH.read_text()) or {}
+        tz_name = data.get("timezone") or tz_name
+    except Exception:
+        pass
+    return ZoneInfo(tz_name), tz_name
+
+
+def _now_local():
+    from datetime import datetime
+
+    tz, tz_name = _local_tz()
+    return datetime.now(tz), tz_name
+
+
+def _anchor_local_day(anchor: Optional[str]) -> str:
+    """Calendar day of a stored UTC anchor in Gabriel's timezone (matches the
+    app's local-calendar bucketing; a naive [:10] is off by one for evenings)."""
+    from datetime import datetime, timezone
+
+    if not anchor:
+        return ""
+    try:
+        dt = datetime.strptime(anchor[:19], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
+    except ValueError:
+        return anchor[:10]
+    return dt.astimezone(_local_tz()[0]).strftime("%Y-%m-%d")
 
 
 def _unwrap_block(raw: Optional[str]) -> Optional[str]:
@@ -97,6 +144,11 @@ def _format_today(raw: Optional[str]) -> Optional[str]:
         block_ids = obj.get("block_ids") or []
         capture_count = obj.get("capture_count", 0)
         parts = [f"date: {date}"]
+        if obj.get("now_local"):
+            off = obj.get("utc_offset") or ""
+            if len(off) == 5:
+                off = f"{off[:3]}:{off[3:]}"
+            parts.append(f"now: {obj['now_local']} ({obj.get('timezone')}, UTC{off})")
         if block_ids:
             parts.append(f"linked blocks: {len(block_ids)}")
         if capture_count:
@@ -108,8 +160,35 @@ def _format_today(raw: Optional[str]) -> Optional[str]:
         return raw
 
 
+def _habit_due_today(rule: dict, anchor_day: str, today) -> bool:
+    rtype = (rule or {}).get("type") or "daily"
+    end = (rule or {}).get("endDate")
+    if end and _anchor_local_day(end) and str(today) > _anchor_local_day(end):
+        return False
+    selected = (rule or {}).get("selectedWeekdays")
+    if selected:
+        return (today.isoweekday() % 7 + 1) in selected
+    if rtype in ("daily", "custom"):
+        return True
+    if rtype == "weekdays":
+        return today.weekday() < 5
+    if not anchor_day:
+        return True
+    from datetime import date as _date
+    a = _date.fromisoformat(anchor_day)
+    if rtype in ("weekly", "biweekly"):
+        return today.weekday() == a.weekday()
+    if rtype == "monthly":
+        return today.day == a.day
+    if rtype == "yearly":
+        return (today.month, today.day) == (a.month, a.day)
+    return False
+
+
 def _format_tasks(raw: Optional[str]) -> Optional[str]:
-    """Render the pending-tasks envelope as a scannable '- title (anchor · prio)' list."""
+    """Render the pending-tasks envelope as a scannable '- title (anchor · prio)'
+    list, plus one line each for today's habits (done-mark) and the nearest
+    milestones — so the agent can nudge habits and track goals unprompted."""
     if not raw:
         return None
     try:
@@ -125,11 +204,42 @@ def _format_tasks(raw: Optional[str]) -> Optional[str]:
     lines = []
     for t in rows[:TASKS_MAX]:
         title = t.get("title") or "?"
-        meta = [m for m in ((t.get("anchor") or "")[:10],
+        meta = [m for m in (_anchor_local_day(t.get("anchor")),
                             t.get("priority") if t.get("priority") not in (None, "unset") else None)
                 if m]
         suffix = f" ({' · '.join(meta)})" if meta else ""
         lines.append(f"- {title}{suffix}")
+
+    today = _now_local()[0].date()
+    today_str = str(today)
+    habit_bits = []
+    for t in tasks:
+        if not isinstance(t, dict) or t.get("kind") != "habit" or t.get("status") != "pending":
+            continue
+        anchor_day = _anchor_local_day(t.get("time_of_day") or "")
+        if not _habit_due_today(t.get("rule") or {}, anchor_day, today):
+            continue
+        done = any(_anchor_local_day(str(o)) == today_str for o in (t.get("occurrences") or []))
+        habit_bits.append(f"{'✓' if done else '○'} {t.get('title') or '?'}")
+    if habit_bits:
+        lines.append("Hábitos hoje: " + " · ".join(habit_bits[:6]))
+
+    miles = sorted(
+        (t for t in tasks if isinstance(t, dict)
+         and t.get("kind") == "milestone" and t.get("status") == "pending"),
+        key=lambda t: t.get("anchor") or "9999",
+    )
+    mile_bits = []
+    for t in miles[:2]:
+        day = _anchor_local_day(t.get("anchor"))
+        left = ""
+        if day:
+            from datetime import date as _date
+            left = f" ({(_date.fromisoformat(day) - today).days}d)"
+        mile_bits.append(f"{t.get('title') or '?'} · {day}{left}")
+    if mile_bits:
+        lines.append("Milestones: " + " | ".join(mile_bits))
+
     return "\n".join(lines) if lines else None
 
 
@@ -169,9 +279,8 @@ def _find_block_by_title(title: str) -> Optional[str]:
 
 
 def _today_envelope() -> str:
-    from datetime import datetime
-
-    date = datetime.now().strftime("%Y-%m-%d")
+    now, tz_name = _now_local()
+    date = now.strftime("%Y-%m-%d")
     token = f"[[{date}]]"
     block_ids = []
     for p in _iter_block_files():
@@ -180,7 +289,14 @@ def _today_envelope() -> str:
                 block_ids.append(str(p.relative_to(GEO_BLOCKS_DIR)))
         except OSError:
             continue
-    return json.dumps({"id": date, "block_ids": block_ids, "capture_count": 0})
+    return json.dumps({
+        "id": date,
+        "block_ids": block_ids,
+        "capture_count": 0,
+        "now_local": now.strftime("%Y-%m-%d %H:%M"),
+        "timezone": tz_name,
+        "utc_offset": now.strftime("%z"),
+    })
 
 
 def _pending_tasks_envelope() -> str:
@@ -194,13 +310,18 @@ def _pending_tasks_envelope() -> str:
             if t.get("status") != "pending":
                 continue
             body = t.get("body") or {}
-            rows.append({
+            row = {
                 "title": t.get("title"),
                 "status": "pending",
                 "kind": body.get("kind"),
                 "anchor": body.get("due") or body.get("start") or body.get("target"),
                 "priority": t.get("priority"),
-            })
+            }
+            if body.get("kind") == "habit":
+                row["rule"] = body.get("rule")
+                row["time_of_day"] = body.get("timeOfDay")
+                row["occurrences"] = (body.get("occurrences") or [])[-7:]
+            rows.append(row)
     return json.dumps(rows)
 
 
@@ -263,7 +384,11 @@ EXTRACT_BODY_CAP = 4000
 def _file_search(query: str, limit: int) -> list:
     import re
 
-    terms = [t.lower() for t in re.findall(r"[\w]+", query, flags=re.UNICODE)]
+    terms = [
+        t.lower()
+        for t in re.findall(r"[\wÀ-ÿ]+", query, flags=re.UNICODE)
+        if len(t) >= 3 and t.lower() not in SEARCH_STOPWORDS
+    ]
     if not terms:
         return []
     hits = []
@@ -282,6 +407,142 @@ def _file_search(query: str, limit: int) -> list:
                          "body": body, "score": score})
     hits.sort(key=lambda h: h["score"], reverse=True)
     return hits[:limit]
+
+
+def _safe_context_name(value: str) -> str:
+    import re
+    value = value or "unknown"
+    return re.sub(r"[^A-Za-z0-9_.-]+", "_", value)[:160] or "unknown"
+
+
+def _compact_excerpt(body: str, query_terms: list[str], max_chars: int = 260) -> str:
+    """Return a tiny relevant excerpt; no LLM call, no token blow-up."""
+    lines = [ln.strip() for ln in (body or "").splitlines() if ln.strip()]
+    if not lines:
+        return ""
+    lowered_terms = [t.lower() for t in query_terms if len(t) >= 3]
+    best = []
+    for ln in lines:
+        low = ln.lower()
+        score = sum(low.count(t) for t in lowered_terms)
+        if score:
+            best.append((score, ln))
+    best.sort(key=lambda x: x[0], reverse=True)
+    chosen = [ln for _, ln in best[:2]] or lines[:2]
+    text = " / ".join(chosen)
+    if len(text) > max_chars:
+        text = text[: max_chars - 1].rstrip() + "…"
+    return text
+
+
+def _manifest_excerpt(body: str, max_chars: int = 260) -> str:
+    lines = []
+    for ln in (body or "").splitlines():
+        s = ln.strip()
+        if not s or s.startswith("---") or s.startswith("type:") or s.startswith("layer:"):
+            continue
+        lines.append(s)
+        if len(" / ".join(lines)) >= max_chars:
+            break
+    text = " / ".join(lines)
+    if len(text) > max_chars:
+        text = text[: max_chars - 1].rstrip() + "…"
+    return text
+
+
+def _all_block_manifest() -> list[dict]:
+    rows: list[dict] = []
+    for p in _iter_block_files():
+        try:
+            text = p.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        body = _strip_frontmatter(text)
+        rows.append({
+            "id": str(p.relative_to(GEO_BLOCKS_DIR)),
+            "title": _block_h1(text) or p.stem.replace("-", " "),
+            "body": body,
+            "excerpt": _manifest_excerpt(body),
+        })
+    return rows
+
+
+async def _semantic_file_search(query: str, limit: int) -> list:
+    """Semantic per-turn router using Haiku/model.nano, with lexical fallback."""
+    candidates = _all_block_manifest()
+    if not candidates:
+        return []
+    # Keep the Haiku manifest bounded if the vault grows a lot. Lexical score is
+    # only used as a cheap pre-sort; zero-score blocks remain eligible so semantic
+    # matches can still surface synonyms.
+    lexical = {h["id"]: h.get("score", 0) for h in _file_search(query, len(candidates))}
+    candidates.sort(key=lambda c: lexical.get(c["id"], 0), reverse=True)
+    bounded = candidates[:TURN_CONTEXT_SEMANTIC_CANDIDATES]
+    try:
+        selected_ids = await haiku.rank_blocks(query, bounded, limit=limit)
+    except Exception as e:
+        _log(f"semantic rank failed: {e}")
+        selected_ids = None
+    by_id = {c["id"]: c for c in candidates}
+    if selected_ids:
+        return [by_id[i] for i in selected_ids if i in by_id][:limit]
+    return _file_search(query, limit)
+
+
+async def _build_turn_context(message: str) -> str | None:
+    """Build API-only Geo context for one user turn.
+
+    Context-friendly by design: lexical top-k, tiny excerpts, hard cap. This
+    runs automatically on every agent:start and writes a sidecar file consumed
+    by the gateway before the model call. It is not persisted as the user's
+    message.
+    """
+    import re
+    query = (message or "").strip()
+    if not query or not GEO_BLOCKS_DIR.exists():
+        return None
+    terms = [
+        t.lower()
+        for t in re.findall(r"[\wÀ-ÿ]+", query, flags=re.UNICODE)
+        if len(t) >= 3 and t.lower() not in SEARCH_STOPWORDS
+    ]
+    hits = await _semantic_file_search(query, TURN_CONTEXT_TOPK)
+    if not hits:
+        return None
+
+    lines = [
+        "## Geo auto-context (API-only)",
+        "Use if relevant; ignore if not. Do not mention this block unless asked.",
+    ]
+    for hit in hits:
+        title = hit.get("title") or hit.get("id") or "?"
+        excerpt = _compact_excerpt(hit.get("body") or "", terms)
+        if excerpt:
+            lines.append(f"- [[{title}]]: {excerpt}")
+        else:
+            lines.append(f"- [[{title}]]")
+    out = "\n".join(lines).strip()
+    if len(out) > TURN_CONTEXT_MAX_CHARS:
+        out = out[:TURN_CONTEXT_MAX_CHARS].rsplit("\n", 1)[0].rstrip() + "\n…"
+    return out or None
+
+
+async def _write_turn_context(context: dict) -> str | None:
+    session_id = _safe_context_name(str(context.get("session_id") or "unknown"))
+    message = str(context.get("message") or "")
+    TURN_CONTEXT_DIR.mkdir(parents=True, exist_ok=True)
+    out_path = TURN_CONTEXT_DIR / f"{session_id}.md"
+    body = await _build_turn_context(message)
+    if body:
+        out_path.write_text(body, encoding="utf-8")
+        _log(f"agent:start wrote turn context {out_path.name} ({len(body)} chars)")
+        return body
+    else:
+        try:
+            out_path.unlink()
+        except FileNotFoundError:
+            pass
+    return None
 
 
 async def search_context(query: str, with_summary: bool = False) -> dict:
@@ -377,6 +638,13 @@ def _hash(body: str) -> str:
 
 
 async def handle(event_type: str, context: dict) -> None:
+    if event_type == "agent:start":
+        body = await _write_turn_context(context)
+        if body:
+            # Hook contexts are mutable; gateway/run.py reads this immediately
+            # and appends it to the ephemeral per-turn system context.
+            context["geo_context"] = body
+        return
     if event_type not in ("session:start", "session:reset"):
         return
     platform = context.get("platform", "?")

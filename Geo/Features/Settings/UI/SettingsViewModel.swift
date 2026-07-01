@@ -271,18 +271,24 @@ final class SettingsViewModel: ObservableObject {
 
     private func apply(_ snapshot: SettingsSnapshot?) {
         guard let snapshot else { return }
-        isApplyingSnapshot = true
-        alwaysOnTop = snapshot.alwaysOnTop
-        editorFontSize = snapshot.editorFontSize
-        screenshotFolder = snapshot.screenshotFolder
-        isScreenshotFolderValid = snapshot.isScreenshotFolderValid
-        accessibilityPermission = snapshot.accessibility
-        inputMonitoringPermission = snapshot.inputMonitoring
-        notificationAuthorizationStatus = snapshot.notificationAuthorizationStatus
-        captureSnapshot = snapshot.captureSnapshot
-        isApplyingSnapshot = false
+        applyWithoutPersisting {
+            alwaysOnTop = snapshot.alwaysOnTop
+            editorFontSize = snapshot.editorFontSize
+            screenshotFolder = snapshot.screenshotFolder
+            isScreenshotFolderValid = snapshot.isScreenshotFolderValid
+            accessibilityPermission = snapshot.accessibility
+            inputMonitoringPermission = snapshot.inputMonitoring
+            notificationAuthorizationStatus = snapshot.notificationAuthorizationStatus
+            captureSnapshot = snapshot.captureSnapshot
+        }
 
         sanitizeTypographyPreferences()
+    }
+
+    private func applyWithoutPersisting(_ body: () -> Void) {
+        isApplyingSnapshot = true
+        defer { isApplyingSnapshot = false }
+        body()
     }
 
     private func persistIfNeeded(_ operation: (any SettingsRepository) -> Void) {

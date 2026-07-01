@@ -1,4 +1,5 @@
 import SwiftUI
+import GeoCore
 
 struct TaskFormTask: View {
     @ObservedObject var viewModel: TaskFormViewModel
@@ -26,6 +27,8 @@ struct TaskFormTask: View {
                 }
             }
 
+            TaskChecklistCard(viewModel: viewModel, availableBlocks: availableBlocks)
+
             TaskFormSectionCard(title: "Priority & Status", icon: "flag") {
                 VStack(alignment: .leading, spacing: 10) {
                     VStack(alignment: .leading, spacing: 6) {
@@ -51,16 +54,6 @@ struct TaskFormTask: View {
                         .pickerStyle(.segmented)
                     }
                 }
-            }
-
-            TaskFormSectionCard(title: "Notes", icon: "text.alignleft") {
-                TextField("Quick context (optional)", text: $viewModel.notes, axis: .vertical)
-                    .textFieldStyle(.roundedBorder)
-                    .lineLimit(2...5)
-            }
-
-            TaskFormSectionCard(title: "Block", icon: "doc.text") {
-                LinkedBlockPicker(viewModel: viewModel, availableBlocks: availableBlocks)
             }
         }
         .onAppear {

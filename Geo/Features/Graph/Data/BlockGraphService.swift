@@ -142,15 +142,12 @@ final class BlockGraphService: @unchecked Sendable {
                 rebuiltEdges.append(edge)
                 continue
             }
-            let resolvedId: UUID?
-            if !normalizedTarget.isEmpty,
-               let blockId = titleIndex[normalizedTarget],
-               let uuid = stringToUUID[blockId],
-               !removedSet.contains(uuid) {
-                resolvedId = uuid
-            } else {
-                resolvedId = nil
-            }
+            let resolvedId = Self.resolveTargetUUID(
+                normalizedKey: normalizedTarget,
+                titleIndex: titleIndex,
+                stringToUUID: stringToUUID,
+                removedSet: removedSet
+            )
             if resolvedId != edge.targetId {
                 if let old = edge.targetId { weightDirty.insert(old) }
                 if let new = resolvedId { weightDirty.insert(new) }
@@ -168,15 +165,12 @@ final class BlockGraphService: @unchecked Sendable {
             let links = Self.extractWikiLinks(from: entry.content)
             for rawTarget in links {
                 let resolutionKey = Self.normalize(rawTarget)
-                let resolvedId: UUID?
-                if !resolutionKey.isEmpty,
-                   let blockId = titleIndex[resolutionKey],
-                   let uuid = stringToUUID[blockId],
-                   !removedSet.contains(uuid) {
-                    resolvedId = uuid
-                } else {
-                    resolvedId = nil
-                }
+                let resolvedId = Self.resolveTargetUUID(
+                    normalizedKey: resolutionKey,
+                    titleIndex: titleIndex,
+                    stringToUUID: stringToUUID,
+                    removedSet: removedSet
+                )
                 rebuiltEdges.append(GraphEdge(
                     id: UUID(),
                     sourceId: sourceUUID,
@@ -264,21 +258,18 @@ final class BlockGraphService: @unchecked Sendable {
         }
 
         var edges: [GraphEdge] = []
-        var incoming: [UUID: Int] = [:]
 
         for entry in entries {
             guard let sourceUUID = idMap[entry.id] else { continue }
             let links = Self.extractWikiLinks(from: entry.content)
             for rawTarget in links {
                 let resolutionKey = Self.normalize(rawTarget)
-                let resolvedId: UUID?
-                if !resolutionKey.isEmpty,
-                   let blockId = titleIndex[resolutionKey],
-                   let uuid = idMap[blockId] {
-                    resolvedId = uuid
-                } else {
-                    resolvedId = nil
-                }
+                let resolvedId = Self.resolveTargetUUID(
+                    normalizedKey: resolutionKey,
+                    titleIndex: titleIndex,
+                    stringToUUID: idMap,
+                    removedSet: []
+                )
                 let edge = GraphEdge(
                     id: UUID(),
                     sourceId: sourceUUID,
@@ -286,11 +277,10 @@ final class BlockGraphService: @unchecked Sendable {
                     targetTitle: rawTarget
                 )
                 edges.append(edge)
-                if let resolved = resolvedId {
-                    incoming[resolved, default: 0] += 1
-                }
             }
         }
+
+        let incoming = Self.computeIncomingWeights(edges)
 
         var nodes: [GraphNode] = []
         nodes.reserveCapacity(entries.count)
@@ -338,10 +328,19 @@ final class BlockGraphService: @unchecked Sendable {
     }
 
     private static func nodeColor(for entry: BlockIndexEntry, tagColors: [String: Color]) -> Color? {
-        if let name = entry.tags.first {
-            return tagColors[TagStore.canonicalName(name)]
+        guard let name = entry.tags.first else { return nil }
+        let key = TagStore.canonicalName(name)
+        if let color = tagColors[key] {
+            return color
         }
-        return nil
+        let fallback = TagStore.defaultColor(forName: key)
+        return Color(
+            .sRGB,
+            red: fallback.red,
+            green: fallback.green,
+            blue: fallback.blue,
+            opacity: fallback.alpha
+        )
     }
 
     func findOrphans() async throws -> [BlockIndexEntry] {
@@ -475,6 +474,30 @@ final class BlockGraphService: @unchecked Sendable {
             results.append(trimmed)
         }
         return results
+    }
+
+    private static func resolveTargetUUID(
+        normalizedKey: String,
+        titleIndex: [String: String],
+        stringToUUID: [String: UUID],
+        removedSet: Set<UUID>
+    ) -> UUID? {
+        guard !normalizedKey.isEmpty,
+              let blockId = titleIndex[normalizedKey],
+              let uuid = stringToUUID[blockId],
+              !removedSet.contains(uuid) else {
+            return nil
+        }
+        return uuid
+    }
+
+    private static func computeIncomingWeights(_ edges: [GraphEdge]) -> [UUID: Int] {
+        var incoming: [UUID: Int] = [:]
+        for edge in edges {
+            guard let target = edge.targetId else { continue }
+            incoming[target, default: 0] += 1
+        }
+        return incoming
     }
 
     internal static func normalize(_ value: String) -> String {

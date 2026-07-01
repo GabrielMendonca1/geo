@@ -2,6 +2,8 @@ import AppKit
 
 struct AutoFormatEngine {
 
+    private static let maxScanDistance = 200
+
     struct InlinePatternMatch {
         let openRange: NSRange
         let closeRange: NSRange
@@ -57,24 +59,25 @@ struct AutoFormatEngine {
     }
 
     func findInlinePattern(marker: String, at cursor: Int, in text: NSString) -> InlinePatternMatch? {
-        let markerLen = (marker as NSString).length
+        let markerChars = (marker as NSString).unichars
+        let markerLen = markerChars.count
 
         guard cursor >= markerLen else { return nil }
         var closeStart = cursor - markerLen
-        guard text.substring(with: NSRange(location: closeStart, length: markerLen)) == marker else { return nil }
+        guard matchesMarker(markerChars, text, at: closeStart) else { return nil }
 
-        if marker == "**" && closeStart > 0 && text.substring(with: NSRange(location: closeStart - 1, length: 1)) == "*" {
+        if marker == "**" && closeStart > 0 && text.character(at: closeStart - 1) == star {
             closeStart -= 1
         }
         let closeRange = NSRange(location: closeStart, length: markerLen)
 
         guard closeStart > markerLen else { return nil }
 
-        let scanLimit = max(markerLen, closeStart - 200)
+        let scanLimit = max(markerLen, closeStart - Self.maxScanDistance)
         var pos = closeStart - 1
         while pos >= scanLimit {
             let candidateRange = NSRange(location: pos - markerLen, length: markerLen)
-            if text.substring(with: candidateRange) == marker {
+            if matchesMarker(markerChars, text, at: pos - markerLen) {
                 let openStart = pos - markerLen
                 let contentStart = openStart + markerLen
                 let contentLength = closeStart - contentStart
@@ -93,16 +96,16 @@ struct AutoFormatEngine {
     func findSingleStarPattern(at cursor: Int, in text: NSString) -> InlinePatternMatch? {
         guard cursor >= 1 else { return nil }
         let closeStart = cursor - 1
-        guard text.substring(with: NSRange(location: closeStart, length: 1)) == "*" else { return nil }
+        guard text.character(at: closeStart) == star else { return nil }
 
-        if closeStart > 0 && text.substring(with: NSRange(location: closeStart - 1, length: 1)) == "*" { return nil }
-        if closeStart + 1 < text.length && text.substring(with: NSRange(location: closeStart + 1, length: 1)) == "*" { return nil }
+        if closeStart > 0 && text.character(at: closeStart - 1) == star { return nil }
+        if closeStart + 1 < text.length && text.character(at: closeStart + 1) == star { return nil }
 
-        let scanLimit = max(0, closeStart - 200)
+        let scanLimit = max(0, closeStart - Self.maxScanDistance)
         var pos = closeStart - 1
         while pos >= scanLimit {
-            if text.substring(with: NSRange(location: pos, length: 1)) == "*" {
-                if pos > 0 && text.substring(with: NSRange(location: pos - 1, length: 1)) == "*" { pos -= 1; continue }
+            if text.character(at: pos) == star {
+                if pos > 0 && text.character(at: pos - 1) == star { pos -= 1; continue }
                 let contentStart = pos + 1
                 let contentLength = closeStart - contentStart
                 guard contentLength > 0 else { pos -= 1; continue }
@@ -120,16 +123,16 @@ struct AutoFormatEngine {
     func findSingleUnderscorePattern(at cursor: Int, in text: NSString) -> InlinePatternMatch? {
         guard cursor >= 1 else { return nil }
         let closeStart = cursor - 1
-        guard text.substring(with: NSRange(location: closeStart, length: 1)) == "_" else { return nil }
+        guard text.character(at: closeStart) == underscore else { return nil }
 
-        if closeStart > 0 && text.substring(with: NSRange(location: closeStart - 1, length: 1)) == "_" { return nil }
+        if closeStart > 0 && text.character(at: closeStart - 1) == underscore { return nil }
         if closeStart + 1 < text.length && isWordCharacter(text, at: closeStart + 1) { return nil }
 
-        let scanLimit = max(0, closeStart - 200)
+        let scanLimit = max(0, closeStart - Self.maxScanDistance)
         var pos = closeStart - 1
         while pos >= scanLimit {
-            if text.substring(with: NSRange(location: pos, length: 1)) == "_" {
-                if pos > 0 && text.substring(with: NSRange(location: pos - 1, length: 1)) == "_" { pos -= 1; continue }
+            if text.character(at: pos) == underscore {
+                if pos > 0 && text.character(at: pos - 1) == underscore { pos -= 1; continue }
                 if pos > 0 && isWordCharacter(text, at: pos - 1) { pos -= 1; continue }
                 let contentStart = pos + 1
                 let contentLength = closeStart - contentStart
@@ -143,6 +146,16 @@ struct AutoFormatEngine {
             pos -= 1
         }
         return nil
+    }
+
+    private let star: unichar = 42
+    private let underscore: unichar = 95
+
+    private func matchesMarker(_ marker: [unichar], _ text: NSString, at location: Int) -> Bool {
+        for i in 0..<marker.count where text.character(at: location + i) != marker[i] {
+            return false
+        }
+        return true
     }
 
     private func isWordCharacter(_ text: NSString, at index: Int) -> Bool {
@@ -164,5 +177,13 @@ struct AutoFormatEngine {
         let newCursor = openRange.location + contentRange.length
         textView.setSelectedRange(NSRange(location: newCursor, length: 0))
         textView.setAutoFormatting(false)
+    }
+}
+
+private extension NSString {
+    var unichars: [unichar] {
+        var buffer = [unichar](repeating: 0, count: length)
+        getCharacters(&buffer)
+        return buffer
     }
 }

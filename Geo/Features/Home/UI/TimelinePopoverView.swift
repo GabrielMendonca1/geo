@@ -1,4 +1,5 @@
 import SwiftUI
+import GeoCore
 
 struct TimelinePopoverView: View {
     let date: Date

@@ -14,14 +14,10 @@ final class FABUsageTracker: ObservableObject, UsageTracker, @unchecked Sendable
         self.defaults = defaults
     }
 
-    func trackAction(_ actionLabel: String, in pane: String) {
+    func track(_ actionLabel: String, in pane: String) {
         var usage = getUsage(for: pane)
         usage[actionLabel, default: 0] += 1
         saveUsage(usage, for: pane)
-    }
-
-    func track(_ actionLabel: String, in pane: String) {
-        trackAction(actionLabel, in: pane)
     }
 
     func getUsage(for pane: String) -> [String: Int] {
@@ -33,15 +29,11 @@ final class FABUsageTracker: ObservableObject, UsageTracker, @unchecked Sendable
         return usage
     }
 
-    func getTopActions(in pane: String, count: Int = 2) -> [String] {
+    func topActions(in pane: String, count: Int = 2) -> [String] {
         getUsage(for: pane)
             .sorted { $0.value > $1.value }
             .prefix(count)
             .map { $0.key }
-    }
-
-    func topActions(in pane: String, count: Int = 2) -> [String] {
-        getTopActions(in: pane, count: count)
     }
 
     func sortedActionLabels(_ labels: [String], in pane: String) -> [String] {

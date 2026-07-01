@@ -11,27 +11,11 @@ final class InputMonitoringPermission: Permission, @unchecked Sendable {
     }
 
     func checkStatus() -> PermissionState {
-        let eventTap = CGEvent.tapCreate(
-            tap: .cgSessionEventTap,
-            place: .headInsertEventTap,
-            options: .listenOnly,
-            eventsOfInterest: CGEventMask(1 << CGEventType.keyDown.rawValue),
-            callback: { _, _, event, _ in Unmanaged.passRetained(event) },
-            userInfo: nil
-        )
-
-        if let eventTap {
-            CFMachPortInvalidate(eventTap)
-            return .authorized
-        }
-        return .notDetermined
+        CGPreflightListenEventAccess() ? .authorized : .notDetermined
     }
 
     func request() async -> PermissionState {
-        let current = checkStatus()
-        if current.isGranted { return current }
-
-        openSystemSettings()
-        return .notDetermined
+        if CGPreflightListenEventAccess() { return .authorized }
+        return CGRequestListenEventAccess() ? .authorized : .notDetermined
     }
 }

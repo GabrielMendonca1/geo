@@ -472,6 +472,17 @@ enum SpanStyler {
         EditorFontCache.shared.font(for: base, style: .code)
     }
 
+    static func styles(of font: NSFont, base: NSFont) -> Set<InlineStyle> {
+        let codeFont = codeFont(for: base)
+        if font.fontName == codeFont.fontName && font.pointSize == codeFont.pointSize {
+            return [.code]
+        }
+        var styles = Set<InlineStyle>()
+        if font.fontName == boldFont(for: base).fontName { styles.insert(.bold) }
+        if CTFontGetMatrix(font as CTFont).c != 0 { styles.insert(.italic) }
+        return styles
+    }
+
     static func apply(spans: [InlineSpan], to ts: NSTextStorage, baseFont: NSFont) {
         for span in spans {
             guard span.range.length > 0 else { continue }
@@ -559,21 +570,13 @@ enum SpanExtractor {
     static func extract(from ts: NSTextStorage, baseFont: NSFont) -> [InlineSpan] {
         guard ts.length > 0 else { return [] }
 
-        let boldFontName = SpanStyler.boldFont(for: baseFont).fontName
-        let codeFontObj = SpanStyler.codeFont(for: baseFont)
         var spans: [InlineSpan] = []
 
         ts.enumerateAttributes(in: NSRange(location: 0, length: ts.length)) { attrs, range, _ in
             var styles = Set<InlineStyle>()
 
             if let font = attrs[.font] as? NSFont {
-                if font.fontName == codeFontObj.fontName && font.pointSize == codeFontObj.pointSize {
-                    styles.insert(.code)
-                } else {
-                    if font.fontName == boldFontName { styles.insert(.bold) }
-                    let matrix = CTFontGetMatrix(font as CTFont)
-                    if matrix.c != 0 { styles.insert(.italic) }
-                }
+                styles.formUnion(SpanStyler.styles(of: font, base: baseFont))
             }
 
             if let strike = attrs[.strikethroughStyle] as? Int, strike != 0 {

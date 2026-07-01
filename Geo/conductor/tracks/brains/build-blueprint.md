@@ -50,7 +50,7 @@ Within each phase, `BrainsTests.swift` and the new test files are already / will
 
 **EXISTING-file edits:**
 
-`/Users/biel/ARC/Forge/Geo/Geo/Shared/Infrastructure/Database/DatabaseService.swift`
+`/Users/biel/ARCA/Forge/Geo/Geo/Shared/Infrastructure/Database/DatabaseService.swift`
 - **ADDITIVE** — add file-level `enum DatabaseSchemaProfile: Sendable { case personal; case domain }`.
 - **ADDITIVE** — `init` at **:65** gains trailing defaulted param: `init(databaseURL: URL? = nil, fileManager: FileManager = .default, schema: DatabaseSchemaProfile = .personal)`. Verified: every caller (`.shared` :60, `Brains.swift:216`, all tests) uses `databaseURL:`/`fileManager:` only → all compile unchanged, all resolve `.personal`.
 - **ADDITIVE** — at **:72** change `Self.buildMigrator()` → `Self.buildMigrator(schema: schema)`. Lines :73–83 (migrate + destructive `forceRecreate` fallback) untouched.
@@ -60,13 +60,13 @@ Within each phase, `BrainsTests.swift` and the new test files are already / will
 
 > **RESOLVED CONFLICT (vector table name/columns):** Spec 2 names the table `node_vec(blockId, dims, embedding)` and methods `upsertVector`/`loadAllVectors`. Spec 3 names it `embeddings`/`node_vec(blockId, dims, vec)` with `upsertEmbedding`/`fetchAllEmbeddings`. Spec 6 says `embeddings`. **Use Spec 2's `node_vec(blockId, dims, embedding)` + `upsertVector`/`loadAllVectors`** — it is the most detailed and self-consistent, and the ingest spec (2b-ingest) below is wired to call exactly those names. Drop the `embeddings` name everywhere.
 
-`/Users/biel/ARC/Forge/Geo/Geo/Shared/Infrastructure/Brains/Brains.swift`
+`/Users/biel/ARCA/Forge/Geo/Geo/Shared/Infrastructure/Brains/Brains.swift`
 - **ADDITIVE (replace known stub, not a surface)** — implement `DatabaseBrainIndex.semanticSearch` (currently `[]` at **:124–126**): `guard k>0, !embedding.isEmpty else { [] }; let c = try await database.loadAllVectors(); guard !c.isEmpty else { [] }; return VectorMath.topK(query: embedding, candidates: c, k: k)`.
 - **ADDITIVE (protocol requirement + default impl, atomic)** — add `func listNeighbors(of blockId: String) async throws -> (incoming: [BlockIndexEntry], outgoing: [BlockIndexEntry])` to `BrainIndex` (:94–100) **AND** a default impl in `extension BrainIndex` returning `([],[])` in the **same commit** (Spec 6 #2 violation fix — a bare requirement breaks `DatabaseBrainIndex` conformance; the default keeps the personal index, which has no `edges` table, conformant). Implement the real version on `DatabaseBrainIndex` via `incomingEdges`/`outgoingEdges` + `fetchBlocks(ids:)`.
 
 > **OPEN DECISION (carry to P2c/P3):** Spec 6 #2 argues `listNeighbors` on the protocol may be **unnecessary** — the existing `list_neighbors` MCP tool, once brain-routed by 2a, covers neighbor reads, and the personal graph resolves neighbors via `BlockGraphService`, not the edges table. **Recommendation:** still ship `setEdges`/`incoming`/`outgoing` DB methods in 2b-storage (the ingest pipeline must persist edges), but make `listNeighbors` on the protocol **optional/deferred** — only add it if P2c's `BrainGraphStore` or a brain-scoped `list_neighbors` actually needs it. If added, the default-impl pattern above is mandatory. Lowest-risk path: defer the protocol requirement; keep only the DB methods + the additive default if/when needed.
 
-**Unit tests** (append to `/Users/biel/ARC/Forge/Geo/Geo/Tests/BrainsTests.swift`, temp `.domain` DB, `defer` cleanup, follows existing `testDatabaseBrainIndexLexicalGetAndType` at :104):
+**Unit tests** (append to `/Users/biel/ARCA/Forge/Geo/Geo/Tests/BrainsTests.swift`, temp `.domain` DB, `defer` cleanup, follows existing `testDatabaseBrainIndexLexicalGetAndType` at :104):
 1. `testPersonalSchemaHasNoDomainTables` — default-`.personal` DB; upsert+fetch a block works (personal path untouched).
 2. `testEdgeRoundTripBothDirections` — `setEdges` with one resolved + one `nil`-target edge; assert `listNeighbors` incoming/outgoing.
 3. `testSetEdgesReplacesPriorEdges` — delete-all-for-source semantics.
@@ -80,28 +80,28 @@ Within each phase, `BrainsTests.swift` and the new test files are already / will
 ### PHASE 2b-ingest — extraction → chunk → two-pass summarize/reconcile → embed → index
 
 **NEW files (all → Geo target):**
-- `/Users/biel/ARC/Forge/Geo/Geo/Shared/Infrastructure/Brains/ChunkSummarizer.swift` — `protocol ChunkSummarizer: Sendable { func summarize(_ chunk: String, context: SummarizeContext) async throws -> String }` + `struct SummarizeContext { brainTitle; brainGist; sourceLabel }` + `AnthropicHaikuSummarizer` (real, calls `AnthropicClient.complete`).
-- `/Users/biel/ARC/Forge/Geo/Geo/Shared/Infrastructure/Brains/EmbeddingService.swift` — `protocol EmbeddingService: Sendable { var dims: Int { get }; func embed(_ text: String) async -> [Float]? }` + `NLEmbeddingService` (`NLEmbedding.sentenceEmbedding(for: .english)`, 512-dim, nil-guarded, `[Double]→[Float]`). Model call AND embedding both sit behind protocols → pipeline tests use fakes, zero network/model.
-- `/Users/biel/ARC/Forge/Geo/Geo/Shared/Infrastructure/Brains/SourceExtractor.swift` — `protocol SourceExtractor` + `DefaultSourceExtractor` (PDFKit page loop; HTML→text pure helper; image via `OCRService.shared.process` wrapped in `withCheckedContinuation`; `case .audio: throw NotSupported`).
-- `/Users/biel/ARC/Forge/Geo/Geo/Shared/Infrastructure/Brains/Chunker.swift` — `struct Chunk { text; hash; order; sourceLabel }` + `enum Chunker { static func chunk(...) }`; `hash = SHA256(NFC(text))` via `.precomposedStringWithCanonicalMapping` (reuse `BlockGraphService.deterministicUUID` pattern :492); 800-word window / 80 overlap.
-- `/Users/biel/ARC/Forge/Geo/Geo/Shared/Infrastructure/Brains/IngestPipeline.swift` — `enum BrainIngestStep`, non-recursive `advance(brain:summarizer:embedder:...)` executing ONE step/window, persisting cursor to `brain.json`. Pass1 chunk→literature md (`# title`, prose, `[[concept]]` links) with frontmatter `type: literature`, `layer: shared` (`user` is forbidden for agent writes), `frontmatter_version: 1`, `chunk_hash: <sha>`. Bounded-concurrency TaskGroup **cap 8** owned here (not the protocol). Pass2 reconcile: bucket all `[[mentions]]` (via `BlockGraphService.extractWikiLinks` :440) by `WikiTitleNormalizer.normalize` key → O(N), deterministic canonical = **longest-then-lexicographically-smallest** (pin the comparator), rewrite links preserving `|alias`, skip write if bytes unchanged. SOLE writer; never an MCP tool.
+- `/Users/biel/ARCA/Forge/Geo/Geo/Shared/Infrastructure/Brains/ChunkSummarizer.swift` — `protocol ChunkSummarizer: Sendable { func summarize(_ chunk: String, context: SummarizeContext) async throws -> String }` + `struct SummarizeContext { brainTitle; brainGist; sourceLabel }` + `AnthropicHaikuSummarizer` (real, calls `AnthropicClient.complete`).
+- `/Users/biel/ARCA/Forge/Geo/Geo/Shared/Infrastructure/Brains/EmbeddingService.swift` — `protocol EmbeddingService: Sendable { var dims: Int { get }; func embed(_ text: String) async -> [Float]? }` + `NLEmbeddingService` (`NLEmbedding.sentenceEmbedding(for: .english)`, 512-dim, nil-guarded, `[Double]→[Float]`). Model call AND embedding both sit behind protocols → pipeline tests use fakes, zero network/model.
+- `/Users/biel/ARCA/Forge/Geo/Geo/Shared/Infrastructure/Brains/SourceExtractor.swift` — `protocol SourceExtractor` + `DefaultSourceExtractor` (PDFKit page loop; HTML→text pure helper; image via `OCRService.shared.process` wrapped in `withCheckedContinuation`; `case .audio: throw NotSupported`).
+- `/Users/biel/ARCA/Forge/Geo/Geo/Shared/Infrastructure/Brains/Chunker.swift` — `struct Chunk { text; hash; order; sourceLabel }` + `enum Chunker { static func chunk(...) }`; `hash = SHA256(NFC(text))` via `.precomposedStringWithCanonicalMapping` (reuse `BlockGraphService.deterministicUUID` pattern :492); 800-word window / 80 overlap.
+- `/Users/biel/ARCA/Forge/Geo/Geo/Shared/Infrastructure/Brains/IngestPipeline.swift` — `enum BrainIngestStep`, non-recursive `advance(brain:summarizer:embedder:...)` executing ONE step/window, persisting cursor to `brain.json`. Pass1 chunk→literature md (`# title`, prose, `[[concept]]` links) with frontmatter `type: literature`, `layer: shared` (`user` is forbidden for agent writes), `frontmatter_version: 1`, `chunk_hash: <sha>`. Bounded-concurrency TaskGroup **cap 8** owned here (not the protocol). Pass2 reconcile: bucket all `[[mentions]]` (via `BlockGraphService.extractWikiLinks` :440) by `WikiTitleNormalizer.normalize` key → O(N), deterministic canonical = **longest-then-lexicographically-smallest** (pin the comparator), rewrite links preserving `|alias`, skip write if bytes unchanged. SOLE writer; never an MCP tool.
 
 **EXISTING-file edits:**
 
-`/Users/biel/ARC/Forge/Geo/Geo/Shared/Infrastructure/AI/AnthropicClient.swift`
+`/Users/biel/ARCA/Forge/Geo/Geo/Shared/Infrastructure/AI/AnthropicClient.swift`
 - **ADDITIVE** — extract `static func complete(system:user:maxTokens:Int=4096) async throws -> String` from `parseTask` (:88–155), reusing private `sendWithRetry` (:157), status-check, text-extraction. `parseTask` then calls `complete` + its existing `stripCodeFences`/`decodeTaskJSON`. Byte-identical on the wire (same model `claude-haiku-4-5-20251001` :38, headers, cache beta). `sendWithRetry` stays private.
 
-`/Users/biel/ARC/Forge/Geo/Geo/Shared/Infrastructure/Brains/Brains.swift`
+`/Users/biel/ARCA/Forge/Geo/Geo/Shared/Infrastructure/Brains/Brains.swift`
 - **ADDITIVE** — add `enum BrainIngestStep: String, Codable, Sendable` (pending/extracting/summarizing/reconciling/embedding/indexing/ready/failed) and additive Codable manifest fields `var ingestStep: BrainIngestStep? = nil` + `var lastError: String? = nil` (default-nil → existing `brain.json` decodes unchanged). Keep the coarse `BrainIngestState` (:9) as the UI-facing field (map extracting…indexing → `.ingesting`). Persist `embeddingModel="NLEmbedding"` + `embeddingDims=512` on the manifest when embedding completes.
 
-`/Users/biel/ARC/Forge/Geo/Geo/Features/Blocks/Data/BlockFileService.swift`
+`/Users/biel/ARCA/Forge/Geo/Geo/Features/Blocks/Data/BlockFileService.swift`
 - **ADDITIVE** — add `blocksDirectoryOverride: URL? = nil` to `init` (~:13–26). When nil, compute `Geo/Blocks` as today (byte-identical for all existing callers); when set, `blocksDirectory = override`. Lets the pipeline write into `Geo/Brains/<id>/Blocks` (`BrainPaths.blocksDir` :202). Sanctioned "optional param whose default == current behavior."
 
 > **RESOLVED CONFLICT (where the ingest DB write lands):** Spec 3 §6 proposed adding the `node_vec` migration here; Spec 2 already owns it in 2b-storage. **2b-storage owns ALL schema + DB methods.** 2b-ingest only *calls* `upsertVector`/`setEdges`/`upsertBlock` against a `DatabaseService(databaseURL: paths.indexURL, schema: .domain)`. Domain DBs are constructed with `.domain` — see the wiring flip below.
 
 > **RESOLVED — domain DB `.domain` profile activation:** `Brains.swift:216` currently builds `DatabaseService(databaseURL: paths.indexURL)` (defaults `.personal`). **Flip to `DatabaseService(databaseURL: paths.indexURL, schema: .domain)`** — **ADDITIVE/behavior-preserving** (personal branch at :215 still uses `.shared`/`.personal`; no UI touched). Place this flip in **2b-storage** (so its tests that construct `.domain` DBs match the production path) — Spec 2 §6 recommends including it there. Without it, domain DBs lack `edges`/`node_vec` and ingest throws "no such table."
 
-**Unit tests** → NEW `/Users/biel/ARC/Forge/Geo/Geo/Tests/IngestPipelineTests.swift` (GeoTests; FakeSummarizer + FakeEmbedder live here, test-only). Zero network/model:
+**Unit tests** → NEW `/Users/biel/ARCA/Forge/Geo/Geo/Tests/IngestPipelineTests.swift` (GeoTests; FakeSummarizer + FakeEmbedder live here, test-only). Zero network/model:
 - Chunking: fixed input → chunk count, 80-word overlap, `hash == SHA256(NFC(text))` precomputed hex; NFC vs NFD inputs → identical hash.
 - Reconcile: diacritic/case/hyphen variants (`[[T-cell]]`/`[[T cells]]`/`[[t-cells]]`) → single bucket, canonical = longest-then-lex-smallest, links rewritten preserving `|alias`, re-run byte-identical.
 - State machine: drive `advance` repeatedly over temp brain dir + FakeSummarizer → exact step order to `.ready`; re-running a done step is a no-op (file bytes + `node_vec` count unchanged); injected error → `.failed` + `lastError`, recoverable.
@@ -114,28 +114,28 @@ Within each phase, `BrainsTests.swift` and the new test files are already / will
 ### PHASE 2a — tool/API surface + resolve-once brain interceptor
 
 **NEW files (→ Geo target):**
-- `/Users/biel/ARC/Forge/Geo/Geo/Shared/Infrastructure/MCP/Tools/BrainTools.swift` — `enum BrainTools { static func register(registry: BrainRegistry = .shared) -> [MCPRegisteredTool] }` exposing `list_brains` (empty schema) and `get_brain_manifest` (`brain` prop, default `essence`). Both read `BrainRegistry` directly (brain-agnostic at the data level).
+- `/Users/biel/ARCA/Forge/Geo/Geo/Shared/Infrastructure/MCP/Tools/BrainTools.swift` — `enum BrainTools { static func register(registry: BrainRegistry = .shared) -> [MCPRegisteredTool] }` exposing `list_brains` (empty schema) and `get_brain_manifest` (`brain` prop, default `essence`). Both read `BrainRegistry` directly (brain-agnostic at the data level).
 
 > **RESOLVED CONFLICT (BrainCallContext file placement):** Spec 1 recommends **appending** `BrainCallContext` to `MCPToolRegistry.swift` to avoid a second pbxproj entry. Spec 6 lists an optional separate `BrainRouting.swift`. **Append to `MCPToolRegistry.swift`** — fewer pbxproj edits, the type is tightly coupled to `call`.
 
 **EXISTING-file edits:**
 
-`/Users/biel/ARC/Forge/Geo/Geo/Shared/Infrastructure/MCP/MCPToolRegistry.swift`
+`/Users/biel/ARCA/Forge/Geo/Geo/Shared/Infrastructure/MCP/MCPToolRegistry.swift`
 - **ADDITIVE** — append `struct BrainCallContext: Sendable { let brainId: String; let index: BrainIndex; @TaskLocal static var current: BrainCallContext? = nil; static let brainScopedReadTools: Set<String> = [...] }`. Whitelist = pure readers only: `search_blocks, get_block, get_block_by_title, list_blocks, list_by_type, list_by_status, find_backlinks, find_orphans, find_unresolved_links, list_neighbors, get_graph_snapshot, list_brains, get_brain_manifest`. Excludes all write/destructive + Task/Day/Tag/AI tools.
 - **ADDITIVE** — add `brains: BrainRegistry = .shared` to `init` (:13). Existing `MCPToolRegistry(tools: mcpTools)` (GeoApp.swift:133) compiles unchanged.
 - **ADDITIVE (provably pass-through default branch — Spec 6 #5 obligation)** — rewrite `call` body (:25–30): resolve `brainId = arguments["brain"]?.stringValue ?? BrainRegistry.personalId`; if non-personal AND not in `brainScopedReadTools` → `.error("read-only-blocked …")`; `guard let index = brains.index(for: brainId) else { .error("unknown brain …") }`; then `try await BrainCallContext.$current.withValue(BrainCallContext(brainId:index:)) { try await tool.handler(arguments) }`. **When `brain` absent → brainId == "essence" → guard skipped → `index(for:"essence")` always resolves (seeded :155) → TaskLocal bound but unread by all 70+ handlers → byte-identical to today.** Covers BOTH callers: `MCPRouter.handleToolCall` (:80) and `GeoAPIRouter.call` (:285).
 
-`/Users/biel/ARC/Forge/Geo/Geo/Shared/Infrastructure/HTTP/GeoAPIRouter.swift`
+`/Users/biel/ARCA/Forge/Geo/Geo/Shared/Infrastructure/HTTP/GeoAPIRouter.swift`
 - **ADDITIVE** — add `extension GeoAPIRouter { @TaskLocal static var requestBrain: String? = nil }`.
 - **ADDITIVE** — at **:38**, wrap dispatch: `let brain = request.headers["x-geo-brain"]?.lowercased(); let response = await GeoAPIRouter.$requestBrain.withValue(brain) { await dispatch(request: request, token: token) }`. (Server lowercases header keys at parse time; value defensively lowercased.)
 - **ADDITIVE** — at `call` (**:283**): `var args = args; if args["brain"] == nil, let b = GeoAPIRouter.requestBrain, !b.isEmpty { args["brain"] = .string(b) }` then existing `registry.call`. One edit reaches all ~40 routes; route table untouched. No header → no key → personal path identical.
 
-`/Users/biel/ARC/Forge/Geo/Geo/Shared/Infrastructure/MCP/Tools/BlockTools.swift`
+`/Users/biel/ARCA/Forge/Geo/Geo/Shared/Infrastructure/MCP/Tools/BlockTools.swift`
 - **ADDITIVE** — `searchBlocks` (:198–220): add schema props `mode` (enum `["lexical","semantic"]`) + `brain`, both optional, `query` stays sole required. Handler reads `BrainCallContext.current`: default (`ctx == nil || ctx.brainId == essence`, lexical) → **exact current `blocks.search` path**; else route to `ctx.index.lexicalSearch`. **Note:** `searchBlocks` takes `_ blocks` positionally (verified) — handler closure already captures it; no signature change.
 
 > **RESOLVED CONFLICT (semantic mode):** there is NO embedding generator wired into `search_blocks` yet (the query arrives as a string; `semanticSearch` needs a `[Float]`). **DECISION:** since 2b-ingest now ships `EmbeddingService`, the cleanest path is: in 2a, add the `mode`/`brain` schema and route `mode:semantic` through `EmbeddingService.embed(query)` → `ctx.index.semanticSearch(embedding, k:)`. If you prefer to keep 2a model-call-free (Spec 1's stricter reading), ship only `brain` + lexical-over-index in 2a and add `mode:semantic` wiring as a one-line follow-up once `EmbeddingService` is injectable into `BlockTools.register`. **Recommendation:** wire semantic in 2a using the now-available `EmbeddingService` (pass it into `BlockTools.register` as an additive defaulted param), so the API surface ships complete. Either way the default lexical/personal branch is byte-identical.
 
-`/Users/biel/ARC/Forge/Geo/Geo/App/GeoApp.swift`
+`/Users/biel/ARCA/Forge/Geo/Geo/App/GeoApp.swift`
 - **ADDITIVE** — at **:130–131**, append `+ BrainTools.register()` to the `mcpTools` chain. `tools/list` auto-includes the two new defs.
 
 > **ROUTING GAP (flag, not a violation — Spec 6 §2/§8):** `GeoAPIRouter` calls `blocks.listFolders/move/createFolder/get` **directly** at :103/155/165/209/322/381 (verified), bypassing `registry.call` and therefore the interceptor — they are permanently `essence`-scoped. Acceptable under read-only-domain-brains (these are write/management ops). **Do NOT thread a brain into the `blocks` repo path** (would risk the working essence write path). If a domain brain ever needs `get`/folders, route them through `registry.call` instead.
@@ -148,11 +148,11 @@ Within each phase, `BrainsTests.swift` and the new test files are already / will
 ### PHASE 2c — per-brain graph render without touching the working graph UI
 
 **NEW files (→ Geo + GeoTests):**
-- `/Users/biel/ARC/Forge/Geo/Geo/Features/Brains/Data/BrainGraphStore.swift` (Geo) — `@MainActor final class BrainGraphStore: ObservableObject` (NOT a singleton; one per brain id). `@Published private(set) var graph: BlockGraph = .empty`, `idLookup: [UUID:String] = [:]`, `cachedPositions`, `simulationSettled`. `func load(registry: BrainRegistry = .shared) async`: resolve `paths`, `db = isPersonal ? .shared : DatabaseService(databaseURL: paths.indexURL, schema: .domain)`, `BlockGraphService(indexCoordinator: IndexCoordinator(database: db), tagStore: .shared).loadGraph()`. Read-only — NO `.blocksExternallyChanged` observer, no delta machinery. `updateLayoutCache(positions:settled:)` mirrors `GraphStore:99`.
+- `/Users/biel/ARCA/Forge/Geo/Geo/Features/Brains/Data/BrainGraphStore.swift` (Geo) — `@MainActor final class BrainGraphStore: ObservableObject` (NOT a singleton; one per brain id). `@Published private(set) var graph: BlockGraph = .empty`, `idLookup: [UUID:String] = [:]`, `cachedPositions`, `simulationSettled`. `func load(registry: BrainRegistry = .shared) async`: resolve `paths`, `db = isPersonal ? .shared : DatabaseService(databaseURL: paths.indexURL, schema: .domain)`, `BlockGraphService(indexCoordinator: IndexCoordinator(database: db), tagStore: .shared).loadGraph()`. Read-only — NO `.blocksExternallyChanged` observer, no delta machinery. `updateLayoutCache(positions:settled:)` mirrors `GraphStore:99`.
 
 **EXISTING-file edits:**
 
-`/Users/biel/ARC/Forge/Geo/Geo/Features/Graph/UI/GraphView.swift`
+`/Users/biel/ARCA/Forge/Geo/Geo/Features/Graph/UI/GraphView.swift`
 - **ADDITIVE** — insert `var isActive: (() -> Bool)? = nil` among the defaulted members **before** the required trailing `onNodeTap` at :527 (e.g. right after `onLayoutChange` at :526). **Placement is load-bearing:** `onNodeTap` is the positional trailing closure at both call sites (`NodesPane.swift:63`, `#Preview`); inserting after it would shift the trailing-closure slot (compile break). Before it = safe.
 - **ADDITIVE** — at **:753**: `isActiveCheck: { [tabRouter] in isActive?() ?? (tabRouter.selectedTab == .nodes) }`.
 - **ADDITIVE** — at **:825**: same swap. When `isActive == nil` (every existing call site), `nil ?? (tabRouter.selectedTab == .nodes)` is the verbatim original expression, same `[tabRouter]` capture. `tabRouter` (:530) stays live. **`NodesPane.swift`, `GraphStore.swift`, `BlockGraph.swift`, `BlockGraphService.swift` are NOT edited** — `BrainGraphStore` reuses `BlockGraphService` via `IndexCoordinator(database:)` injection (both already accept arbitrary instances).
@@ -161,7 +161,7 @@ Within each phase, `BrainsTests.swift` and the new test files are already / will
 
 > **tagColors note:** domain-brain `tagId`s won't exist in personal `TagStore.shared` → nodes render neutral grey (`GraphView:1201`), color-by-type/-layer still works. Safe v1 default, no new tag infra.
 
-**Unit tests** → NEW `/Users/biel/ARC/Forge/Geo/Geo/Tests/BrainGraphStoreTests.swift` (GeoTests):
+**Unit tests** → NEW `/Users/biel/ARCA/Forge/Geo/Geo/Tests/BrainGraphStoreTests.swift` (GeoTests):
 1. **Gate behavior-preservation (load-bearing):** pure harness `gate(isActive:tabIsNodes:) = isActive?() ?? tabIsNodes` → `gate(nil,true)==true`, `gate(nil,false)==false`, `gate({true},false)==true`, `gate({false},true)==false`. Locks the `??` semantics without SwiftUI.
 2. `load` builds graph from a seeded temp `.domain index.sqlite` → node/edge counts.
 3. Empty brain → `graph == .empty`, `idLookup == [:]`.
@@ -174,13 +174,13 @@ Within each phase, `BrainsTests.swift` and the new test files are already / will
 ### PHASE 3 — additive Brains feature module (tab + panes)
 
 **NEW files (all → Geo target):**
-- `/Users/biel/ARC/Forge/Geo/Geo/Features/Brains/UI/BrainsPane.swift` — `.brains` destination; `Pane { ScrollView { LazyVStack { ForEach(brains) { BrainCard } } } }`; `@State brains = BrainRegistry.shared.list()` in `.task`; `+` "New Brain" chip → `CreateBrainSheet`; empty state cloned from `BlocksPane.emptyState`; inner `@State openBrain` drives a full-pane push (kept inside BrainsPane).
-- `/Users/biel/ARC/Forge/Geo/Geo/Features/Brains/UI/BrainCard.swift` — styled after `BlockListRow`; title/gist/`nodeCount` + ingest-state badge from `BrainIngestState`.
-- `/Users/biel/ARC/Forge/Geo/Geo/Features/Brains/UI/CreateBrainSheet.swift` — chrome cloned from `TagCreationSheet`; derive `id` via `WikiTitleNormalizer`; `BrainManifest(...).save(to: paths(id).manifestURL)`; advance to `AttachSourcesView`.
-- `/Users/biel/ARC/Forge/Geo/Geo/Features/Brains/UI/AttachSourcesView.swift` — NEW `.onDrop(of:[.fileURL])` drop zone (net-new; `AttachmentHandler` is pasteboard-only, not reused); copy URLs into `paths(id).sourcesDir`; bump `sourceCount`; flip `ingestState .empty→.ingesting`; save; kick the IngestPipeline by id (app-internal, never MCP).
-- `/Users/biel/ARC/Forge/Geo/Geo/Features/Brains/UI/IngestDetailView.swift` — honest state-machine status (indeterminate `ProgressView()` for `.ingesting`, "advances when the agent next runs"); reads live status via `BrainManifest.load(from: paths.manifestURL)` on `.task`/timer (registry caches manifests at init — read `brain.json` directly for live progress).
-- `/Users/biel/ARC/Forge/Geo/Geo/Features/Brains/UI/BrainNodeView.swift` — READ-ONLY viewer; renders markdown via `MarkdownStyler`/`MarkdownConverter` in a `ScrollView`, NOT `BlockEditor`/`BlockTextEditorView`; tappable `[[concept]]` links load sibling nodes; no save/delete/mutate menu.
-- `/Users/biel/ARC/Forge/Geo/Geo/Features/Brains/UI/BrainNodesView.swift` — paged node list (`pageSize 50`, `offset`, infinite-scroll via last-row `.onAppear`) + embedded per-brain `GraphView` fed by `@StateObject BrainGraphStore` (call shape from `NodesPane.swift:49–69`); node tap → `BrainNodeView`, never `openWindow`.
+- `/Users/biel/ARCA/Forge/Geo/Geo/Features/Brains/UI/BrainsPane.swift` — `.brains` destination; `Pane { ScrollView { LazyVStack { ForEach(brains) { BrainCard } } } }`; `@State brains = BrainRegistry.shared.list()` in `.task`; `+` "New Brain" chip → `CreateBrainSheet`; empty state cloned from `BlocksPane.emptyState`; inner `@State openBrain` drives a full-pane push (kept inside BrainsPane).
+- `/Users/biel/ARCA/Forge/Geo/Geo/Features/Brains/UI/BrainCard.swift` — styled after `BlockListRow`; title/gist/`nodeCount` + ingest-state badge from `BrainIngestState`.
+- `/Users/biel/ARCA/Forge/Geo/Geo/Features/Brains/UI/CreateBrainSheet.swift` — chrome cloned from `TagCreationSheet`; derive `id` via `WikiTitleNormalizer`; `BrainManifest(...).save(to: paths(id).manifestURL)`; advance to `AttachSourcesView`.
+- `/Users/biel/ARCA/Forge/Geo/Geo/Features/Brains/UI/AttachSourcesView.swift` — NEW `.onDrop(of:[.fileURL])` drop zone (net-new; `AttachmentHandler` is pasteboard-only, not reused); copy URLs into `paths(id).sourcesDir`; bump `sourceCount`; flip `ingestState .empty→.ingesting`; save; kick the IngestPipeline by id (app-internal, never MCP).
+- `/Users/biel/ARCA/Forge/Geo/Geo/Features/Brains/UI/IngestDetailView.swift` — honest state-machine status (indeterminate `ProgressView()` for `.ingesting`, "advances when the agent next runs"); reads live status via `BrainManifest.load(from: paths.manifestURL)` on `.task`/timer (registry caches manifests at init — read `brain.json` directly for live progress).
+- `/Users/biel/ARCA/Forge/Geo/Geo/Features/Brains/UI/BrainNodeView.swift` — READ-ONLY viewer; renders markdown via `MarkdownStyler`/`MarkdownConverter` in a `ScrollView`, NOT `BlockEditor`/`BlockTextEditorView`; tappable `[[concept]]` links load sibling nodes; no save/delete/mutate menu.
+- `/Users/biel/ARCA/Forge/Geo/Geo/Features/Brains/UI/BrainNodesView.swift` — paged node list (`pageSize 50`, `offset`, infinite-scroll via last-row `.onAppear`) + embedded per-brain `GraphView` fed by `@StateObject BrainGraphStore` (call shape from `NodesPane.swift:49–69`); node tap → `BrainNodeView`, never `openWindow`.
 
 > **RESOLVED CONFLICT (BrainGraphStore location/init):** Spec 4 puts it at `Features/Brains/Data/BrainGraphStore.swift` with `init(brainId:)`; Spec 5 puts it in the same file but as `BrainGraphStore()` + `load(brainId:)`. **Single file `Features/Brains/Data/BrainGraphStore.swift` (owned by Phase 2c), `load(registry:)`-style API.** Phase 3 only *consumes* it. Do not duplicate.
 
@@ -191,12 +191,12 @@ Within each phase, `BrainsTests.swift` and the new test files are already / will
 
 **EXISTING-file edits:**
 
-`/Users/biel/ARC/Forge/Geo/Geo/Shared/Navigation/AppTab.swift`
+`/Users/biel/ARCA/Forge/Geo/Geo/Shared/Navigation/AppTab.swift`
 - **ADDITIVE** — add `case brains = "Brains"` (:3–8).
 - **ADDITIVE** — append `.brains` to **END** of `defaultNavigationOrder` (:10) → `[.home, .nano, .tasks, .nodes, .brains]`. ⌘1–⌘4 unchanged, new tab = ⌘5. (Option A; see UI-VERDICT.)
 - **ADDITIVE** — new switch arms in `displayTitle` (:27), `icon` (:37), `destinationView` (:63): `case .brains: …` / `BrainsPane()`. Compile-forced exhaustiveness = sanctioned new-case pattern. `shortcutHint` (:46) auto-derives ⌘5 via `firstIndex`.
 
-`/Users/biel/ARC/Forge/Geo/Geo/Shared/Navigation/NavigationSegmentedControl.swift`
+`/Users/biel/ARCA/Forge/Geo/Geo/Shared/Navigation/NavigationSegmentedControl.swift`
 - **BEHAVIORAL (flagged — title bar is a working surface)** — `TabIconView` switch (:77–92) is exhaustive over `AppTab` → MUST add `case .brains: Image(systemName: tab.icon)` to compile. The arm is behavior-preserving for existing cases; the *visible* 5th segment comes from the `defaultNavigationOrder` append (Option A), not this arm. See UI-VERDICT for Option B (4 segments, ⌘5 via explicit button) which keeps the segment count unchanged but still requires this compile-forced (non-rendering) arm.
 
 **NO EDIT (confirmed):** `UnifiedNavigationContainer.swift` (iterates `allCases`, auto-includes; `maxLiveTabs = allCases.count` auto-grows), `MenuActions.swift` (`showTab` generic), `MyCommands.swift` (Option A: `ForEach(defaultNavigationOrder.enumerated())` auto-assigns ⌘5).
@@ -210,24 +210,24 @@ Within each phase, `BrainsTests.swift` and the new test files are already / will
 Classic pbxproj objectVersion 55, no synchronized groups. Each app file needs the 4-stanza pattern (PBXBuildFile, PBXFileReference, group child, Sources build phase) in the correct group; each test file the same into GeoTests sources. `BrainCallContext` is appended to `MCPToolRegistry.swift` (NO new file). FakeSummarizer/FakeEmbedder live inside `IngestPipelineTests.swift` (no shipped file).
 
 **→ Geo (app) target:**
-1. `/Users/biel/ARC/Forge/Geo/Geo/Shared/Infrastructure/MCP/Tools/BrainTools.swift`
-2. `/Users/biel/ARC/Forge/Geo/Geo/Shared/Infrastructure/Brains/ChunkSummarizer.swift`
-3. `/Users/biel/ARC/Forge/Geo/Geo/Shared/Infrastructure/Brains/EmbeddingService.swift`
-4. `/Users/biel/ARC/Forge/Geo/Geo/Shared/Infrastructure/Brains/SourceExtractor.swift`
-5. `/Users/biel/ARC/Forge/Geo/Geo/Shared/Infrastructure/Brains/Chunker.swift`
-6. `/Users/biel/ARC/Forge/Geo/Geo/Shared/Infrastructure/Brains/IngestPipeline.swift`
-7. `/Users/biel/ARC/Forge/Geo/Geo/Features/Brains/Data/BrainGraphStore.swift`
-8. `/Users/biel/ARC/Forge/Geo/Geo/Features/Brains/UI/BrainsPane.swift`
-9. `/Users/biel/ARC/Forge/Geo/Geo/Features/Brains/UI/BrainCard.swift`
-10. `/Users/biel/ARC/Forge/Geo/Geo/Features/Brains/UI/CreateBrainSheet.swift`
-11. `/Users/biel/ARC/Forge/Geo/Geo/Features/Brains/UI/AttachSourcesView.swift`
-12. `/Users/biel/ARC/Forge/Geo/Geo/Features/Brains/UI/IngestDetailView.swift`
-13. `/Users/biel/ARC/Forge/Geo/Geo/Features/Brains/UI/BrainNodeView.swift`
-14. `/Users/biel/ARC/Forge/Geo/Geo/Features/Brains/UI/BrainNodesView.swift`
+1. `/Users/biel/ARCA/Forge/Geo/Geo/Shared/Infrastructure/MCP/Tools/BrainTools.swift`
+2. `/Users/biel/ARCA/Forge/Geo/Geo/Shared/Infrastructure/Brains/ChunkSummarizer.swift`
+3. `/Users/biel/ARCA/Forge/Geo/Geo/Shared/Infrastructure/Brains/EmbeddingService.swift`
+4. `/Users/biel/ARCA/Forge/Geo/Geo/Shared/Infrastructure/Brains/SourceExtractor.swift`
+5. `/Users/biel/ARCA/Forge/Geo/Geo/Shared/Infrastructure/Brains/Chunker.swift`
+6. `/Users/biel/ARCA/Forge/Geo/Geo/Shared/Infrastructure/Brains/IngestPipeline.swift`
+7. `/Users/biel/ARCA/Forge/Geo/Geo/Features/Brains/Data/BrainGraphStore.swift`
+8. `/Users/biel/ARCA/Forge/Geo/Geo/Features/Brains/UI/BrainsPane.swift`
+9. `/Users/biel/ARCA/Forge/Geo/Geo/Features/Brains/UI/BrainCard.swift`
+10. `/Users/biel/ARCA/Forge/Geo/Geo/Features/Brains/UI/CreateBrainSheet.swift`
+11. `/Users/biel/ARCA/Forge/Geo/Geo/Features/Brains/UI/AttachSourcesView.swift`
+12. `/Users/biel/ARCA/Forge/Geo/Geo/Features/Brains/UI/IngestDetailView.swift`
+13. `/Users/biel/ARCA/Forge/Geo/Geo/Features/Brains/UI/BrainNodeView.swift`
+14. `/Users/biel/ARCA/Forge/Geo/Geo/Features/Brains/UI/BrainNodesView.swift`
 
 **→ GeoTests target:**
-15. `/Users/biel/ARC/Forge/Geo/Geo/Tests/IngestPipelineTests.swift`
-16. `/Users/biel/ARC/Forge/Geo/Geo/Tests/BrainGraphStoreTests.swift`
+15. `/Users/biel/ARCA/Forge/Geo/Geo/Tests/IngestPipelineTests.swift`
+16. `/Users/biel/ARCA/Forge/Geo/Geo/Tests/BrainGraphStoreTests.swift`
 
 (`BrainsTests.swift` is appended to — already in GeoTests, no registration.)
 
@@ -290,7 +290,7 @@ Verdict: the blueprint is mostly sound on UI-safety and routing, but contains **
 ## P0 — WILL BREAK THE BUILD OR AN EXISTING GREEN TEST
 
 **1. Implementing `semanticSearch` breaks the existing green test `testDatabaseBrainIndexLexicalGetAndType`.**
-`/Users/biel/ARC/Forge/Geo/Geo/Tests/BrainsTests.swift:134-135` asserts `index.semanticSearch(query:[0.1,0.2], k:5)` returns `[]` against a **default (`.personal`) DB built at :107 with no `node_vec` table**. The blueprint's new `semanticSearch` (Brains.swift:124) calls `database.loadAllVectors()`, which runs `SELECT … FROM node_vec` — on a `.personal` DB that table does not exist, so it **throws "no such table: node_vec"**, not returns `[]`. Two compounding bugs:
+`/Users/biel/ARCA/Forge/Geo/Geo/Tests/BrainsTests.swift:134-135` asserts `index.semanticSearch(query:[0.1,0.2], k:5)` returns `[]` against a **default (`.personal`) DB built at :107 with no `node_vec` table**. The blueprint's new `semanticSearch` (Brains.swift:124) calls `database.loadAllVectors()`, which runs `SELECT … FROM node_vec` — on a `.personal` DB that table does not exist, so it **throws "no such table: node_vec"**, not returns `[]`. Two compounding bugs:
    - (a) The blueprint's own guard ordering — `let c = try await database.loadAllVectors(); guard !c.isEmpty else {[]}` — throws before the empty-guard.
    - (b) Even if it didn't throw, the existing test now exercises a path the blueprint didn't account for.
    **Fix:** `loadAllVectors()` must be table-existence-tolerant (`SELECT … FROM node_vec` wrapped so a missing table returns `[]`, e.g. guard on `sqlite_master` or catch the GRDB error), AND update that existing test to either keep asserting `[]` on a vector-less DB or move it to a `.domain` DB with seeded vectors. Pick one and write it into the blueprint. As written, the suite goes red the moment Brains.swift is touched.
@@ -308,7 +308,7 @@ The blueprint flips `Brains.swift:216` to `DatabaseService(databaseURL: paths.in
 ## P1 — WRONG FACTS / UNDERSPEC THAT WILL MISLEAD THE IMPLEMENTER
 
 **4. `BlockGraphService` path is wrong in the blueprint.**
-Blueprint cites `BlockGraphService.deterministicUUID :492` and `extractWikiLinks :440` under `Geo/Features/Graph/Domain/`. Actual file: `/Users/biel/ARC/Forge/Geo/Geo/Features/Graph/Data/BlockGraphService.swift` — `extractWikiLinks` at **:440**, `deterministicUUID` at **:488** (not 492). Both helpers are already `internal static` (:440, :488), so the Chunker/IngestPipeline can reuse them **without** any visibility edit. Also: the blueprint's Spec-5-vs-4 debate over widening `buildGraph` is moot — `buildGraph` is **already `internal`** (`:247`), not `private`. Fix the path and the "do not widen" rationale (it needs no widening regardless).
+Blueprint cites `BlockGraphService.deterministicUUID :492` and `extractWikiLinks :440` under `Geo/Features/Graph/Domain/`. Actual file: `/Users/biel/ARCA/Forge/Geo/Geo/Features/Graph/Data/BlockGraphService.swift` — `extractWikiLinks` at **:440**, `deterministicUUID` at **:488** (not 492). Both helpers are already `internal static` (:440, :488), so the Chunker/IngestPipeline can reuse them **without** any visibility edit. Also: the blueprint's Spec-5-vs-4 debate over widening `buildGraph` is moot — `buildGraph` is **already `internal`** (`:247`), not `private`. Fix the path and the "do not widen" rationale (it needs no widening regardless).
 
 **5. `BrainGraphStore` has a MainActor-isolation trap when constructing `BlockGraphService`.**
 `BlockGraphService.init(tagStore: nil)` calls `MainActor.assumeIsolated { TagStore.shared }` (`:17`). The blueprint says `BrainGraphStore` is `@MainActor` and passes `tagStore: .shared` explicitly — good, that sidesteps `assumeIsolated`. But:
@@ -377,6 +377,6 @@ Blueprint: "at :38, wrap dispatch." Verified `:38` is `let response = await disp
 11. **[P2]** Add tests: equal-length tie-break + order-independent canonical (#11); byte-level + frontmatter_version-stable re-run (#12); partial-resume Pass1 (#13); interceptor spy asserts no-registry-touch (#14); non-multiple-of-4 BLOB + endianness (#15).
 12. **[P3]** Verify `MyCommands.swift` derives ⌘5 from `defaultNavigationOrder` (#19); verify `BlockFileService` override honored everywhere (#20); seed `.domain` index directly in 2a tests (#17).
 
-Files read for ground truth (all absolute): `/Users/biel/ARC/Forge/Geo/Geo/Shared/Infrastructure/Brains/Brains.swift`, `/Users/biel/ARC/Forge/Geo/Geo/Shared/Infrastructure/Database/DatabaseService.swift`, `/Users/biel/ARC/Forge/Geo/Geo/Shared/Infrastructure/MCP/MCPToolRegistry.swift`, `/Users/biel/ARC/Forge/Geo/Geo/Shared/Infrastructure/AI/AnthropicClient.swift`, `/Users/biel/ARC/Forge/Geo/Geo/Shared/Infrastructure/HTTP/GeoAPIRouter.swift`, `/Users/biel/ARC/Forge/Geo/Geo/Features/Graph/UI/GraphView.swift`, `/Users/biel/ARC/Forge/Geo/Geo/Shared/Navigation/AppTab.swift`, `/Users/biel/ARC/Forge/Geo/Geo/Shared/Navigation/NavigationSegmentedControl.swift`, `/Users/biel/ARC/Forge/Geo/Geo/Shared/Navigation/UnifiedNavigationContainer.swift`, `/Users/biel/ARC/Forge/Geo/Geo/Shared/Infrastructure/MCP/Tools/BlockTools.swift`, `/Users/biel/ARC/Forge/Geo/Geo/Shared/Utilities/WikiTitleNormalizer.swift`, `/Users/biel/ARC/Forge/Geo/Geo/Features/Graph/Data/BlockGraphService.swift`, `/Users/biel/ARC/Forge/Geo/Geo/Shared/Infrastructure/Database/IndexCoordinator.swift`, `/Users/biel/ARC/Forge/Geo/Geo/Shared/Platform/OCRService.swift`, `/Users/biel/ARC/Forge/Geo/Geo/App/GeoApp.swift`, `/Users/biel/ARC/Forge/Geo/Geo/Tests/BrainsTests.swift`, `/Users/biel/ARC/Forge/Geo/Geo/Features/Blocks/Domain/BlocksRepository.swift`.
+Files read for ground truth (all absolute): `/Users/biel/ARCA/Forge/Geo/Geo/Shared/Infrastructure/Brains/Brains.swift`, `/Users/biel/ARCA/Forge/Geo/Geo/Shared/Infrastructure/Database/DatabaseService.swift`, `/Users/biel/ARCA/Forge/Geo/Geo/Shared/Infrastructure/MCP/MCPToolRegistry.swift`, `/Users/biel/ARCA/Forge/Geo/Geo/Shared/Infrastructure/AI/AnthropicClient.swift`, `/Users/biel/ARCA/Forge/Geo/Geo/Shared/Infrastructure/HTTP/GeoAPIRouter.swift`, `/Users/biel/ARCA/Forge/Geo/Geo/Features/Graph/UI/GraphView.swift`, `/Users/biel/ARCA/Forge/Geo/Geo/Shared/Navigation/AppTab.swift`, `/Users/biel/ARCA/Forge/Geo/Geo/Shared/Navigation/NavigationSegmentedControl.swift`, `/Users/biel/ARCA/Forge/Geo/Geo/Shared/Navigation/UnifiedNavigationContainer.swift`, `/Users/biel/ARCA/Forge/Geo/Geo/Shared/Infrastructure/MCP/Tools/BlockTools.swift`, `/Users/biel/ARCA/Forge/Geo/Geo/Shared/Utilities/WikiTitleNormalizer.swift`, `/Users/biel/ARCA/Forge/Geo/Geo/Features/Graph/Data/BlockGraphService.swift`, `/Users/biel/ARCA/Forge/Geo/Geo/Shared/Infrastructure/Database/IndexCoordinator.swift`, `/Users/biel/ARCA/Forge/Geo/Geo/Shared/Platform/OCRService.swift`, `/Users/biel/ARCA/Forge/Geo/Geo/App/GeoApp.swift`, `/Users/biel/ARCA/Forge/Geo/Geo/Tests/BrainsTests.swift`, `/Users/biel/ARCA/Forge/Geo/Geo/Features/Blocks/Domain/BlocksRepository.swift`.
 
 Not verified (flagged must-verify): `MyCommands.swift` ⌘5 derivation, `GeoHTTPServer` header casing, `BlockFileService` override honored, domain-tag grey fallback in `buildGraph`.

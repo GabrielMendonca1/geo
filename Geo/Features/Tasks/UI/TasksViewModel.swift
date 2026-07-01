@@ -1,4 +1,5 @@
 import Foundation
+import GeoCore
 import os.log
 
 private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "geo", category: "TasksViewModel")
@@ -25,7 +26,9 @@ struct PendingCompleteSuggestion: Identifiable, Equatable {
 @MainActor
 final class TasksViewModel: ObservableObject {
     @Published var searchText = ""
-    @Published var showCompleted = true
+    @Published var showCompleted: Bool {
+        didSet { UserDefaults.standard.set(showCompleted, forKey: Self.showCompletedKey) }
+    }
     @Published var filterKind: TaskKind? = nil
     @Published var filterPriority: TaskPriority? = nil
     @Published private(set) var tasks: [TaskItem] = []
@@ -47,6 +50,11 @@ final class TasksViewModel: ObservableObject {
     private var maybeCompleteObserver: NSObjectProtocol?
     private var suggestionAutoDismissTasks: [String: Task<Void, Never>] = [:]
     private static let maxVisibleSuggestions = 2
+    private static let showCompletedKey = "tasks.board.showCompleted"
+
+    init() {
+        showCompleted = UserDefaults.standard.object(forKey: Self.showCompletedKey) as? Bool ?? true
+    }
 
     deinit {
         observeTasksTask?.cancel()
@@ -184,21 +192,22 @@ final class TasksViewModel: ObservableObject {
 
     func completeTask(id: String) async {
         guard let tasksRepository else { return }
-        guard var task = tasks.first(where: { $0.id == id }) else { return }
+        guard let task = tasks.first(where: { $0.id == id }) else { return }
 
-        if case .habit(let rule, let timeOfDay, var occurrences) = task.body {
-            let now = Date()
-            let cal = Calendar.current
-            if !occurrences.contains(where: { cal.isDate($0, inSameDayAs: now) }) {
-                occurrences.append(now)
-            }
-            let nextTimeOfDay = rule.nextDate(after: timeOfDay)
-            task.body = .habit(rule: rule, timeOfDay: nextTimeOfDay ?? timeOfDay, occurrences: occurrences)
-            task.reminders = task.reminders.map { var r = $0; r.fired = false; return r }
-            task.status = nextTimeOfDay == nil ? .completed : .pending
-            task.modifiedAt = Date()
+        if task.isHabit {
+            guard let blocksRepository else { return }
+            let persister = RepositoryHabitPersister(tasks: tasks)
+            let checkboxProvider = RepositoryHabitCheckboxProvider(repository: blocksRepository)
             do {
-                try await tasksRepository.update(task)
+                try await TasksStore.completeHabitOccurrence(
+                    taskId: id,
+                    blocksStore: checkboxProvider,
+                    at: Date(),
+                    persister: persister
+                )
+                if let advanced = persister.replaced {
+                    try await tasksRepository.update(advanced)
+                }
             } catch {
                 logger.error("Failed to advance habit \(id): \(error.localizedDescription)")
             }
@@ -209,6 +218,61 @@ final class TasksViewModel: ObservableObject {
 
     func markTaskPending(id: String) async {
         await updateTask(id: id, status: .pending)
+    }
+
+    func reschedule(id: String, dayOffset: Int) async {
+        guard let tasksRepository else { return }
+        guard var task = tasks.first(where: { $0.id == id }) else { return }
+
+        let cal = Calendar.current
+        guard let targetDay = cal.date(byAdding: .day, value: dayOffset, to: cal.startOfDay(for: Date())) else { return }
+
+        func retime(_ source: Date) -> Date {
+            let time = cal.dateComponents([.hour, .minute, .second], from: source)
+            return cal.date(
+                bySettingHour: time.hour ?? 0,
+                minute: time.minute ?? 0,
+                second: time.second ?? 0,
+                of: targetDay
+            ) ?? targetDay
+        }
+
+        switch task.body {
+        case .task(let due, let estimatedMinutes):
+            task.body = .task(due: retime(due), estimatedMinutes: estimatedMinutes)
+        case .event(let start, let end, let externalEKEventID):
+            let duration = max(end.timeIntervalSince(start), 0)
+            let newStart = retime(start)
+            task.body = .event(start: newStart, end: newStart.addingTimeInterval(duration), externalEKEventID: externalEKEventID)
+        case .habit, .milestone:
+            if task.status == .completed {
+                await markTaskPending(id: id)
+            }
+            return
+        }
+
+        task.status = .pending
+        task.reminders = task.reminders.map { var reminder = $0; reminder.fired = false; return reminder }
+        task.modifiedAt = Date()
+
+        do {
+            try await tasksRepository.update(task)
+        } catch {
+            logger.error("Failed to reschedule task \(id): \(error.localizedDescription)")
+        }
+    }
+
+    func moveOverdueToToday() async {
+        for task in overdueTasks {
+            await reschedule(id: task.id, dayOffset: 0)
+        }
+    }
+
+    func clearCompleted() async {
+        let ids = tasks.filter { $0.status == .completed }.map(\.id)
+        for id in ids {
+            await deleteTask(id: id)
+        }
     }
 
     func deleteTask(id: String) async {
@@ -268,9 +332,8 @@ final class TasksViewModel: ObservableObject {
     }
 
     func checkboxes(for task: TaskItem) -> [BlockCheckbox] {
-        guard let blockId = task.linkedBlockId else { return [] }
-        if let cached = blockCheckboxesByTaskId[task.id] { return cached }
-        return blockCheckboxesByTaskId[blockId] ?? []
+        guard task.linkedBlockId != nil else { return [] }
+        return blockCheckboxesByTaskId[task.id] ?? []
     }
 
     func hasLinkedBlock(_ task: TaskItem) -> Bool {
@@ -443,5 +506,45 @@ final class TasksViewModel: ObservableObject {
         }
         linkedBlockCounts = counts
         linkedPendingBlockIds = pendingIds
+    }
+}
+
+@MainActor
+private final class RepositoryHabitPersister: HabitTaskPersisting {
+    private let snapshot: [String: TaskItem]
+    private(set) var replaced: TaskItem?
+
+    init(tasks: [TaskItem]) {
+        snapshot = Dictionary(tasks.map { ($0.id, $0) }, uniquingKeysWith: { _, latest in latest })
+    }
+
+    func task(for id: String) -> TaskItem? {
+        replaced?.id == id ? replaced : snapshot[id]
+    }
+
+    func replaceTask(_ task: TaskItem) {
+        replaced = task
+    }
+}
+
+@MainActor
+private final class RepositoryHabitCheckboxProvider: HabitCheckboxProvider {
+    private let repository: any BlocksRepository
+
+    init(repository: any BlocksRepository) {
+        self.repository = repository
+    }
+
+    func checkboxes(in blockId: String) -> [BlockCheckbox] {
+        []
+    }
+
+    @discardableResult
+    func resetCheckedCheckboxes(in blockId: String) async throws -> [BlockCheckboxSnapshot] {
+        let boxes = await repository.checkboxes(in: blockId)
+        for box in boxes where box.checked {
+            try await repository.toggleCheckbox(in: blockId, lineNumber: box.lineNumber)
+        }
+        return boxes.map { BlockCheckboxSnapshot(text: $0.text, wasChecked: $0.checked) }
     }
 }

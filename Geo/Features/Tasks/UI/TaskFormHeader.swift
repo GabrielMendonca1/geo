@@ -1,4 +1,5 @@
 import SwiftUI
+import GeoCore
 
 struct TaskFormHeader: View {
     @ObservedObject var viewModel: TaskFormViewModel
@@ -7,11 +8,19 @@ struct TaskFormHeader: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Label(
-                        viewModel.isEditing ? "Edit \(viewModel.kind.displayName)" : "Create \(viewModel.kind.displayName)",
-                        systemImage: viewModel.kind.icon
-                    )
-                    .font(.system(size: 20, weight: .semibold))
+                    HStack(spacing: 9) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(TaskFormStyle.accent.opacity(0.16))
+                            Image(systemName: viewModel.kind.icon)
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(TaskFormStyle.accent)
+                        }
+                        .frame(width: 30, height: 30)
+                        Text(viewModel.isEditing ? "Edit \(viewModel.kind.displayName)" : "Create \(viewModel.kind.displayName)")
+                            .font(.system(size: 21, weight: .bold))
+                            .foregroundStyle(Palette.foreground)
+                    }
 
                     Text(viewModel.subtitleText)
                         .font(.system(size: 12))
@@ -21,14 +30,14 @@ struct TaskFormHeader: View {
                 Spacer()
 
                 Text(viewModel.headerBadgeText)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(viewModel.taskStatus == .completed ? Color(nsColor: Palette.agentSuccess) : Palette.accent)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(viewModel.taskStatus == .completed ? Color(nsColor: Palette.agentSuccess) : TaskFormStyle.accent)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
                     .background(
                         Capsule()
                             .fill(
-                                (viewModel.taskStatus == .completed ? Color(nsColor: Palette.agentSuccess) : Palette.accent)
+                                (viewModel.taskStatus == .completed ? Color(nsColor: Palette.agentSuccess) : TaskFormStyle.accent)
                                     .opacity(0.14)
                             )
                     )
@@ -36,13 +45,19 @@ struct TaskFormHeader: View {
 
             kindPicker
 
-            VStack(alignment: .leading, spacing: 5) {
-                Text("Title")
-                    .font(.caption)
-                    .foregroundStyle(Palette.tertiaryForeground)
-                TextField(titlePlaceholder, text: $viewModel.title)
-                    .textFieldStyle(.roundedBorder)
-            }
+            TextField(titlePlaceholder, text: $viewModel.title)
+                .textFieldStyle(.plain)
+                .font(.system(size: 15, weight: .medium))
+                .padding(.horizontal, 11)
+                .padding(.vertical, 9)
+                .background(
+                    RoundedRectangle(cornerRadius: 9)
+                        .fill(Palette.background.opacity(0.7))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 9)
+                        .stroke(Palette.border.opacity(0.3), lineWidth: 1)
+                )
         }
         .padding(.horizontal, 22)
         .padding(.vertical, 16)
@@ -75,14 +90,9 @@ struct TaskFormHeader: View {
     }
 
     private var kindPicker: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Kind")
-                .font(.caption)
-                .foregroundStyle(Palette.tertiaryForeground)
-            HStack(spacing: 6) {
-                ForEach(TaskKind.allCases) { k in
-                    kindChip(k)
-                }
+        HStack(spacing: 6) {
+            ForEach(TaskKind.allCases) { k in
+                kindChip(k)
             }
         }
     }
@@ -97,20 +107,20 @@ struct TaskFormHeader: View {
                 Image(systemName: k.icon)
                     .font(.system(size: 12, weight: .semibold))
                 Text(k.displayName)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: 12, weight: selected ? .semibold : .medium))
             }
             .padding(.horizontal, 10)
-            .padding(.vertical, 6)
+            .padding(.vertical, 7)
             .frame(maxWidth: .infinity)
             .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(selected ? Palette.accent.opacity(0.16) : Palette.background.opacity(0.6))
+                RoundedRectangle(cornerRadius: 9)
+                    .fill(selected ? TaskFormStyle.accent.opacity(0.16) : Palette.background.opacity(0.6))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(selected ? Palette.accent : Palette.border.opacity(0.2), lineWidth: selected ? 1.5 : 1)
+                RoundedRectangle(cornerRadius: 9)
+                    .stroke(selected ? TaskFormStyle.accent : Palette.border.opacity(0.2), lineWidth: selected ? 1.5 : 1)
             )
-            .foregroundStyle(selected ? Palette.accent : Palette.foreground)
+            .foregroundStyle(selected ? TaskFormStyle.accent : Palette.foreground)
         }
         .buttonStyle(.plain)
         .pointingHandCursor()

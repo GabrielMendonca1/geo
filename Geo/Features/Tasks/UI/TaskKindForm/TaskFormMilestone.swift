@@ -1,4 +1,5 @@
 import SwiftUI
+import GeoCore
 
 struct TaskFormMilestone: View {
     @ObservedObject var viewModel: TaskFormViewModel
@@ -15,10 +16,12 @@ struct TaskFormMilestone: View {
                     if let countdownText {
                         Text(countdownText)
                             .font(.caption)
-                            .foregroundStyle(Palette.accent)
+                            .foregroundStyle(TaskFormStyle.accent)
                     }
                 }
             }
+
+            TaskChecklistCard(viewModel: viewModel, availableBlocks: availableBlocks)
 
             TaskFormSectionCard(title: "Priority & Status", icon: "exclamationmark.circle") {
                 VStack(alignment: .leading, spacing: 10) {
@@ -45,16 +48,6 @@ struct TaskFormMilestone: View {
                         .pickerStyle(.segmented)
                     }
                 }
-            }
-
-            TaskFormSectionCard(title: "Notes", icon: "text.alignleft") {
-                TextField("Why does this milestone matter? (optional)", text: $viewModel.notes, axis: .vertical)
-                    .textFieldStyle(.roundedBorder)
-                    .lineLimit(2...5)
-            }
-
-            TaskFormSectionCard(title: "Block", icon: "doc.text") {
-                LinkedBlockPicker(viewModel: viewModel, availableBlocks: availableBlocks)
             }
         }
         .onAppear {

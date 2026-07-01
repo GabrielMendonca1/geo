@@ -4,7 +4,7 @@ Native macOS productivity app built with Swift/SwiftUI.
 
 ## Repository Root
 
-This repository root is canonical: `/Users/biel/ARC/Forge/Geo`.
+This repository root is canonical: `/Users/biel/ARCA/Forge/Geo`.
 
 ## Build
 

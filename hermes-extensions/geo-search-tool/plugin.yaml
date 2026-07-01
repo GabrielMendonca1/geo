@@ -1,7 +1,7 @@
 name: geo-search-tool
 version: 0.1.0
 description: "On-demand Geo context search for the agent. Replaces the always-on geo-context auto-injection: instead of rewriting MEMORY.md every turn, the agent calls geo_search_context(query, with_summary?) when it needs Geo state. Reuses hooks/geo-context/handler.py's auth + search + nano-model summarize logic."
-author: ARC/Geo
+author: ARCA/Geo
 kind: standalone
 provides_tools:
   - geo_search_context

@@ -1,7 +1,7 @@
 import XCTest
 @testable import Geo
 
-final class BlockModelTests: XCTestCase {
+final class BlockParsingTests: XCTestCase {
 
     // MARK: - Parse block kinds
 
@@ -93,6 +93,10 @@ final class BlockModelTests: XCTestCase {
         let doc = MarkdownBlockParser.parse(markdown: "\n")
         XCTAssertEqual(doc.blocks[0].kind, .empty)
     }
+
+}
+
+final class BlockIdentityTests: XCTestCase {
 
     // MARK: - Identity merge
 
@@ -220,6 +224,10 @@ final class BlockModelTests: XCTestCase {
             XCTAssertEqual(merged.blocks[i].id, old.blocks[i].id)
         }
     }
+
+}
+
+final class BlockModelTests: XCTestCase {
 
     // MARK: - Table parse
 
@@ -722,6 +730,10 @@ final class BlockModelTests: XCTestCase {
         XCTAssertEqual(block.content, "")
     }
 
+}
+
+final class BlockTreeTests: XCTestCase {
+
     // MARK: - Phase 1: Block Tree Structure
 
     func testParseComputesDepth() {
@@ -910,6 +922,10 @@ final class BlockModelTests: XCTestCase {
         XCTAssertEqual(blocks[3].depth, 2)
     }
 
+}
+
+final class SpanStylingTests: XCTestCase {
+
     // MARK: - SpanStyler
 
     func testSpanStylerAppliesBold() {
@@ -1045,6 +1061,10 @@ final class BlockModelTests: XCTestCase {
         XCTAssertEqual(shifted[0].range, NSRange(location: 10, length: 3))
     }
 
+}
+
+final class BlockEditorOperationsTests: XCTestCase {
+
     // MARK: - Phase 4: Floating Formatting Toolbar
 
     private func makeTextView(with text: String) -> BlockNSTextView {
@@ -1167,6 +1187,10 @@ final class BlockModelTests: XCTestCase {
         XCTAssertEqual(receivedKind, .heading(level: 2))
     }
 
+}
+
+final class DocumentSerializationTests: XCTestCase {
+
     // MARK: - Phase 3: Unified Serialization Pipeline
 
     func testBlockEditorDocumentInitFromMarkdown() {
@@ -1228,31 +1252,6 @@ final class BlockModelTests: XCTestCase {
         XCTAssertEqual(doc.serialize(), md)
     }
 
-    func testBlockEditorDocumentHidesLegacySymphonyBodyMetadata() {
-        let md = """
-        ---
-        symphony: true
-        symphony_state: Human Review
-        ---
-        # SYM-001 Review the project
-
-        [[Symphony]] #symphony
-
-        State: Human Review
-
-        ## Brief
-        Keep this visible.
-        """
-        let doc = BlockEditorDocument(markdown: md)
-        let serialized = doc.serialize()
-
-        XCTAssertFalse(serialized.contains("[[Symphony]] #symphony"))
-        XCTAssertFalse(serialized.contains("State: Human Review"))
-        XCTAssertTrue(serialized.contains("symphony_state: Human Review"))
-        XCTAssertTrue(serialized.contains("## Brief"))
-        XCTAssertTrue(serialized.contains("Keep this visible."))
-    }
-
     func testBlockEditorDocumentExternalChangeUpdatesContent() {
         let doc = BlockEditorDocument(markdown: "# Title\nOriginal paragraph\n")
         let titleId = doc.blocks[0].id
@@ -1306,6 +1305,10 @@ final class BlockModelTests: XCTestCase {
         let block = doc.blocks[0]
         XCTAssertEqual(block.codeContent, "let x = 1")
     }
+
+}
+
+final class InlineParsingTests: XCTestCase {
 
     // MARK: - InlineParser
 
@@ -1554,6 +1557,35 @@ final class BlockModelTests: XCTestCase {
         let result = InlineSpan.normalized(spans)
         XCTAssertEqual(result[0].range.location, 0)
         XCTAssertEqual(result[1].range.location, 5)
+    }
+
+}
+
+final class LegacyDataMigrationTests: XCTestCase {
+
+    func testBlockEditorDocumentHidesLegacySymphonyBodyMetadata() {
+        let md = """
+        ---
+        symphony: true
+        symphony_state: Human Review
+        ---
+        # SYM-001 Review the project
+
+        [[Symphony]] #symphony
+
+        State: Human Review
+
+        ## Brief
+        Keep this visible.
+        """
+        let doc = BlockEditorDocument(markdown: md)
+        let serialized = doc.serialize()
+
+        XCTAssertFalse(serialized.contains("[[Symphony]] #symphony"))
+        XCTAssertFalse(serialized.contains("State: Human Review"))
+        XCTAssertTrue(serialized.contains("symphony_state: Human Review"))
+        XCTAssertTrue(serialized.contains("## Brief"))
+        XCTAssertTrue(serialized.contains("Keep this visible."))
     }
 
 }

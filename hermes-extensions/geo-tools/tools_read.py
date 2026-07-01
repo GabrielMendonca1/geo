@@ -163,42 +163,6 @@ READ_TOOLS: list[dict] = [
         "handler": _wrap(_list_blocks),
     },
     {
-        "name": "geo_list_by_status",
-        "description": "List blocks filtered by frontmatter status (e.g. 'active', 'archived').",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "status": {"type": "string"},
-            },
-            "required": ["status"],
-        },
-        "handler": _wrap(_list_by_status),
-    },
-    {
-        "name": "geo_list_by_type",
-        "description": "List blocks filtered by frontmatter type (e.g. 'note', 'project', 'inbox').",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "type": {"type": "string"},
-            },
-            "required": ["type"],
-        },
-        "handler": _wrap(_list_by_type),
-    },
-    {
-        "name": "geo_list_neighbors",
-        "description": "Graph neighbors of a block (immediate in + out links).",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "id": {"type": "string"},
-            },
-            "required": ["id"],
-        },
-        "handler": _wrap(_list_neighbors),
-    },
-    {
         "name": "geo_search_blocks",
         "description": "Full-text search across block bodies + titles. Returns ranked hits.",
         "parameters": {
@@ -237,17 +201,6 @@ READ_TOOLS: list[dict] = [
             "properties": {},
         },
         "handler": _wrap(_find_unresolved_links),
-    },
-    {
-        "name": "geo_get_graph_snapshot",
-        "description": "Graph snapshot of the top-N blocks by weight. Nodes + edges.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "limit": {"type": "integer", "description": "Top-N blocks by weight to include."},
-            },
-        },
-        "handler": _wrap(_get_graph_snapshot),
     },
     {
         "name": "geo_get_task",

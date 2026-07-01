@@ -6,9 +6,12 @@ struct ConnectorDrawer: View {
     @EnvironmentObject private var service: HermesStatusService
     @Environment(\.dismiss) private var dismiss
 
+    private enum TokenState: Hashable {
+        case idle, saving, saved, error(String)
+    }
+
     @State private var telegramToken: String = ""
-    @State private var tokenSaveError: String?
-    @State private var tokenSaved: Bool = false
+    @State private var tokenState: TokenState = .idle
     @State private var confirmDisconnect: Bool = false
 
     private var connector: HermesConnector? {
@@ -147,17 +150,23 @@ struct ConnectorDrawer: View {
                 Button("Save token") { saveTelegramToken() }
                     .buttonStyle(.bordered)
                     .disabled(telegramToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                if tokenSaved {
+                if tokenState == .saved {
                     Label("Saved", systemImage: "checkmark.circle.fill")
                         .font(.caption)
                         .foregroundStyle(.green)
                 }
             }
-            if let tokenSaveError {
-                Text(tokenSaveError)
+            if case .error(let message) = tokenState {
+                Text(message)
                     .font(.caption)
                     .foregroundStyle(.red)
             }
+        }
+        .task(id: tokenState) {
+            guard tokenState == .saved else { return }
+            try? await Task.sleep(nanoseconds: 800_000_000)
+            guard !Task.isCancelled else { return }
+            dismiss()
         }
     }
 
@@ -217,17 +226,14 @@ struct ConnectorDrawer: View {
     private func saveTelegramToken() {
         let trimmed = telegramToken.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        tokenSaved = false
-        tokenSaveError = nil
+        tokenState = .saving
         Task {
             do {
                 try await service.saveTelegramBotToken(trimmed)
-                tokenSaved = true
                 telegramToken = ""
-                try? await Task.sleep(nanoseconds: 800_000_000)
-                dismiss()
+                tokenState = .saved
             } catch {
-                tokenSaveError = "Hermes refused token: \(error.localizedDescription)"
+                tokenState = .error("Hermes refused token: \(error.localizedDescription)")
             }
         }
     }

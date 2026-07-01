@@ -1,7 +1,7 @@
 name: geo-tools
 version: 0.1.0
 description: "Geo tools for Gabriel's macOS app (no MCP, no `mcp_` prefix). All tools are native filesystem ops over the vault (files are truth): block/task writers mutate the `.md`/`Tasks` files directly; read/search/graph tools query the read-only SQLite index (falling back to a file scan). Destructive ops gate on a Telegram confirm."
-author: ARC/Geo
+author: ARCA/Geo
 kind: standalone
 provides_tools:
   - geo_get_block

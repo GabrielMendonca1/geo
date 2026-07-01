@@ -1,10 +1,26 @@
 # geo-context hook
 
-Fires on `session:start` and `session:reset`. Reads the live Memory / User-Profile / Interaction Protocol / Today state from Gabriel's Geo macOS app via its HTTP API on `127.0.0.1:<port>` (port discovered from `~/Library/Application Support/Geo/api.json`, bearer token read from Keychain at `service=geo-api-bootstrap, account=hermes-hook`). Optionally summarizes Today's record with Claude Haiku, then writes the consolidated result to `~/.hermes/memories/MEMORY.md`. Hermes's own memory-injection pipeline picks that file up at session start so the agent always begins a conversation with current real-world context.
+Fires on `session:start` and `session:reset`.
 
-Requirements:
-- Geo.app must be running (api.json's pid must be live).
-- `hermes-hook` Keychain entry must exist with a Geo API token.
-- `hermes auth add anthropic --type oauth` for Haiku summarization.
+Current file-native behavior:
+- Reads User Profile, Memory, Interaction Protocol, Today, and pending task state directly from Gabriel's Geo vault under `~/Library/Application Support/Geo/`.
+- Writes the fixed boot bundle to `~/.hermes/memories/MEMORY.md`.
+- Hermes injects that memory file into future sessions/turns according to `~/.hermes/config.yaml`.
+- The hook is TTL/hash gated, so unchanged or very recent fetches may not rewrite the file.
 
-Safe to leave installed forever — silently no-ops when Geo.app is closed or the token is missing.
+Important distinction:
+- The hook is **not** semantic per-message RAG. It only injects a fixed boot bundle.
+- Arbitrary project/person/life lookup should happen through the on-demand `geo_search_context` tool, registered by the `geo-search-tool` plugin. If that plugin is disabled, the agent may still have raw `geo_*` tools but loses the preferred cited context-search path.
+
+Retired paths:
+- No Geo HTTP API.
+- No MCP/bridge/socket transport.
+- No Keychain API token requirement.
+
+Safe inspections:
+
+```bash
+cat ~/.hermes/status.json | jq
+ls -la ~/.hermes/hooks/geo-context
+cat ~/.hermes/memories/MEMORY.md | head
+```

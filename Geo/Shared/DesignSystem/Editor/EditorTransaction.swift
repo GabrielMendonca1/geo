@@ -65,12 +65,17 @@ struct SetSelectionStep: EditorStep {
     }
 }
 
+struct TransactionMeta {
+    var postEditCaret: Int?
+    var composing: Bool
+}
+
 struct EditorTransaction {
     let name: String
     var steps: [EditorStep]
-    var meta: [String: Any]
+    var meta: TransactionMeta
 
-    init(name: String, steps: [EditorStep], meta: [String: Any] = [:]) {
+    init(name: String, steps: [EditorStep], meta: TransactionMeta = TransactionMeta(postEditCaret: nil, composing: false)) {
         self.name = name
         self.steps = steps
         self.meta = meta
