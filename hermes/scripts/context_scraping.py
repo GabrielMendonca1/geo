@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-whatsapp-extractor.py — self-contained WhatsApp extractor, fully on Gabriel's
+context_scraping.py — self-contained context scraper, fully on Gabriel's
 Claude Code account (Claude Max OAuth), like the brain-vault Haiku ingest.
 
 Pipeline (no gateway, no Codex, no agent phase):
@@ -19,7 +19,7 @@ All inference uses the Claude Max OAuth token from the macOS Keychain
 ("Claude Code-credentials"), refreshed in place. Register with --no-agent so
 the LLM gateway never runs:
 
-    hermes cron edit whatsapp-extractor --no-agent
+    hermes cron edit context-scraping --no-agent
 """
 
 from __future__ import annotations
@@ -48,6 +48,7 @@ JSONL_PATH = HERMES_HOME / "wa_ingest.jsonl"
 AUTH_PATH = HERMES_HOME / "auth.json"
 ENV_PATH = HERMES_HOME / ".env"
 CONFIG_PATH = Path(__file__).parent.parent / "config.yaml"
+STATE_PATH = HERMES_HOME / "context_scraping.state.json"
 
 GABRIEL_TELEGRAM_CHAT_ID = "5225262193"
 
@@ -79,8 +80,9 @@ def _decide_model() -> str:
     return os.environ.get("HERMES_WA_DECIDE_MODEL") or "claude-sonnet-5"
 
 
-# The extractor keeps a durable watermark, so the nominal window can stay tight:
-# enough context for fresh conversations without repeatedly paying for a 6h sweep.
+# Persisted watermark (STATE_PATH, key last_processed_ts) is the real anti-overlap
+# mechanism: read_window() only returns messages newer than it. WINDOW_HOURS is just
+# the bootstrap lookback the very first time a chat/state file is seen.
 WINDOW_HOURS = int(os.environ.get("HERMES_WA_WINDOW_HOURS", "2"))
 HAIKU_MODEL = _nano_model()
 MAX_CONCURRENT = 6
@@ -118,10 +120,13 @@ Mensagens (cronológicas, últimas {window}h):
 {messages}
 
 Procure SOMENTE por:
-- FATO sobre pessoa/projeto/decisão/preferência — algo que ainda vai ser verdade mês que vem
+- FATO sobre pessoa/projeto/decisão/preferência — algo que ainda vai ser verdade mês que vem — inclui decisão tomada na conversa.
 - TAREFA: o Gabriel se comprometeu (explícita ou implicitamente) a fazer algo
 - LEMBRETE temporal: data específica importa
 - URGENTE: alguém esperando ele agora (pergunta direta, deadline batendo)
+- PESSOA: fato/mudança de estado sobre pessoa nomeada (fechou negócio, mudou de cidade, pediu algo) — algo que dá continuidade à relação.
+- COMBINADO SOCIAL: plano informal com alguém (jantar, café, "bora sexta") — mesmo sem compromisso firme.
+- CLIMA (no máx 1, bias forte a VAZIO): só se o Gabriel EXPRESSOU explicitamente como está o dia dele. Uma linha situacional. NUNCA clínico, NUNCA inferido de tom, NUNCA sobre terceiros.
 
 NÃO sugira: conversa fiada, piadas, reações, notícias, encaminhamentos, combinados vagos. Dúvida = não sugere.
 
@@ -134,7 +139,10 @@ Retorne JSON estrito (sem markdown, sem prefácio, sem ```):
     "facts": [{{"content": "...", "about": "..."}}],
     "tasks": [{{"title": "...", "notes": "...", "due_hint": "YYYY-MM-DD ou null"}}],
     "reminders": [{{"trigger_at_hint": "YYYY-MM-DDTHH:MM", "action": "..."}}],
-    "urgent": [{{"text": "...", "sender": "..."}}]
+    "urgent": [{{"text": "...", "sender": "..."}}],
+    "people": [{{"person": "...", "note": "..."}}],
+    "social": [{{"person": "...", "plan": "...", "when_hint": "hoje|sexta|YYYY-MM-DD ou null"}}],
+    "mood": [{{"note": "..."}}]
   }}
 }}
 
@@ -156,25 +164,33 @@ Como decidir:
 - COMPROMISSO/algo a fazer → uma task. title curto e acionável; tasks não carregam prosa — contexto durável vira bloco. PRAZO (due): NÃO invente horário. Se a conversa dá dia E hora explícitos → due em hora LOCAL naive, SEM 'Z' (ex: 2026-06-22T13:00:00) — NÃO converta pra UTC, o código faz isso. Se dá só o dia, ou nenhum horário → due como SÓ DATA (ex: 2026-06-22), sem hora — o sistema põe no fim daquele dia. Sem prazo claro no contexto → use a data de hoje ou um dia desta semana. NUNCA data no passado, NUNCA horário aleatório.
 - URGENTE: alguém esperando ele agora, decisão/deadline batendo → urgent (ele recebe no Telegram).
 - Conversa fiada, piada, combinado vago, fofoca, novidade qualquer → descarta.
+- SINAL: só vira bloco ou task se tiver conteúdo acionável ou memorável de verdade. "Bom dia", reação, emoji solto, "tudo bem?", combinado que já era óbvio → sem sinal, descarta (não é bloco nem task).
 - DEDUP CONTRA O VAULT: se o CONTEXTO já tem um bloco ou task sobre o mesmo assunto, NÃO recrie — descarta. Só cria se acrescenta algo genuinamente novo.
 - DEDUP CONTRA TASKS EXISTENTES: se uma TASK EXISTENTE (ativa OU concluída recente) já cobre o mesmo compromisso, NÃO recrie a task — descarta. Algo já concluído só vira task nova se for claramente um novo ciclo/pedido.
+- PESSOA: fato durável sobre pessoa nomeada → people[]. target_block = título EXATO da lista "Blocos existentes" se a pessoa já tem bloco; senão null (código cria bloco novo review). note curta, 1 frase.
+- COMBINADO SOCIAL informal → digest.social (uma linha leve). NUNCA vira task. SÓ vira task se o Gabriel se comprometeu EXPLICITAMENTE a executar algo acionável com dia definido — aí segue o caminho normal de tasks.
+- CLIMA → digest.clima, UMA linha neutra sobre o DIA do Gabriel, ou null. Na dúvida, null. PROIBIDO: rastrear humor, pontuar sentimento, clima por pessoa. Não existe campo de humor por pessoa — é estrutural.
+- Não duplique em digest.social/people algo que já virou task ou já existe no CONTEXTO.
 - Não invente nada fora das propostas. Dúvida = não guarda.
 
 Para cada bloco:
-- "title": nota Zettelkasten (substantivo/conceito, não frase).
+- "title": o ASSUNTO real da conversa, em português com acentos, ≤60 caracteres, substantivo/conceito específico (Zettelkasten) — nunca uma frase genérica e nunca só uma data.
+  PROIBIDO: "Resumo WhatsApp", "Conversa com {{nome}}", título repetindo prefixo óbvio tipo "WhatsApp —", ou qualquer título que não diga do que se trata.
+  BOM: "Prazo do SPEC da Marqserv adiado pra sexta", "Antonio pede ajuste no QR PIX do GT Coach".
+  RUIM: "Resumo WhatsApp — Antonio", "Conversa 2026-07-04", "Atualização do grupo".
 - "type": fleeting|literature|permanent. "layer": "review" (padrão p/ auto-extraído) ou "agent".
 - "body": markdown curto (1 a 3 frases, português) que SEMPRE:
   1) abre com `Parte de [[MOC — X]]` apontando p/ uma MOC REAL da lista de contexto. Sem essa linha a nota vira ilha morta — não emita nenhuma sem ela.
   2) envolve cada pessoa/projeto/conceito saliente em [[wikilinks]]. Linke para títulos REAIS do contexto quando existirem; nunca invente um título de MOC fora da lista.
 
 Retorne JSON estrito (sem markdown, sem prefácio, sem ```):
-{{"blocks": [{{"title": "...", "body": "Parte de [[MOC — X]]\\n...com [[wikilinks]]...", "type": "fleeting", "layer": "review"}}], "tasks": [{{"title": "...", "due": "2026-06-22"}}], "urgent": [{{"text": "...", "chat": "..."}}]}}
+{{"blocks": [{{"title": "...", "body": "Parte de [[MOC — X]]\\n...com [[wikilinks]]...", "type": "fleeting", "layer": "review"}}], "tasks": [{{"title": "...", "due": "2026-06-22"}}], "urgent": [{{"text": "...", "chat": "..."}}], "people": [{{"target_block": "Antônio Gili ou null", "person": "Antônio", "note": "...", "moc": "MOC — Pessoal"}}], "digest": {{"clima": "linha leve única ou null", "social": ["jantar sexta com [[Bernardo Biglia]]"]}}}}
 
 Se nada vale: retorne as três listas vazias."""
 
 
 def log(msg: str) -> None:
-    print(f"[whatsapp-extractor] {msg}", file=sys.stderr, flush=True)
+    print(f"[context-scraping] {msg}", file=sys.stderr, flush=True)
 
 
 KEYCHAIN_SERVICE = "Claude Code-credentials"
@@ -322,10 +338,41 @@ def _is_one_way_chat(chat: str) -> bool:
     return chat.endswith("@newsletter") or chat.endswith("@broadcast")
 
 
-def read_window() -> list[dict]:
+def load_state() -> dict:
+    try:
+        return json.loads(STATE_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def save_state(state: dict) -> None:
+    try:
+        _atomic_write(STATE_PATH, json.dumps(state, ensure_ascii=False))
+    except Exception as e:
+        log(f"state save failed: {e}")
+
+
+def _advance_watermark(state: dict, records: list[dict]) -> None:
+    ts_values = [r.get("ts") for r in records if r.get("ts")]
+    if not ts_values:
+        return
+    new_ts = max(ts_values)
+    if new_ts > (state.get("last_processed_ts") or ""):
+        state["last_processed_ts"] = new_ts
+        state["last_run_at"] = _now_z()
+        save_state(state)
+
+
+def read_window(watermark: str | None) -> list[dict]:
     if not JSONL_PATH.exists():
         return []
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=WINDOW_HOURS)
+    wm_dt = None
+    if watermark:
+        try:
+            wm_dt = datetime.fromisoformat(watermark.replace("Z", "+00:00"))
+        except Exception:
+            wm_dt = None
+    fallback_cutoff = datetime.now(timezone.utc) - timedelta(hours=WINDOW_HOURS)
     out: list[dict] = []
     dropped_empty = 0
     dropped_oneway = 0
@@ -340,7 +387,10 @@ def read_window() -> list[dict]:
                 ts = datetime.fromisoformat(ts_raw.replace("Z", "+00:00"))
             except Exception:
                 continue
-            if ts < cutoff:
+            if wm_dt is not None:
+                if ts <= wm_dt:
+                    continue
+            elif ts < fallback_cutoff:
                 continue
             if _is_empty_record(rec):
                 dropped_empty += 1
@@ -493,7 +543,7 @@ async def classify_bucket(http: httpx.AsyncClient, headers: dict, bucket: dict) 
         window=WINDOW_HOURS,
         messages=format_messages(bucket["messages"]),
     )
-    empty_proposals = {"facts": [], "tasks": [], "reminders": [], "urgent": []}
+    empty_proposals = {"facts": [], "tasks": [], "reminders": [], "urgent": [], "people": [], "social": [], "mood": []}
     fallback = {
         "chat": bucket["label"],
         "chat_id": bucket["chat_id"],
@@ -510,7 +560,7 @@ async def classify_bucket(http: httpx.AsyncClient, headers: dict, bucket: dict) 
         return fallback
     if not isinstance(parsed.get("proposals"), dict):
         parsed["proposals"] = empty_proposals
-    for k in ("facts", "tasks", "reminders", "urgent"):
+    for k in ("facts", "tasks", "reminders", "urgent", "people", "social", "mood"):
         if not isinstance(parsed["proposals"].get(k), list):
             parsed["proposals"][k] = []
     parsed.setdefault("chat", bucket["label"])
@@ -521,10 +571,10 @@ async def classify_bucket(http: httpx.AsyncClient, headers: dict, bucket: dict) 
 
 def has_proposals(bucket_result: dict) -> bool:
     p = bucket_result.get("proposals") or {}
-    return any(p.get(k) for k in ("facts", "tasks", "reminders", "urgent"))
+    return any(p.get(k) for k in ("facts", "tasks", "reminders", "urgent", "people", "social", "mood"))
 
 
-async def decide(http: httpx.AsyncClient, headers: dict, kept: list[dict], brain_context: str, tasks_context: str) -> dict:
+async def decide(http: httpx.AsyncClient, headers: dict, kept: list[dict], brain_context: str, tasks_context: str) -> tuple[dict, bool]:
     payload = [
         {"chat": k.get("chat"), "is_group": k.get("is_group"), "proposals": k.get("proposals")}
         for k in kept
@@ -540,23 +590,42 @@ async def decide(http: httpx.AsyncClient, headers: dict, kept: list[dict], brain
     if raw is None:
         log(f"{decide_model} decide unavailable — falling back to {HAIKU_MODEL} this run")
         raw = await _call_model(http, headers, HAIKU_MODEL, prompt, DECIDE_MAX_TOKENS_OUT, DECIDE_TIMEOUT_S)
-    empty = {"blocks": [], "tasks": [], "urgent": []}
+    empty = {"blocks": [], "tasks": [], "urgent": [], "people": [], "digest": {}}
     if raw is None:
-        return empty
+        return empty, False
     parsed = parse_json_response(raw)
     if not isinstance(parsed, dict):
-        return empty
+        return empty, False
     out: dict = {}
     for key in ("blocks", "tasks", "urgent"):
         v = parsed.get(key)
         out[key] = v if isinstance(v, list) else []
-    return out
+    people = parsed.get("people")
+    out["people"] = people if isinstance(people, list) else []
+    digest = parsed.get("digest")
+    out["digest"] = digest if isinstance(digest, dict) else {}
+    return out, True
 
 
-BLOCKS_DIR = Path.home() / "Library" / "Application Support" / "Geo" / "Blocks"
+BLOCKS_DIR = Path.home() / "GeoVault" / "Blocks"
 _SANITIZE_RE = re.compile(r'[/:\\*?"<>|]')
 _TYPES = ("fleeting", "literature", "permanent", "moc", "project")
 _LAYERS = ("user", "agent", "review", "shared")
+_GENERIC_TITLE_RE = re.compile(
+    r"^(resumo|conversa|update|atualiza[cç][aã]o|novidades?)\b", re.IGNORECASE
+)
+_DATE_ONLY_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def _is_generic_title(title: str) -> bool:
+    t = (title or "").strip()
+    if not t:
+        return True
+    if _DATE_ONLY_RE.fullmatch(t):
+        return True
+    if _GENERIC_TITLE_RE.match(t):
+        return True
+    return False
 
 
 def _nfc(s: str) -> str:
@@ -604,7 +673,101 @@ def write_block_file(title: str, body: str, type_: str, layer: str) -> str:
     return _nfc(str(path.relative_to(BLOCKS_DIR)))
 
 
-TASKS_DIR = Path.home() / "Library" / "Application Support" / "Geo" / "Tasks"
+CONT_CAP = 8
+
+
+def _read_layer(text: str) -> str | None:
+    m = re.search(r"^layer:\s*(\S+)", text or "", re.MULTILINE)
+    return _nfc(m.group(1)) if m else None
+
+
+def _fenced_lines(text: str, name: str) -> list[str]:
+    open_t, close_t = f"<!-- geo:{name} -->", f"<!-- /geo:{name} -->"
+    if open_t not in text or close_t not in text:
+        return []
+    inner = text[text.index(open_t) + len(open_t):text.index(close_t)]
+    return [ln for ln in (l.strip() for l in inner.splitlines()) if ln]
+
+
+def _replace_fenced(text: str, name: str, inner_lines: list[str], heading: str | None = None) -> str:
+    open_t, close_t = f"<!-- geo:{name} -->", f"<!-- /geo:{name} -->"
+    block = open_t + "\n" + "\n".join(inner_lines) + "\n" + close_t
+    if open_t in text and close_t in text:
+        return text[:text.index(open_t)] + block + text[text.index(close_t) + len(close_t):]
+    section = (f"\n## {heading}\n" if heading else "\n") + block + "\n"
+    return text.rstrip("\n") + "\n" + section
+
+
+def _norm(s: str) -> str:
+    s = _nfc(s or "").strip()
+    s = re.sub(r"^[§\-\s]*", "", s)
+    s = re.sub(r"^\d{4}-\d{2}-\d{2}\s*(?:—|-)?\s*", "", s)
+    s = re.sub(r"\s+", " ", s)
+    return s.lower().strip()
+
+
+def _find_person_block(title: str) -> Path | None:
+    t = _nfc((title or "").strip())
+    if not t:
+        return None
+    for name in (t + ".md", _sanitize_filename(t) + ".md"):
+        p = BLOCKS_DIR / name
+        if p.exists():
+            return p
+    return None
+
+
+def append_person_continuity(target_block: str | None, person: str, note: str, moc: str, date_iso: str) -> str:
+    note = (note or "").strip()
+    if not note:
+        return "skip"
+    path = _find_person_block(target_block) if target_block else None
+    if path is not None and _read_layer(path.read_text(encoding="utf-8")) == "user":
+        path = None
+    if path is None:
+        body = (f"Parte de [[{moc or 'MOC — Pessoal'}]]\n\n"
+                f"## Continuidade (recente)\n"
+                f"<!-- geo:cont -->\n§ {date_iso} — {note}\n<!-- /geo:cont -->")
+        return write_block_file(person or target_block or note[:50], body, "fleeting", "review")
+    text = path.read_text(encoding="utf-8")
+    lines = _fenced_lines(text, "cont")
+    if any(_norm(note) == _norm(l) for l in lines):
+        return "dup"
+    lines.append(f"§ {date_iso} — {note}")
+    lines = lines[-CONT_CAP:]
+    text = _replace_fenced(text, "cont", lines, heading="Continuidade (recente)")
+    token = f"[[{date_iso}]]"
+    if token not in text:
+        text = text.rstrip("\n") + "\n" + token + "\n"
+    _atomic_write(path, text)
+    return _nfc(str(path.relative_to(BLOCKS_DIR)))
+
+
+def upsert_daily_digest(date_iso: str, clima: str | None, people_lines: list[str], social_lines: list[str]) -> str:
+    path = BLOCKS_DIR / f"Contexto do dia {date_iso}.md"
+    if path.exists():
+        text = path.read_text(encoding="utf-8")
+    else:
+        bid = str(uuid.uuid4()).upper()
+        text = (f"---\nid: {bid}\ntype: fleeting\nlayer: review\n---\n"
+                f"# Contexto do dia {date_iso}\nParte de [[MOC — Rotina]]\n\n"
+                f"## Clima\n<!-- geo:clima -->\n<!-- /geo:clima -->\n\n"
+                f"## Combinados\n<!-- geo:social -->\n<!-- /geo:social -->\n\n"
+                f"## Pessoas\n<!-- geo:pessoas -->\n<!-- /geo:pessoas -->\n\n[[{date_iso}]]\n")
+    if clima:
+        text = _replace_fenced(text, "clima", [clima.strip()], heading="Clima")
+    for name, heading, new in (("social", "Combinados", social_lines), ("pessoas", "Pessoas", people_lines)):
+        cur = _fenced_lines(text, name)
+        for ln in new:
+            ln = ("- " + ln.strip().lstrip("- ")).rstrip()
+            if ln.strip("- ").strip() and not any(_norm(ln) == _norm(c) for c in cur):
+                cur.append(ln)
+        text = _replace_fenced(text, name, cur, heading=heading)
+    _atomic_write(path, text)
+    return path.name
+
+
+TASKS_DIR = Path.home() / "GeoVault" / "Tasks"
 
 
 def _now_z() -> str:
@@ -747,6 +910,9 @@ async def persist(decided: dict) -> tuple[int, int, int]:
         title = _as_text(b.get("title")).strip()
         if not title:
             continue
+        if _is_generic_title(title):
+            log(f"block discarded (generic title): {title[:60]!r}")
+            continue
         try:
             rid = write_block_file(title, _as_text(b.get("body")), b.get("type") or "fleeting", b.get("layer") or "review")
             nb += 1
@@ -775,21 +941,49 @@ async def persist(decided: dict) -> tuple[int, int, int]:
         if len(lines) > 1:
             await send_telegram("\n".join(lines))
 
+    date_iso = datetime.now().strftime("%Y-%m-%d")
+    people_lines: list[str] = []
+    for p in decided.get("people") or []:
+        note = _as_text(p.get("note")).strip()
+        if not note:
+            continue
+        tgt = _as_text(p.get("target_block")).strip() or None
+        moc = _as_text(p.get("moc")).strip() or "MOC — Pessoal"
+        person = _as_text(p.get("person")).strip()
+        try:
+            res = append_person_continuity(tgt, person, note, moc, date_iso)
+            log(f"person: {res}")
+            people_lines.append(f"[[{person or tgt}]] — {note}")
+        except Exception as e:
+            log(f"person write failed: {e}")
+    d = decided.get("digest") or {}
+    clima = _as_text(d.get("clima")).strip() or None
+    social = [_as_text(x).strip() for x in (d.get("social") or []) if _as_text(x).strip()]
+    if clima or social or people_lines:
+        try:
+            log(f"digest: {upsert_daily_digest(date_iso, clima, people_lines, social)}")
+        except Exception as e:
+            log(f"digest write failed: {e}")
+
     return nb, nt, len(urgent)
 
 
-async def main() -> int:
+async def run_whatsapp() -> int:
     dry = "--dry-run" in sys.argv
     token = load_oauth_token()
     if not token:
         log("no anthropic OAuth token (Keychain/auth.json) — aborting")
         return 1
 
-    records = read_window()
+    state = load_state()
+    watermark = state.get("last_processed_ts")
+    records = read_window(watermark)
     buckets = bucket_by_chat(records)
-    log(f"window={WINDOW_HOURS}h records={len(records)} buckets={len(buckets)} dry_run={dry}")
+    log(f"window={WINDOW_HOURS}h watermark={watermark or 'none'} records={len(records)} buckets={len(buckets)} dry_run={dry}")
     if not buckets:
-        print("[whatsapp-extractor] no messages in window")
+        print("[context-scraping] no messages in window")
+        if records and not dry:
+            _advance_watermark(state, records)
         return 0
 
     headers = _headers_oauth(token)
@@ -804,13 +998,16 @@ async def main() -> int:
         keep = [r for r in results if has_proposals(r)]
         errored = [r for r in results if r.get("error")]
         log(f"classify: with_proposals={len(keep)} errored={len(errored)}")
+        advance_ok = not errored
         if not keep:
-            print("[whatsapp-extractor] classifier surfaced nothing")
+            print("[context-scraping] classifier surfaced nothing")
+            if advance_ok and not dry:
+                _advance_watermark(state, records)
             return 0
 
         brain_context = render_brain_context()
         tasks_context = _recent_tasks_context()
-        decided = await decide(http, headers, keep, brain_context, tasks_context)
+        decided, decide_ok = await decide(http, headers, keep, brain_context, tasks_context)
     log(
         f"decided: blocks={len(decided.get('blocks', []))} "
         f"tasks={len(decided.get('tasks', []))} urgent={len(decided.get('urgent', []))} "
@@ -822,9 +1019,24 @@ async def main() -> int:
         return 0
 
     nb, nt, nu = await persist(decided)
-    print(f"[whatsapp-extractor] persisted blocks={nb} tasks={nt} urgent_dm={nu}")
+    if advance_ok and decide_ok:
+        _advance_watermark(state, records)
+    else:
+        log("watermark not advanced (classify/decide error this run) — overlapping retry next cycle")
+    print(f"[context-scraping] persisted blocks={nb} tasks={nt} urgent_dm={nu}")
     return 0
 
 
+async def main(source: str = "whatsapp") -> int:
+    if source == "whatsapp":
+        return await run_whatsapp()
+    log(f"unknown source: {source}")
+    return 1
+
+
 if __name__ == "__main__":
-    sys.exit(asyncio.run(main()))
+    _source = "whatsapp"
+    for _arg in sys.argv[1:]:
+        if _arg.startswith("--source="):
+            _source = _arg.split("=", 1)[1]
+    sys.exit(asyncio.run(main(_source)))

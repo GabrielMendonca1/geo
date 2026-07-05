@@ -5,7 +5,7 @@ geo_context.py — file-native brain context for hermes cron jobs.
 The MCP push subscriber that warmed ~/.hermes/geo-cache/snapshot.json was
 retired in the "collapse to file-native" commit, so there is no live hook to
 read. The vault itself is truth (ADR-0002), so any job can rebuild richer,
-zero-staleness context by scanning ~/Library/Application Support/Geo/ directly,
+zero-staleness context by scanning ~/GeoVault/ directly,
 app-closed:
 
   - moc_titles  : every type:moc block (the brain's table of contents)
@@ -24,7 +24,7 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
-GEO_HOME = Path.home() / "Library" / "Application Support" / "Geo"
+GEO_HOME = Path.home() / "GeoVault"
 BLOCKS_DIR = GEO_HOME / "Blocks"
 TASKS_DIR = GEO_HOME / "Tasks"
 
@@ -63,7 +63,7 @@ def gather_brain_context() -> dict:
             title = _title(text, p.stem)
             if _fm_type(text) == "moc":
                 moc_titles.append(title)
-            else:
+            elif not title.startswith("Contexto do dia"):
                 block_titles.append(title)
         moc_dir = BLOCKS_DIR / "MOC"
         if moc_dir.exists():
