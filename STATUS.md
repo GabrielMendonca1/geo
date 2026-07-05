@@ -109,3 +109,167 @@ Diagnóstico **medido** nos screenshots (não chutado): a tab bar do editor e o 
 - [x] **TasksStore** ganhou `applyInboundReminderEdit` + `clearReminderMirror` (mutam JSON via persist SEM re-mirror → evita bounce outbound).
 - [x] Wiring no `GeoApp`/`AppContainer`: `remindersSyncCoordinator.start()` no didFinishLaunching, `.stop()` no willTerminate. Arquivo novo registrado no `project.pbxproj` (target Geo).
 - **BUILD Debug SUCCEEDED** (`xcodebuild ... -configuration Debug build CODE_SIGNING_ALLOWED=NO`).
+
+## Hermes base update v0.17.0 → v0.18.0 (2026-07-01)
+- [x] `biel-code` reset pro **HEAD da main upstream `76a468e5`** (= tag `v2026.7.1` + commit curated-models fable-5/sonnet-5), P2 reaplicado limpo (carried `65a610b0`), tag `prd` movida (anterior v0.17.0: `5dd495c6`). `git rev-list HEAD..origin/main` = 0 behind; o "1 commit behind" do `--version` é cache do checker.
+- [x] venv sincronizado via `uv pip install -e '.[messaging,mcp]'` (aiohttp 3.13.4→3.14.1, qrcode novo).
+- [x] Gateway reiniciado via launchd — boot verde: hook geo-context carregado, Telegram conectado, plugins geo-tools/geo-search-tool enabled.
+- **install.sh PULADO de propósito**: `~/.hermes/config.yaml` vivo divergiu do template do repo (hermes rematerializou o arquivo — carrega `plugins.enabled`, toolset spotify, `api.enabled: false`); `template_config` sobrescreveria e desligaria os plugins Geo. Backportar os deltas pro template antes do próximo install.sh.
+- ⏳ Smoke P2 (Gabriel): mandar 1 msg no Telegram e conferir que o turno vê contexto Geo fresco.
+
+## GeoMobile iOS — integração pós-features (2026-07-01)
+- [x] Features/{Tasks,Today,Chat,Agents} + EventKitService integrados sobre o skeleton; **BUILD SUCCEEDED** de primeira (`ruby gen_project.rb` + `xcodebuild -scheme GeoMobile -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO`, Xcode-beta iOS 18 SDK).
+- [x] Warnings novos zerados: `TodayViewModel.init` default arg `.shared` main-actor (vira erro em Swift 6) → param opcional `?? .shared`; `ChatView` weak captures aninhados → capture list `[weak viewModel, weak speech]` no `.task`.
+- Zero warnings de código no build final; GeoCore/ e Geo/ intocados.
+
+## GeoMobile v1 — GeoBridge operacional (2026-07-01)
+- [x] **GeoBridge instalado e vivo**: LaunchAgent `ai.geo.bridge` (KeepAlive), bind `100.123.44.9:8643` (só tailnet, nunca 0.0.0.0), token bearer em `~/.hermes/geobridge.token` (600). Código+contrato em `GeoBridge/` (python3 stdlib, arquivo único).
+- [x] **hermes api_server LIGADO** (`127.0.0.1:8642`, loopback — o bridge é a única face na tailnet): `platforms.api_server.enabled: true` + key em `platforms.api_server.extra.key` (== `~/.hermes/api_server.key`). Backup do config em `config.yaml.bak-geobridge`. ⚠️ é MAIS um delta vivo vs template — o próximo `install.sh` do hermes desligaria o api_server (ver nota do update v0.18.0 acima).
+- [x] **Smoke fim-a-fim verde** (via IP da tailnet): /health 200 sem auth; /tasks 401 sem token e 106 tasks com token (bytes verbatim); /dispatches lista 3; /chat/stream POST → hermes respondeu streaming (run.started→assistant.delta→done, sessão auto-criada).
+- Review multi-agente: 18 achados → 12 confirmados → todos corrigidos + gates re-verificados (smoke 8/8, build iOS verde).
+- Gotcha ops: `pkill -f "python3 .*geobridge"` NÃO casa (macOS resolve argv0 pra Python.app) — gerenciar via `launchctl kickstart/bootout gui/501/ai.geo.bridge`.
+- ⏳ Deploy no iPhone físico: precisa Apple ID logado no Xcode (0 identidades de codesigning na máquina — free personal team) + Tailscale app no iPhone + token/URL na tela Settings do app. Loop de deploy desenhado (g-loop).
+
+---
+
+# STATUS — GeoMobile v2 · workflow 1 (Tasks) — 2026-07-01
+
+Plano: `docs/reviews/geomobile-v2-plan-2026-07-01.md` (PLANO 1, ordem A→C→B). Implementação completa; **gate final verde em 2026-07-02** (build device + smoke bridge + deploy vivo + install iPhone).
+
+- [x] **A. Agrupamento Overdue/Today/Upcoming** — `TasksViewModel` publica `overdue`/`today`/`upcoming` (pending & `isOverdue` kind-aware / `isDateInToday(anchorDate)` / resto; sort anchorDate→priority por bucket); `TasksView` com 3 Sections (Overdue em vermelho), vazias ocultas; swipe-complete e disclosure de concluídas mantidos.
+- [x] **C. Reopen por swipe** — `reopen(_:)` no VM espelhando `complete()` (otimista+rollback, re-bucket via `applyPending`); swipe leading "Reopen" (arrow.uturn.backward) nas linhas de Completed Today.
+- [x] **B. Criar task do celular** — bridge `POST /tasks` (`_create_task`: valida id/title/body.kind/createdAt → 400; `O_CREAT|O_EXCL` → 409 `task_exists`; tempfile+fsync+os.replace; 201 com bytes); CONTRACT.md v1→**2** (princípio 4 revisado + seção POST /tasks: datas ISO-8601 com Z SEM fração, iOS nunca envia `externalEKEventID`); `BridgeClient.iso8601Encoder`; `BridgeTasksRepository.create` (TaskItem de TaskDraft, id UUID maiúsculo, `postData("/tasks")`); botão "+" → `NewTaskSheet` (título+DatePicker due+Picker priority; kind fixo task, reminders `[.atTime()]`); insert otimista com rollback no VM.
+- ✅ `python3 -m py_compile geobridge.py` + smoke in-process do handler (fake IO, tasks dir temp): 201/409/400×4/401 verbatim, bytes no disco == resposta, `/tasks/{id}/complete` intacto. Sem arquivos Swift novos → `gen_project.rb` não precisa de regen.
+- [x] **Gate final (2026-07-02)**: `ruby gen_project.rb` + **BUILD SUCCEEDED** no device físico (`-destination 'platform=iOS,id=2C85…'`, team 6RRNRWCXSD, profile provisionado ok). Smoke isolado do bridge (temp dir + token temp, `127.0.0.1:8999`): health 200 · POST /tasks 201 com arquivo byte-fiel à resposta · 401 sem auth · 400 body inválido · 409 id duplicado · GET /tasks lista · complete 200→completed · reopen 200→pending. Bridge vivo redeployado (`launchctl kickstart -k gui/501/ai.geo.bridge`) → `http://100.123.44.9:8643/health` 200. App **instalado no iPhone** via devicectl (bundle `com.gabrielmendonca.geomobile`); `process launch` falhou só por device bloqueado (FBSOpenApplicationErrorDomain 7 — abrir na mão).
+- ⏳ Verificação manual (Gabriel): task criada no celular → Geo.app ~1s → Apple Calendar; refresh traz `externalEKEventID`; completar 2× idempotente; off-tailnet = erro claro sem crash.
+
+# STATUS — GeoMobile v2 · workflow 2 (Chat voice-first) — 2026-07-02
+
+Plano: `docs/reviews/geomobile-v2-plan-2026-07-01.md` (PLANO 2). Implementação completa; **gate final verde em 2026-07-02** (build device + install iPhone). Escopo EXCLUIU os opcionais background/tela-bloqueada (UIBackgroundModes) e o campo `voice` no contrato — não implementados por decisão.
+
+- [x] **Modo Conversa hands-free** — `VoiceSessionController` (máquina de estados `idle/listening/thinking/speaking`, absorve o antigo SpeechController) dirige o ciclo ouvindo→VAD por silêncio auto-envia→pensando→falando→ouvindo; hold-to-talk vira fallback.
+- [x] **STT on-device** — `SpeechRecognitionService` com `SFSpeechRecognizer` pt-BR, `requiresOnDeviceRecognition=true` (checa `supportsOnDeviceRecognition`, degrada pra rede com aviso), recognizer reciclado por turno.
+- [x] **TTS streaming por sentença** — `SpeechSynthesisService` bufferiza deltas → corte em `.!?\n`/~160 chars → fila do AVSpeechSynthesizer; `ChatViewModel` expõe deltas e consome `run.started`/`message.started`/`tool.progress` pro estado "pensando".
+- [x] **IA decide voz vs texto (camada 1)** — `ResponseModality` classifica cliente (code fence/tabela/lista/links/comprimento → texto; curto conversacional → voz+texto). Sem toque no bridge (marcador `⟦voice⟧`/campo `voice` = fase 2, fora deste escopo).
+- [x] **Barge-in full-duplex com AEC** — `AudioSessionManager` `.playAndRecord`+`.voiceChat` (`.duckOthers/.allowBluetooth/.allowBluetoothA2DP`, trata interruption+routeChange); fala sustentada → `stopSpeaking(.immediate)` + limpa fila + cancela SSE (`BridgeClient` cancel existente) + novo turno.
+- [x] **UI orbe** — `ConversationOrbView` animado por estado; `ChatView` refatorada voice-first (SpeechController removido).
+- [x] **Gate final (2026-07-02)**: `ruby gen_project.rb` + **BUILD SUCCEEDED** no device físico (`-destination 'platform=iOS,id=2C85…'`, team 6RRNRWCXSD, `-allowProvisioningUpdates`, profile provisionado ok). App **instalado no iPhone** via devicectl (bundle `com.gabrielmendonca.geomobile`, install ok após retry de túnel transitório kAMDRemoteConnectError); `process launch` falhou só por device bloqueado (FBSOpenApplicationErrorDomain 7 — abrir na mão). Bridge: NENHUMA mudança (conforme plano).
+- ⏳ Checklist manual no aparelho (Gabriel) — só validável lá: (1) TTS falando alto NÃO se auto-dispara (AEC segura o próprio áudio); (2) barge-in para o TTS e captura só a fala do usuário; (3) modo avião prova STT on-device; (4) time-to-first-audio na 1ª sentença (streaming por sentença); (5) marcador nunca aparece na tela; (6) AirPods conectar/desconectar no meio do turno (routeChange).
+
+# GeoMobile v2 · workflow 3 (Agents = terminal real) — 2026-07-02
+- [x] **Bridge /term/*** — `geobridge.py`: `GET /term/stream` (pty.fork + `tmux new-session -A -s mobile`, loop select, chunks base64 em SSE, keepalive 15s, EIO/idle/takeover→`event: done`), `POST /term/input` (base64→os.write no master_fd), `POST /term/resize` (ioctl TIOCSWINSZ). Registry global com lock, `TermSession`, idle-detach 600s por input, last-writer-wins.
+- [x] **Segundo token** — `~/.hermes/geobridge.term.token` (install.sh gera); `/term/*` valida só esse token; feature gate `GEO_TERM_ENABLED` (404 se off ou token vazio); token principal NÃO abre `/term/*`; input nunca logado.
+- [x] **CONTRACT.md v2→3** — seção Terminal, framing base64, tmux persistência, last-writer-wins, carve-out do princípio 4 com aviso de blast radius (shell arbitrário como biel).
+- [x] **Plist** — `ai.geo.bridge.plist` (repo + vivo) com env novos, `GEO_TERM_ENABLED=1`.
+- [x] **iOS** — SwiftTerm via SPM em `gen_project.rb` (XCRemoteSwiftPackageReference); `Features/Terminal/TerminalViewModel` (SSE base64 + input/resize com term token) + `TerminalHostView` (UIViewRepresentable sobre SwiftTerm.TerminalView, accessory bar nativa: Esc/Tab/Ctrl sticky/setas/`|~-`); `BridgeClient` ganha param `token`; `BridgeConfig.termToken` (2ª conta Keychain); `SettingsView` SecureField "Terminal token"; botão Terminal na toolbar de `AgentsView`.
+- Review 3 lentes → 3 achados confirmados corrigidos (vazamento fd/zumbi no `_term_stream`, idle-detach derrubando attach ativo, race no `reconnect()`).
+- **Gate**: BUILD device 🟢 SUCCEEDED (SwiftTerm resolvido); smoke bridge 🟢 6/6 (auth 401, echo, resize 120x49, 404 com flag off, reconexão+persistência tmux, log sem teclas); bridge vivo recarregado (bootout+bootstrap por env novos) 🟢 /health 200 + /term/stream responde SSE com term token; INSTALL no iPhone 🟢.
+- **Manual pendente**: colar o term token nas Settings do app (`cat ~/.hermes/geobridge.term.token` no Mac); no aparelho — vim/htop renderizam, ctrl-c interrompe, loop `while true` sobrevive a lock/troca-de-tab/kill do app, log sem teclas.
+
+# GeoMobile · reskin visual "Air" — 2026-07-02
+- Design system novo `GeoMobile/Shared/AirTheme.swift`: tokens (skyCanvas #426188, actionBlue #2b7fff, cloudWhite, charcoalText, hazeGrey), raios (card 14/botão 8/input 4), `SkyBackground` (gradiente), `.airCard()` frosted, `AirOutlineButtonStyle` (outline pill), `AirAppearance.apply()` (nav/tab bar).
+- Aplicado: RootView (tint actionBlue, `.preferredColorScheme(.light)`, engrenagem circular frosted), Today/Tasks/Agents (listas insetGrouped sobre SkyBackground, linhas cloudWhite, estados vazio/erro no sky com botão outline branco), Chat (fundo sky, balão user azul / assistant vidro fosco, input hazeGrey), Settings (Form no sky, seções brancas, Test Connection azul).
+- Fontes custom do Air (Inter/Oswald/Dancing Script) NÃO empacotadas — usa SF Pro; follow-up se quiser o toque tipográfico (exige .ttf + gen_project.rb).
+- Gate: BUILD device 🟢 SUCCEEDED, INSTALL 🟢 (launch bloqueado por device locked — abrir na mão).
+
+# GeoMobile · fix ATS (root cause "nada aparece") — 2026-07-02
+- CAUSA RAIZ: iOS 27 aplica App Transport Security mesmo pra IP literal → "Bridge unreachable: ... requires the use of a secure connection". Toda request HTTP do app era bloqueada ANTES de sair → 4 telas vazias + terminal preto. Suposição anterior de isenção IP-literal estava ERRADA.
+- FIX: `GeoMobile/Info.plist` (já referenciado por INFOPLIST_FILE no gen_project.rb) ganhou NSAppTransportSecurity → NSAllowsArbitraryLoads=true + NSAllowsLocalNetworking=true. Aceitável: app pessoal, tailnet privada (WireGuard já cifra ponta-a-ponta).
+- Acabamento junto: títulos de nav em Cloud White sobre o sky (guia Air); empty/error states viraram AirStateCard (cartão frosted centralizado: ícone + título + mensagem + ação outline) em vez de texto solto.
+- Gate: BUILD device SUCCEEDED, INSTALL ok (launch bloqueado por device locked).
+- PENDENTE no aparelho: abrir app → Settings → URL http://100.123.44.9:8643 + token principal (~/.hermes/geobridge.token) + Terminal token (~/.hermes/geobridge.term.token) → agora Test Connection deve passar e as telas populam.
+
+# GeoMobile · conexão RESOLVIDA via HTTPS (tailscale serve) — 2026-07-02
+- CAUSA REAL: iOS 27 beta NÃO honra NSAllowsArbitraryLoads (ATS bloqueava todo HTTP mesmo com a exceção no Info.plist verificada no binário). Safari conectava (não aplica ATS de app), o app não.
+- FIX DEFINITIVO: HTTPS real. `tailscale serve --bg --https=443 http://127.0.0.1:8643` expõe https://biel-macbook-pro.tail091418.ts.net (cert Let's Encrypt, tailnet-only) → proxia pro bridge. iOS aceita sem exceção nenhuma.
+- Bridge rebindou de 100.123.44.9 → **127.0.0.1** (GEO_BRIDGE_BIND no plist vivo + repo); serve é o único front na tailnet. Arquitetura mais segura: bridge não fica mais exposto direto na tailnet. serve não consegue proxiar pro IP da própria tailnet (502/loop) — por isso loopback.
+- App: URL de fábrica agora https://biel-macbook-pro.tail091418.ts.net (BridgeSecrets.baseURL). Tokens embutidos (Secrets.swift, git-ignored) → install limpo conecta sozinho, zero digitação.
+- VERIFICADO no aparelho: /health 200, /tasks 200 (token de fábrica), /dispatches 200, **terminal vivo** (/term/stream 200 + POST /term/input/resize 200 em rajada = digitando de verdade). Source no log = 127.0.0.1 (proxied via serve).
+- Nota: tráfego do iPhone aparece como 127.0.0.1 no geobridge.log (serve proxia do loopback) — não dá mais pra distinguir por IP; distinguir por /tasks 200 autenticado.
+- Pendência de higiene: CONTRACT.md ainda diz "bind tailnet"; atualizar pra "bind loopback + tailscale serve" quando for commitar.
+
+# GeoMobile · terminal usável p/ Claude Code + fix engrenagem — 2026-07-02
+- Pedido: terminal PRETO PURO (sem moldura/sky), foco em USABILIDADE rodando Claude Code (ilegível a 13pt — TUI de 80 col espremida no portrait).
+- TerminalHostView: fonte default 13→**10pt**, **pinch-to-zoom** (UIPinchGestureRecognizer, base no .began × scale, 7–24pt, persistido em @AppStorage terminal.fontSize) + botões A-/A+ no header. Preto puro mantido.
+- **Landscape liberado** (gen_project.rb INFOPLIST_KEY_UISupportedInterfaceOrientations += LandscapeLeft/Right) — dobra colunas, Claude Code renderiza de verdade. App inteiro rota agora.
+- Header do terminal: status dot (verde/laranja) + "mobile" + A-/A+ + reconnect; tab bar escondida (.toolbar(.hidden, for: .tabBar)) = +altura.
+- FIX engrenagem: overlay global do RootView SOBREPUNHA o topo do terminal (círculo claro). Removido; virou `.settingsToolbar()` (modifier em AirTheme) dentro do nav de cada aba (Today/Tasks/Chat/Agents). Some do terminal, não colide mais.
+- Gate: BUILD device SUCCEEDED, install+launch OK, terminal reconecta (/term/resize + /term/input 200 no log). Fluxo Claude Code: abrir terminal → girar landscape → pinçar fonte.
+
+# GeoMobile · terminal scroll + fit-to-width — 2026-07-02
+- SCROLL (pedido principal): raiz = Claude Code roda em tmux/alt-screen, histórico no tmux não no buffer local → arrastar não fazia nada. Fix no geobridge.py `_term_spawn`: chained `; set -g mouse on ; set -g history-limit 100000 ; bind -n PageUp copy-mode -u`. Verificado no tmux vivo: mouse on, WheelUpPane→copy-mode-e (gesto), PPage→copy-mode-u (tecla pgup da barra), MouseDrag→copy-mode. Sair do copy-mode = q.
+- iOS: `term.allowMouseReporting = true` (SwiftTerm forwarda touch→wheel qdo app pede mouse tracking).
+- FIT-TO-WIDTH: botão ⟷ (arrow.left.and.right.square) calcula fonte p/ 80 colunas = fontSize * cols/80 (viewModel.cols agora @Published). Landscape + fit = Claude Code legível a ~80 col.
+- Reload: kickstart bridge + `tmux kill-session -t mobile` (recria com mouse on no próximo attach). bridge loopback → http direto dá 000, usar https serve.
+- Gate: BUILD SUCCEEDED, install+launch OK, tmux mobile attached com mouse/history/PPage confirmados.
+- Uso Claude Code: abrir terminal → landscape → ⟷ (fit 80) → scroll por arrasto ou pgup (q p/ sair do copy-mode).
+
+# GeoMobile · terminal scroll 2-dedos + cor travada — 2026-07-02
+- Pesquisei o fonte do SwiftTerm: TerminalView É UMA UIScrollView; no iOS, pan de 1 dedo com allowMouseReporting=true vira SELEÇÃO do tmux (não wheel), e alt-screen não tem scrollback local → por isso arrasto não rolava.
+- FIX scroll: UIPanGestureRecognizer de 2 DEDOS no Coordinator emite sequências SGR de wheel (ESC[<64;1;1M up / ESC[<65;1;1M down) via viewModel.send→/term/input; tmux (mouse on) lê e rola copy-mode. Batch por evento (min(count,8)), step 14pt, drag-down=wheel-up (natural). pgup (PPage→copy-mode-u) segue como fallback.
+- COR: nativeForegroundColor=white, nativeBackgroundColor=black, caretColor=white, overrideUserInterfaceStyle=.dark → idêntico em light/dark mode.
+- Gate: BUILD SUCCEEDED, install OK (launch bloqueado por device locked — abrir na mão).
+- A verificar (tátil): scroll 2-dedos rola o Claude Code; se falhar, testar injeção direta da seq SGR no PTY.
+
+# GeoMobile · terminal multi-tab + header slim + fix pinch/scroll — 2026-07-02
+- PINCH×SCROLL (bug): ambos 2-dedos, disparavam juntos. Fix = mode-lock no Coordinator (GestureMode idle/scroll/zoom): trava no 1º movimento significativo (translation.y>6pt=scroll, |scale-1|>0.06=zoom), o outro retorna. Simultaneous recognition true mas só um AGE.
+- HEADER SLIM: removido nav bar do sistema (navigationBarHidden), barra própria ~34pt: back chevron + ScrollView horizontal de chips de sessão + "+" + Menu (•••: fit/A+/A-/reconnect) + status dot. preferredColorScheme(.dark) p/ status bar clara.
+- MULTI-TAB: bridge ganhou `?session=` em stream/input/resize (TERM_SESSION_RE `^[A-Za-z0-9_-]{1,32}$`, fallback mobile), registry keyed por sessão, TermSession.session; + `/term/list` (GET, subprocess tmux list-sessions) e `/term/kill` (POST). App: TerminalViewModel(session:) + switchTo/onReset (feed ESC[3J[2J[H ao trocar); @AppStorage terminal.sessions (csv); chip tap=switch, +=nova (mobile/mobile2…), x=fecha+kill. Sessões tmux persistem no servidor.
+- Gate: BUILD SUCCEEDED, install+launch OK, /term/list testado (["mobile"]).
+
+# GeoMobile · terminal scroll 1-dedo + pinch removido — 2026-07-02
+- Pedido: scroll com UM dedo e remover o pinch-to-zoom (zoom fica só no menu ••• A+/A-/fit).
+- Raiz do bloqueio de 1 dedo: SwiftTerm iOS liga `panMouseGesture` via `mouseModeChanged` quando o tmux pede mouse tracking → pan de 1 dedo virava mouse press/motion (seleção no tmux). O método é `open`.
+- FIX: subclasse `GeoTerminalView: TerminalView` com `mouseModeChanged` vazio → o pan de mouse-report do SwiftTerm nunca é instalado; taps continuam reportando clique e long-press→Select (seleção local) segue vivo.
+- Pan de scroll do Coordinator: min/max touches 2→1. Pinch removido inteiro (UIPinchGestureRecognizer, handlePinch, GestureMode/mode-lock, onFontSizeChange) — handleScrollPan virou acúmulo simples de translation.y (step 14pt) → SGR wheel via /term/input.
+- Gate: BUILD SUCCEEDED, install OK (launch bloqueado por device locked — abrir na mão).
+- A verificar (tátil): 1 dedo rola o Claude Code sem selecionar; conferir se o pan nativo da UIScrollView não briga (alt-screen contentSize==bounds, não deve).
+
+# GeoMobile · reconnect rápido pós-lock + light/dark mode — 2026-07-02
+- Workflow multi-agente (2 tracks Opus + review adversarial + build gate). Sintoma: bloquear/desbloquear o iPhone deixava o terminal morto até ~90s (stream TCP meio-aberto + connect() early-return em streamTask != nil, sem scenePhase, sem retry).
+- RECONNECT: TerminalScreen observa scenePhase (.background → disconnect + wasBackgrounded; .active → reconnect com onReset = repaint limpo do tmux). TerminalViewModel ganhou runStreamLoop: retry automático com backoff 0.5s→1→2→cap 5s enquanto visível, flag @Published reconnecting ("reconnecting…" no header ao lado do dot), reconnect() agora faz onReset. Review Opus achou+corrigiu bug real: guard de generation dentro do loop de mensagens (buffer unbounded do AsyncThrowingStream vazava bytes de sessão antiga pro terminal recém-trocado).
+- LIGHT/DARK: RootView perdeu o .preferredColorScheme(.light) forçado — app segue o sistema. AirTheme com tokens adaptativos via UIColor dynamic provider (light byte-idêntico; dark = night-sky #0B1220/#17233B, texto #ECEFF4, actionBlue +6% no dark). Novo token cardSurface (white→#1C2536) em todos listRowBackground (Today/Tasks/Agents/Settings); ChatView stroke .black→.primary; cloudWhite continua literal nos 2 usos on-blue. Terminal e DispatchDetailView (forced-dark) intocados — terminal segue preto puro nos 2 modos.
+- Bridge NÃO tocado (fix 100% client-side). Gate: build gate do workflow SUCCEEDED, install + launch OK no aparelho.
+- A verificar (tátil): bloquear/desbloquear → terminal volta ≤2s com "reconnecting…" visível durante a janela; alternar light/dark no sistema → app inteiro adapta, terminal permanece preto.
+
+# GeoMobile · terminal segue o sistema (branco no light / preto no dark) — 2026-07-02
+- Pedido (screenshot do terminal do Mac): terminal branco/texto preto no light mode, preto/texto branco no dark — substitui o "preto puro sempre".
+- Gotcha SwiftTerm: setters de nativeForeground/BackgroundColor resolvem a UIColor na hora (getTerminalColor) — dynamic color NÃO adapta sozinha. Fix: applyColors(term:dark:) estático + re-aplicação em updateUIView quando context.environment.colorScheme muda (Coordinator.isDark evita colorsChanged redundante).
+- TerminalScreen: removido .preferredColorScheme(.dark); fundo/header = Color(uiColor: .systemBackground); textos/chips brancos → .primary (+opacities iguais); overrideUserInterfaceStyle removido; term.backgroundColor = .systemBackground (UIView adapta nativo).
+- Gate: BUILD SUCCEEDED, install OK (launch bloqueado por device locked).
+- A verificar (tátil): alternar dark/light do sistema COM o terminal aberto → repaint imediato de fundo/texto/caret/header.
+
+# GeoMobile · terminal touch-first + fim da briga de layout com o Mac — 2026-07-02
+- Queixas: (1) usar o terminal no celular REDIMENSIONAVA o layout no Mac (mesma sessão tmux); (2) teclado sempre aberto; (3) view não-responsiva, resize buggy.
+- RAIZ (1): attach do celular era client tmux normal → window-size latest segue o client mais recente; e `set -g mouse on` do bridge vazava GLOBAL pro server tmux do Mac. Validado empiricamente com clients PTY falsos: flag `ignore-size` (tmux 3.5a) chained no attach (`; refresh-client -f ignore-size`) mantém a janela intocada.
+- BRIDGE: `_term_spawn(session, ignore_size)` — aplica ignore-size quando `_term_has_sizing_client` (list-clients sem ignore-size) detecta outro client (Mac); kill do client antigo movido pra ANTES do spawn (+150ms) pra não contar a si mesmo; `mouse on` agora session-scoped (global limpo com `set -gu mouse`, sessão mobile atual re-setada); novo GET `/term/winsize` → {cols,rows,shared}. Reload via kickstart, health 200, rota 401 sem token OK.
+- APP: teclado sob demanda — removido becomeFirstResponder no makeUIView; botão ⌨ no header (viewModel.onToggleKeyboard) e tap no terminal ainda invoca (singleTap nativo do SwiftTerm); resize DEBOUNCED 200ms no TerminalViewModel (mata thrash de teclado/rotação); "mirror mode": ao conectar (delay 600ms) busca winsize e se shared ajusta fontSize por ratio min(cols,rows) pra mostrar a janela inteira do Mac; menu ganhou "Fit remote" (força o fit manual).
+- Comportamento resultante: sessão compartilhada = Mac manda no tamanho, celular espelha com fonte auto-ajustada; sessão só-do-celular = celular manda (primeiro attach solo é sizing client); lock/unlock re-avalia o modo a cada reconnect.
+- Gate: py_compile OK, bridge health 200, BUILD SUCCEEDED, App installed (launch remoto RequestDenied — tela bloqueada, abrir na mão).
+- A verificar (tátil): digitar no celular NÃO mexe no layout do Mac; ⌨ mostra/esconde teclado; rotação/teclado sem glitch; fonte auto-ajusta ao abrir sessão compartilhada.
+
+# GeoMobile · UX/UI calibration + fix tap-to-complete — 2026-07-05
+- Sessão de calibração UX/UI (2 tracks disjuntos + spec g-triad + review adversarial + build/screenshot gate). Track A = `Features/Tasks/TasksView.swift`; Track B = `Shared/AirTheme.swift` + `RootView.swift` + `Features/{Today,Chat,Agents,Settings}/`.
+- **FIX "não consigo marcar tarefas como feito" (CAUSA RAIZ)**: o círculo em `TasksView.row(for:completed:)` era um `Image` puro, SEM tap handler — o único caminho de conclusão era o `swipeActions` "Done" trailing (invisível/indescobrível). As linhas não são `NavigationLink` nem tinham `onTapGesture`. **Backend estava SÃO**: `TasksViewModel.complete/reopen` já faziam move otimista + rollback; `geobridge.log` mostrou ZERO POSTs de complete reais (não era rede/bridge, era a UI que nunca disparava). Fix = círculo virou `Button` (label = mesmo SF Symbol), ação ramifica em `completed` (incompleto→`complete` + haptic `.success`; completo→`reopen` + haptic `.light`), `withAnimation(.snappy)` move a linha entre seção aberta e "Completed Today". `.buttonStyle(.borderless)` (load-bearing: impede o List de promover o Button a tap de linha inteira brigando com o swipe), alvo 44pt via `.frame(44×44,.leading)` + `.contentShape(Rectangle())`, cor via token `Color.actionBlue`. Ambos `swipeActions` preservados como power-user. ZERO mudança no ViewModel/bridge.
+- **Calibração UX/UI por tela** (tokens existentes só; luz byte-idêntica, só o dark mexeu):
+  - **Token B0** — `cardSurface` dark `#1C2536`→`#232E44`: matava elevation-inversion (card quase idêntico ao topo do gradiente sky `#17233B`, podia ler *mais escuro* que o fundo). Um token calibra os 4 lists de uma vez (Today/Tasks/Agents/Settings via `.listRowBackground`).
+  - **Tasks** — row `.padding(.vertical,4)`; headers de seção `.subheadline.weight(.semibold)`+`.textCase(nil)` (mata o all-caps grouped shout); first-load `ProgressView` sobre `SkyBackground` (não pisca system bg); error row = `Label(…,"wifi.slash")` + Retry.
+  - **Today** — gate de loading (`hasLoaded` no VM) → spinner no sky em vez do falso "Nothing today" durante o 1º fetch; empty-state ganha pull-to-refresh (`GeometryReader`+`ScrollView`+`.refreshable`, minHeight preserva fill).
+  - **Chat** — balão assistant `.regularMaterial`→`cardSurface` sólido (legibilidade no dark); cursor pending `systemGray5`→`hazeGrey`; mic button `systemGray6`→`cardSurface`; `.padding(.bottom,8)` no stack (última bolha limpa a input bar). Mata ilhas system-grey.
+  - **Agents** — loading no sky; `statusColor("running")` `.blue`→`.actionBlue` (green/red/gray semânticos mantidos); row `.padding(.vertical,2)`→`4`. Console deixado verbatim (superfície terminal intencional).
+  - **Settings** — resultado do teste colorido por outcome (`.green`/`.red`); hint de formato de URL movido pro footer da seção (descobrível antes de falhar), não só no path de erro.
+- **QA hook `-geoTab`** (`RootView`): `TabView(selection:)` com tabs `.tag`eadas; `initialTab()` lê `UserDefaults.standard.string(forKey:"geoTab")` (só se ∈ `[today,tasks,chat,agents]`, senão `today`), SEM write-back → `simctl launch … -geoTab tasks` injeta no NSArgumentDomain efêmero (só aquele launch), lançamentos normais caem em `today` intocados. Torna o screenshot por-tab scriptável.
+- Review adversarial: tap-to-complete/token-discipline/QA-hook/consistência/escopo checados; 1 defeito achado+corrigido (error row do Tasks sem `.listRowBackground(Color.cardSurface)` → card off-token cinza sob `.skyScreen()`). Zero code comments, escopo só `GeoMobile/`, `Shared/Secrets.swift` intocado.
+- **Screenshot gate (simulador iPhone 17)**: BUILD SUCCEEDED de primeira; 8 PNGs (`today/tasks/chat/agents` × light/dark) em `/Users/biel/.claude/jobs/d9838200/tmp/shots/`. Todos PASS: dark é night-sky em toda tela, cards visivelmente elevados sobre o gradiente nos 4 lists (fix B0 confirmado), sem system-grey no Chat, Today mostra spinner (não "Nothing today") no 1º load. Zero iterações.
+- **Gate final device (2026-07-05)**: `ruby gen_project.rb` + **BUILD SUCCEEDED** no iPhone físico (`-destination 'platform=iOS,id=2C85…'`, team 6RRNRWCXSD, `-allowProvisioningUpdates`). **App instalado** via devicectl — output confirmou `App installed` (bundle `com.gabrielmendonca.geomobile`); **`process launch` OK** (device desbloqueado, app abriu). Bridge NÃO tocado.
+- ⏳ Verificação tátil (Gabriel): tocar no círculo marca feito (linha anima pra Completed + haptic), tocar no check reabre; ambos swipes ainda funcionam; alvo 44pt; cards elevados no dark nas 4 telas de lista no aparelho.
+
+# context-scraping · WhatsApp extractor → life-context extractor — 2026-07-05
+- Extractor evoluído de "tarefas/fatos/urgente" para **life-context**. Rename `whatsapp-extractor.py → context_scraping.py`; código todo em 1 arquivo (sem novo store persistente), 2 cópias sincronizadas repo↔`~/.hermes/scripts` (md5 idêntico `abb0935c…`). Commit `cfb9296` (sem push).
+- **Taxonomia nova**: CLASSIFY (Haiku) ganhou `people`/`social`/`mood`; DECIDE (Sonnet) ganhou `people`/`digest`. FATO ampliado p/ incluir decisão-na-conversa. `mood`≤1, bias forte a vazio, nunca clínico/inferido/sobre-terceiros.
+- **Blocos-pessoa com continuidade**: `append_person_continuity()` resolve bloco existente por título EXATO (`_find_person_block` tenta forma-com-espaços ANTES da forma-com-hífen — senão erra todo bloco criado pelo app), sem fuzzy. Seção fenced `<!-- geo:cont -->` dated `§`, cap 8 (evicta mais antigo), dedup por `_norm` (idempotente cross-run), guard `layer:user` (nunca escreve em `Amigos.md` — cria bloco novo review). Sem target → cria bloco novo (mal-menor aceito: pode gerar `Nome-1.md` em runs repetidos).
+- **Digest diário**: `upsert_daily_digest()` → `Contexto do dia YYYY-MM-DD.md` (type fleeting/layer review, MOC — Rotina), fences `clima`/`social`/`pessoas`, merge idempotente (clima = last-write só quando há clima; social/pessoas = append-if-absent dedup). `geo_context` pula títulos "Contexto do dia" do brain_context.
+- **Clima leve**: uma linha neutra situacional sobre o DIA do Gabriel, ou null. Sem campo de humor por pessoa em NENHUM schema (garantia estrutural anti-vigilância).
+- Gate: `py_compile` OK nas 2 cópias; **dry-run ponta-a-ponta verde** (66 records, 3 buckets, 3 with_proposals, 0 errored, 4 calls 13555in/5321out) — `decided` JSON já traz chaves `people`/`digest` (vazias nesta janela = bias correto); watermark intacto (dry-run retorna antes de persist/advance).
+- ✅ **RESSALVA RESOLVIDA (mesmo dia, loop worker→verifier→REVISE→worker→ACCEPT)**: watermark de `max(ts)` cru perdia mensagem em colisão de ts (~15% do corpus real colide; 2.947 grupos são msgs genuinamente distintas). Fix: `_advance_watermark` persiste `boundary_msg_ids` (msg_ids no ts de fronteira) e `read_window(watermark, boundary_msg_ids)` filtra `ts <` + (`ts ==` só se msg_id na fronteira). REVISE do verifier pegou 2º defeito real (empate `new_ts == last_ts` não salvava a fronteira → reprocessamento infinito da msg empatada) → fix: branch de empate faz UNION dedupado + save; avanço estrito segue substituindo wholesale. ACCEPT final com repro sintética: colisão não perde, empate não loopa, avanço não regride, state legado compat (reprocessa 1x). Guards `isinstance` nos caminhos novos `people`/`digest` de `persist()` inclusos.
+- Ressalva menor remanescente (não-bloqueante): repeat null-target pode gerar blocos duplicados `Nome-N.md`.

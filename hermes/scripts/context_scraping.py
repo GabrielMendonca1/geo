@@ -357,13 +357,21 @@ def _advance_watermark(state: dict, records: list[dict]) -> None:
     if not ts_values:
         return
     new_ts = max(ts_values)
-    if new_ts > (state.get("last_processed_ts") or ""):
+    last_ts = state.get("last_processed_ts") or ""
+    if new_ts > last_ts:
         state["last_processed_ts"] = new_ts
+        state["boundary_msg_ids"] = [r.get("msg_id") for r in records if r.get("ts") == new_ts and r.get("msg_id")]
+        state["last_run_at"] = _now_z()
+        save_state(state)
+    elif new_ts == last_ts:
+        existing = list(state.get("boundary_msg_ids") or [])
+        new_ids = [r.get("msg_id") for r in records if r.get("ts") == new_ts and r.get("msg_id")]
+        state["boundary_msg_ids"] = existing + [i for i in new_ids if i not in existing]
         state["last_run_at"] = _now_z()
         save_state(state)
 
 
-def read_window(watermark: str | None) -> list[dict]:
+def read_window(watermark: str | None, boundary_msg_ids: list[str] | None = None) -> list[dict]:
     if not JSONL_PATH.exists():
         return []
     wm_dt = None
@@ -372,6 +380,7 @@ def read_window(watermark: str | None) -> list[dict]:
             wm_dt = datetime.fromisoformat(watermark.replace("Z", "+00:00"))
         except Exception:
             wm_dt = None
+    boundary_ids = set(boundary_msg_ids or [])
     fallback_cutoff = datetime.now(timezone.utc) - timedelta(hours=WINDOW_HOURS)
     out: list[dict] = []
     dropped_empty = 0
@@ -388,7 +397,9 @@ def read_window(watermark: str | None) -> list[dict]:
             except Exception:
                 continue
             if wm_dt is not None:
-                if ts <= wm_dt:
+                if ts < wm_dt:
+                    continue
+                if ts == wm_dt and rec.get("msg_id") in boundary_ids:
                     continue
             elif ts < fallback_cutoff:
                 continue
@@ -944,6 +955,8 @@ async def persist(decided: dict) -> tuple[int, int, int]:
     date_iso = datetime.now().strftime("%Y-%m-%d")
     people_lines: list[str] = []
     for p in decided.get("people") or []:
+        if not isinstance(p, dict):
+            continue
         note = _as_text(p.get("note")).strip()
         if not note:
             continue
@@ -956,7 +969,8 @@ async def persist(decided: dict) -> tuple[int, int, int]:
             people_lines.append(f"[[{person or tgt}]] — {note}")
         except Exception as e:
             log(f"person write failed: {e}")
-    d = decided.get("digest") or {}
+    d = decided.get("digest")
+    d = d if isinstance(d, dict) else {}
     clima = _as_text(d.get("clima")).strip() or None
     social = [_as_text(x).strip() for x in (d.get("social") or []) if _as_text(x).strip()]
     if clima or social or people_lines:
@@ -977,7 +991,7 @@ async def run_whatsapp() -> int:
 
     state = load_state()
     watermark = state.get("last_processed_ts")
-    records = read_window(watermark)
+    records = read_window(watermark, state.get("boundary_msg_ids"))
     buckets = bucket_by_chat(records)
     log(f"window={WINDOW_HOURS}h watermark={watermark or 'none'} records={len(records)} buckets={len(buckets)} dry_run={dry}")
     if not buckets:
