@@ -7,100 +7,153 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		06A3529DDEAD66999DEC4AC9 /* TasksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12BC832544D014411DE5501D /* TasksView.swift */; };
-		46ED4CDB9BAF2904784B6820 /* GeoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 973CBCEB1920759317579D23 /* GeoCore */; };
-		6E844758412FDC3BD79ABBB1 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111AF9FC3AA40085B0A02F31 /* RootView.swift */; };
-		76985D029E92BB507112A044 /* TodayViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA1D8AB69C2D1B22A620132C /* TodayViewModel.swift */; };
-		7E1F69EABC7CD0A94460E5E1 /* EventKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AC0C7EADA1AD5472A3A6976 /* EventKitService.swift */; };
-		86280D3E4DA4ACE71A421053 /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4A5A5DB27BDB77D5821EFB3 /* TodayView.swift */; };
-		A2DADFDA017296F314C7A4D0 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D59907F2606255CF5C6E4462 /* Foundation.framework */; };
-		B6F44818B514ECED9E66D96C /* TasksViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C0B8975F454DCEAD7A6011B /* TasksViewModel.swift */; };
-		E241540998915054864C23D4 /* GeoMobileApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD1A775C964D12EF9AA15DCE /* GeoMobileApp.swift */; };
+		14DFB70A9682CF304741E14D /* BridgeConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57E2014C0F66226A1F0E14F5 /* BridgeConfig.swift */; };
+		1FC3EA72A67420A4A1B4A591 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = AD59B6A1EB16B9C4B2B06E26 /* SwiftTerm */; };
+		2092C16C1B219A0EA29EE43B /* SpeechRecognitionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFEEFD2E52FD82D8F2A98918 /* SpeechRecognitionService.swift */; };
+		24477773D243706DD38DEAE8 /* VoiceSessionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F57A0AAC3A4FC196546B240E /* VoiceSessionController.swift */; };
+		318E5E039F0ADB789E81166B /* GeoMobileApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2267C78C445E5DBC5813AD77 /* GeoMobileApp.swift */; };
+		32A64BAB3B601A492033DC0E /* AirTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 107BD7BCEC3E15BF3605FA2B /* AirTheme.swift */; };
+		3A2549188A4A8C430BBAA8E0 /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4273E304EDA498908EEE99C /* ChatViewModel.swift */; };
+		6178CC8FB3C09195FC73DD72 /* ResponseModality.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEC6633D577721C108C9BE53 /* ResponseModality.swift */; };
+		69CBC385D618CE9EF482ABAD /* TerminalHostView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44E3F2C615EF83086F88605C /* TerminalHostView.swift */; };
+		79379BD1B860BD7460CE3D98 /* SpeechSynthesisService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54D2E8736895B690B4C2D307 /* SpeechSynthesisService.swift */; };
+		7A28D36B57414DD011D60113 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2BCF6E4D5274CD230E8E6F7 /* RootView.swift */; };
+		93A94F99D62F13528ACE7BA6 /* AgentsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95C55916C652E278BD1A5D91 /* AgentsView.swift */; };
+		949CCB2BA889F13BECA4FD98 /* BridgeClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 793D0AE6B95BD2CEE0B4B4E5 /* BridgeClient.swift */; };
+		A25A9CBD421CE8CAA5A4E69E /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8E515281211F9516F78E11C /* SettingsView.swift */; };
+		B1538E5F290FF887894FC397 /* ConversationOrbView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7C1DE42E59FEBB4BC884660 /* ConversationOrbView.swift */; };
+		B4E54A9B4C0C87BC64A4420E /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 80B9F06CA744A63570597A74 /* Foundation.framework */; };
+		B4FB7038AB17421CCF2131D9 /* TerminalViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 229778BF3AB5D494F5267A85 /* TerminalViewModel.swift */; };
+		C823B52594A8CFAA06469170 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA56E3A0500949E9D1AAB06A /* ChatView.swift */; };
+		CE57D3E8C33432C038C6065F /* EventKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51AC6C1A2A97187812A70834 /* EventKitService.swift */; };
+		CFAB9A51DDDE8781DB735ABA /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 872A84AADD9B55EDBD8150C0 /* TodayView.swift */; };
+		D018D570E310B77AB4E559F1 /* AgentsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAEB8916C5BDB8A06208A5C9 /* AgentsViewModel.swift */; };
+		DBD9CDC4686386E1DAA8CF54 /* TodayViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBC8C74CECFFCCBFE02FA87A /* TodayViewModel.swift */; };
+		DCF0AD879A28E11C6208F8CE /* BridgeTasksRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7496E3B01FDAAAD11BF3B7D7 /* BridgeTasksRepository.swift */; };
+		DD2BF110675B462285DE305E /* GeoCore in Frameworks */ = {isa = PBXBuildFile; productRef = DE48A70E3C4288190BBC5214 /* GeoCore */; };
+		F0347F13F5BEA58AAC5DE2EC /* DispatchModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C78FD6DCF4AFD315CF90324 /* DispatchModels.swift */; };
+		F3390432DDDDE71A2CD5EF07 /* AudioSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C7BF1D4917628F91FA88753 /* AudioSessionManager.swift */; };
+		FD33C377BF15E6A8ECD25FC8 /* Secrets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F2DC3C0559B1EE6505381A1 /* Secrets.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		111AF9FC3AA40085B0A02F31 /* RootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
-		12BC832544D014411DE5501D /* TasksView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TasksView.swift; path = Features/Tasks/TasksView.swift; sourceTree = "<group>"; };
-		12D883235D874F7D0E071EB0 /* GeoMobile.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GeoMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		2AC0C7EADA1AD5472A3A6976 /* EventKitService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EventKitService.swift; path = Services/EventKitService.swift; sourceTree = "<group>"; };
-		7C0B8975F454DCEAD7A6011B /* TasksViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TasksViewModel.swift; path = Features/Tasks/TasksViewModel.swift; sourceTree = "<group>"; };
-		D4A5A5DB27BDB77D5821EFB3 /* TodayView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TodayView.swift; path = Features/Today/TodayView.swift; sourceTree = "<group>"; };
-		D59907F2606255CF5C6E4462 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
-		DD1A775C964D12EF9AA15DCE /* GeoMobileApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GeoMobileApp.swift; sourceTree = "<group>"; };
-		FA1D8AB69C2D1B22A620132C /* TodayViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TodayViewModel.swift; path = Features/Today/TodayViewModel.swift; sourceTree = "<group>"; };
+		0C7BF1D4917628F91FA88753 /* AudioSessionManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AudioSessionManager.swift; path = Features/Chat/AudioSessionManager.swift; sourceTree = "<group>"; };
+		107BD7BCEC3E15BF3605FA2B /* AirTheme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AirTheme.swift; path = Shared/AirTheme.swift; sourceTree = "<group>"; };
+		2267C78C445E5DBC5813AD77 /* GeoMobileApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GeoMobileApp.swift; sourceTree = "<group>"; };
+		229778BF3AB5D494F5267A85 /* TerminalViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TerminalViewModel.swift; path = Features/Terminal/TerminalViewModel.swift; sourceTree = "<group>"; };
+		3F2DC3C0559B1EE6505381A1 /* Secrets.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Secrets.swift; path = Shared/Secrets.swift; sourceTree = "<group>"; };
+		4394F0D954C9AF007039E738 /* GeoMobile.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GeoMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		44E3F2C615EF83086F88605C /* TerminalHostView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TerminalHostView.swift; path = Features/Terminal/TerminalHostView.swift; sourceTree = "<group>"; };
+		51AC6C1A2A97187812A70834 /* EventKitService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EventKitService.swift; path = Services/EventKitService.swift; sourceTree = "<group>"; };
+		54D2E8736895B690B4C2D307 /* SpeechSynthesisService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SpeechSynthesisService.swift; path = Features/Chat/SpeechSynthesisService.swift; sourceTree = "<group>"; };
+		57E2014C0F66226A1F0E14F5 /* BridgeConfig.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BridgeConfig.swift; path = Services/BridgeConfig.swift; sourceTree = "<group>"; };
+		7496E3B01FDAAAD11BF3B7D7 /* BridgeTasksRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BridgeTasksRepository.swift; path = Services/BridgeTasksRepository.swift; sourceTree = "<group>"; };
+		793D0AE6B95BD2CEE0B4B4E5 /* BridgeClient.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BridgeClient.swift; path = Services/BridgeClient.swift; sourceTree = "<group>"; };
+		80B9F06CA744A63570597A74 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		872A84AADD9B55EDBD8150C0 /* TodayView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TodayView.swift; path = Features/Today/TodayView.swift; sourceTree = "<group>"; };
+		95C55916C652E278BD1A5D91 /* AgentsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AgentsView.swift; path = Features/Agents/AgentsView.swift; sourceTree = "<group>"; };
+		9C78FD6DCF4AFD315CF90324 /* DispatchModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DispatchModels.swift; path = Features/Agents/DispatchModels.swift; sourceTree = "<group>"; };
+		A2BCF6E4D5274CD230E8E6F7 /* RootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		A4273E304EDA498908EEE99C /* ChatViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ChatViewModel.swift; path = Features/Chat/ChatViewModel.swift; sourceTree = "<group>"; };
+		A8E515281211F9516F78E11C /* SettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsView.swift; path = Features/Settings/SettingsView.swift; sourceTree = "<group>"; };
+		C7C1DE42E59FEBB4BC884660 /* ConversationOrbView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ConversationOrbView.swift; path = Features/Chat/ConversationOrbView.swift; sourceTree = "<group>"; };
+		DA56E3A0500949E9D1AAB06A /* ChatView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ChatView.swift; path = Features/Chat/ChatView.swift; sourceTree = "<group>"; };
+		DFEEFD2E52FD82D8F2A98918 /* SpeechRecognitionService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SpeechRecognitionService.swift; path = Features/Chat/SpeechRecognitionService.swift; sourceTree = "<group>"; };
+		EEC6633D577721C108C9BE53 /* ResponseModality.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ResponseModality.swift; path = Features/Chat/ResponseModality.swift; sourceTree = "<group>"; };
+		F57A0AAC3A4FC196546B240E /* VoiceSessionController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = VoiceSessionController.swift; path = Features/Chat/VoiceSessionController.swift; sourceTree = "<group>"; };
+		FAEB8916C5BDB8A06208A5C9 /* AgentsViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AgentsViewModel.swift; path = Features/Agents/AgentsViewModel.swift; sourceTree = "<group>"; };
+		FBC8C74CECFFCCBFE02FA87A /* TodayViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TodayViewModel.swift; path = Features/Today/TodayViewModel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		C52AA880A6D66F1DDA408ED0 /* Frameworks */ = {
+		85BCF05D6C6540730C8564AE /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A2DADFDA017296F314C7A4D0 /* Foundation.framework in Frameworks */,
-				46ED4CDB9BAF2904784B6820 /* GeoCore in Frameworks */,
+				B4E54A9B4C0C87BC64A4420E /* Foundation.framework in Frameworks */,
+				DD2BF110675B462285DE305E /* GeoCore in Frameworks */,
+				1FC3EA72A67420A4A1B4A591 /* SwiftTerm in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		2A367BBAA57D6297A934AB02 /* GeoMobile */ = {
+		3B8F237BA89FAB8C2611CC12 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				12BC832544D014411DE5501D /* TasksView.swift */,
-				7C0B8975F454DCEAD7A6011B /* TasksViewModel.swift */,
-				D4A5A5DB27BDB77D5821EFB3 /* TodayView.swift */,
-				FA1D8AB69C2D1B22A620132C /* TodayViewModel.swift */,
-				DD1A775C964D12EF9AA15DCE /* GeoMobileApp.swift */,
-				111AF9FC3AA40085B0A02F31 /* RootView.swift */,
-				2AC0C7EADA1AD5472A3A6976 /* EventKitService.swift */,
+				4C76D2D31CD91B845400B39F /* iOS */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		428AF046828E5E6556804019 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				4394F0D954C9AF007039E738 /* GeoMobile.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		4C76D2D31CD91B845400B39F /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				80B9F06CA744A63570597A74 /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
+		9E7012CE5287040A881F6181 = {
+			isa = PBXGroup;
+			children = (
+				428AF046828E5E6556804019 /* Products */,
+				3B8F237BA89FAB8C2611CC12 /* Frameworks */,
+				CA5E6C99238C9F51B43C8DF0 /* GeoMobile */,
+			);
+			sourceTree = "<group>";
+		};
+		CA5E6C99238C9F51B43C8DF0 /* GeoMobile */ = {
+			isa = PBXGroup;
+			children = (
+				95C55916C652E278BD1A5D91 /* AgentsView.swift */,
+				FAEB8916C5BDB8A06208A5C9 /* AgentsViewModel.swift */,
+				9C78FD6DCF4AFD315CF90324 /* DispatchModels.swift */,
+				0C7BF1D4917628F91FA88753 /* AudioSessionManager.swift */,
+				DA56E3A0500949E9D1AAB06A /* ChatView.swift */,
+				A4273E304EDA498908EEE99C /* ChatViewModel.swift */,
+				C7C1DE42E59FEBB4BC884660 /* ConversationOrbView.swift */,
+				EEC6633D577721C108C9BE53 /* ResponseModality.swift */,
+				DFEEFD2E52FD82D8F2A98918 /* SpeechRecognitionService.swift */,
+				54D2E8736895B690B4C2D307 /* SpeechSynthesisService.swift */,
+				F57A0AAC3A4FC196546B240E /* VoiceSessionController.swift */,
+				A8E515281211F9516F78E11C /* SettingsView.swift */,
+				44E3F2C615EF83086F88605C /* TerminalHostView.swift */,
+				229778BF3AB5D494F5267A85 /* TerminalViewModel.swift */,
+				872A84AADD9B55EDBD8150C0 /* TodayView.swift */,
+				FBC8C74CECFFCCBFE02FA87A /* TodayViewModel.swift */,
+				2267C78C445E5DBC5813AD77 /* GeoMobileApp.swift */,
+				A2BCF6E4D5274CD230E8E6F7 /* RootView.swift */,
+				793D0AE6B95BD2CEE0B4B4E5 /* BridgeClient.swift */,
+				57E2014C0F66226A1F0E14F5 /* BridgeConfig.swift */,
+				7496E3B01FDAAAD11BF3B7D7 /* BridgeTasksRepository.swift */,
+				51AC6C1A2A97187812A70834 /* EventKitService.swift */,
+				107BD7BCEC3E15BF3605FA2B /* AirTheme.swift */,
+				3F2DC3C0559B1EE6505381A1 /* Secrets.swift */,
 			);
 			name = GeoMobile;
 			path = GeoMobile;
 			sourceTree = "<group>";
 		};
-		31C44DB471687736F8C758E5 /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				12D883235D874F7D0E071EB0 /* GeoMobile.app */,
-			);
-			name = Products;
-			sourceTree = "<group>";
-		};
-		77884FB62F8FE51284885CAB /* Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-				C6BABFEFF70F669B95589818 /* iOS */,
-			);
-			name = Frameworks;
-			sourceTree = "<group>";
-		};
-		C6BABFEFF70F669B95589818 /* iOS */ = {
-			isa = PBXGroup;
-			children = (
-				D59907F2606255CF5C6E4462 /* Foundation.framework */,
-			);
-			name = iOS;
-			sourceTree = "<group>";
-		};
-		E06FD659E644496E3464C3F5 = {
-			isa = PBXGroup;
-			children = (
-				31C44DB471687736F8C758E5 /* Products */,
-				77884FB62F8FE51284885CAB /* Frameworks */,
-				2A367BBAA57D6297A934AB02 /* GeoMobile */,
-			);
-			sourceTree = "<group>";
-		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		FA4515290376445D27E6C319 /* GeoMobile */ = {
+		035BCAC2A122C79AD791FDBE /* GeoMobile */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 9E6F4727B1E186DC0E70CF99 /* Build configuration list for PBXNativeTarget "GeoMobile" */;
+			buildConfigurationList = B1F589BBB8F26B91247C03E9 /* Build configuration list for PBXNativeTarget "GeoMobile" */;
 			buildPhases = (
-				A71C150699F22E6E6ECB6D97 /* Sources */,
-				C52AA880A6D66F1DDA408ED0 /* Frameworks */,
-				EC9B477FF91E9AC4139530C7 /* Resources */,
+				352CD9689B68CF0E74959AF8 /* Sources */,
+				85BCF05D6C6540730C8564AE /* Frameworks */,
+				ED080E4A15669122F8DD6304 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -108,22 +161,23 @@
 			);
 			name = GeoMobile;
 			packageProductDependencies = (
-				973CBCEB1920759317579D23 /* GeoCore */,
+				DE48A70E3C4288190BBC5214 /* GeoCore */,
+				AD59B6A1EB16B9C4B2B06E26 /* SwiftTerm */,
 			);
 			productName = GeoMobile;
-			productReference = 12D883235D874F7D0E071EB0 /* GeoMobile.app */;
+			productReference = 4394F0D954C9AF007039E738 /* GeoMobile.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		4EB843C01047373E5FE562BC /* Project object */ = {
+		188AAC0268B284C967A788B0 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				LastSwiftUpdateCheck = 1600;
 				LastUpgradeCheck = 1600;
 			};
-			buildConfigurationList = 2B89B0F64302DD7E18550053 /* Build configuration list for PBXProject "GeoMobile" */;
+			buildConfigurationList = 24247EC0A2EDF919CEBAA1A0 /* Build configuration list for PBXProject "GeoMobile" */;
 			compatibilityVersion = "Xcode 3.2";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -131,23 +185,24 @@
 				en,
 				Base,
 			);
-			mainGroup = E06FD659E644496E3464C3F5;
+			mainGroup = 9E7012CE5287040A881F6181;
 			minimizedProjectReferenceProxies = 0;
 			packageReferences = (
-				04A7725B493D78884E18C91F /* XCLocalSwiftPackageReference "GeoCore" */,
+				E735C81F755F919DAC99B6CA /* XCLocalSwiftPackageReference "GeoCore" */,
+				D166DD0B4A6C608586415B36 /* XCRemoteSwiftPackageReference "SwiftTerm" */,
 			);
 			preferredProjectObjectVersion = 77;
-			productRefGroup = 31C44DB471687736F8C758E5 /* Products */;
+			productRefGroup = 428AF046828E5E6556804019 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				FA4515290376445D27E6C319 /* GeoMobile */,
+				035BCAC2A122C79AD791FDBE /* GeoMobile */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		EC9B477FF91E9AC4139530C7 /* Resources */ = {
+		ED080E4A15669122F8DD6304 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -157,24 +212,41 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		A71C150699F22E6E6ECB6D97 /* Sources */ = {
+		352CD9689B68CF0E74959AF8 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				06A3529DDEAD66999DEC4AC9 /* TasksView.swift in Sources */,
-				B6F44818B514ECED9E66D96C /* TasksViewModel.swift in Sources */,
-				86280D3E4DA4ACE71A421053 /* TodayView.swift in Sources */,
-				76985D029E92BB507112A044 /* TodayViewModel.swift in Sources */,
-				E241540998915054864C23D4 /* GeoMobileApp.swift in Sources */,
-				6E844758412FDC3BD79ABBB1 /* RootView.swift in Sources */,
-				7E1F69EABC7CD0A94460E5E1 /* EventKitService.swift in Sources */,
+				93A94F99D62F13528ACE7BA6 /* AgentsView.swift in Sources */,
+				D018D570E310B77AB4E559F1 /* AgentsViewModel.swift in Sources */,
+				F0347F13F5BEA58AAC5DE2EC /* DispatchModels.swift in Sources */,
+				F3390432DDDDE71A2CD5EF07 /* AudioSessionManager.swift in Sources */,
+				C823B52594A8CFAA06469170 /* ChatView.swift in Sources */,
+				3A2549188A4A8C430BBAA8E0 /* ChatViewModel.swift in Sources */,
+				B1538E5F290FF887894FC397 /* ConversationOrbView.swift in Sources */,
+				6178CC8FB3C09195FC73DD72 /* ResponseModality.swift in Sources */,
+				2092C16C1B219A0EA29EE43B /* SpeechRecognitionService.swift in Sources */,
+				79379BD1B860BD7460CE3D98 /* SpeechSynthesisService.swift in Sources */,
+				24477773D243706DD38DEAE8 /* VoiceSessionController.swift in Sources */,
+				A25A9CBD421CE8CAA5A4E69E /* SettingsView.swift in Sources */,
+				69CBC385D618CE9EF482ABAD /* TerminalHostView.swift in Sources */,
+				B4FB7038AB17421CCF2131D9 /* TerminalViewModel.swift in Sources */,
+				CFAB9A51DDDE8781DB735ABA /* TodayView.swift in Sources */,
+				DBD9CDC4686386E1DAA8CF54 /* TodayViewModel.swift in Sources */,
+				318E5E039F0ADB789E81166B /* GeoMobileApp.swift in Sources */,
+				7A28D36B57414DD011D60113 /* RootView.swift in Sources */,
+				949CCB2BA889F13BECA4FD98 /* BridgeClient.swift in Sources */,
+				14DFB70A9682CF304741E14D /* BridgeConfig.swift in Sources */,
+				DCF0AD879A28E11C6208F8CE /* BridgeTasksRepository.swift in Sources */,
+				CE57D3E8C33432C038C6065F /* EventKitService.swift in Sources */,
+				32A64BAB3B601A492033DC0E /* AirTheme.swift in Sources */,
+				FD33C377BF15E6A8ECD25FC8 /* Secrets.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		83D3A54A11A0F69161080EF6 /* Debug */ = {
+		0BF6D66C095FFEB4CCF33958 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -184,11 +256,14 @@
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = GeoMobile/Info.plist;
 				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Geo shows your calendar events in the day agenda.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Geo uses the microphone for voice messages in chat.";
 				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "Geo reads and completes the reminders your Mac mirrors here.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Geo transcribes your voice messages on device.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.gabrielmendonca.geomobile;
@@ -196,10 +271,11 @@
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.9;
 				TARGETED_DEVICE_FAMILY = 1;
+				VALIDATE_PRODUCT = YES;
 			};
-			name = Debug;
+			name = Release;
 		};
-		8A74511DCEC74E06F74FAC1F /* Release */ = {
+		64D9028C93EFC1587509B67D /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -253,7 +329,35 @@
 			};
 			name = Release;
 		};
-		9238B4D24194CEF35AB45881 /* Debug */ = {
+		970A838BA3CF0407CF224EB0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = GeoMobile/Info.plist;
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Geo shows your calendar events in the day agenda.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Geo uses the microphone for voice messages in chat.";
+				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "Geo reads and completes the reminders your Mac mirrors here.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Geo transcribes your voice messages on device.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = com.gabrielmendonca.geomobile;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		F0D27A5D30BF87786EF87806 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -314,49 +418,23 @@
 			};
 			name = Debug;
 		};
-		C7859DEA8CD2C1541BFDDEB6 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CLANG_ENABLE_OBJC_WEAK = NO;
-				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = "";
-				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Geo shows your calendar events in the day agenda.";
-				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "Geo reads and completes the reminders your Mac mirrors here.";
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
-				PRODUCT_BUNDLE_IDENTIFIER = com.gabrielmendonca.geomobile;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos;
-				SWIFT_VERSION = 5.9;
-				TARGETED_DEVICE_FAMILY = 1;
-				VALIDATE_PRODUCT = YES;
-			};
-			name = Release;
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		2B89B0F64302DD7E18550053 /* Build configuration list for PBXProject "GeoMobile" */ = {
+		24247EC0A2EDF919CEBAA1A0 /* Build configuration list for PBXProject "GeoMobile" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				9238B4D24194CEF35AB45881 /* Debug */,
-				8A74511DCEC74E06F74FAC1F /* Release */,
+				F0D27A5D30BF87786EF87806 /* Debug */,
+				64D9028C93EFC1587509B67D /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		9E6F4727B1E186DC0E70CF99 /* Build configuration list for PBXNativeTarget "GeoMobile" */ = {
+		B1F589BBB8F26B91247C03E9 /* Build configuration list for PBXNativeTarget "GeoMobile" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				C7859DEA8CD2C1541BFDDEB6 /* Release */,
-				83D3A54A11A0F69161080EF6 /* Debug */,
+				0BF6D66C095FFEB4CCF33958 /* Release */,
+				970A838BA3CF0407CF224EB0 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -364,19 +442,35 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		04A7725B493D78884E18C91F /* XCLocalSwiftPackageReference "GeoCore" */ = {
+		E735C81F755F919DAC99B6CA /* XCLocalSwiftPackageReference "GeoCore" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../GeoCore;
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		D166DD0B4A6C608586415B36 /* XCRemoteSwiftPackageReference "SwiftTerm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/migueldeicaza/SwiftTerm";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.13.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
-		973CBCEB1920759317579D23 /* GeoCore */ = {
+		AD59B6A1EB16B9C4B2B06E26 /* SwiftTerm */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 04A7725B493D78884E18C91F /* XCLocalSwiftPackageReference "GeoCore" */;
+			package = D166DD0B4A6C608586415B36 /* XCRemoteSwiftPackageReference "SwiftTerm" */;
+			productName = SwiftTerm;
+		};
+		DE48A70E3C4288190BBC5214 /* GeoCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E735C81F755F919DAC99B6CA /* XCLocalSwiftPackageReference "GeoCore" */;
 			productName = GeoCore;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
-	rootObject = 4EB843C01047373E5FE562BC /* Project object */;
+	rootObject = 188AAC0268B284C967A788B0 /* Project object */;
 }

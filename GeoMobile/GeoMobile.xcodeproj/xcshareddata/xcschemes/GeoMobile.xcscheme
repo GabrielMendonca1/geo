@@ -14,7 +14,7 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "FA4515290376445D27E6C319"
+               BlueprintIdentifier = "035BCAC2A122C79AD791FDBE"
                BuildableName = "GeoMobile.app"
                BlueprintName = "GeoMobile"
                ReferencedContainer = "container:GeoMobile.xcodeproj">
@@ -30,7 +30,7 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "FA4515290376445D27E6C319"
+            BlueprintIdentifier = "035BCAC2A122C79AD791FDBE"
             BuildableName = "GeoMobile.app"
             BlueprintName = "GeoMobile"
             ReferencedContainer = "container:GeoMobile.xcodeproj">
@@ -53,7 +53,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "FA4515290376445D27E6C319"
+            BlueprintIdentifier = "035BCAC2A122C79AD791FDBE"
             BuildableName = "GeoMobile.app"
             BlueprintName = "GeoMobile"
             ReferencedContainer = "container:GeoMobile.xcodeproj">
@@ -70,7 +70,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "FA4515290376445D27E6C319"
+            BlueprintIdentifier = "035BCAC2A122C79AD791FDBE"
             BuildableName = "GeoMobile.app"
             BlueprintName = "GeoMobile"
             ReferencedContainer = "container:GeoMobile.xcodeproj">

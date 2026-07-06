@@ -76,3 +76,4 @@ status.json
 ### Stray local artifacts ###
 test_hash
 .brain
+GeoMobile/GeoMobile/Shared/Secrets.swift
