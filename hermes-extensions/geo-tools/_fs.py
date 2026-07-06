@@ -18,7 +18,7 @@ import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 
-GEO_HOME = Path.home() / "Library" / "Application Support" / "Geo"
+GEO_HOME = Path.home() / "GeoVault"
 BLOCKS_DIR = GEO_HOME / "Blocks"
 TASKS_DIR = GEO_HOME / "Tasks"
 INDEX_DB = GEO_HOME / "Index" / "blocks.sqlite"

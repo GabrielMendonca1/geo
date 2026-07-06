@@ -1,12 +1,12 @@
 # PATCHES.md — fork patches do agent Geo sobre o hermes upstream
 
 Registro canônico dos patches que o agent Geo aplica **sobre o hermes-agent upstream puro**
-(`~/.hermes/hermes-agent`, branch `clean-v0.17.0` @ tag `v2026.6.19`). Reaplicar após cada
+(`~/.hermes/hermes-agent`, branch `biel-code` @ upstream main `76a468e5`, pós-tag `v2026.7.1`). Reaplicar após cada
 `hermes update` / troca de tag. Cada patch é mínimo e adaptado à versão — `git cherry-pick`
 NÃO serve (paths/linhas mudam entre releases). Antes desta consolidação (2026-06-20) os patches
 viviam só em carried commits e **erodiam silenciosamente** a cada update.
 
-Base atual: **v0.17.0 (2026.6.19)** · upstream `2bd1977d`.
+Base atual: **v0.18.0 + main `76a468e5`** (tag `v2026.7.1` + curated models fable-5/sonnet-5) · carried `65a610b0` (P2 reaplicado limpo). Anterior: v0.17.0 @ `5dd495c6`.
 
 ---
 

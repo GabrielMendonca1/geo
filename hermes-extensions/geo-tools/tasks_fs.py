@@ -1,7 +1,7 @@
 """File-native task CRUD + semantic-dedup engine for Gabriel's Geo vault.
 
 Replaces the HTTP task path. Tasks are individual ``.json`` files under
-``~/Library/Application Support/Geo/Tasks/<UUID>.json``; the file IS the task.
+``~/GeoVault/Tasks/<UUID>.json``; the file IS the task.
 Geo.app's TasksStore runs a FileWatcher on that dir with a self-write grace
 period, so an out-of-band atomic write is reconciled into its in-memory store
 (last atomic-rename wins).

@@ -1,7 +1,7 @@
 """
 geo-context — reads User Profile, Memory, Interaction Protocol and Today
 blocks (and arbitrary search results) directly from Gabriel's Geo vault files
-(``~/Library/Application Support/Geo/``). File-native: no HTTP, no Keychain —
+(``~/GeoVault/``). File-native: no HTTP, no Keychain —
 works even with Geo.app closed (the .md/.json files are truth).
 
 Auto-injection is RE-ENABLED (HOOK.yaml events: [session:start,
@@ -243,8 +243,8 @@ def _format_tasks(raw: Optional[str]) -> Optional[str]:
     return "\n".join(lines) if lines else None
 
 
-GEO_BLOCKS_DIR = Path(os.path.expanduser("~/Library/Application Support/Geo/Blocks"))
-GEO_TASKS_DIR = Path(os.path.expanduser("~/Library/Application Support/Geo/Tasks"))
+GEO_BLOCKS_DIR = Path(os.path.expanduser("~/GeoVault/Blocks"))
+GEO_TASKS_DIR = Path(os.path.expanduser("~/GeoVault/Tasks"))
 
 
 def _iter_block_files():

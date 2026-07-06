@@ -17,7 +17,7 @@ import sys
 import unicodedata
 from pathlib import Path
 
-TASKS_DIR = Path.home() / "Library" / "Application Support" / "Geo" / "Tasks"
+TASKS_DIR = Path.home() / "GeoVault" / "Tasks"
 
 
 def norm(s):

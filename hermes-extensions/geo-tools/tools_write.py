@@ -1,7 +1,7 @@
 """Write tool handlers for Geo — fully file-native (the vault is truth).
 
 BLOCK writers are native filesystem ops: a block IS its ``.md`` file under
-``~/Library/Application Support/Geo/Blocks/`` with YAML frontmatter
+``~/GeoVault/Blocks/`` with YAML frontmatter
 (id/type/status/layer/tags) + an inline ``[[YYYY-MM-DD]]`` day-link. The
 ``guard`` module enforces ``BlockLayer.allowsAgentWrites`` — agents may write
 only agent/review/shared blocks, never user (Você). TASK writers delegate to
@@ -50,9 +50,7 @@ def _wrap(handler: Callable[[dict], Any]) -> Callable:
 
 # --- Native filesystem block ops (files are truth) -------------------------
 
-BLOCKS_DIR = (
-    Path.home() / "Library" / "Application Support" / "Geo" / "Blocks"
-)
+BLOCKS_DIR = Path.home() / "GeoVault" / "Blocks"
 _SANITIZE_RE = re.compile(r'[/:\\*?"<>|]')
 _TYPES = ("fleeting", "literature", "permanent", "moc", "project")
 _LAYERS = ("user", "agent", "review", "shared")
@@ -68,7 +66,7 @@ def _canonical_tag(name: str) -> str:
 
 def _sanitize_filename(title: str) -> str:
     name = _SANITIZE_RE.sub("-", title or "")
-    name = name.replace(" ", "-").strip("-")
+    name = " ".join(name.split()).strip(" -")
     return _nfc(name) or "Block"
 
 

@@ -34,7 +34,7 @@ from . import guard, tasks_fs
 from .client import GeoError
 
 BLOCKS_DIR = (
-    Path.home() / "Library" / "Application Support" / "Geo" / "Blocks"
+    Path.home() / "GeoVault" / "Blocks"
 )
 
 CONFIRM_TTL_S = 900.0
