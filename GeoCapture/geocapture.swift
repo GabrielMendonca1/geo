@@ -15,7 +15,7 @@ let vaultCapturesDir = fm.homeDirectoryForCurrentUser
     .appendingPathComponent("Captures", isDirectory: true)
 let processedRegistryURL = vaultCapturesDir.appendingPathComponent(".processed.json", isDirectory: false)
 
-let pollInterval: TimeInterval = 5
+let pollInterval: TimeInterval = 1
 let recencyWindow: TimeInterval = 15
 let stabilizeRetries = 10
 let stabilizeDelay: TimeInterval = 0.3
@@ -232,7 +232,8 @@ func yamlEscape(_ value: String) -> String {
     value.replacingOccurrences(of: "\"", with: "\\\"")
 }
 
-func writeClipboardPayload(imageData: Data, ocrText: String, fileURL: URL) {
+@discardableResult
+func writeClipboardPayload(imageData: Data, ocrText: String, fileURL: URL?) -> Int {
     let pasteboard = NSPasteboard.general
     pasteboard.clearContents()
     let item = NSPasteboardItem()
@@ -243,11 +244,14 @@ func writeClipboardPayload(imageData: Data, ocrText: String, fileURL: URL) {
             item.setData(png, forType: .png)
         }
     }
-    item.setString(fileURL.absoluteString, forType: .fileURL)
+    if let fileURL {
+        item.setString(fileURL.absoluteString, forType: .fileURL)
+    }
     if !ocrText.isEmpty {
         item.setString(ocrText, forType: .string)
     }
     pasteboard.writeObjects([item])
+    return pasteboard.changeCount
 }
 
 func persistCapture(originalName: String, data: Data, ocrText: String, capturedAt: Date) -> URL? {
@@ -354,11 +358,22 @@ func process(_ candidate: Candidate) {
         return
     }
 
+    // Phase 1: image is pasteable immediately; OCR text upgrades the same clipboard entry later.
+    let instantChange = writeClipboardPayload(imageData: data, ocrText: "", fileURL: nil)
+    logErr("clipboard primed with \(candidate.url.lastPathComponent) (image only)")
+
     let text = runOCR(on: cgImage)
     let storedURL = persistCapture(originalName: candidate.url.lastPathComponent, data: data, ocrText: text, capturedAt: candidate.timestamp)
     processed.insert(candidate.key)
     try? fm.removeItem(at: candidate.url)
-    writeClipboardPayload(imageData: data, ocrText: text, fileURL: storedURL ?? candidate.url)
+
+    // Phase 2: only overwrite if the clipboard still holds our phase-1 payload —
+    // anything the user copied during OCR must win.
+    if NSPasteboard.general.changeCount == instantChange {
+        writeClipboardPayload(imageData: data, ocrText: text, fileURL: storedURL ?? candidate.url)
+    } else {
+        logErr("clipboard changed during OCR; leaving user content untouched")
+    }
     logErr("processed \(candidate.url.lastPathComponent) (\(text.count) chars OCR)")
 }
 

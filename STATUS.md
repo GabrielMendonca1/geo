@@ -23,3 +23,9 @@ Histórico anterior (era do app macOS + migração Obsidian, jan–jul/2026): `d
 - Verificação tátil GeoMobile (Today unificado) + teste de mídia WhatsApp (v3) — **com outro agente**.
 - F2 da migração: bridge na VM + Syncthing (parcial; sync-conflict já mitigado com maxConflicts=0 + filtro + rescan 300s).
 - Ressalvas conhecidas do context_scraping: `task_archive/` sem poda; repeat null-target pode gerar blocos `Nome-N.md`.
+
+# 2026-07-06 — claude-brain no vault + clipboard 2 fases no geocapture
+- **Bancada geo-claude MIGRADA pra dentro do vault**: `.claude/` (hook geo_context, /pensar /ideia /aprofundar, @brain-researcher, settings) + `CLAUDE.md` novo em `~/GeoVault/`; comando novo **`claude-brain`** (/opt/homebrew/bin, cd no vault + Soul injetado; `--add-dir` dispensado). `~/geo-claude` e `geo-claude-brain` removidos; scripts soltos arquivados em `~/Lab/geo-claude-scripts`. `.claude` e `/CLAUDE.md` no `.stignore` (não syncam pra VM).
+- **geocapture clipboard 2 fases**: imagem no clipboard IMEDIATA (fase 1, antes do OCR), payload completo (imagem+OCR+fileURL) depois — só sobrescreve se `changeCount` não mudou (cópia do usuário durante OCR vence). Poll 5s→1s.
+- **ROOT CAUSE pipeline morto desde 05/07**: TCC do Desktop negado (Cocoa 256; binário novo trava em `open()` síncrono no consent sem UI — launchd). Fix permanente: screenshots movidos pra `~/Screenshots` (sem TCC) via as 3 chaves `com.apple.screencapture`; daemon nem toca mais no Desktop. Captures de 05-06/07 perdidos (janela morta).
+- Gate: e2e real — cp de png com texto em `~/Screenshots` → "clipboard primed (image only)" + par `.png`+`.md` no vault + `pbpaste` = texto do OCR + `clipboard info` = TIFF/PNG/furl/utf8.
