@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>GEO_BRIDGE_BIND</key>
+		<string>127.0.0.1</string>
+		<key>GEO_BRIDGE_PORT</key>
+		<string>8643</string>
+		<key>GEO_BRIDGE_TERM_TOKEN_FILE</key>
+		<string>/Users/biel/.hermes/geobridge.term.token</string>
+		<key>GEO_BRIDGE_TOKEN_FILE</key>
+		<string>/Users/biel/.hermes/geobridge.token</string>
+		<key>GEO_DISPATCHES_DIR</key>
+		<string>/Users/biel/.hermes/dispatches</string>
+		<key>GEO_TASKS_DIR</key>
+		<string>/Users/biel/GeoVault/Tasks</string>
+		<key>GEO_TERM_ENABLED</key>
+		<string>1</string>
+		<key>GEO_TERM_SESSION</key>
+		<string>mobile</string>
+		<key>GEO_TERM_TMUX</key>
+		<string>/opt/homebrew/bin/tmux</string>
+		<key>HERMES_KEY_FILE</key>
+		<string>/Users/biel/.hermes/api_server.key</string>
+		<key>HERMES_URL</key>
+		<string>http://127.0.0.1:8642</string>
+	</dict>
+	<key>KeepAlive</key>
+	<true/>
+	<key>Label</key>
+	<string>ai.geo.bridge</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/bin/python3</string>
+		<string>/Users/biel/ARCA/Forge/Geo/GeoBridge/geobridge.py</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StandardErrorPath</key>
+	<string>/Users/biel/Library/Logs/geobridge.err</string>
+	<key>ThrottleInterval</key>
+	<integer>5</integer>
+</dict>
+</plist>
