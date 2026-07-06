@@ -109,6 +109,17 @@ BOOTSTRAP_CHUNK_MSGS = 250
 CHAT_PRUNE_DAYS = 90
 MAX_TASK_MUTATIONS = 5
 
+MEDIA_DIR = HERMES_HOME / "wa_media"
+FFMPEG_BIN = os.environ.get("HERMES_FFMPEG_BIN", "/opt/homebrew/bin/ffmpeg")
+WHISPER_BIN = os.environ.get("HERMES_WHISPER_BIN", "/opt/homebrew/bin/whisper-cli")
+WHISPER_MODEL = Path(os.path.expanduser(os.environ.get("HERMES_WHISPER_MODEL", "~/.cache/whisper/ggml-large-v3-turbo.bin")))
+FFMPEG_TIMEOUT_S = 60
+WHISPER_TIMEOUT_S = 300
+VISION_IMG_MAX_BYTES = 5_000_000
+PDF_MAX_BYTES = 10_000_000
+MEDIA_ENRICH_KINDS = {"audio", "image", "document"}
+_media_memo: dict[str, str] = {}
+
 OAUTH_BETA = "oauth-2025-04-20"
 CLAUDE_CODE_USER_AGENT = "claude-cli/2.1.152 (external, cli)"
 ANTHROPIC_BASE = "https://api.anthropic.com"
@@ -497,6 +508,132 @@ def bucket_by_chat(records: list[dict]) -> list[dict]:
     return out
 
 
+def _transcribe_audio(path: Path) -> str:
+    wav = path.with_suffix(".enrich.wav")
+    base = str(wav.with_suffix(""))
+    try:
+        subprocess.run(
+            [FFMPEG_BIN, "-y", "-i", str(path), "-ar", "16000", "-ac", "1", "-f", "wav", str(wav)],
+            capture_output=True, timeout=FFMPEG_TIMEOUT_S,
+        )
+        if not wav.exists():
+            return ""
+        subprocess.run(
+            [WHISPER_BIN, "-m", str(WHISPER_MODEL), "-f", str(wav), "-l", "pt", "-nt", "-otxt", "-of", base],
+            capture_output=True, timeout=WHISPER_TIMEOUT_S,
+        )
+        out = Path(base + ".txt")
+        return out.read_text(errors="replace").strip() if out.exists() else ""
+    finally:
+        for f in (wav, Path(base + ".txt")):
+            try:
+                f.unlink()
+            except Exception:
+                pass
+
+
+async def _vision_describe(http, headers: dict, path: Path, mime: str, caption: str | None) -> str:
+    import base64
+
+    b64 = base64.b64encode(path.read_bytes()).decode("ascii")
+    blocks = [
+        {"type": "image", "source": {"type": "base64", "media_type": mime or "image/jpeg", "data": b64}},
+        {"type": "text", "text": f"Descreva esta imagem em 1 frase curta em português. Legenda do usuário (contexto): {caption or '(nenhuma)'}. Só a descrição, sem preâmbulo."},
+    ]
+    out = await _call_model(
+        http, headers, HAIKU_MODEL, "", MAX_TOKENS_OUT, PER_CALL_TIMEOUT_S, content_blocks=blocks
+    )
+    return (out or "").strip()[:200]
+
+
+async def _pdf_gist(http, headers: dict, path: Path, caption: str | None) -> str:
+    import base64
+
+    b64 = base64.b64encode(path.read_bytes()).decode("ascii")
+    blocks = [
+        {"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": b64}},
+        {"type": "text", "text": f"Resuma o conteúdo deste PDF em 1-2 frases em português (gist). Legenda: {caption or '(nenhuma)'}."},
+    ]
+    out = await _call_model(
+        http, headers, HAIKU_MODEL, "", MAX_TOKENS_OUT, PER_CALL_TIMEOUT_S, content_blocks=blocks
+    )
+    return (out or "").strip()[:300]
+
+
+async def enrich_media_one(record: dict, http, headers: dict) -> str:
+    media = record.get("media") or {}
+    path = media.get("path")
+    mime = (media.get("mime") or "").lower()
+    kind = record.get("type")
+    if not path or kind not in MEDIA_ENRICH_KINDS:
+        return ""
+    if path in _media_memo:
+        return _media_memo[path]
+    sidecar = Path(path + ".txt")
+    if sidecar.exists():
+        txt = sidecar.read_text(errors="replace").strip()
+        _media_memo[path] = txt
+        return txt
+    p = Path(path)
+    if not p.exists():
+        return ""
+    result = ""
+    cacheable = False
+    try:
+        if kind == "audio":
+            transcript = _transcribe_audio(p)
+            if transcript:
+                result = f"[áudio transcrito] {transcript}"
+                cacheable = True
+        elif kind == "image":
+            if p.stat().st_size <= VISION_IMG_MAX_BYTES:
+                desc = await _vision_describe(http, headers, p, mime, record.get("text"))
+                if desc:
+                    result = f"[imagem: {desc}]"
+                    cacheable = True
+            else:
+                result = "[imagem: grande demais p/ análise]"
+                cacheable = True
+        elif kind == "document":
+            if mime == "application/pdf" and p.stat().st_size <= PDF_MAX_BYTES:
+                gist = await _pdf_gist(http, headers, p, record.get("text"))
+                if gist:
+                    result = f"[documento PDF: {gist}]"
+                    cacheable = True
+            else:
+                fn = media.get("filename") or p.name
+                result = f"[arquivo: {fn} ({mime or 'desconhecido'})]"
+                cacheable = True
+    except Exception as e:
+        log(f"enrich_media failed [{p.name}]: {e}")
+        result = ""
+        cacheable = False
+    if cacheable:
+        try:
+            _atomic_write(sidecar, result)
+        except Exception:
+            pass
+        _media_memo[path] = result
+        return result
+    _media_memo[path] = ""
+    return ""
+
+
+async def enrich_window_media(records: list[dict], http, headers: dict) -> None:
+    media_recs = [r for r in records if r.get("media") and r.get("type") in MEDIA_ENRICH_KINDS]
+    if not media_recs:
+        return
+
+    async def one(r: dict) -> None:
+        try:
+            r["_media_text"] = await enrich_media_one(r, http, headers)
+        except Exception as e:
+            log(f"enrich_window_media task failed: {e}")
+            r["_media_text"] = ""
+
+    await asyncio.gather(*(one(r) for r in media_recs))
+
+
 def format_messages(messages: list[dict]) -> str:
     lines: list[str] = []
     for m in messages:
@@ -507,7 +644,10 @@ def format_messages(messages: list[dict]) -> str:
         ts = (m.get("ts") or "")[:19].replace("T", " ")
         text = (m.get("text") or "").strip().replace("\n", " ")
         mtype = m.get("type") or ""
-        if mtype not in ("text", ""):
+        enriched = m.get("_media_text")
+        if enriched:
+            text = f"{enriched} {text}".strip() if text else enriched
+        elif mtype not in ("text", ""):
             text = f"[{mtype}] {text}".strip()
         if not text:
             text = f"[{mtype or 'sem conteúdo'}]"
@@ -560,12 +700,13 @@ async def _call_model(
     attempts: int = RETRY_ATTEMPTS + 1,
     effort: str | None = None,
     adaptive_thinking: bool = False,
+    content_blocks: list | None = None,
 ) -> str | None:
     body = {
         "model": model,
         "max_tokens": max_tokens,
         "system": [{"type": "text", "text": CLAUDE_CODE_SYSTEM}],
-        "messages": [{"role": "user", "content": prompt}],
+        "messages": [{"role": "user", "content": content_blocks if content_blocks is not None else prompt}],
     }
     if effort:
         body["output_config"] = {"effort": effort}
@@ -1276,6 +1417,8 @@ async def run_whatsapp() -> int:
     sem = asyncio.Semaphore(MAX_CONCURRENT)
 
     async with httpx.AsyncClient() as http:
+        await enrich_window_media(records, http, headers)
+
         async def gated(bucket: dict) -> dict:
             async with sem:
                 return await classify_bucket(http, headers, bucket)
