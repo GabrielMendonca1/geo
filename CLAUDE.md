@@ -1,93 +1,54 @@
 # Geo
 
-Personal, local-first macOS knowledge hub: a native **Swift/SwiftUI** app plus **hermes**, a 24/7 agent LaunchAgent on the same Mac. Both read/write the **same Markdown vault directly over the filesystem — no socket, no MCP, no HTTP between them**. The app captures, organizes, transcribes, and renders a Zettelkasten graph; hermes bridges WhatsApp/Gmail/Telegram, runs cron prompts, and dispatches Claude Code subagents.
+Personal, local-first knowledge system. The vault is **`~/GeoVault/`** — plain Markdown, edited via Obsidian — and every component reaches it **only through the native filesystem**: no MCP, no HTTP API, no socket between components. The former macOS app was retired 2026-07-04 (code lives in git history); `~/Library/Application Support/Geo/` is a frozen backup that nothing reads or writes.
 
 ```
-Geo.app (SwiftUI)  ──derives──▶  Index/blocks.sqlite   (rebuildable cache)
-  notch · capture · graph · tasks · calendar · OCR · Nano
-        │ writes .md
-        ▼
-~/Library/Application Support/Geo/Blocks/**.md   ← single source of truth
-        ▲
-        │ native filesystem only (no socket)
-hermes (LaunchAgent)   WhatsApp · Gmail · Telegram · cron · cc-dispatch
+~/GeoVault/
+  Blocks/**.md         ← single source of truth (Zettelkasten)
+  Tasks/<id>.json      one file per task
+  Captures/YYYY-MM-DD/ screenshot+OCR pairs (geocapture writes, others read)
+  Index/blocks.sqlite  rebuildable FTS cache (geo_indexer) — NEVER authoritative
+        ▲ filesystem only
+hermes (LaunchAgent)  WhatsApp · Gmail · Telegram · cron · cc-dispatch
+GeoBridge (launchd)   tasks/terminal/chat → GeoMobile over Tailscale
+GeoCalendar/GeoCapture daemons  ·  GeoMobile (iOS)  ·  GeoCore (shared Swift pkg)
 ```
 
-This file is the source of truth for the architecture. Deep dives on demand: storage model → `Geo/docs/adr/ADR-0002-files-are-truth-vault-native-storage.md`; install + macOS permissions → `INSTALL.md`; hermes runtime → `hermes/config.yaml` + `hermes/SOUL.md`.
-
-## Build / run / test
-
-Scheme is `Geo` (auto-generated from the target; there is no checked-in `.xcscheme`).
-
-```bash
-xcodebuild -project Geo.xcodeproj -scheme Geo -destination 'platform=macOS' build
-xcodebuild -project Geo.xcodeproj -scheme Geo -destination 'platform=macOS' test
-xcodebuild clean -scheme Geo
-```
-
-- **Tests run as-is.** The Debug config sets `ENABLE_DEBUG_DYLIB = NO` + `ENABLE_HARDENED_RUNTIME = NO` (in `project.pbxproj`) so the XCTest host launches — don't re-add those as command-line flags.
-- **To actually RUN the app, build Release and copy it in** — a Debug build crashes on launch (`@rpath/Geo.debug.dylib`):
-  ```bash
-  export DEVELOPER_DIR="$HOME/Applications/Xcode-beta.app/Contents/Developer"
-  SRC=$(xcodebuild -scheme Geo -configuration Release -showBuildSettings | awk '/ BUILT_PRODUCTS_DIR /{print $3; exit}')
-  ditto "$SRC/Geo.app" /Applications/Geo.app && open /Applications/Geo.app
-  ```
-- **Distributable DMG** (ad-hoc signed, no Apple account needed): `bash Geo/scripts/build_dist.sh`. Notarize path: `Geo/scripts/notarize.sh` (see `INSTALL.md`).
-- **Verify UI changes by running the real app**, not by tests alone — the editor keystroke path has invariants the suite can't catch (see Hard rules).
+This file is the source of truth for architecture and rules. Deep dives: mobile↔bridge surface → `GeoBridge/CONTRACT.md`; hermes runtime → `hermes/config.yaml` + `hermes/SOUL.md`; fork patches over upstream → `hermes/PATCHES.md`.
 
 ## Hard rules
 
-- **Files are truth.** A block *is* its `.md` file. `Index/blocks.sqlite` (FTS + graph + `block_tags` + `block_days`) is a **rebuildable cache, never authoritative** — corruption is fixed by re-deriving from files (FileWatcher → `BlockChangeReconciler` → rebuild). Only `tags.json` (tag colors) and `days.json` survive as small central caches/fallbacks; the `.blocks-metadata.json` sidecar is retired.
-- **Sandbox is OFF** (`com.apple.security.app-sandbox = false`). Required for screenshot-dir watching, launching subagents, and the `CGEventTap` hotkey. Moving to the App Store would force this to change.
-- **State lives in singleton stores**, not views. New persisted state → a new Store (`@MainActor ObservableObject`), never a stray `@State`.
-- **hermes writes only its layers.** It may raw-FS-write `Agente`/`Revisao`/`Compartilhado` blocks, **never `Voce/`** (the user's) — enforced by `hermes-extensions/geo-tools/guard.py` + FileWatcher quarantine.
-- **Editor keystroke invariants** (`Geo/Features/Blocks/UI/BlockEditor.swift`): the marked-text guard, the `editGeneration` bump, and the `isApplyingTransaction` mask are load-bearing. Drop any one and the editor freezes on specific inputs *while still passing the suite*. Verify editor edits by running the app.
-- **TDD.** Track work in `Geo/conductor/tracks/<track>/plan.md`; tech-stack changes go in `Geo/conductor/tech-stack.md`.
+- **Files are truth.** A block *is* its `.md` file (frontmatter `id/type/status/layer/tags` + inline `[[wikilinks]]` and `[[YYYY-MM-DD]]` day-links). `Index/blocks.sqlite` is a rebuildable cache — corruption is fixed by re-running `hermes/scripts/geo_indexer.py`, never by hand-editing the DB.
+- **hermes writes only its layers.** Raw-FS writes allowed on `agent`/`review`/`shared` blocks, **never `user`** — enforced by `hermes-extensions/geo-tools/guard.py`.
+- **The old vault path is forbidden.** Nothing may read or write `~/Library/Application Support/Geo/`; `GeoCapture` carries an explicit guard against it.
+- **Sync-conflict files are dead.** Syncthing `.sync-conflict-*` files are skipped by the indexer and all readers — never index or resurrect them.
+- **Two live copies of the hermes layer.** `hermes/` in this repo is source; `~/.hermes/` is the installed runtime (synced via `install.sh` / manual copy). Check drift (md5) before editing either side.
 - **Commit format:** `<type>(<scope>): <description>` — `feat fix docs style refactor test chore`.
 
-## App layout (`Geo/`)
+## Components
 
+| Dir | What |
+|---|---|
+| `hermes/` | Geo layer over upstream hermes-agent: `SOUL.md` (identity), `PATCHES.md` (fork patches — reapply after each upstream update), `hooks/geo-context` (context auto-injection), `scripts/` (`geo_indexer.py` → FTS index; `context_scraping.py` → WhatsApp→vault life-context pipeline), `whatsapp-ingest/` (Baileys sidecar + media download), `launch-agents/` |
+| `hermes-extensions/` | Plugins: `geo-tools` (file-native `geo_*` tools; reads via the sqlite index with file-scan fallback, writes native FS under the layer guard), geo-search-tool, whatsapp-confirm, brain-vault |
+| `GeoBridge/` | `geobridge.py` + plist `ai.geo.bridge` — serves `/tasks`, `/term/*` (tmux), `/chat` to GeoMobile, tailnet-only bind + bearer tokens. Blast-radius rules in `CONTRACT.md` |
+| `GeoMobile/` | iOS app (SwiftUI). Project generated by `ruby gen_project.rb` (never hand-edit the pbxproj). `Shared/Secrets.swift` is gitignored |
+| `GeoCore/` | Swift package shared with GeoMobile |
+| `GeoCalendar/` | Daemon: vault tasks → EKEvents, 4 calendars by type (Tarefas/Hábitos/Eventos/Marcos) |
+| `GeoCapture/` | Daemon: screenshot dir watch + Vision OCR → `Captures/` |
+| `tests/` | `geo_time_contract.py` — time/tz contract for geo-tools (run: `python3 tests/geo_time_contract.py`) |
+
+## GeoMobile build (device)
+
+```bash
+cd GeoMobile && ruby gen_project.rb
+xcodebuild -project GeoMobile.xcodeproj -scheme GeoMobile \
+  -destination 'platform=iOS,id=<device-id>' -allowProvisioningUpdates build
 ```
-App/         @main, composition, Notch UI, entitlements
-Features/    feature-first modules (each = Data + Domain + UI):
-             Blocks Tasks Calendar Capture Graph Brains Nano
-             FloatingShelf Home Settings About Onboarding
-Shared/      DesignSystem · Infrastructure (GRDB) · Navigation · Platform · Tags · Support
-Utilities/ Extensions/   small cross-cutting helpers
-Tests/       XCTest
-docs/        ADRs (adr/) + architecture notes
-conductor/   product/process tracks, tech-stack, product guidelines
-scripts/     build_dist.sh · notarize.sh · dev
-```
+Install via `devicectl`. The bridge is reached over HTTPS (`tailscale serve`) — iOS ATS ignores `NSAllowsArbitraryLoads`.
 
-Key services: `OCRService` (Vision) · `GlobalHotkeyManager` (CGEventTap) · `PermissionRegistry` · `DatabaseService`/`IndexCoordinator` (GRDB) · `DayManager` (midnight transitions).
+## hermes inference lanes
 
-Design system: Geo Blue `#0055FF` · SF Pro · SF Symbols · dark mode · Apple HIG. Details in `Geo/conductor/product-guidelines.md`.
+Chat lane runs **`gpt-5.5` via `openai-codex`** (latency/tool-reliability-bound). Heavy/coding work goes to **Claude via `cc-dispatch`** (`~/.hermes/bin/cc-dispatch "<brief>" --dir <abs>` → detached workers under `~/.hermes/dispatches/<id>/`). `model.default` must stay non-empty. Current rationale lives in `hermes/config.yaml` `model:` block.
 
-## Storage model
-
-The `.md` file holds the whole truth: frontmatter Properties (`id`, `type`, `status`, `layer`, `tags`, `full_width` — omitted when false) plus inline `[[wikilinks]]` and `[[YYYY-MM-DD]]` day-links in the body. The app **derives** everything else (FTS, graph, tag-map, day-map) into `Index/blocks.sqlite`. Layer is a frontmatter property **today — the vault is flat**; ADR-0002 specifies a future folder-per-layer split (`Voce`/`Agente`/`Revisao`/`Compartilhado` — ASCII slugs on disk, accented display names) and `guard.py` already checks the folder segment so it survives that split. `frontmatter_version` is still written (monotonic) but is **not** a coordination lock: this is a single-user serial app and all readers tolerate its absence.
-
-## hermes
-
-24/7 agent daemon (LaunchAgent `ai.hermes.gateway`) that keeps WhatsApp/Gmail/Telegram online and runs cron prompts. Install: `bash hermes/install.sh`, then `launchctl list ai.hermes.gateway` to verify.
-
-```
-hermes/
-  config.yaml       platforms · model · approvals · quick_commands — live source of truth for runtime behavior
-  SOUL.md           system prompt / identity
-  bin/cc-dispatch   spawns detached `claude` workers → ~/.hermes/dispatches/<id>/
-  install.sh        drops the plist into ~/Library/LaunchAgents and starts the gateway
-hermes-extensions/  plugins: geo-tools (file-native geo_* vault tools + RO sqlite index + guard.py),
-                    geo-search-tool, whatsapp-confirm, brain-vault
-```
-
-Runtime state (managed by hermes, NOT in repo): `~/.hermes/` — `.env`, `SOUL.md`, `memories/`, `db/hermes.sqlite`, `logs/gateway.log`, `dispatches/`.
-
-**In-app surface (Nano).** `Geo/Features/Nano/` reads hermes state **straight from the filesystem**: `HermesStatusService` (status + log tail) and `HermesKanbanService` (`~/.hermes/dispatches/`). There is no `HermesHTTPTransport` — the app never opens a socket to hermes. Settings → Hermes (`NanoHermesSettingsView`) installs the daemon and surfaces `API_SERVER_KEY` from `~/.hermes/.env`.
-
-**Inference.** The gateway runs on **`gpt-5.5` via the `openai-codex` provider** (native tool_calls + streaming, one HTTP call per hop); the chat lane is latency/tool-reliability-bound, not intelligence-bound. Heavy/coding work goes to **Claude via `cc-dispatch`** workers. `model.default` must stay non-empty (agent-mode crons resolve `job.model → model.default`). `model.full`/`model.nano` (`claude-opus-4-8`/`claude-haiku-4-5`) are used **only by tool-free standalone scripts** via the Max-sub OAuth Keychain token, billing the included quota. Running the *gateway* on Claude currently 400s ("out of extra usage") — the Max sub's included quota is depleted/contended on this Mac, so switching needs funded extra usage. The `claude-code-local` `claude -p` proxy lane is retired. Full current rationale: `hermes/config.yaml` `model:` block.
-
-**cc-dispatch.** `~/.hermes/bin/cc-dispatch "<brief>" --dir <abs> [--model <id>] [--title <t>]` spawns `claude -p … --output-format stream-json --dangerously-skip-permissions` detached, tracked as files under `~/.hermes/dispatches/<id>/` (`status` · `log.jsonl` · `result.json`). Run several at once with different `--dir`. There is no kanban lane and no `claude_code_run` MCP tool.
-
-> Historical: the in-app Agent pane (`symphony: true` frontmatter, `~/.symphony/`) and `geo-claw` were removed — worker-spawning is now entirely out-of-app via `cc-dispatch`. Inert `symphony:` keys in old blocks are leftover user data.
+Runtime state (managed by hermes, NOT in repo): `~/.hermes/` — `.env`, `SOUL.md` (symlink to repo), `state.db`, `logs/gateway.log`, `status.json`, `dispatches/`, `wa_media/`.

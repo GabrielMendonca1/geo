@@ -59,7 +59,7 @@ def _load_geotools(base: Path):
 
 
 def _load_extractor(base: Path):
-    """Import whatsapp-extractor for its pure _resolve_due; stub heavy deps it
+    """Import context_scraping for its pure _resolve_due; stub heavy deps it
     imports at module top so the harness runs under a plain python3."""
     for dep in ("httpx",):
         if dep not in sys.modules:
@@ -72,7 +72,7 @@ def _load_extractor(base: Path):
         gc.render_brain_context = lambda *a, **k: ""
         sys.modules["geo_context"] = gc
     sys.path.insert(0, str(base))
-    spec = importlib.util.spec_from_file_location("wa_extractor_ut", base / "whatsapp-extractor.py")
+    spec = importlib.util.spec_from_file_location("wa_extractor_ut", base / "context_scraping.py")
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
@@ -121,7 +121,7 @@ def main() -> int:
     check("_normalize_anchor naive local", tf._normalize_anchor("2026-12-15T14:50:00"), z(2026, 12, 15, 14, 50))
     check("_normalize_anchor date-only", tf._normalize_anchor("2026-12-15"), eod_z(2026, 12, 15))
 
-    print("\n-- cron whatsapp-extractor._resolve_due --")
+    print("\n-- cron context_scraping._resolve_due --")
     try:
         wa = _load_extractor(SCRIPTS_DIR)
         check("resolve_due naive local->utc", wa._resolve_due("2026-12-15T14:50:00"), z(2026, 12, 15, 14, 50))

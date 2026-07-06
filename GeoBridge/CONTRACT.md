@@ -17,7 +17,7 @@ Spec version: 3 (v2 + `/term/*` terminal). All facts below were extracted from t
 
 | Var | Default | Meaning |
 |---|---|---|
-| `GEO_TASKS_DIR` | `~/Library/Application Support/Geo/Tasks` | One `<id>.json` per task |
+| `GEO_TASKS_DIR` | `~/GeoVault/Tasks` | One `<id>.json` per task |
 | `GEO_DISPATCHES_DIR` | `~/.hermes/dispatches` | One dir per cc-dispatch worker |
 | `GEO_BRIDGE_BIND` | `100.123.44.9` | Tailnet address to bind (never `0.0.0.0`) |
 | `GEO_BRIDGE_PORT` | `8643` | |

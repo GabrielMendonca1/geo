@@ -3,7 +3,7 @@
 Fires on `session:start` and `session:reset`.
 
 Current file-native behavior:
-- Reads User Profile, Memory, Interaction Protocol, Today, and pending task state directly from Gabriel's Geo vault under `~/Library/Application Support/Geo/`.
+- Reads User Profile, Memory, Interaction Protocol, Today, and pending task state directly from Gabriel's Geo vault under `~/GeoVault/`.
 - Writes the fixed boot bundle to `~/.hermes/memories/MEMORY.md`.
 - Hermes injects that memory file into future sessions/turns according to `~/.hermes/config.yaml`.
 - The hook is TTL/hash gated, so unchanged or very recent fetches may not rewrite the file.

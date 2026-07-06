@@ -1,67 +1,45 @@
 # Geo
 
-A personal, local-first knowledge system for macOS: a native Swift app paired with a
-24/7 agent that lives on the same machine and turns everything you capture into a
-**personal brain that grows without bound**.
+Personal, local-first knowledge system: a plain-Markdown vault (**`~/GeoVault/`**, edited via Obsidian) plus **hermes**, a 24/7 agent LaunchAgent on the same Mac, and a set of satellite daemons that capture, index, and mirror everything — all over the native filesystem. No MCP, no HTTP API, no socket between components.
 
 > **Personal, non-commercial project.** Geo is built and run for one person's own use.
 > It is not a product, it is not for sale, and it is not intended for commercial
 > deployment or distribution. See [Use & license](#use--license).
 
-## What it is
-
-Geo runs as two halves side-by-side on the same Mac:
-
-- **The app** — a native macOS application written in **Swift / SwiftUI**. Local-first:
-  your data is plain Markdown files on disk (`~/Library/Application Support/Geo/`), never
-  a remote service. It gives you a notch UI, global-hotkey capture, screenshot OCR, a live
-  knowledge graph, tasks, and a calendar.
-
-- **hermes** — a **24/7 agent daemon** (a macOS LaunchAgent) with **full access to the
-  machine**. It stays always-on, working in the background even when the app is closed: it
-  bridges WhatsApp / Gmail / Telegram, runs scheduled prompts, dispatches coding subagents,
-  and reads/writes the same Markdown vault directly over the native filesystem.
-
-## The method: Zettelkasten, grown forever
-
-Geo is built around the **Zettelkasten** methodology — atomic notes ("blocks") linked to
-each other with `[[wikilinks]]`. Every capture becomes a block; every link thickens the
-web. There is no folder hierarchy to maintain and no ceiling on size: the graph is designed
-to **grow infinitely**, becoming denser and more useful the more you feed it. Because the
-24/7 agent continuously files, links, and resurfaces notes on its own, the brain compounds
-over time instead of rotting in an inbox.
-
-- **Files are truth.** A block *is* its `.md` file — frontmatter properties plus inline
-  `[[wikilinks]]` and `[[YYYY-MM-DD]]` day-links. Everything else (full-text search, the
-  graph, tag and day maps) is a rebuildable cache derived from those files.
-- **Local-first & private.** Your notes never leave the machine. The repo contains no
-  personal data — the vault lives outside it, under `~/Library/Application Support/Geo/`.
-
 ## Architecture
 
 ```
-Geo.app (Swift/SwiftUI)  ──writes──▶  ~/Library/Application Support/Geo/Blocks/**.md
-   notch · capture · graph ·              (Markdown files = the single source of truth)
-   tasks · calendar · OCR                            ▲
-                                                     │ native filesystem
-                                          hermes (LaunchAgent, 24/7 agent)
-                                          WhatsApp · Gmail · Telegram · cron · subagents
+~/GeoVault/                              ← single source of truth
+  Blocks/**.md       Zettelkasten (frontmatter id/type/status/layer/tags + [[wikilinks]])
+  Tasks/<id>.json    one file per task
+  Captures/          screenshot .png + .md OCR pairs (written by geocapture)
+  Index/blocks.sqlite  rebuildable FTS cache (geo_indexer) — never authoritative
+        ▲ native filesystem only
+        │
+hermes (LaunchAgent 24/7)   WhatsApp · Gmail · Telegram · cron · cc-dispatch
+GeoBridge (launchd)         tasks/terminal/chat → GeoMobile over Tailscale
+GeoCalendar / GeoCapture    daemons: task→EKEvent mirror · screenshot+OCR
 ```
 
-More detail lives in [`CLAUDE.md`](CLAUDE.md), the ADRs under
-[`Geo/docs/adr/`](Geo/docs/adr/), and [`INSTALL.md`](INSTALL.md).
+## Components (this repo)
 
-## Build
+| Dir | What it is |
+|---|---|
+| `hermes/` | Geo layer over the upstream hermes-agent: `SOUL.md`, `PATCHES.md`, hooks (`geo-context`), scripts (`geo_indexer.py`, `context_scraping.py`), whatsapp-ingest, launch-agents |
+| `hermes-extensions/` | Plugins: `geo-tools` (file-native `geo_*` vault tools + layer guard), geo-search-tool, whatsapp-confirm, brain-vault |
+| `GeoBridge/` | HTTP bridge (launchd `ai.geo.bridge`) serving tasks/terminal/chat to GeoMobile over the tailnet — see `GeoBridge/CONTRACT.md` |
+| `GeoMobile/` | iOS app (SwiftUI): unified Today, Chat, Agents, Terminal |
+| `GeoCore/` | Swift package shared with GeoMobile |
+| `GeoCalendar/` | Swift daemon mirroring vault tasks into Apple Calendar EKEvents (4 calendars by type) |
+| `GeoCapture/` | Swift daemon: screenshot + OCR → `Captures/` in the vault |
+| `tests/` | `geo_time_contract.py` — time/timezone contract for the geo-tools |
 
-```bash
-xcodebuild build -scheme Geo -destination 'platform=macOS'
-```
+The former macOS app (Swift/SwiftUI) was **retired on 2026-07-04** — its code was removed from the repo (lives in git history). The old vault at `~/Library/Application Support/Geo/` is a frozen backup, read and written by nothing.
 
-For a distributable DMG (ad-hoc signed; no Apple Developer account required):
+- **Files are truth.** A block *is* its `.md` file; everything else (FTS, graph, tag/day maps) is a rebuildable cache derived from those files.
+- **Local-first & private.** Notes never leave the machine. The repo contains no personal data — the vault lives outside it, under `~/GeoVault/`.
 
-```bash
-bash Geo/scripts/build_dist.sh
-```
+Rules and deep dives: [`CLAUDE.md`](CLAUDE.md). Current work state: [`STATUS.md`](STATUS.md).
 
 ## Use & license
 
