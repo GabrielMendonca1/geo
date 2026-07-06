@@ -49,6 +49,9 @@ AUTH_PATH = HERMES_HOME / "auth.json"
 ENV_PATH = HERMES_HOME / ".env"
 CONFIG_PATH = Path(__file__).parent.parent / "config.yaml"
 STATE_PATH = HERMES_HOME / "context_scraping.state.json"
+CHATS_PATH = HERMES_HOME / "context_scraping.chats.json"
+TASK_ARCHIVE_DIR = HERMES_HOME / "task_archive"
+ARCHIVE_LOG = TASK_ARCHIVE_DIR / "archive_log.jsonl"
 
 GABRIEL_TELEGRAM_CHAT_ID = "5225262193"
 
@@ -77,7 +80,11 @@ def _decide_model() -> str:
     # WhatsApp uses the direct Claude OAuth API, not the Claude Code CLI model alias.
     # Keep this job independent from model.full because other standalone scripts
     # (close-day, geo-context) may still want Opus/Haiku defaults.
-    return os.environ.get("HERMES_WA_DECIDE_MODEL") or "claude-sonnet-5"
+    return os.environ.get("HERMES_WA_DECIDE_MODEL") or "claude-opus-4-8"
+
+
+def _decide_effort() -> str:
+    return os.environ.get("HERMES_WA_DECIDE_EFFORT") or "xhigh"
 
 
 # Persisted watermark (STATE_PATH, key last_processed_ts) is the real anti-overlap
@@ -87,14 +94,20 @@ WINDOW_HOURS = int(os.environ.get("HERMES_WA_WINDOW_HOURS", "2"))
 HAIKU_MODEL = _nano_model()
 MAX_CONCURRENT = 6
 PER_CALL_TIMEOUT_S = 45.0
-DECIDE_TIMEOUT_S = 120.0
+DECIDE_TIMEOUT_S = 300.0
 RETRY_ATTEMPTS = 2
 RETRY_BACKOFF_S = 1.5
 RATE_LIMIT_BACKOFF_S = 15.0
 RATE_LIMIT_BACKOFF_MAX_S = 90.0
 DECIDE_ATTEMPTS = 5
 MAX_TOKENS_OUT = 2000
-DECIDE_MAX_TOKENS_OUT = 4000
+DECIDE_MAX_TOKENS_OUT = 32000
+CHATS_VERSION = 1
+SUMMARY_CHAR_CAP = 1500
+BOOTSTRAP_MAX_MSGS = 1500
+BOOTSTRAP_CHUNK_MSGS = 250
+CHAT_PRUNE_DAYS = 90
+MAX_TASK_MUTATIONS = 5
 
 OAUTH_BETA = "oauth-2025-04-20"
 CLAUDE_CODE_USER_AGENT = "claude-cli/2.1.152 (external, cli)"
@@ -153,7 +166,10 @@ DECIDE_PROMPT_TEMPLATE = """Você é o segundo cérebro do Gabriel (hermes). Aba
 CONTEXTO DO CÉREBRO (vault real do Gabriel, files-are-truth — use para LINKAR e DEDUPLICAR):
 {brain_context}
 
-TASKS EXISTENTES NO GEO (ativas + concluídas recentes — NÃO duplique compromissos que já estão aqui):
+CONTEXTO DAS CONVERSAS (resumo vivo por chat ativo neste ciclo — use para entender o QUE já vinha acontecendo, não é proposta):
+{chat_summaries}
+
+TASKS EXISTENTES NO GEO (cada uma com seu id — para criar/dedup E para o CICLO DE VIDA abaixo):
 {tasks_context}
 
 PROPOSTAS (JSON, uma entrada por chat):
@@ -172,6 +188,11 @@ Como decidir:
 - CLIMA → digest.clima, UMA linha neutra sobre o DIA do Gabriel, ou null. Na dúvida, null. PROIBIDO: rastrear humor, pontuar sentimento, clima por pessoa. Não existe campo de humor por pessoa — é estrutural.
 - Não duplique em digest.social/people algo que já virou task ou já existe no CONTEXTO.
 - Não invente nada fora das propostas. Dúvida = não guarda.
+- CICLO DE VIDA DE TASKS EXISTENTES — só com evidência EXPLÍCITA na conversa (dúvida = não mexe):
+  - Se o contexto/resumo mostra que uma task ATIVA já foi FEITA → task_updates com action "complete" e o id EXATO dela.
+  - Se uma task ATIVA foi claramente CANCELADA, virou obsoleta, ou é DUPLICATA de outra → action "delete" com o id EXATO.
+  - Use SOMENTE ids que aparecem na lista de TASKS EXISTENTES. NUNCA invente id. NUNCA reabra uma task concluída. No máximo poucas mutações por ciclo — só as inequívocas.
+  - "reason" curta em português citando a evidência da conversa.
 
 Para cada bloco:
 - "title": o ASSUNTO real da conversa, em português com acentos, ≤60 caracteres, substantivo/conceito específico (Zettelkasten) — nunca uma frase genérica e nunca só uma data.
@@ -184,9 +205,38 @@ Para cada bloco:
   2) envolve cada pessoa/projeto/conceito saliente em [[wikilinks]]. Linke para títulos REAIS do contexto quando existirem; nunca invente um título de MOC fora da lista.
 
 Retorne JSON estrito (sem markdown, sem prefácio, sem ```):
-{{"blocks": [{{"title": "...", "body": "Parte de [[MOC — X]]\\n...com [[wikilinks]]...", "type": "fleeting", "layer": "review"}}], "tasks": [{{"title": "...", "due": "2026-06-22"}}], "urgent": [{{"text": "...", "chat": "..."}}], "people": [{{"target_block": "Antônio Gili ou null", "person": "Antônio", "note": "...", "moc": "MOC — Pessoal"}}], "digest": {{"clima": "linha leve única ou null", "social": ["jantar sexta com [[Bernardo Biglia]]"]}}}}
+{{"blocks": [{{"title": "...", "body": "Parte de [[MOC — X]]\\n...com [[wikilinks]]...", "type": "fleeting", "layer": "review"}}], "tasks": [{{"title": "...", "due": "2026-06-22"}}], "urgent": [{{"text": "...", "chat": "..."}}], "people": [{{"target_block": "Antônio Gili ou null", "person": "Antônio", "note": "...", "moc": "MOC — Pessoal"}}], "digest": {{"clima": "linha leve única ou null", "social": ["jantar sexta com [[Bernardo Biglia]]"]}}, "task_updates": [{{"id": "ABC-123...", "action": "complete", "reason": "Antonio confirmou que o QR PIX já está no ar"}}]}}
 
-Se nada vale: retorne as três listas vazias."""
+Se nada vale: retorne as listas vazias."""
+
+
+SUMMARY_UPDATE_PROMPT_TEMPLATE = """Você mantém um RESUMO VIVO desta conversa — o estado durável da relação, não um log.
+
+Chat: {label} (group={is_group}, jid={chat_id})
+
+RESUMO ANTERIOR:
+{prev_summary}
+
+MENSAGENS NOVAS (cronológicas):
+{new_messages}
+
+Funda o resumo anterior com as mensagens novas. Preserve fatos, compromissos e o estado da relação ainda vigentes; descarte conversa fiada. Foque no que está em aberto, no que foi combinado, quem espera o quê, e decisões tomadas. Português corrido, sem markdown, no máximo ~1200 caracteres.
+
+Retorne JSON estrito (sem markdown, sem prefácio, sem ```):
+{{"summary": "..."}}"""
+
+
+SUMMARY_BOOTSTRAP_CHUNK_PROMPT_TEMPLATE = """Você resume um trecho de conversa de WhatsApp, guardando só o estado durável.
+
+Chat: {label} (group={is_group}, jid={chat_id})
+
+MENSAGENS (cronológicas):
+{messages}
+
+Resuma este trecho em no máximo ~600 caracteres, só o durável: fatos, compromissos, combinados, decisões. Português corrido, sem markdown.
+
+Retorne JSON estrito (sem markdown, sem prefácio, sem ```):
+{{"summary": "..."}}"""
 
 
 def log(msg: str) -> None:
@@ -508,6 +558,8 @@ async def _call_model(
     max_tokens: int,
     timeout_s: float,
     attempts: int = RETRY_ATTEMPTS + 1,
+    effort: str | None = None,
+    adaptive_thinking: bool = False,
 ) -> str | None:
     body = {
         "model": model,
@@ -515,6 +567,10 @@ async def _call_model(
         "system": [{"type": "text", "text": CLAUDE_CODE_SYSTEM}],
         "messages": [{"role": "user", "content": prompt}],
     }
+    if effort:
+        body["output_config"] = {"effort": effort}
+    if adaptive_thinking:
+        body["thinking"] = {"type": "adaptive"}
     last_err: str | None = None
     for attempt in range(attempts):
         delay = RETRY_BACKOFF_S * (attempt + 1)
@@ -585,7 +641,159 @@ def has_proposals(bucket_result: dict) -> bool:
     return any(p.get(k) for k in ("facts", "tasks", "reminders", "urgent", "people", "social", "mood"))
 
 
-async def decide(http: httpx.AsyncClient, headers: dict, kept: list[dict], brain_context: str, tasks_context: str) -> tuple[dict, bool]:
+def load_chats() -> dict:
+    try:
+        data = json.loads(CHATS_PATH.read_text(encoding="utf-8"))
+        if isinstance(data, dict) and isinstance(data.get("chats"), dict):
+            return data
+    except Exception:
+        pass
+    return {"version": CHATS_VERSION, "chats": {}}
+
+
+def save_chats(store: dict) -> None:
+    try:
+        chats = store.get("chats")
+        if isinstance(chats, dict):
+            cutoff = (datetime.now(timezone.utc) - timedelta(days=CHAT_PRUNE_DAYS)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            for cid in list(chats.keys()):
+                entry = chats.get(cid) or {}
+                last = entry.get("last_msg_ts") or ""
+                if last and last < cutoff:
+                    del chats[cid]
+        store["version"] = CHATS_VERSION
+        _atomic_write(CHATS_PATH, json.dumps(store, ensure_ascii=False))
+    except Exception as e:
+        log(f"chats save failed: {e}")
+
+
+def read_full_history(chat_ids: set[str]) -> dict[str, list[dict]]:
+    out: dict[str, list[dict]] = {c: [] for c in chat_ids}
+    if not JSONL_PATH.exists() or not chat_ids:
+        return out
+    with JSONL_PATH.open("r", encoding="utf-8", errors="replace") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+            except Exception:
+                continue
+            chat = rec.get("chat") or ""
+            if chat not in out:
+                continue
+            if _is_empty_record(rec) or _is_one_way_chat(chat):
+                continue
+            out[chat].append(rec)
+    for c in out:
+        out[c].sort(key=lambda r: r.get("ts", ""))
+        out[c] = out[c][-BOOTSTRAP_MAX_MSGS:]
+    return out
+
+
+async def bootstrap_summary(http: httpx.AsyncClient, headers: dict, sem: asyncio.Semaphore, label: str, chat_id: str, is_group: bool, msgs: list[dict]) -> str | None:
+    if not msgs:
+        return ""
+    chunks = [msgs[i:i + BOOTSTRAP_CHUNK_MSGS] for i in range(0, len(msgs), BOOTSTRAP_CHUNK_MSGS)]
+
+    async def one(chunk: list[dict]) -> str:
+        async with sem:
+            raw = await _call_model(
+                http, headers, HAIKU_MODEL,
+                SUMMARY_BOOTSTRAP_CHUNK_PROMPT_TEMPLATE.format(
+                    label=label, chat_id=chat_id, is_group=is_group, messages=format_messages(chunk)),
+                MAX_TOKENS_OUT, PER_CALL_TIMEOUT_S,
+            )
+        p = parse_json_response(raw) or {}
+        return _as_text(p.get("summary")).strip()
+
+    partials = [s for s in await asyncio.gather(*(one(c) for c in chunks)) if s]
+    if not partials:
+        return None
+    if len(partials) == 1:
+        return partials[0][:SUMMARY_CHAR_CAP]
+    async with sem:
+        raw = await _call_model(
+            http, headers, HAIKU_MODEL,
+            SUMMARY_UPDATE_PROMPT_TEMPLATE.format(
+                label=label, chat_id=chat_id, is_group=is_group,
+                prev_summary="\n---\n".join(partials), new_messages="(sem novas)"),
+            MAX_TOKENS_OUT, PER_CALL_TIMEOUT_S,
+        )
+    p = parse_json_response(raw) or {}
+    s = _as_text(p.get("summary")).strip()
+    return s[:SUMMARY_CHAR_CAP] if s else "\n".join(partials)[:SUMMARY_CHAR_CAP]
+
+
+async def update_chat_summaries(http: httpx.AsyncClient, headers: dict, sem: asyncio.Semaphore, buckets: list[dict], store: dict) -> tuple[str, bool]:
+    chats = store.setdefault("chats", {})
+    ok = True
+    new_ids = {b["chat_id"] for b in buckets if b["chat_id"] not in chats}
+    hist = read_full_history(new_ids) if new_ids else {}
+
+    async def handle(b: dict) -> None:
+        nonlocal ok
+        cid = b["chat_id"]
+        entry = chats.get(cid)
+        try:
+            if entry is None:
+                msgs = hist.get(cid) or b["messages"]
+                s = await bootstrap_summary(http, headers, sem, b["label"], cid, b["is_group"], msgs)
+                if s is None:
+                    ok = False
+                    return
+                last_ts = max((m.get("ts") or "" for m in msgs), default="")
+                chats[cid] = {
+                    "label": b["label"],
+                    "is_group": b["is_group"],
+                    "summary": s,
+                    "last_msg_ts": last_ts,
+                    "last_updated_at": _now_z(),
+                    "msg_count": len(msgs),
+                }
+            else:
+                last_seen = entry.get("last_msg_ts") or ""
+                delta = [m for m in b["messages"] if (m.get("ts") or "") > last_seen]
+                if not delta:
+                    entry["label"] = b["label"]
+                    return
+                async with sem:
+                    raw = await _call_model(
+                        http, headers, HAIKU_MODEL,
+                        SUMMARY_UPDATE_PROMPT_TEMPLATE.format(
+                            label=b["label"], chat_id=cid, is_group=b["is_group"],
+                            prev_summary=entry.get("summary", ""), new_messages=format_messages(delta)),
+                        MAX_TOKENS_OUT, PER_CALL_TIMEOUT_S,
+                    )
+                p = parse_json_response(raw) or {}
+                s = _as_text(p.get("summary")).strip()
+                if not s:
+                    ok = False
+                    return
+                entry.update(
+                    summary=s[:SUMMARY_CHAR_CAP],
+                    label=b["label"],
+                    is_group=b["is_group"],
+                    last_msg_ts=max((m.get("ts") or "" for m in delta), default=last_seen),
+                    last_updated_at=_now_z(),
+                    msg_count=entry.get("msg_count", 0) + len(delta),
+                )
+        except Exception as e:
+            log(f"summary update failed [{b['label'][:30]}]: {e}")
+            ok = False
+
+    await asyncio.gather(*(handle(b) for b in buckets))
+    lines: list[str] = []
+    for b in buckets:
+        e = chats.get(b["chat_id"])
+        if e and e.get("summary"):
+            lines.append(f"### {e['label']} (jid={b['chat_id']})\n{e['summary']}")
+    ctx = "\n\n".join(lines) or "(sem resumos de contexto)"
+    return ctx, ok
+
+
+async def decide(http: httpx.AsyncClient, headers: dict, kept: list[dict], brain_context: str, chat_summaries: str, tasks_context: str) -> tuple[dict, bool]:
     payload = [
         {"chat": k.get("chat"), "is_group": k.get("is_group"), "proposals": k.get("proposals")}
         for k in kept
@@ -593,15 +801,19 @@ async def decide(http: httpx.AsyncClient, headers: dict, kept: list[dict], brain
     prompt = DECIDE_PROMPT_TEMPLATE.format(
         window=WINDOW_HOURS,
         brain_context=brain_context,
+        chat_summaries=chat_summaries,
         tasks_context=tasks_context,
         proposals_json=json.dumps(payload, ensure_ascii=False, indent=2),
     )
     decide_model = _decide_model()
-    raw = await _call_model(http, headers, decide_model, prompt, DECIDE_MAX_TOKENS_OUT, DECIDE_TIMEOUT_S, attempts=DECIDE_ATTEMPTS)
+    raw = await _call_model(
+        http, headers, decide_model, prompt, DECIDE_MAX_TOKENS_OUT, DECIDE_TIMEOUT_S,
+        attempts=DECIDE_ATTEMPTS, effort=_decide_effort(), adaptive_thinking=True,
+    )
     if raw is None:
         log(f"{decide_model} decide unavailable — falling back to {HAIKU_MODEL} this run")
         raw = await _call_model(http, headers, HAIKU_MODEL, prompt, DECIDE_MAX_TOKENS_OUT, DECIDE_TIMEOUT_S)
-    empty = {"blocks": [], "tasks": [], "urgent": [], "people": [], "digest": {}}
+    empty = {"blocks": [], "tasks": [], "urgent": [], "people": [], "digest": {}, "task_updates": []}
     if raw is None:
         return empty, False
     parsed = parse_json_response(raw)
@@ -615,6 +827,8 @@ async def decide(http: httpx.AsyncClient, headers: dict, kept: list[dict], brain
     out["people"] = people if isinstance(people, list) else []
     digest = parsed.get("digest")
     out["digest"] = digest if isinstance(digest, dict) else {}
+    task_updates = parsed.get("task_updates")
+    out["task_updates"] = task_updates if isinstance(task_updates, list) else []
     return out, True
 
 
@@ -868,16 +1082,19 @@ def _recent_tasks_context(completed_days: int = 14) -> str:
         title = _as_text(t.get("title")).strip()
         if not title:
             continue
+        tid = _as_text(t.get("id")).strip()
+        if not tid:
+            continue
         if t.get("status") == "completed":
             try:
                 mod = datetime.fromisoformat((t.get("modifiedAt") or "").replace("Z", "+00:00"))
             except Exception:
                 mod = None
             if mod is not None and mod >= cutoff:
-                done.append(title)
+                done.append(f"[{tid}] {title}")
         else:
             due = (t.get("body") or {}).get("due") or ""
-            active.append(f"{title} (due {due})" if due else title)
+            active.append(f"[{tid}] {title} (due {due})" if due else f"[{tid}] {title}")
     if not active and not done:
         return "(nenhuma task ativa ou concluída recente)"
     lines: list[str] = []
@@ -911,7 +1128,60 @@ async def send_telegram(text: str) -> bool:
         return False
 
 
-async def persist(decided: dict) -> tuple[int, int, int]:
+def apply_task_updates(updates: list[dict], dry: bool) -> list[dict]:
+    applied: list[dict] = []
+    count = 0
+    for u in (updates or []):
+        if count >= MAX_TASK_MUTATIONS:
+            log(f"task mutation cap {MAX_TASK_MUTATIONS} reached — skipping rest")
+            break
+        if not isinstance(u, dict):
+            continue
+        tid = _as_text(u.get("id")).strip()
+        action = _as_text(u.get("action")).strip().lower()
+        reason = _as_text(u.get("reason")).strip()
+        if not tid or action not in ("complete", "delete"):
+            log(f"task_update skipped (bad id/action): {u}")
+            continue
+        if not re.fullmatch(r"[0-9A-Fa-f-]{36}", tid):
+            log(f"task_update skipped (malformed id): {tid}")
+            continue
+        path = TASKS_DIR / f"{tid}.json"
+        if not path.exists():
+            log(f"task_update {action} skipped — id not found: {tid}")
+            continue
+        try:
+            task = json.loads(path.read_text(encoding="utf-8"))
+        except Exception as e:
+            log(f"task_update {action} unreadable {tid}: {e}")
+            continue
+        status = task.get("status")
+        if action == "complete":
+            if status == "completed":
+                log(f"task_update complete skipped — already completed: {tid}")
+                continue
+            task["status"] = "completed"
+            task["modifiedAt"] = _now_z()
+            if not dry:
+                _atomic_write(path, json.dumps(task, ensure_ascii=False))
+            log(f"{'[dry] ' if dry else ''}task complete {tid}: {reason}")
+        else:
+            if not dry:
+                TASK_ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
+                stamp = _now_z().replace(":", "").replace("-", "")
+                os.replace(path, TASK_ARCHIVE_DIR / f"{tid}.{stamp}.json")
+                with ARCHIVE_LOG.open("a", encoding="utf-8") as fh:
+                    fh.write(json.dumps({
+                        "ts": _now_z(), "id": tid, "action": "delete",
+                        "reason": reason, "title": _as_text(task.get("title")),
+                    }, ensure_ascii=False) + "\n")
+            log(f"{'[dry] ' if dry else ''}task delete/archive {tid}: {reason}")
+        applied.append({"id": tid, "action": action, "reason": reason})
+        count += 1
+    return applied
+
+
+async def persist(decided: dict) -> tuple[int, int, int, int]:
     blocks = decided.get("blocks") or []
     tasks = decided.get("tasks") or []
     urgent = decided.get("urgent") or []
@@ -979,7 +1249,8 @@ async def persist(decided: dict) -> tuple[int, int, int]:
         except Exception as e:
             log(f"digest write failed: {e}")
 
-    return nb, nt, len(urgent)
+    mutated = apply_task_updates(decided.get("task_updates") or [], dry=False)
+    return nb, nt, len(urgent), len(mutated)
 
 
 async def run_whatsapp() -> int:
@@ -990,6 +1261,7 @@ async def run_whatsapp() -> int:
         return 1
 
     state = load_state()
+    store = load_chats()
     watermark = state.get("last_processed_ts")
     records = read_window(watermark, state.get("boundary_msg_ids"))
     buckets = bucket_by_chat(records)
@@ -1013,31 +1285,37 @@ async def run_whatsapp() -> int:
         errored = [r for r in results if r.get("error")]
         log(f"classify: with_proposals={len(keep)} errored={len(errored)}")
         advance_ok = not errored
+        ctx, summary_ok = await update_chat_summaries(http, headers, sem, buckets, store)
+        advance_ok = advance_ok and summary_ok
         if not keep:
             print("[context-scraping] classifier surfaced nothing")
             if advance_ok and not dry:
                 _advance_watermark(state, records)
+                save_chats(store)
             return 0
 
         brain_context = render_brain_context()
         tasks_context = _recent_tasks_context()
-        decided, decide_ok = await decide(http, headers, keep, brain_context, tasks_context)
+        decided, decide_ok = await decide(http, headers, keep, brain_context, ctx, tasks_context)
     log(
         f"decided: blocks={len(decided.get('blocks', []))} "
         f"tasks={len(decided.get('tasks', []))} urgent={len(decided.get('urgent', []))} "
+        f"task_updates={len(decided.get('task_updates', []))} "
         f"calls={_usage_totals['calls']} in={_usage_totals['input_tokens']} out={_usage_totals['output_tokens']}"
     )
 
     if dry:
+        apply_task_updates(decided.get("task_updates") or [], dry=True)
         print(json.dumps(decided, ensure_ascii=False, indent=2))
         return 0
 
-    nb, nt, nu = await persist(decided)
+    nb, nt, nu, nm = await persist(decided)
     if advance_ok and decide_ok:
         _advance_watermark(state, records)
+        save_chats(store)
     else:
-        log("watermark not advanced (classify/decide error this run) — overlapping retry next cycle")
-    print(f"[context-scraping] persisted blocks={nb} tasks={nt} urgent_dm={nu}")
+        log("watermark/chats not advanced (classify/summary/decide error) — overlapping retry next cycle")
+    print(f"[context-scraping] persisted blocks={nb} tasks={nt} urgent_dm={nu} task_mutations={nm}")
     return 0
 
 
