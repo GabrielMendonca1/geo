@@ -161,6 +161,8 @@ def iter_task_files():
     if not TASKS_DIR.exists():
         return
     for path in sorted(TASKS_DIR.glob("*.json")):
+        if ".sync-conflict-" in path.name:
+            continue
         yield path
 
 
