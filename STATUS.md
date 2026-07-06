@@ -313,3 +313,8 @@ Fechamento da camada de mídia do pipeline `zap → wa_ingest.jsonl → context_
 ## Ressalvas abertas
 - Validação tátil pendente: mandar um áudio/imagem/PDF de teste no WhatsApp e confirmar `wa_media/<id>.<ext>` + `<id>.<ext>.txt` + texto derivado no próximo ciclo do cron.
 - Sem fallback determinístico específico se a chamada de visão/PDF falhar por motivo estrutural (degrada pro rótulo genérico; blast radius limitado à janela de overlap, sem loop infinito).
+
+# Consolidação git — 2026-07-06
+- Working tree inteiro consolidado em 4 commits (sem push): `6a7f3b9` repoint vault→`~/GeoVault` (geo-tools/hook/SOUL/PATCHES + fix sanitize), `9bc8de6` filtro sync-conflict no geo_indexer, `5da1e96` módulos GeoBridge/GeoCalendar/GeoCapture + docs, `5fc0c16` GeoMobile completo (Chat/Agents/Terminal/Settings + Today unificado + Secrets.swift gitignored).
+- Sanity pré-commit: py_compile verde nos 7 pythons tocados, scan de segredos limpo nos untracked, `Secrets.swift` e `__pycache__` confirmados ignorados.
+- Pendências que NÃO são código (precisam do Gabriel na mão): verificação tátil do Today unificado no iPhone + teste de mídia (áudio/imagem/PDF) no WhatsApp p/ validar o pipeline v3.
