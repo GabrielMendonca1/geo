@@ -30,11 +30,11 @@ import time
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
-from . import guard, tasks_fs
+from . import geo_write, guard
 from .client import GeoError
 
 BLOCKS_DIR = (
-    Path.home() / "GeoVault" / "Blocks"
+    Path.home() / "Vault" / "Blocks"
 )
 
 CONFIRM_TTL_S = 900.0
@@ -146,7 +146,12 @@ async def _delete_block(args: dict, **_kw: Any) -> str:
 
 async def _delete_task(args: dict, **_kw: Any) -> str:
     async def commit() -> Any:
-        return await asyncio.to_thread(tasks_fs.delete_task, args["id"])
+        return await asyncio.to_thread(
+            geo_write.update_task,
+            writer="geo-agent",
+            task_id=args["id"],
+            op="delete",
+        )
 
     return await _confirmed_delete("task", args, commit)
 

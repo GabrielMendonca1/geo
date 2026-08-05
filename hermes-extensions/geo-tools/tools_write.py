@@ -1,7 +1,7 @@
 """Write tool handlers for Geo — fully file-native (the vault is truth).
 
 BLOCK writers are native filesystem ops: a block IS its ``.md`` file under
-``~/GeoVault/Blocks/`` with YAML frontmatter
+``~/Vault/Blocks/`` with YAML frontmatter
 (id/type/status/layer/tags) + an inline ``[[YYYY-MM-DD]]`` day-link. The
 ``guard`` module enforces ``BlockLayer.allowsAgentWrites`` — agents may write
 only agent/review/shared blocks, never user (Você). TASK writers delegate to
@@ -24,8 +24,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-from . import guard, tasks_fs
+from . import geo_write, guard, tasks_fs
 from .client import GeoError
+from .geo_write import _GeoError
 
 
 def _err(msg: str) -> str:
@@ -50,7 +51,7 @@ def _wrap(handler: Callable[[dict], Any]) -> Callable:
 
 # --- Native filesystem block ops (files are truth) -------------------------
 
-BLOCKS_DIR = Path.home() / "GeoVault" / "Blocks"
+BLOCKS_DIR = Path.home() / "Vault" / "Blocks"
 _SANITIZE_RE = re.compile(r'[/:\\*?"<>|]')
 _TYPES = ("fleeting", "literature", "permanent", "moc", "project")
 _LAYERS = ("user", "agent", "review", "shared")
@@ -177,28 +178,35 @@ async def _create_block(a: dict) -> Any:
     layer = a.get("layer") or "agent"
     if layer not in _LAYERS:
         layer = "agent"
-    status = a.get("status") or None
     tags: list[str] = []
     if a.get("tag_name"):
         tags = [_canonical_tag(a["tag_name"])]
-
-    folder = (a.get("folder") or "").strip("/")
-    guard.assert_create_layer(layer, folder)
-    dest_dir = BLOCKS_DIR / folder if folder else BLOCKS_DIR
-    slug = _sanitize_filename(title)
-    path = _unique_path(dest_dir, slug)
-
-    fm = _build_frontmatter(
-        str(uuid.uuid4()).upper(), type_, status, layer, tags, False,
-    )
     body = a.get("body", "") or ""
-    if not body.startswith("#"):
-        body = f"# {title}\n{body}" if body else f"# {title}\n"
-    day = a.get("day_id") or _today_token()
-    body = _ensure_day_link(body, day)
-
-    _atomic_write(path, fm + body)
-    return {"id": _rel_id(path)}
+    try:
+        created = await asyncio.to_thread(
+            geo_write.write_block,
+            writer="geo-agent",
+            title=title,
+            body=body,
+            type=type_,
+            layer=layer,
+            tags=tags,
+            force_new=bool(a.get("force_new", False)),
+            folder=a.get("folder"),
+            day_id=a.get("day_id"),
+            status=a.get("status"),
+            human_approved=False,
+        )
+    except _GeoError as error:
+        if getattr(error, "reason", None) == "title_dup":
+            raise GeoError(
+                f"bloco duplicado: existing_id={getattr(error, 'id', None)}"
+            ) from None
+        match = re.search(r"bloco duplicado: id=([^,\s]+)", str(error))
+        if match:
+            raise GeoError(f"bloco duplicado: existing_id={match.group(1)}") from None
+        raise
+    return {"id": _rel_id(Path(created["path"]))}
 
 
 async def _move_block(a: dict) -> Any:
@@ -294,7 +302,12 @@ async def _update_task(a: dict) -> Any:
 
 
 async def _complete_task(a: dict) -> Any:
-    return await asyncio.to_thread(tasks_fs.complete_task, a["id"])
+    return await asyncio.to_thread(
+        geo_write.update_task,
+        writer="geo-agent",
+        task_id=a["id"],
+        op="complete",
+    )
 
 
 async def _add_reminder(a: dict) -> Any:
@@ -302,7 +315,12 @@ async def _add_reminder(a: dict) -> Any:
 
 
 async def _record_habit_occurrence(a: dict) -> Any:
-    return await asyncio.to_thread(tasks_fs.record_habit_occurrence, a)
+    return await asyncio.to_thread(
+        geo_write.add_occurrence,
+        writer="geo-agent",
+        habit_id=a.get("habit_id") or a.get("id"),
+        at=a.get("at"),
+    )
 
 
 async def _find_tasks(a: dict) -> Any:
@@ -332,7 +350,7 @@ async def _task_todos(a: dict) -> Any:
     if linked:
         path = _resolve_path(linked)
     else:
-        created = await _create_block({"title": task["title"]})
+        created = await _create_block({"title": task["title"], "force_new": True})
         linked = created["id"]
         path = _resolve_path(linked)
         created_block = True
@@ -361,11 +379,16 @@ async def _task_todos(a: dict) -> Any:
         mark = "x" if isinstance(item, dict) and item.get("done") else " "
         added.append(f"- [{mark}] {text}")
     log = str(a.get("log") or "").strip()
-    if added or log:
-        if body and not body.endswith("\n"):
-            body += "\n"
-        body += "\n".join(added + ([log] if log else [])) + "\n"
-    _atomic_write(path, fm + body)
+    addition = "\n".join(added + ([log] if log else []))
+    if checked:
+        _atomic_write(path, fm + body)
+    if addition:
+        await asyncio.to_thread(
+            geo_write.append_block,
+            writer="geo-agent",
+            block_path_or_id=path,
+            lines=addition,
+        )
     out: dict[str, Any] = {
         "task_id": task["id"],
         "block_id": _rel_id(path),

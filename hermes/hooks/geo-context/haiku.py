@@ -1,7 +1,7 @@
-"""In-process Haiku extraction for Geo brain search.
+"""In-process Haiku extraction for garime brain search.
 
 Reuses the Claude Max OAuth credential from the macOS Keychain (the store the
-`claude` CLI owns) — the same proven path the whatsapp-extractor cron uses — to
+`claude` CLI owns) — the same proven path the context-scraping cron uses — to
 call Haiku directly via the Anthropic SDK with no subprocess spawn. Given a
 question and the full text of the top matched blocks, returns ONLY the facts
 that answer the question, cited by block title. Returns None on any failure so
@@ -31,9 +31,10 @@ OAUTH_TOKEN_ENDPOINTS = (
 TOKEN_EXPIRY_BUFFER_MS = 60_000
 OAUTH_BETA = "oauth-2025-04-20"
 CLAUDE_CODE_USER_AGENT = "claude-cli/2.1.152 (external, cli)"
+CLAUDE_CODE_SYSTEM = "You are Claude Code, Anthropic's official CLI for Claude."
 AUTH_PATH = Path(os.path.expanduser("~/.hermes/auth.json"))
 CONFIG_PATH = Path(os.path.expanduser("~/.hermes/config.yaml"))
-MAX_TOKENS_OUT = 900
+MAX_TOKENS_OUT = 4000
 PER_CALL_TIMEOUT_S = 25.0
 
 
@@ -41,20 +42,31 @@ def _log(msg: str) -> None:
     print(f"[geo-haiku] {msg}", file=sys.stderr, flush=True)
 
 
-def _nano_model() -> str:
-    env = os.environ.get("HERMES_NANO_MODEL")
+def _config_model(key: str, env_key: str, fallback: str) -> str:
+    """Canonical model resolver for the hook: env > config.yaml model.<key> >
+    fallback. Single source of truth — handler.py imports _nano_model from here."""
+    env = os.environ.get(env_key)
     if env:
         return env
     try:
         import yaml
 
         data = yaml.safe_load(CONFIG_PATH.read_text()) or {}
-        nano = (data.get("model") or {}).get("nano")
-        if nano:
-            return str(nano)
+        val = (data.get("model") or {}).get(key)
+        if val:
+            return str(val)
     except Exception:
         pass
-    return "claude-haiku-4-5"
+    return fallback
+
+
+def _nano_model() -> str:
+    return _config_model("nano", "HERMES_NANO_MODEL", "claude-haiku-4-5")
+
+
+HOOK_MODEL = _config_model("hook", "HERMES_HOOK_MODEL", "claude-sonnet-5")
+HOOK_EFFORT = os.environ.get("HERMES_HOOK_EFFORT", "low")
+HOOK_EXTRA = {"thinking": {"type": "adaptive"}, "output_config": {"effort": HOOK_EFFORT}}
 
 
 def _keychain_read() -> Optional[dict]:
@@ -150,7 +162,7 @@ def load_oauth_token() -> Optional[str]:
     return _keychain_oauth_token() or _authjson_oauth_token()
 
 
-RANK_PROMPT = """Você é o roteador semântico do cérebro do Gabriel. Dada a mensagem atual dele e um manifesto de blocks do Geo, escolha APENAS os blocks que provavelmente ajudam a responder/agir nesse turno.
+RANK_PROMPT = """Você é o roteador semântico do cérebro do Gabriel. Dada a mensagem atual dele e um manifesto de blocks do garime, escolha APENAS os blocks que provavelmente ajudam a responder/agir nesse turno.
 
 Regras:
 - Entenda sinônimos e contexto, não só palavras iguais.
@@ -176,9 +188,9 @@ def _text_from_response(resp) -> str:
 
 
 async def rank_blocks(query: str, candidates: list[dict], limit: int = 4) -> Optional[list[str]]:
-    """Semantically pick relevant Geo block ids from a compact manifest.
+    """Semantically pick relevant garime block ids from a compact manifest.
 
-    Uses the same Claude Max OAuth + model.nano path as whatsapp-extractor.
+    Uses the same Claude Max OAuth + model.nano path as context-scraping.
     Returns None on failure so caller can fall back to lexical ranking.
     """
     if not (query or "").strip() or not candidates:
@@ -218,9 +230,11 @@ async def rank_blocks(query: str, candidates: list[dict], limit: int = 4) -> Opt
     try:
         resp = await asyncio.wait_for(
             client.messages.create(
-                model=_nano_model(),
-                max_tokens=350,
+                model=HOOK_MODEL,
+                max_tokens=4000,
+                system=[{"type": "text", "text": CLAUDE_CODE_SYSTEM}],
                 messages=[{"role": "user", "content": prompt}],
+                extra_body=HOOK_EXTRA,
             ),
             timeout=PER_CALL_TIMEOUT_S,
         )
@@ -272,9 +286,11 @@ async def extract(query: str, context_text: str) -> Optional[str]:
     try:
         resp = await asyncio.wait_for(
             client.messages.create(
-                model=_nano_model(),
+                model=HOOK_MODEL,
                 max_tokens=MAX_TOKENS_OUT,
+                system=[{"type": "text", "text": CLAUDE_CODE_SYSTEM}],
                 messages=[{"role": "user", "content": prompt}],
+                extra_body=HOOK_EXTRA,
             ),
             timeout=PER_CALL_TIMEOUT_S,
         )

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Standalone indexer: scans ~/GeoVault/Blocks/*.md into ~/GeoVault/Index/blocks.sqlite,
+"""Standalone indexer do garime: scans ~/Vault/Blocks/*.md into ~/Vault/Index/blocks.sqlite,
 the schema geo-tools/reads.py expects (blocks, blocks_fts, block_tags, block_days)."""
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
-GEO_HOME = Path.home() / "GeoVault"
+GEO_HOME = Path.home() / "Vault"
 BLOCKS_DIR = GEO_HOME / "Blocks"
 INDEX_DIR = GEO_HOME / "Index"
 INDEX_DB = INDEX_DIR / "blocks.sqlite"

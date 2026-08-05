@@ -55,6 +55,31 @@ ARCHIVE_LOG = TASK_ARCHIVE_DIR / "archive_log.jsonl"
 
 GABRIEL_TELEGRAM_CHAT_ID = "5225262193"
 
+ALIASES: dict[str, list[str]] = {
+    "danilo": ["danilo", "danilo oliveira"],
+}
+
+
+def _load_geo_write():
+    import importlib
+    import importlib.util
+
+    pdir = HERMES_HOME / "plugins" / "geo-tools"
+    spec = importlib.util.spec_from_file_location(
+        "geo_tools", pdir / "__init__.py", submodule_search_locations=[str(pdir)]
+    )
+    pkg = importlib.util.module_from_spec(spec)
+    sys.modules["geo_tools"] = pkg
+    spec.loader.exec_module(pkg)
+    return importlib.import_module("geo_tools.geo_write")
+
+
+geo_write = _load_geo_write()
+GeoError = geo_write._GeoError
+WRITER = "context-scraping"
+MAX_BLOCKS_PER_RUN = 3
+MAX_TASKS_PER_RUN = 3
+
 
 def _config_model(key: str, env_key: str, fallback: str) -> str:
     env = os.environ.get(env_key)
@@ -172,7 +197,7 @@ Retorne JSON estrito (sem markdown, sem prefácio, sem ```):
 
 Se nada vale a pena: retorne proposals com todas as listas vazias. Bias: propor MENOS."""
 
-DECIDE_PROMPT_TEMPLATE = """Você é o segundo cérebro do Gabriel (hermes). Abaixo estão propostas extraídas de conversas de WhatsApp das últimas {window}h por um classificador rápido. Você é o filtro inteligente: decida o que REALMENTE vale guardar. Dedup, una propostas relacionadas, descarte ruído. Bias: guardar MENOS, com qualidade.
+DECIDE_PROMPT_TEMPLATE = """Você é o segundo cérebro do Gabriel (garime). Abaixo estão propostas extraídas de conversas de WhatsApp das últimas {window}h por um classificador rápido. Você é o filtro inteligente: decida o que REALMENTE vale guardar. Dedup, una propostas relacionadas, descarte ruído. Bias: guardar MENOS, com qualidade.
 
 CONTEXTO DO CÉREBRO (vault real do Gabriel, files-are-truth — use para LINKAR e DEDUPLICAR):
 {brain_context}
@@ -180,7 +205,7 @@ CONTEXTO DO CÉREBRO (vault real do Gabriel, files-are-truth — use para LINKAR
 CONTEXTO DAS CONVERSAS (resumo vivo por chat ativo neste ciclo — use para entender o QUE já vinha acontecendo, não é proposta):
 {chat_summaries}
 
-TASKS EXISTENTES NO GEO (cada uma com seu id — para criar/dedup E para o CICLO DE VIDA abaixo):
+TASKS EXISTENTES NO GARIME (cada uma com seu id — para criar/dedup E para o CICLO DE VIDA abaixo):
 {tasks_context}
 
 PROPOSTAS (JSON, uma entrada por chat):
@@ -188,7 +213,7 @@ PROPOSTAS (JSON, uma entrada por chat):
 
 Como decidir:
 - FATO durável sobre pessoa/projeto/decisão/preferência → um bloco. layer "agent" se é fato sólido e auto-evidente; layer "review" se merece o olhar dele antes de virar canônico. Auto-extraído de chat tende a "review".
-- COMPROMISSO/algo a fazer → uma task. title curto e acionável; tasks não carregam prosa — contexto durável vira bloco. PRAZO (due): NÃO invente horário. Se a conversa dá dia E hora explícitos → due em hora LOCAL naive, SEM 'Z' (ex: 2026-06-22T13:00:00) — NÃO converta pra UTC, o código faz isso. Se dá só o dia, ou nenhum horário → due como SÓ DATA (ex: 2026-06-22), sem hora — o sistema põe no fim daquele dia. Sem prazo claro no contexto → use a data de hoje ou um dia desta semana. NUNCA data no passado, NUNCA horário aleatório.
+- COMPROMISSO/algo a fazer → uma task, SÓ quando os três estiverem presentes na conversa: verbo de ação explícito (vou fazer, vou mandar, vou resolver, preciso enviar), dono claramente o Gabriel (não outra pessoa, não o grupo), e prazo ou dia dito explicitamente (hoje, amanhã, sexta, uma data). Faltando qualquer um dos três, não é task — vira linha de contexto no bloco pessoa/projeto (people[]) ou digest.social. NÃO crie task de convite social casual ("bora sair", "vamos marcar"), de logística de encontro (horário/local de algo já combinado), ou de micro-passo de conversa em andamento ("manda o link", "me avisa quando chegar") — isso é ruído conversacional, não compromisso. title curto e acionável; tasks não carregam prosa — contexto durável vira bloco. PRAZO (due): NÃO invente horário. Se a conversa dá dia E hora explícitos → due em hora LOCAL naive, SEM 'Z' (ex: 2026-06-22T13:00:00) — NÃO converta pra UTC, o código faz isso. Se dá só o dia → due como SÓ DATA (ex: 2026-06-22), sem hora — o sistema põe no fim daquele dia. NUNCA data no passado, NUNCA horário aleatório.
 - URGENTE: alguém esperando ele agora, decisão/deadline batendo → urgent (ele recebe no Telegram).
 - Conversa fiada, piada, combinado vago, fofoca, novidade qualquer → descarta.
 - SINAL: só vira bloco ou task se tiver conteúdo acionável ou memorável de verdade. "Bom dia", reação, emoji solto, "tudo bem?", combinado que já era óbvio → sem sinal, descarta (não é bloco nem task).
@@ -196,7 +221,6 @@ Como decidir:
 - DEDUP CONTRA TASKS EXISTENTES: se uma TASK EXISTENTE (ativa OU concluída recente) já cobre o mesmo compromisso, NÃO recrie a task — descarta. Algo já concluído só vira task nova se for claramente um novo ciclo/pedido.
 - PESSOA: fato durável sobre pessoa nomeada → people[]. target_block = título EXATO da lista "Blocos existentes" se a pessoa já tem bloco; senão null (código cria bloco novo review). note curta, 1 frase.
 - COMBINADO SOCIAL informal → digest.social (uma linha leve). NUNCA vira task. SÓ vira task se o Gabriel se comprometeu EXPLICITAMENTE a executar algo acionável com dia definido — aí segue o caminho normal de tasks.
-- CLIMA → digest.clima, UMA linha neutra sobre o DIA do Gabriel, ou null. Na dúvida, null. PROIBIDO: rastrear humor, pontuar sentimento, clima por pessoa. Não existe campo de humor por pessoa — é estrutural.
 - Não duplique em digest.social/people algo que já virou task ou já existe no CONTEXTO.
 - Não invente nada fora das propostas. Dúvida = não guarda.
 - CICLO DE VIDA DE TASKS EXISTENTES — só com evidência EXPLÍCITA na conversa (dúvida = não mexe):
@@ -216,7 +240,7 @@ Para cada bloco:
   2) envolve cada pessoa/projeto/conceito saliente em [[wikilinks]]. Linke para títulos REAIS do contexto quando existirem; nunca invente um título de MOC fora da lista.
 
 Retorne JSON estrito (sem markdown, sem prefácio, sem ```):
-{{"blocks": [{{"title": "...", "body": "Parte de [[MOC — X]]\\n...com [[wikilinks]]...", "type": "fleeting", "layer": "review"}}], "tasks": [{{"title": "...", "due": "2026-06-22"}}], "urgent": [{{"text": "...", "chat": "..."}}], "people": [{{"target_block": "Antônio Gili ou null", "person": "Antônio", "note": "...", "moc": "MOC — Pessoal"}}], "digest": {{"clima": "linha leve única ou null", "social": ["jantar sexta com [[Bernardo Biglia]]"]}}, "task_updates": [{{"id": "ABC-123...", "action": "complete", "reason": "Antonio confirmou que o QR PIX já está no ar"}}]}}
+{{"blocks": [{{"title": "...", "body": "Parte de [[MOC — X]]\\n...com [[wikilinks]]...", "type": "fleeting", "layer": "review"}}], "tasks": [{{"title": "...", "due": "2026-06-22"}}], "urgent": [{{"text": "...", "chat": "..."}}], "people": [{{"target_block": "Antônio Gili ou null", "person": "Antônio", "note": "...", "moc": "MOC — Pessoal"}}], "digest": {{"social": ["jantar sexta com [[Bernardo Biglia]]"]}}, "task_updates": [{{"id": "ABC-123...", "action": "complete", "reason": "Antonio confirmou que o QR PIX já está no ar"}}]}}
 
 Se nada vale: retorne as listas vazias."""
 
@@ -973,7 +997,7 @@ async def decide(http: httpx.AsyncClient, headers: dict, kept: list[dict], brain
     return out, True
 
 
-BLOCKS_DIR = Path.home() / "GeoVault" / "Blocks"
+BLOCKS_DIR = Path.home() / "Vault" / "Blocks"
 _SANITIZE_RE = re.compile(r'[/:\\*?"<>|]')
 _TYPES = ("fleeting", "literature", "permanent", "moc", "project")
 _LAYERS = ("user", "agent", "review", "shared")
@@ -1020,23 +1044,25 @@ def _unique_path(folder: Path, slug: str) -> Path:
 
 
 def write_block_file(title: str, body: str, type_: str, layer: str) -> str:
-    if type_ not in _TYPES:
-        type_ = "fleeting"
-    if layer not in ("agent", "review", "shared"):
-        layer = "review"
-    block_id = str(uuid.uuid4()).upper()
-    fm = f"---\nid: {block_id}\ntype: {type_}\nlayer: {layer}\n---\n"
-    b = body or ""
-    if not b.startswith("#"):
-        b = f"# {title}\n{b}" if b else f"# {title}\n"
-    token = f"[[{datetime.now().strftime('%Y-%m-%d')}]]"
-    if token not in b:
-        if b and not b.endswith("\n"):
-            b += "\n"
-        b += token + "\n"
-    path = _unique_path(BLOCKS_DIR, _sanitize_filename(title))
-    _atomic_write(path, fm + b)
-    return _nfc(str(path.relative_to(BLOCKS_DIR)))
+    blayer = layer if layer in ("agent", "review") else "review"
+    res = geo_write.write_block(
+        writer=WRITER, title=title, body=body or "", type="fleeting", layer=blayer, tags=None
+    )
+    path = res.get("path") or res.get("id") or ""
+    try:
+        return _nfc(str(Path(path).relative_to(BLOCKS_DIR)))
+    except Exception:
+        return _nfc(str(path))
+
+
+def _classify_block_dup(msg: str) -> tuple[str | None, str | None]:
+    if "simhash_dup" in msg:
+        m = re.search(r"bloco ([0-9A-Fa-f-]{36})", msg)
+        return "simhash", (m.group(1) if m else None)
+    if msg.startswith("bloco duplicado"):
+        m = re.search(r"id=([^,]+)", msg)
+        return "title", (m.group(1).strip() if m else None)
+    return None, None
 
 
 CONT_CAP = 8
@@ -1072,6 +1098,24 @@ def _norm(s: str) -> str:
     return s.lower().strip()
 
 
+def _norm_stem(s: str) -> str:
+    s = _nfc(s or "").replace("-", " ")
+    s = re.sub(r"\s+", " ", s).strip()
+    s = unicodedata.normalize("NFKD", s.casefold())
+    return "".join(c for c in s if not unicodedata.combining(c))
+
+
+PERSON_FUZZY_MIN_LEN = 4
+
+
+def _alias_group(stem_norm: str) -> set[str] | None:
+    for canon, aliases in ALIASES.items():
+        group = {_norm_stem(canon)} | {_norm_stem(a) for a in aliases}
+        if stem_norm in group:
+            return group
+    return None
+
+
 def _find_person_block(title: str) -> Path | None:
     t = _nfc((title or "").strip())
     if not t:
@@ -1080,6 +1124,27 @@ def _find_person_block(title: str) -> Path | None:
         p = BLOCKS_DIR / name
         if p.exists():
             return p
+    target = _norm_stem(t)
+    group = _alias_group(target)
+    candidates: list[Path] = []
+    for p in BLOCKS_DIR.glob("*.md"):
+        stem_norm = _norm_stem(p.stem)
+        if stem_norm == target:
+            return p
+        if group and stem_norm in group:
+            candidates.append(p)
+        elif (
+            len(target) >= PERSON_FUZZY_MIN_LEN
+            and len(stem_norm) >= PERSON_FUZZY_MIN_LEN
+            and (stem_norm.startswith(target) or target.startswith(stem_norm))
+        ):
+            candidates.append(p)
+    unique = list(dict.fromkeys(candidates))
+    if len(unique) == 1:
+        return unique[0]
+    if len(unique) > 1:
+        log(f"person match ambiguous for {t!r}: {[p.stem for p in unique]} — skipping")
+        return None
     return None
 
 
@@ -1088,6 +1153,8 @@ def append_person_continuity(target_block: str | None, person: str, note: str, m
     if not note:
         return "skip"
     path = _find_person_block(target_block) if target_block else None
+    if path is None and person:
+        path = _find_person_block(person)
     if path is not None and _read_layer(path.read_text(encoding="utf-8")) == "user":
         path = None
     if path is None:
@@ -1109,31 +1176,56 @@ def append_person_continuity(target_block: str | None, person: str, note: str, m
     return _nfc(str(path.relative_to(BLOCKS_DIR)))
 
 
-def upsert_daily_digest(date_iso: str, clima: str | None, people_lines: list[str], social_lines: list[str]) -> str:
-    path = BLOCKS_DIR / f"Contexto do dia {date_iso}.md"
-    if path.exists():
-        text = path.read_text(encoding="utf-8")
+DIARY_PATH = BLOCKS_DIR / "Diário de contexto.md"
+DIARY_MAX_DAYS = 30
+_DAY_BLOCK_RE = re.compile(r"<!-- geo:day:(\d{4}-\d{2}-\d{2}) -->\n(.*?)\n<!-- /geo:day:\1 -->", re.DOTALL)
+
+
+def _parse_diary_days(text: str) -> dict[str, str]:
+    return {m.group(1): m.group(2) for m in _DAY_BLOCK_RE.finditer(text)}
+
+
+def upsert_daily_digest(date_iso: str, people_lines: list[str], social_lines: list[str],
+                        descartes_lines: list[str] | None = None) -> str:
+    descartes_lines = descartes_lines or []
+    if DIARY_PATH.exists():
+        text = DIARY_PATH.read_text(encoding="utf-8")
+        m = re.search(r"^id:\s*(\S+)", text, re.MULTILINE)
+        block_id = m.group(1) if m else str(uuid.uuid4()).upper()
+        days = _parse_diary_days(text)
     else:
-        bid = str(uuid.uuid4()).upper()
-        text = (f"---\nid: {bid}\ntype: fleeting\nlayer: review\n---\n"
-                f"# Contexto do dia {date_iso}\nParte de [[MOC — Rotina]]\n\n"
-                f"## Clima\n<!-- geo:clima -->\n<!-- /geo:clima -->\n\n"
-                f"## Combinados\n<!-- geo:social -->\n<!-- /geo:social -->\n\n"
-                f"## Pessoas\n<!-- geo:pessoas -->\n<!-- /geo:pessoas -->\n\n[[{date_iso}]]\n")
-    if clima:
-        text = _replace_fenced(text, "clima", [clima.strip()], heading="Clima")
-    for name, heading, new in (("social", "Combinados", social_lines), ("pessoas", "Pessoas", people_lines)):
-        cur = _fenced_lines(text, name)
+        block_id = str(uuid.uuid4()).upper()
+        days = {}
+    day_text = days.get(date_iso) or (
+        f"## {date_iso}\n\n"
+        f"### Combinados\n<!-- geo:social:{date_iso} -->\n<!-- /geo:social:{date_iso} -->\n\n"
+        f"### Pessoas\n<!-- geo:pessoas:{date_iso} -->\n<!-- /geo:pessoas:{date_iso} -->\n\n"
+        f"### Descartes automáticos\n<!-- geo:descartes:{date_iso} -->\n<!-- /geo:descartes:{date_iso} -->\n\n"
+        f"[[{date_iso}]]"
+    )
+    for name, new in ((f"social:{date_iso}", social_lines), (f"pessoas:{date_iso}", people_lines),
+                      (f"descartes:{date_iso}", descartes_lines)):
+        cur = _fenced_lines(day_text, name)
         for ln in new:
             ln = ("- " + ln.strip().lstrip("- ")).rstrip()
             if ln.strip("- ").strip() and not any(_norm(ln) == _norm(c) for c in cur):
                 cur.append(ln)
-        text = _replace_fenced(text, name, cur, heading=heading)
-    _atomic_write(path, text)
-    return path.name
+        day_text = _replace_fenced(day_text, name, cur)
+    days[date_iso] = day_text.strip("\n")
+    cutoff = (datetime.now() - timedelta(days=DIARY_MAX_DAYS)).strftime("%Y-%m-%d")
+    kept_dates = sorted((d for d in days if d >= cutoff), reverse=True)
+    body = "# Diário de contexto\nParte de [[MOC — Rotina]]\n"
+    for d in kept_dates:
+        body += f"\n<!-- geo:day:{d} -->\n{days[d]}\n<!-- /geo:day:{d} -->\n"
+    fm = f"---\nid: {block_id}\ntype: fleeting\nlayer: review\n---\n"
+    _atomic_write(DIARY_PATH, fm + body)
+    return DIARY_PATH.name
 
 
-TASKS_DIR = Path.home() / "GeoVault" / "Tasks"
+TASKS_DIR = Path.home() / "Vault" / "Tasks"
+EXPIRED_DIR = TASKS_DIR / ".expired"
+EXPIRED_REVIEW_PATH = BLOCKS_DIR / "Tasks expiradas.md"
+TASK_EXPIRY_DAYS = 7
 
 
 def _now_z() -> str:
@@ -1190,25 +1282,18 @@ def _as_text(v) -> str:
     return str(v)
 
 
-def write_task_file(title: str, due) -> str:
-    task_id = str(uuid.uuid4()).upper()
-    now = _now_z()
-    due_z = _resolve_due(due)
-    task = {
-        "id": task_id,
-        "title": _as_text(title),
-        "body": {"kind": "task", "due": due_z},
-        "isAllDay": due_z.endswith(("23:59:00Z", "02:59:00Z")),
-        "status": "pending",
-        "priority": "unset",
-        "tagIds": [],
-        "orderIndex": 0,
-        "reminders": [],
-        "createdAt": now,
-        "modifiedAt": now,
-    }
-    _atomic_write(TASKS_DIR / f"{task_id}.json", json.dumps(task, ensure_ascii=False))
-    return f"{task_id}.json"
+def write_task_file(title, due) -> tuple[str, bool]:
+    try:
+        task = geo_write.write_task(writer=WRITER, title=_as_text(title), due=due)
+        return f"{task.get('id')}.json", True
+    except GeoError as e:
+        msg = str(e)
+        m = re.search(r"id=([0-9A-Fa-f-]+)", msg)
+        if "duplicada" in msg and m:
+            existing = m.group(1)
+            log(f"task skipped (dedup, same title): {existing}.json [{_as_text(title)[:40]}]")
+            return f"{existing}.json", False
+        raise
 
 
 def _recent_tasks_context(completed_days: int = 14) -> str:
@@ -1246,6 +1331,52 @@ def _recent_tasks_context(completed_days: int = 14) -> str:
         lines.append(f"CONCLUÍDAS nos últimos {completed_days}d:")
         lines.extend(f"- {d}" for d in done)
     return "\n".join(lines)
+
+
+CHAT_LIVE_ACTIVE_DAYS = 14
+_JID_SHAPE_RE = re.compile(r"@(s\.whatsapp\.net|lid|g\.us)$", re.IGNORECASE)
+
+
+def _label_unusable(label: str) -> bool:
+    if not label or label.strip(" .") == "":
+        return True
+    if _JID_SHAPE_RE.search(label):
+        return True
+    return False
+
+
+def materialize_chat_summaries(store: dict) -> int:
+    chats = store.get("chats")
+    if not isinstance(chats, dict):
+        return 0
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=CHAT_LIVE_ACTIVE_DAYS)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    date_iso = datetime.now().strftime("%Y-%m-%d")
+    n = 0
+    for chat_id, entry in chats.items():
+        if not isinstance(entry, dict):
+            continue
+        if (entry.get("last_msg_ts") or "") < cutoff:
+            continue
+        summary = _as_text(entry.get("summary")).strip()
+        label = _as_text(entry.get("label")).strip()
+        if not summary or _label_unusable(label):
+            if summary:
+                log(f"chat summary skipped, unusable label [{chat_id}]: {label!r}")
+            continue
+        path = _find_person_block(label)
+        if path is None:
+            log(f"chat summary skipped, no canonical person block [{chat_id}]: {label!r}")
+            continue
+        if _read_layer(path.read_text(encoding="utf-8")) == "user":
+            log(f"chat summary skipped, target is layer:user [{chat_id}]: {path.stem!r}")
+            continue
+        try:
+            res = append_person_continuity(path.stem, label, summary.replace("\n", " ").strip(), "", date_iso)
+            if res not in ("skip", "dup"):
+                n += 1
+        except Exception as e:
+            log(f"chat summary materialize failed [{label[:30]}]: {e}")
+    return n
 
 
 async def send_telegram(text: str) -> bool:
@@ -1322,11 +1453,77 @@ def apply_task_updates(updates: list[dict], dry: bool) -> list[dict]:
     return applied
 
 
-async def persist(decided: dict) -> tuple[int, int, int, int]:
+def _append_expired_review(new_lines: list[str]) -> None:
+    if not new_lines:
+        return
+    if EXPIRED_REVIEW_PATH.exists():
+        text = EXPIRED_REVIEW_PATH.read_text(encoding="utf-8")
+        m = re.search(r"^id:\s*(\S+)", text, re.MULTILINE)
+        block_id = m.group(1) if m else str(uuid.uuid4()).upper()
+        existing = [l for l in text.splitlines() if l.startswith("- ")]
+    else:
+        block_id = str(uuid.uuid4()).upper()
+        existing = []
+    existing.extend(new_lines)
+    fm = f"---\nid: {block_id}\ntype: fleeting\nlayer: review\n---\n"
+    body = "# Tasks expiradas\nParte de [[MOC — Rotina]]\n\n" + "\n".join(existing) + "\n"
+    _atomic_write(EXPIRED_REVIEW_PATH, fm + body)
+
+
+def expire_stale_tasks(dry: bool, now: datetime | None = None) -> list[dict]:
+    now = now or datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=TASK_EXPIRY_DAYS)
+    today = now.strftime("%Y-%m-%d")
+    expired: list[dict] = []
+    review_lines: list[str] = []
+    for f in sorted(TASKS_DIR.glob("*.json")):
+        if ".sync-conflict-" in f.name:
+            continue
+        try:
+            t = json.loads(f.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if t.get("status") != "pending":
+            continue
+        body = t.get("body")
+        if not isinstance(body, dict) or body.get("kind") != "task":
+            continue
+        due_raw = body.get("due")
+        if not isinstance(due_raw, str) or not due_raw.strip():
+            continue
+        try:
+            due_dt = datetime.fromisoformat(due_raw.replace("Z", "+00:00"))
+        except Exception:
+            continue
+        if due_dt.tzinfo is None:
+            due_dt = due_dt.replace(tzinfo=timezone.utc)
+        else:
+            due_dt = due_dt.astimezone(timezone.utc)
+        if due_dt >= cutoff:
+            continue
+        tid = _as_text(t.get("id")).strip()
+        title = _as_text(t.get("title")).strip()
+        due_day = due_dt.strftime("%Y-%m-%d")
+        review_lines.append(f"- {today} · {title} (due {due_day}) · {tid}")
+        if not dry:
+            EXPIRED_DIR.mkdir(parents=True, exist_ok=True)
+            os.replace(f, EXPIRED_DIR / f.name)
+        log(f"{'[dry] ' if dry else ''}task expired {tid}: due {due_day} < now-{TASK_EXPIRY_DAYS}d")
+        expired.append({"id": tid, "title": title, "due": due_day})
+    if not dry:
+        _append_expired_review(review_lines)
+    return expired
+
+
+async def persist(decided: dict) -> dict:
     blocks = decided.get("blocks") or []
     tasks = decided.get("tasks") or []
     urgent = decided.get("urgent") or []
-    nb = nt = 0
+    date_iso = datetime.now().strftime("%Y-%m-%d")
+    stats = {"blocks_created": 0, "blocks_appended": 0, "blocks_capped": 0,
+             "dedup_skips": 0, "tasks_created": 0, "tasks_capped": 0,
+             "urgent": 0, "task_mutations": 0}
+    descartes_lines: list[str] = []
 
     for b in blocks:
         title = _as_text(b.get("title")).strip()
@@ -1335,10 +1532,31 @@ async def persist(decided: dict) -> tuple[int, int, int, int]:
         if _is_generic_title(title):
             log(f"block discarded (generic title): {title[:60]!r}")
             continue
+        body = _as_text(b.get("body"))
+        if stats["blocks_created"] >= MAX_BLOCKS_PER_RUN:
+            descartes_lines.append(f"bloco não criado (cap): {title}")
+            stats["blocks_capped"] += 1
+            log(f"block capped (>{MAX_BLOCKS_PER_RUN}/run): {title[:60]!r}")
+            continue
         try:
-            rid = write_block_file(title, _as_text(b.get("body")), b.get("type") or "fleeting", b.get("layer") or "review")
-            nb += 1
+            rid = write_block_file(title, body, b.get("type") or "fleeting", b.get("layer") or "review")
+            stats["blocks_created"] += 1
             log(f"block: {rid}")
+        except GeoError as e:
+            kind, ref = _classify_block_dup(str(e))
+            if kind == "title" and ref:
+                try:
+                    ares = geo_write.append_block(writer=WRITER, block_path_or_id=ref, lines=body or title)
+                    stats["blocks_appended"] += 1
+                    log(f"block appended (title collision) → {ares.get('path')}")
+                except Exception as ae:
+                    log(f"block append failed [{title[:40]}]: {ae}")
+            elif kind == "simhash":
+                descartes_lines.append(f"bloco dedup (simhash): {title}")
+                stats["dedup_skips"] += 1
+                log(f"block dedup-skipped (simhash) [{title[:40]}]")
+            else:
+                log(f"block write rejected [{title[:40]}]: {e}")
         except Exception as e:
             log(f"block write failed [{title[:40]}]: {e}")
 
@@ -1346,10 +1564,17 @@ async def persist(decided: dict) -> tuple[int, int, int, int]:
         title = _as_text(t.get("title")).strip()
         if not title:
             continue
+        due = t.get("due")
+        if stats["tasks_created"] >= MAX_TASKS_PER_RUN:
+            descartes_lines.append(f"task não criada (cap): {title} (due {_as_text(due) or '—'})")
+            stats["tasks_capped"] += 1
+            log(f"task capped (>{MAX_TASKS_PER_RUN}/run): {title[:60]!r}")
+            continue
         try:
-            rid = write_task_file(title, t.get("due"))
-            nt += 1
-            log(f"task: {rid} [{title[:40]}]")
+            rid, created = write_task_file(title, due)
+            if created:
+                stats["tasks_created"] += 1
+            log(f"task: {rid} [{title[:40]}]{'' if created else ' (dedup skip)'}")
         except Exception as e:
             log(f"task write failed [{title[:40]}]: {e}")
 
@@ -1363,7 +1588,6 @@ async def persist(decided: dict) -> tuple[int, int, int, int]:
         if len(lines) > 1:
             await send_telegram("\n".join(lines))
 
-    date_iso = datetime.now().strftime("%Y-%m-%d")
     people_lines: list[str] = []
     for p in decided.get("people") or []:
         if not isinstance(p, dict):
@@ -1382,16 +1606,17 @@ async def persist(decided: dict) -> tuple[int, int, int, int]:
             log(f"person write failed: {e}")
     d = decided.get("digest")
     d = d if isinstance(d, dict) else {}
-    clima = _as_text(d.get("clima")).strip() or None
     social = [_as_text(x).strip() for x in (d.get("social") or []) if _as_text(x).strip()]
-    if clima or social or people_lines:
+    if social or people_lines or descartes_lines:
         try:
-            log(f"digest: {upsert_daily_digest(date_iso, clima, people_lines, social)}")
+            log(f"digest: {upsert_daily_digest(date_iso, people_lines, social, descartes_lines)}")
         except Exception as e:
             log(f"digest write failed: {e}")
 
     mutated = apply_task_updates(decided.get("task_updates") or [], dry=False)
-    return nb, nt, len(urgent), len(mutated)
+    stats["urgent"] = len(urgent)
+    stats["task_mutations"] = len(mutated)
+    return stats
 
 
 async def run_whatsapp() -> int:
@@ -1435,6 +1660,8 @@ async def run_whatsapp() -> int:
             if advance_ok and not dry:
                 _advance_watermark(state, records)
                 save_chats(store)
+            if not dry:
+                materialize_chat_summaries(store)
             return 0
 
         brain_context = render_brain_context()
@@ -1449,16 +1676,25 @@ async def run_whatsapp() -> int:
 
     if dry:
         apply_task_updates(decided.get("task_updates") or [], dry=True)
+        expire_stale_tasks(dry=True)
         print(json.dumps(decided, ensure_ascii=False, indent=2))
         return 0
 
-    nb, nt, nu, nm = await persist(decided)
+    stats = await persist(decided)
+    ne = len(expire_stale_tasks(dry=False))
     if advance_ok and decide_ok:
         _advance_watermark(state, records)
         save_chats(store)
     else:
         log("watermark/chats not advanced (classify/summary/decide error) — overlapping retry next cycle")
-    print(f"[context-scraping] persisted blocks={nb} tasks={nt} urgent_dm={nu} task_mutations={nm}")
+    materialize_chat_summaries(store)
+    print(
+        f"[context-scraping] persisted blocks_created={stats['blocks_created']} "
+        f"blocks_appended={stats['blocks_appended']} blocks_capped={stats['blocks_capped']} "
+        f"dedup_skips={stats['dedup_skips']} tasks_created={stats['tasks_created']} "
+        f"tasks_capped={stats['tasks_capped']} urgent_dm={stats['urgent']} "
+        f"task_mutations={stats['task_mutations']} expired={ne}"
+    )
     return 0
 
 

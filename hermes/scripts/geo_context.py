@@ -5,7 +5,7 @@ geo_context.py — file-native brain context for hermes cron jobs.
 The MCP push subscriber that warmed ~/.hermes/geo-cache/snapshot.json was
 retired in the "collapse to file-native" commit, so there is no live hook to
 read. The vault itself is truth (ADR-0002), so any job can rebuild richer,
-zero-staleness context by scanning ~/GeoVault/ directly,
+zero-staleness context by scanning ~/Vault/ directly,
 app-closed:
 
   - moc_titles  : every type:moc block (the brain's table of contents)
@@ -24,7 +24,7 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
-GEO_HOME = Path.home() / "GeoVault"
+GEO_HOME = Path.home() / "Vault"
 BLOCKS_DIR = GEO_HOME / "Blocks"
 TASKS_DIR = GEO_HOME / "Tasks"
 

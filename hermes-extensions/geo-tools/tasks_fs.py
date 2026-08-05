@@ -1,7 +1,7 @@
 """File-native task CRUD + semantic-dedup engine for Gabriel's Geo vault.
 
 Replaces the HTTP task path. Tasks are individual ``.json`` files under
-``~/GeoVault/Tasks/<UUID>.json``; the file IS the task.
+``~/Vault/Tasks/<UUID>.json``; the file IS the task.
 Geo.app's TasksStore runs a FileWatcher on that dir with a self-write grace
 period, so an out-of-band atomic write is reconciled into its in-memory store
 (last atomic-rename wins).
@@ -106,16 +106,13 @@ def _trigger(a: dict) -> dict:
     return {"kind": "offset", "offset": a.get("offset") or _DEFAULT_OFFSET}
 
 
-_EOD_SUFFIXES = ("23:59:00Z", "02:59:00Z")
-
-
 def _default_reminders(body: Optional[dict] = None) -> list[dict]:
     """Default reminder is 'at time' — except for synthetic end-of-day anchors
-    (date-only deadlines), where firing at 20:59/23:59 local is useless noise;
+    (date-only deadlines), where firing at 23:59 local is useless noise;
     those get an absolute 09:00-local reminder on the due day instead."""
     trigger: dict[str, Any] = {"kind": "offset", "offset": _DEFAULT_OFFSET}
     anchor = (body or {}).get("due") or (body or {}).get("target")
-    if isinstance(anchor, str) and anchor.endswith(_EOD_SUFFIXES):
+    if _is_eod_anchor(anchor):
         day = _local_day(anchor)
         if day:
             morning = datetime.strptime(day, "%Y-%m-%d").replace(hour=9, tzinfo=LOCAL_TZ)
@@ -148,30 +145,47 @@ def _normalize_reminders(items: Any) -> list[dict]:
     return out
 
 
-def _normalize_anchor(value: Any) -> Any:
-    """Data-only ou sentinela 00:00/23:59 → fim-do-dia local em ISO UTC (o app espelha
-    como all-day); hora real preservada. Garante ISO decodável pelo Swift (.iso8601)."""
+def _parse_anchor(value: Any, tz: ZoneInfo | None = None) -> Optional[datetime]:
+    """ISO 8601 (com Z, com offset ou naive) ou data pura → datetime na tz local.
+    Data pura vira 23:59 local. None quando não parseável."""
     if not isinstance(value, str) or not value.strip():
-        return value
+        return None
     s = value.strip()
+    zone = tz or LOCAL_TZ
     try:
         if len(s) == 10:
-            d = datetime.strptime(s, "%Y-%m-%d").replace(hour=23, minute=59, tzinfo=LOCAL_TZ)
-            return d.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        p = datetime.fromisoformat(s.replace("Z", "+00:00"))
-        if p.tzinfo is None:
-            p = p.replace(tzinfo=LOCAL_TZ)
-        if (p.hour == 0 and p.minute == 0) or (p.hour == 23 and p.minute == 59):
-            d = datetime(p.year, p.month, p.day, 23, 59, tzinfo=LOCAL_TZ)
-            return d.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        return p.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            p = datetime.strptime(s, "%Y-%m-%d").replace(hour=23, minute=59, tzinfo=zone)
+        else:
+            p = datetime.fromisoformat(s.replace("Z", "+00:00"))
+            if p.tzinfo is None:
+                p = p.replace(tzinfo=zone)
     except Exception:
+        return None
+    return p.astimezone(zone)
+
+
+def _normalize_anchor(value: Any, tz: ZoneInfo | None = None) -> Any:
+    """Data-only ou sentinela 00:00/23:59 *em hora local* → fim-do-dia local em ISO UTC
+    (o app espelha como all-day); hora real preservada. Saída sempre canônica
+    (YYYY-MM-DDTHH:MM:SSZ) e ponto fixo: normalize(normalize(x)) == normalize(x)."""
+    if not isinstance(value, str) or not value.strip():
         return value
+    local = _parse_anchor(value, tz)
+    if local is None:
+        return None if tz is not None else value
+    if (local.hour == 0 and local.minute == 0) or (local.hour == 23 and local.minute == 59):
+        local = local.replace(hour=23, minute=59, second=0, microsecond=0, fold=0)
+    return local.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _is_eod_anchor(value: Any) -> bool:
+    local = _parse_anchor(value)
+    return local is not None and local.hour == 23 and local.minute == 59
 
 
 def _is_all_day(body: dict) -> bool:
     anchor = body.get("due") or body.get("start") or body.get("target") or body.get("timeOfDay")
-    return isinstance(anchor, str) and anchor.endswith(_EOD_SUFFIXES)
+    return _is_eod_anchor(anchor)
 
 
 def build_task_body(a: dict) -> dict:
@@ -311,12 +325,29 @@ def _create_event_series(a: dict, body: dict) -> dict:
             "recurring event needs recurrence_end_date to bound the series "
             f"(max {_SERIES_MAX} instances)"
         )
+    from . import geo_write
+
     created = []
     for days, months in _series_offsets(a["recurrence"], start, str(until)):
         inst = dict(body)
         inst["start"] = _shift_iso(start, days, months)
         inst["end"] = _shift_iso(end, days, months)
-        created.append(_create_single(a, inst))
+        created.append(geo_write.write_task(
+            writer="geo-agent",
+            title=a["title"],
+            kind="event",
+            start=inst["start"],
+            end=inst["end"],
+            force_new=bool(a.get("force_new", False)),
+            priority=a.get("priority"),
+            tag_ids=a.get("tag_ids") or a.get("tagIds") or a.get("tags"),
+            estimated_minutes=(a.get("estimated_minutes")
+                               if a.get("estimated_minutes") is not None
+                               else a.get("estimatedMinutes")),
+            linked_block_id=(a.get("linked_block_id") or a.get("linkedBlockId")
+                             or a.get("block_id")),
+            reminders=a.get("reminders") if "reminders" in a else None,
+        ))
     return {
         "action": "created_series",
         "count": len(created),
@@ -326,10 +357,32 @@ def _create_event_series(a: dict, body: dict) -> dict:
 
 
 def create_task(a: dict) -> dict:
+    from . import geo_write
+
     body = a["body"] if isinstance(a.get("body"), dict) else build_task_body(a)
     if body.get("kind") == "event" and a.get("recurrence"):
         return _create_event_series(a, body)
-    return _create_single(a, body)
+    raw = body if isinstance(a.get("body"), dict) else a
+    return geo_write.write_task(
+        writer="geo-agent",
+        title=a["title"],
+        kind=body.get("kind") or "task",
+        due=raw.get("due"),
+        start=raw.get("start"),
+        end=raw.get("end"),
+        rule=body.get("rule"),
+        time_of_day=body.get("timeOfDay"),
+        target=raw.get("target"),
+        force_new=bool(a.get("force_new", False)),
+        priority=a.get("priority"),
+        tag_ids=a.get("tag_ids") or a.get("tagIds") or a.get("tags"),
+        estimated_minutes=(a.get("estimated_minutes")
+                           if a.get("estimated_minutes") is not None
+                           else a.get("estimatedMinutes")),
+        linked_block_id=(a.get("linked_block_id") or a.get("linkedBlockId")
+                         or a.get("block_id")),
+        reminders=a.get("reminders") if "reminders" in a else None,
+    )
 
 
 _SCHED_KEYS = (
@@ -401,11 +454,9 @@ def set_linked_block(task_id: str, block_id: str) -> dict:
 
 
 def complete_task(task_id: str) -> dict:
-    task = _read_task(task_id)
-    task["status"] = "completed"
-    task["modifiedAt"] = now_iso()
-    atomic_write_json(_task_path(task["id"]), task)
-    return task
+    from . import geo_write
+
+    return geo_write.update_task(writer="geo-agent", task_id=task_id, op="complete")
 
 
 def add_reminder(a: dict) -> dict:
@@ -434,34 +485,22 @@ def _occurrence_day(at: Any) -> str:
 
 
 def record_habit_occurrence(a: dict) -> dict:
+    from . import geo_write
+
     task_id = a.get("habit_id") or a.get("id")
     if not task_id:
         raise GeoError("record_habit_occurrence requires habit_id")
-    task = _read_task(task_id)
-    body = task.get("body") or {}
-    if body.get("kind") != "habit":
-        raise GeoError(f"task is not a habit: {task_id}")
-    when = a.get("at") or a.get("date") or now_iso()
-    day = _occurrence_day(when)
-    occurrences = list(body.get("occurrences") or [])
-    if not any(_occurrence_day(o) == day for o in occurrences):
-        occurrences.append(when)
-    body["occurrences"] = occurrences
-    task["body"] = body
-    task["reminders"] = [
-        {**r, "fired": False} for r in (task.get("reminders") or [])
-    ]
-    task["modifiedAt"] = now_iso()
-    atomic_write_json(_task_path(task["id"]), task)
-    return task
+    return geo_write.add_occurrence(
+        writer="geo-agent",
+        habit_id=task_id,
+        at=a.get("at"),
+    )
 
 
 def delete_task(task_id: str) -> dict:
-    path = _task_path(task_id)
-    if not path.exists():
-        raise GeoError(f"task not found: {task_id}")
-    os.remove(path)
-    return {"deleted": nfc(task_id).strip()}
+    from . import geo_write
+
+    return geo_write.update_task(writer="geo-agent", task_id=task_id, op="delete")
 
 
 def get_task(task_id: str) -> dict:

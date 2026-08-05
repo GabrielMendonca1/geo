@@ -1,8 +1,8 @@
 """
 geo-context — reads User Profile, Memory, Interaction Protocol and Today
-blocks (and arbitrary search results) directly from Gabriel's Geo vault files
-(``~/GeoVault/``). File-native: no HTTP, no Keychain —
-works even with Geo.app closed (the .md/.json files are truth).
+blocks (and arbitrary search results) directly from Gabriel's garime vault files
+(``~/Vault/``). File-native: no HTTP, no Keychain —
+the .md/.json files are the source of truth.
 
 Auto-injection is RE-ENABLED (HOOK.yaml events: [session:start,
 session:reset]): handle() rewrites MEMORY.md with the fixed identity bundle —
@@ -39,26 +39,7 @@ STATE_PATH = Path(__file__).parent / ".state.json"
 CONFIG_PATH = Path(__file__).parent.parent.parent / "config.yaml"
 
 
-def _nano_model() -> str:
-    """Resolve the nano model id: HERMES_NANO_MODEL env > config.yaml model.nano
-    > fallback literal. config.yaml (model.full / model.nano) is the canonical
-    source so a model retirement is a one-line config edit, not a code change."""
-    env = os.environ.get("HERMES_NANO_MODEL")
-    if env:
-        return env
-    try:
-        import yaml
-
-        data = yaml.safe_load(CONFIG_PATH.read_text()) or {}
-        nano = (data.get("model") or {}).get("nano")
-        if nano:
-            return str(nano)
-    except Exception:
-        pass
-    return "claude-haiku-4-5"
-
-
-HAIKU_MODEL = _nano_model()
+HAIKU_MODEL = haiku._nano_model()
 TODAY_SUMMARIZE_THRESHOLD = 600
 MAX_MEMORY_BODY = 5000
 TTL_SECONDS = 60.0
@@ -116,7 +97,7 @@ def _anchor_local_day(anchor: Optional[str]) -> str:
 
 
 def _unwrap_block(raw: Optional[str]) -> Optional[str]:
-    """Geo's get_block_by_title returns a JSON envelope; pull `.markdown` and
+    """garime's get_block_by_title returns a JSON envelope; pull `.markdown` and
     strip its frontmatter so we don't double-wrap. Returns None on miss
     sentinels ("No block found matching title: ...")."""
     if not raw:
@@ -134,7 +115,7 @@ def _unwrap_block(raw: Optional[str]) -> Optional[str]:
 
 
 def _format_today(raw: Optional[str]) -> Optional[str]:
-    """Geo's get_today returns {block_ids, capture_count, id}; render as a
+    """garime's get_today returns {block_ids, capture_count, id}; render as a
     one-line summary humans/LLMs can scan."""
     if not raw:
         return None
@@ -243,8 +224,8 @@ def _format_tasks(raw: Optional[str]) -> Optional[str]:
     return "\n".join(lines) if lines else None
 
 
-GEO_BLOCKS_DIR = Path(os.path.expanduser("~/GeoVault/Blocks"))
-GEO_TASKS_DIR = Path(os.path.expanduser("~/GeoVault/Tasks"))
+GEO_BLOCKS_DIR = Path(os.path.expanduser("~/Vault/Blocks"))
+GEO_TASKS_DIR = Path(os.path.expanduser("~/Vault/Tasks"))
 
 
 def _iter_block_files():
@@ -326,8 +307,8 @@ def _pending_tasks_envelope() -> str:
 
 
 async def _fetch_geo_blocks():
-    """Read the boot bundle straight from the vault files (truth) — works even
-    with Geo.app closed. Returns the same envelope shapes the formatters expect
+    """Read the boot bundle straight from the vault files (truth). Returns the
+    same envelope shapes the formatters expect
     (profile/memory/protocol raw .md; today/tasks JSON), or None when the vault
     is absent."""
     if not GEO_BLOCKS_DIR.exists():
@@ -490,7 +471,7 @@ async def _semantic_file_search(query: str, limit: int) -> list:
 
 
 async def _build_turn_context(message: str) -> str | None:
-    """Build API-only Geo context for one user turn.
+    """Build API-only garime context for one user turn.
 
     Context-friendly by design: lexical top-k, tiny excerpts, hard cap. This
     runs automatically on every agent:start and writes a sidecar file consumed
@@ -511,7 +492,7 @@ async def _build_turn_context(message: str) -> str | None:
         return None
 
     lines = [
-        "## Geo auto-context (API-only)",
+        "## garime auto-context (API-only)",
         "Use if relevant; ignore if not. Do not mention this block unless asked.",
     ]
     for hit in hits:
@@ -546,7 +527,7 @@ async def _write_turn_context(context: dict) -> str | None:
 
 
 async def search_context(query: str, with_summary: bool = False) -> dict:
-    """Answer a question from Gabriel's Geo blocks: relevance-search his vault
+    """Answer a question from Gabriel's garime blocks: relevance-search his vault
     (file-native — works app-closed), pull the full text of the top matches, and
     have Haiku extract ONLY the facts that answer the question, cited by block
     title. Returns:
@@ -562,7 +543,7 @@ async def search_context(query: str, with_summary: bool = False) -> dict:
                 "results": None, "error": "empty query"}
     if not GEO_BLOCKS_DIR.exists():
         return {"ok": False, "query": query, "answer": None, "sources": [],
-                "results": None, "error": "Geo vault not found"}
+                "results": None, "error": "garime vault not found"}
 
     sources: list = []
     docs: list = []
@@ -597,7 +578,7 @@ async def _build_body() -> Optional[str]:
 
     sections: list[str] = [
         "<!-- auto-generated by hooks/geo-context — DO NOT edit by hand; "
-        "edit the Soul/User-Profile/Memory blocks in Geo instead. -->\n"
+        "edit the Soul/User-Profile/Memory blocks in garime instead. -->\n"
     ]
     if profile:
         sections.append(f"## User profile\n\n{profile}")
@@ -657,7 +638,7 @@ async def handle(event_type: str, context: dict) -> None:
     body = await _build_body()
     if not body:
         if event_type != "agent:start":
-            _log(f"{event_type}: no Geo data fetched; leaving MEMORY.md untouched")
+            _log(f"{event_type}: no garime data fetched; leaving MEMORY.md untouched")
         return
     new_hash = _hash(body)
     if state.get("body_hash") == new_hash and MEMORY_PATH.exists():
