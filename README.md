@@ -1,6 +1,6 @@
 # Geo
 
-Personal, local-first knowledge system: a plain-Markdown vault (**`~/GeoVault/`**, edited via Obsidian) plus **hermes**, a 24/7 agent LaunchAgent on the same Mac, and a set of satellite daemons that capture, index, and mirror everything — all over the native filesystem. No MCP, no HTTP API, no socket between components.
+Personal, local-first knowledge system: a plain-Markdown vault (**`~/Vault/`**, edited via Obsidian) plus **hermes**, a 24/7 agent LaunchAgent on the same Mac, and a set of satellite daemons that capture, index, and mirror everything — all over the native filesystem. No MCP, no HTTP API, no socket between components.
 
 > **Personal, non-commercial project.** Geo is built and run for one person's own use.
 > It is not a product, it is not for sale, and it is not intended for commercial
@@ -9,7 +9,7 @@ Personal, local-first knowledge system: a plain-Markdown vault (**`~/GeoVault/`*
 ## Architecture
 
 ```
-~/GeoVault/                              ← single source of truth
+~/Vault/                              ← single source of truth
   Blocks/**.md       Zettelkasten (frontmatter id/type/status/layer/tags + [[wikilinks]])
   Tasks/<id>.json    one file per task
   Captures/          screenshot .png + .md OCR pairs (written by geocapture)
@@ -37,7 +37,7 @@ GeoCalendar / GeoCapture    daemons: task→EKEvent mirror · screenshot+OCR
 The former macOS app (Swift/SwiftUI) was **retired on 2026-07-04** — its code was removed from the repo (lives in git history). The old vault at `~/Library/Application Support/Geo/` is a frozen backup, read and written by nothing.
 
 - **Files are truth.** A block *is* its `.md` file; everything else (FTS, graph, tag/day maps) is a rebuildable cache derived from those files.
-- **Local-first & private.** Notes never leave the machine. The repo contains no personal data — the vault lives outside it, under `~/GeoVault/`.
+- **Local-first & private.** Notes never leave the machine. The repo contains no personal data — the vault lives outside it, under `~/Vault/`.
 
 Rules and deep dives: [`CLAUDE.md`](CLAUDE.md). Current work state: [`STATUS.md`](STATUS.md).
 

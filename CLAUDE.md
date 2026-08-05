@@ -1,9 +1,9 @@
 # Geo
 
-Personal, local-first knowledge system. The vault is **`~/GeoVault/`** — plain Markdown, edited via Obsidian — and every component reaches it **only through the native filesystem**: no MCP, no HTTP API, no socket between components. The former macOS app was retired 2026-07-04 (code lives in git history); `~/Library/Application Support/Geo/` is a frozen backup that nothing reads or writes.
+Personal, local-first knowledge system. The vault is **`~/Vault/`** — plain Markdown, edited via Obsidian — and every component reaches it **only through the native filesystem**: no MCP, no HTTP API, no socket between components. The former macOS app was retired 2026-07-04 (code lives in git history); `~/Library/Application Support/Geo/` is a frozen backup that nothing reads or writes.
 
 ```
-~/GeoVault/
+~/Vault/
   Blocks/**.md         ← single source of truth (Zettelkasten)
   Tasks/<id>.json      one file per task
   Captures/YYYY-MM-DD/ screenshot+OCR pairs (geocapture writes, others read)

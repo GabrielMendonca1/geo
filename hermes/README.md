@@ -18,6 +18,6 @@ This directory holds the files that land in `~/.hermes/` (copied or symlinked by
 
 ## Hard rules
 
-- **The vault (`~/GeoVault/`) is reached only via the filesystem** — geo-tools plugin for reads/writes under the layer guard. MCP and the HTTP API are retired; the old app-owned path `~/Library/Application Support/Geo/` is a frozen backup nothing touches.
+- **The vault (`~/Vault/`) is reached only via the filesystem** — geo-tools plugin for reads/writes under the layer guard. MCP and the HTTP API are retired; the old app-owned path `~/Library/Application Support/Geo/` is a frozen backup nothing touches.
 - **Two live copies**: this directory (source) and `~/.hermes/` (runtime). Check drift (md5) before editing either side.
 - **WhatsApp allowlist discipline** — read the inline comments in `config.yaml` before widening.
