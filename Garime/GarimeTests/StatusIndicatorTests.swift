@@ -41,6 +41,22 @@ final class StatusIndicatorTests: XCTestCase {
         XCTAssertNil(AgentMark.symbol(for: "pi"))
     }
 
+    func testProviderTintIsStableAndDistinct() {
+        XCTAssertEqual(AgentMark.tint(for: "Claude"), AgentMark.tint(for: "claude"))
+        XCTAssertNotEqual(AgentMark.tint(for: "claude"), AgentMark.tint(for: "codex"))
+        XCTAssertNotEqual(AgentMark.tint(for: "pi"), AgentMark.tint(for: "codex"))
+        XCTAssertNotEqual(AgentMark.tint(for: "kimi"), AgentMark.tint(for: "aider"))
+        XCTAssertEqual(AgentMark.tint(for: "aider"), AgentMark.tint(for: ""))
+    }
+
+    func testHostMarks() {
+        XCTAssertEqual(HostMark.symbol(for: "mac"), "laptopcomputer")
+        XCTAssertEqual(HostMark.symbol(for: "vm"), "server.rack")
+        XCTAssertEqual(HostMark.symbol(for: ""), "server.rack")
+        XCTAssertEqual(HostMark.label(for: "MAC"), "mac")
+        XCTAssertEqual(HostMark.label(for: "vm"), "vm")
+    }
+
     func testAgentGlyphFallback() {
         XCTAssertEqual(AgentMark.glyph(for: "pi"), "π")
         XCTAssertEqual(AgentMark.glyph(for: "aider"), "A")

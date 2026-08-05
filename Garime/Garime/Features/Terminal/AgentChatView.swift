@@ -1,3 +1,4 @@
+import PhotosUI
 import SwiftUI
 import UIKit
 
@@ -346,16 +347,24 @@ struct AgentChatView: View {
     var onBack: () -> Void = {}
 
     @StateObject private var model: AgentChatModel
+    @StateObject private var composerModel: AgentComposerModel
+    @StateObject private var dictation = AgentDictationModel()
     @Environment(\.scenePhase) private var scenePhase
-    @State private var draft = ""
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var draft = AgentChatView.initialDraft()
     @State private var ticker: Task<Void, Never>?
     @State private var atBottom = true
+    @State private var showPhotoPicker = false
+    @State private var showFileImporter = false
+    @State private var photoItem: PhotosPickerItem?
+    @State private var dictationBase = ""
     @FocusState private var composerFocused: Bool
 
     init(target: AgentChatTarget, onBack: @escaping () -> Void = {}) {
         self.target = target
         self.onBack = onBack
         _model = StateObject(wrappedValue: AgentChatModel(target: target))
+        _composerModel = StateObject(wrappedValue: AgentComposerModel(target: target))
     }
 
     var body: some View {
@@ -407,13 +416,17 @@ struct AgentChatView: View {
             Button("ok", role: .cancel) { model.errorMessage = nil }
         }
         .onAppear { startTicker() }
-        .onDisappear { stopTicker() }
+        .onDisappear {
+            stopTicker()
+            dictation.stop()
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 startTicker()
                 Task { await model.refresh() }
             } else {
                 stopTicker()
+                dictation.stop()
             }
         }
     }
@@ -598,30 +611,206 @@ struct AgentChatView: View {
 
     private var composer: some View {
         GlassChrome {
-            HStack(alignment: .bottom, spacing: 8) {
-                TextField("mensagem", text: $draft, axis: .vertical)
-                    .font(.system(size: 13, design: .monospaced))
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .lineLimit(1...6)
-                    .focused($composerFocused)
-                    .padding(.leading, 14)
-                    .padding(.vertical, 12)
-                Button { submit() } label: {
-                    Image(systemName: "arrow.up")
-                        .font(.system(size: 14, weight: .semibold))
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
+            VStack(alignment: .leading, spacing: 6) {
+                if !menuCommands.isEmpty {
+                    commandMenu
                 }
-                .buttonStyle(.plain)
-                .disabled(!canSend)
-                .opacity(canSend ? 1 : 0.35)
+                if !statusLine.isEmpty {
+                    Text(statusLine)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(Color.slateTextDim)
+                        .padding(.leading, 16)
+                }
+                HStack(alignment: .bottom, spacing: 0) {
+                    attachButton
+                    TextField("mensagem", text: $draft, axis: .vertical)
+                        .font(.system(size: 13, design: .monospaced))
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .lineLimit(1...6)
+                        .focused($composerFocused)
+                        .padding(.vertical, 12)
+                    micButton
+                    Button { submit() } label: {
+                        Image(systemName: "arrow.up")
+                            .font(.system(size: 14, weight: .semibold))
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!canSend)
+                    .opacity(canSend ? 1 : 0.35)
+                }
+                .foregroundStyle(.primary)
+                .glassSurface(shape: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: true)
             }
-            .foregroundStyle(.primary)
-            .glassSurface(shape: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: true)
             .padding(.horizontal, 12)
             .padding(.bottom, 8)
         }
+        .animation(.spring(response: 0.3, dampingFraction: 1), value: menuCommands.count)
+        .animation(.spring(response: 0.3, dampingFraction: 1), value: statusLine)
+        .photosPicker(isPresented: $showPhotoPicker, selection: $photoItem, matching: .images)
+        .fileImporter(isPresented: $showFileImporter, allowedContentTypes: [.item]) { result in
+            importFile(result)
+        }
+        .onChange(of: photoItem) { _, item in
+            guard let item else { return }
+            photoItem = nil
+            Task { await importPhoto(item) }
+        }
+        .onAppear { loadCommandsIfNeeded() }
+        .onChange(of: draft) { _, _ in loadCommandsIfNeeded() }
+        .onChange(of: dictation.transcript) { _, value in
+            guard let merged = DictationDraft.merged(base: dictationBase, transcript: value) else { return }
+            draft = merged
+        }
+    }
+
+    private static func initialDraft() -> String {
+        guard let index = CommandLine.arguments.firstIndex(of: "-geoDraft"),
+              index + 1 < CommandLine.arguments.count
+        else { return "" }
+        return CommandLine.arguments[index + 1]
+    }
+
+    private func loadCommandsIfNeeded() {
+        guard AgentCommandMenu.query(draft) != nil else { return }
+        Task { await composerModel.loadCommands() }
+    }
+
+    private var menuCommands: [AgentCommand] {
+        guard let query = AgentCommandMenu.query(draft) else { return [] }
+        return AgentCommandMenu.filter(composerModel.commands, query: query)
+    }
+
+    private var commandMenu: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(menuCommands) { command in
+                    Button {
+                        draft = AgentCommandMenu.inserted(command.name)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("/\(command.name)")
+                                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                            if !command.description.isEmpty {
+                                Text(command.description)
+                                    .font(.system(size: 10, design: .monospaced))
+                                    .foregroundStyle(Color.slateTextDim)
+                                    .lineLimit(1)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                        .padding(.horizontal, 14)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.vertical, 4)
+        }
+        .scrollBounceBehavior(.basedOnSize)
+        .frame(maxHeight: 220)
+        .foregroundStyle(.primary)
+        .glassSurface(shape: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private var attachButton: some View {
+        Menu {
+            Button { showPhotoPicker = true } label: { Label("foto", systemImage: "photo") }
+            Button { showFileImporter = true } label: { Label("arquivo", systemImage: "doc") }
+        } label: {
+            Image(systemName: "plus")
+                .font(.system(size: 15, weight: .semibold))
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .disabled(composerModel.uploading)
+        .opacity(composerModel.uploading ? 0.35 : 1)
+    }
+
+    private var micButton: some View {
+        Button { toggleDictation() } label: {
+            Group {
+                if dictation.recording && !reduceMotion {
+                    TimelineView(.periodic(from: .now, by: 0.6)) { context in
+                        micGlyph
+                            .opacity(Int(context.date.timeIntervalSinceReferenceDate / 0.6) % 2 == 0 ? 1 : 0.35)
+                    }
+                } else {
+                    micGlyph
+                }
+            }
+            .frame(width: 44, height: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(dictation.recording ? "parar ditado" : "ditar")
+    }
+
+    private var micGlyph: some View {
+        Image(systemName: dictation.recording ? "stop.circle" : "mic")
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(dictation.recording ? Color.red : Color.primary)
+    }
+
+    private var statusLine: String {
+        if dictation.recording { return "ouvindo…" }
+        if !dictation.notice.isEmpty { return dictation.notice }
+        return composerModel.notice
+    }
+
+    private func toggleDictation() {
+        if dictation.recording {
+            dictation.stop()
+        } else {
+            dictationBase = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+            dictation.start()
+        }
+    }
+
+    private func importPhoto(_ item: PhotosPickerItem) async {
+        guard let data = try? await item.loadTransferable(type: Data.self) else {
+            composerModel.fail("não deu pra ler a foto")
+            return
+        }
+        let ext = item.supportedContentTypes.first?.preferredFilenameExtension ?? "jpg"
+        let name = UploadName.sanitized("foto-\(Self.stamp()).\(ext)", fallback: "foto")
+        await deliverUpload(data, filename: name)
+    }
+
+    private func importFile(_ result: Result<URL, Error>) {
+        guard case .success(let url) = result else {
+            composerModel.fail("não deu pra abrir o arquivo")
+            return
+        }
+        let name = UploadName.sanitized(url.lastPathComponent, fallback: "arquivo-\(Self.stamp())")
+        Task {
+            let outcome = await Task.detached(priority: .userInitiated) {
+                AgentFileRead.read(url)
+            }.value
+            switch outcome {
+            case .ok(let data):
+                await deliverUpload(data, filename: name)
+            case .tooLarge:
+                composerModel.fail("arquivo grande demais")
+            case .failed:
+                composerModel.fail("não deu pra ler o arquivo")
+            }
+        }
+    }
+
+    private func deliverUpload(_ data: Data, filename: String) async {
+        guard let path = await composerModel.upload(data, filename: filename) else { return }
+        let separator = draft.isEmpty || draft.hasSuffix(" ") ? "" : " "
+        draft += separator + path + " "
+        composerFocused = true
+    }
+
+    private static func stamp() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        return formatter.string(from: Date())
     }
 
     private var canSend: Bool {
@@ -631,6 +820,8 @@ struct AgentChatView: View {
     private func submit() {
         let text = draft
         guard canSend else { return }
+        dictation.stop()
+        composerModel.clearNotice()
         draft = ""
         atBottom = true
         Task { await model.send(text) }

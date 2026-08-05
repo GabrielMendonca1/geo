@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 enum StatusLevel: Equatable {
     case working
@@ -105,7 +106,53 @@ extension ServiceCheck {
     }
 }
 
+private enum AgentPalette {
+    static let claude = rgb(0xD9, 0x77, 0x57)
+    static let codex = rgb(0x10, 0xA3, 0x7F)
+    static let opencode = rgb(0x4A, 0x6C, 0x8A)
+    static let kimi = rgb(0x6C, 0x5C, 0xE7)
+    static let neutral = rgb(0x8E, 0x8E, 0x93)
+    static let pi = UIColor { $0.userInterfaceStyle == .dark ? rgb(0x24, 0x24, 0x28) : rgb(0x0B, 0x0B, 0x0D) }
+
+    private static func rgb(_ r: Int, _ g: Int, _ b: Int) -> UIColor {
+        UIColor(red: CGFloat(r) / 255, green: CGFloat(g) / 255, blue: CGFloat(b) / 255, alpha: 1)
+    }
+}
+
+enum HostMark {
+    static func symbol(for host: String) -> String {
+        host.lowercased() == "mac" ? "laptopcomputer" : "server.rack"
+    }
+
+    static func label(for host: String) -> String {
+        host.lowercased() == "mac" ? "mac" : "vm"
+    }
+}
+
+struct HostBadge: View {
+    let host: String
+
+    var body: some View {
+        Image(systemName: HostMark.symbol(for: host))
+            .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(Color.slateTextDim)
+            .frame(width: 20, height: 16)
+            .accessibilityLabel(HostMark.label(for: host))
+    }
+}
+
 enum AgentMark {
+    static func tint(for agent: String) -> Color {
+        switch agent.lowercased() {
+        case "claude": return Color(AgentPalette.claude)
+        case "codex": return Color(AgentPalette.codex)
+        case "opencode": return Color(AgentPalette.opencode)
+        case "kimi": return Color(AgentPalette.kimi)
+        case "pi": return Color(AgentPalette.pi)
+        default: return Color(AgentPalette.neutral)
+        }
+    }
+
     static func symbol(for agent: String) -> String? {
         switch agent.lowercased() {
         case "claude": return "asterisk"
@@ -140,9 +187,9 @@ struct AgentBadge: View {
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
             }
         }
-        .foregroundStyle(.primary)
+        .foregroundStyle(.white)
         .frame(width: 21, height: 21)
-        .background(Color.slateInk(0.08), in: shape)
+        .background(AgentMark.tint(for: agent), in: shape)
         .overlay(shape.stroke(Color.slateStroke.opacity(0.5), lineWidth: 0.5))
         .accessibilityHidden(true)
     }

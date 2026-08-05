@@ -37,7 +37,7 @@ Spec version: 4 (v3 + `/vitals/*` health). All facts below were extracted from t
 | `GEO_STATUS_MAC_USER` | `biel` | ssh user on the Mac for the herdr agent scan (`<user>@<GEO_STATUS_MAC_HOST>`) |
 | `GEO_STATUS_HERDR` | `/opt/homebrew/bin/herdr` | Absolute path to `herdr` **on the Mac** (its dirname is also prepended to the remote `PATH`) |
 | `GEO_STATUS_SSH` | `ssh` | ssh binary used for the Mac scan (resolved via `PATH`) |
-| `GEO_STATUS_AGENTS_TTL` | `10` | Seconds the `agents` list of `/term/agents` is cached (the phone polls every 10 s) |
+| `GEO_STATUS_AGENTS_TTL` | `10` | Seconds the Mac herdr scan (`agents` of `/term/agents` **and** the panes of `/term/panes`) is cached (the phone polls every 10 s) |
 | `GEO_STATUS_AGENTS_TIMEOUT` | `12` | Hard timeout (s) of the single ssh call that scans the Mac |
 | `GEO_TERM_ATTACH_SSH_TIMEOUT` | `4` | `ConnectTimeout` (s) of the ssh started **inside tmux** by `/term/attach-agent` and `/term/attach-herdr`, and of the ssh run **in the handler** by `/term/agent-chat` and `/term/agent-prompt` |
 | `GEO_AGENT_CHAT_LIMIT` | `40` | Default number of messages returned by `/term/agent-chat` |
@@ -46,6 +46,12 @@ Spec version: 4 (v3 + `/vitals/*` health). All facts below were extracted from t
 | `GEO_AGENT_CHAT_TAIL_BYTES` | `131072` | Bytes of the **tail** of the transcript file read on the Mac (`tail -c`) per `/term/agent-chat` call |
 | `GEO_AGENT_CHAT_TIMEOUT` | `12` | Hard timeout (s) of the transcript ssh of `/term/agent-chat` |
 | `GEO_AGENT_PROMPT_TIMEOUT` | `15` | Hard timeout (s) of the `herdr agent prompt` ssh of `/term/agent-prompt` |
+| `GEO_AGENT_COMMANDS_TTL` | `120` | Seconds the per-agent command list of `/term/agent-commands` is cached (own cache, deliberately longer than `GEO_STATUS_AGENTS_TTL`: skills change rarely) |
+| `GEO_AGENT_COMMANDS_TIMEOUT` | `15` | Hard timeout (s) of the single skills-listing ssh of `/term/agent-commands` |
+| `GEO_AGENT_COMMANDS_CACHE_MAX` | `64` | Maximum `(project, pane, agent, cwd)` entries kept by the `/term/agent-commands` cache before the oldest is evicted |
+| `GEO_AGENT_COMMANDS_HEAD_LINES` | `12` | How many leading lines of each `SKILL.md`/`*.md` are scanned **on the Mac** for the `description:` line |
+| `GEO_AGENT_UPLOAD_DIR` | `garime-uploads` | Inbox **on the Mac**, always relative to the ssh user's `$HOME`, for `/term/agent-upload` (a bare name, never a path) |
+| `GEO_AGENT_UPLOAD_TIMEOUT` | `120` | Hard timeout (s) of the `/term/agent-upload` ssh (covers streaming up to 32 MiB over stdin) |
 
 ## Auth
 
@@ -267,7 +273,7 @@ Same splice as `GET /tasks`: `[ <bytes of log-A.json>, <bytes of log-B.json>, �
 
 ## Terminal — `/term/*` (added in v3)
 
-A real interactive terminal for the phone. **Not** a dumb pipe over files (see the principle-4 carve-out above for the blast-radius warning). Ten endpoints (`stream`, `input`, `resize`, `winsize`, `list`, `preview`, `agents`, `kill`, `rename`, `upload`), all gated and separately authed. `preview` and `agents` are strictly read-only and never spawn a session.
+A real interactive terminal for the phone. **Not** a dumb pipe over files (see the principle-4 carve-out above for the blast-radius warning). Eleven endpoints (`stream`, `input`, `resize`, `winsize`, `list`, `preview`, `agents`, `panes`, `kill`, `rename`, `upload`), all gated and separately authed. `preview`, `agents` and `panes` are strictly read-only and never spawn a session.
 
 **Session selection.** Every `/term/*` endpoint takes `?session=<name>`, matched against `\A[A-Za-z0-9_-]{1,32}\Z` (anchored so a trailing newline is rejected, not accepted as `$` would). A **missing** value falls back to `GEO_TERM_SESSION` (default `mobile`) on every endpoint. A **present but malformed** value falls back to that default only on the read verbs (`stream`, `input`, `resize`, `winsize`, `list`, `preview`); on the mutating verbs (`kill`, `rename`) it is `400 {"error":"bad_name"}` — silently redirecting a kill or a rename onto the default session would mutate a session the caller never asked for. The name `mac` is special: if `GEO_TERM_PROFILE_MAC` is set, that script is run as the session's command.
 
@@ -378,10 +384,33 @@ Read-only service/host status for the "agentes" section of the sessions home. To
 
 - Per entry: `host` is `mac`|`vm`; `agent` is the agent binary (`claude`, `pi`, `codex`, `kimi`, `opencode`); `status` is `idle`|`working`|`unknown` on the Mac and always `running` on the VM; `title` is the herdr `terminal_title_stripped` (fallback `terminal_title`, else `""`); `project` is the herdr session the pane belongs to (empty on the VM); `cwd` when herdr reports one.
 - `pane` is the herdr `pane_id` of the entry (`w<n>:p<n>`), `""` when herdr does not report one and always `""` on the VM. Together with `project` it is the exact pair `/term/attach-agent` takes — the client never builds it, it echoes what this endpoint gave it.
-- **Mac side**: one `ssh -o BatchMode=yes -o ConnectTimeout=4 <GEO_STATUS_MAC_USER>@<GEO_STATUS_MAC_HOST>` (argv list, never `shell=True`, hard timeout `GEO_STATUS_AGENTS_TIMEOUT`). The remote script lists the `running` herdr sessions and, per session, prints a `##session <name>` marker followed by the single-line JSON of `herdr --session <name> agent list`; the marker is what makes `project` exact instead of guessed. Each stdout line is parsed independently — unparseable lines are skipped, panes without an `agent` key (`agent_status:"unknown"`, no agent attached) are discarded.
+- **Mac side**: one `ssh -o BatchMode=yes -o ConnectTimeout=4 <GEO_STATUS_MAC_USER>@<GEO_STATUS_MAC_HOST>` (argv list, never `shell=True`, hard timeout `GEO_STATUS_AGENTS_TIMEOUT`). The remote script lists the `running` herdr sessions and, per session, prints a `##session <name>` marker followed by the single-line JSON of `herdr --session <name> agent list` **and** of `herdr --session <name> pane list`; the marker is what makes `project` exact instead of guessed. Each stdout line is parsed independently — unparseable lines are skipped. The `agent list` half feeds `agents` here: panes without an `agent` key (`agent_status:"unknown"`, no agent attached) are not agents and are discarded. The `pane list` half is the whole workspace and is served by `/term/panes`; it never enters the `/term/agents` payload, whose per-entry shape is unchanged.
 - **The Mac side fails silently**: ssh down, host unreachable, timeout, no herdr, garbage output → it contributes an empty list. `/term/agents` never 5xxs because of it, and `units`/`mac_online` are unaffected.
 - **VM side**: a `ps -eo comm=` scan for local `pi`/`claude`/`codex`/`kimi`/`opencode` processes, `status:"running"`, `project`/`title`/`cwd` empty (that data is not available cheaply and is not invented). The WhatsApp bot runs as `node` and is *not* listed here — it is already the `garime-wa` unit.
-- **Cost and cache**: the ssh round trip is ~1.3 s, the phone polls every 10 s. The whole `agents` list is memoized for `GEO_STATUS_AGENTS_TTL` seconds. Refreshes are serialized by a second lock, so two concurrent requests produce **one** ssh (the loser waits and reads the fresh cache); the cache lock is never held during the ssh, so a slow refresh cannot deadlock other routes. A failed refresh caches the degraded result for the TTL — the last good value survives only as long as it is fresh, and there is no stale replay beyond it.
+- **Cost and cache**: the ssh round trip is ~1.3 s, the phone polls every 10 s. The whole scan (`agents` **and** the panes behind `/term/panes`) is memoized for `GEO_STATUS_AGENTS_TTL` seconds. Refreshes are serialized by a second lock, so two concurrent requests produce **one** ssh (the loser waits and reads the fresh cache); the cache lock is never held during the ssh, so a slow refresh cannot deadlock other routes. A failed refresh caches the degraded result for the TTL — the last good value survives only as long as it is fresh, and there is no stale replay beyond it.
+
+### GET /term/panes
+
+The **project GUI**: every pane of one herdr session — agents *and* plain shells (lazygit, gh dash, a bare zsh) — so the phone can draw the project screen instead of attaching to herdr's TUI. Read-only, spawns nothing.
+
+- Auth: the terminal token (`_term_gate`). Main bridge token → `401`. Terminal disabled → `404`.
+- `?project=<name>`, required, validated by the same anchored regex as `/term/attach-agent` (`\A[A-Za-z0-9_-]{1,24}\Z`, never `$`) → otherwise `400 {"error":"bad_target"}` and no ssh happens.
+
+```json
+{"project":"garime","panes":[
+ {"pane":"w1:p1","agent":"claude","status":"working","title":"tech stack audit",
+  "cwd":"/Users/biel/Garime","tab":"w1:t1"},
+ {"pane":"w1:p4","agent":"","status":"unknown","title":"","cwd":"/Users/biel/Garime","tab":"w1:t4"}
+]}
+```
+
+- Per entry: `pane` is the herdr `pane_id` (`w<n>:p<n>`) — the exact value `/term/attach-agent` takes; `agent` is the herdr `agent` field and is **`""` when the pane has no agent** (a shell) — nothing is invented; `status` is `idle`|`working`|`unknown` (`unknown` for shells); `title` is `terminal_title_stripped` (fallback `terminal_title`, else `""`); `cwd` and `tab` (herdr `tab_id`) are `""` when not reported. Entries with no `pane_id` are dropped.
+- **Order is herdr's order** — the visual order of its workspace — and is never re-sorted, so the screen matches the Mac.
+- Same memoized scan as `/term/agents` (`GEO_STATUS_AGENTS_TTL`, same locks): polling this screen costs **no** extra ssh, and two concurrent requests produce one ssh.
+- Codes:
+  - `200` — the pane list. A project with no panes, and a project herdr does not know, are both `200` with `panes: []`: `herdr session list` simply does not emit an unknown session, so the bridge cannot tell "empty" from "does not exist" and refuses to invent a `404`.
+  - `400 {"error":"bad_target"}` — malformed/absent `project`.
+  - `503 {"error":"unavailable"}` — **we could not find out**: the Mac scan failed (ssh down, host unreachable, timeout, no herdr). Never `200` with an empty list — the client must render "sem conexão", not "projeto vazio". Same rule as `/term/agent-chat`; `/term/agents` keeps its own silent-fail behaviour.
 
 ### POST /term/kill
 
@@ -411,6 +440,12 @@ Open a **Mac-side herdr view** inside a bridge tmux session, so the phone termin
   - `project` (both routes): `\A[A-Za-z0-9_-]{1,24}\Z` — a herdr session name, as reported by `/term/agents` `project`.
   - `pane` (`attach-agent` only): `\Aw[0-9]{1,3}:p[0-9]{1,3}\Z` — the `/term/agents` `pane`. `attach-herdr` ignores any `pane` given.
   - Anything else (missing, empty, wrong shape, trailing newline, shell metacharacters, over-length) → `400 {"error":"bad_target"}` and **nothing is spawned**.
+- **`attach-agent` resolves the pane before spawning** (the same memoized scan `/term/agent-chat` uses, zero extra ssh). `herdr agent attach` on a pane with no agent fails *inside* tmux and the session dies seconds later — the phone used to get a `200`, a session name, and a terminal that 404s on the next `/term/preview`. So:
+  - pane with an agent → spawn as below;
+  - pane that exists in `/term/panes` but has **no agent** (a shell) → `409 {"error":"no_agent_in_pane"}`, **no tmux session created**;
+  - pane that does not exist in the project → `404 {"error":"no_agent"}`, nothing created;
+  - Mac scan failed → `503 {"error":"unavailable"}`, nothing created.
+  `attach-herdr` is unaffected: it targets the whole project, not a pane, and never resolves anything.
 - **Derived session name** — deterministic, never chosen by the client: `ag-<project>-<pane without the colon>` (e.g. `ag-garime-w1p3`) and `hd-<project>` (e.g. `hd-garime`). If the name would exceed the 32-char `TERM_SESSION_RE` budget, the project is truncated and a 4-hex-char sha1 of the full project is appended, so two long projects never collapse onto one session. The `ag-`/`hd-` prefixes are a namespace: a derived name can never equal the reserved `mac`, and a user session only collides if the user deliberately names one `ag-…`/`hd-…`.
 - **Reuse**: the spawn is the ordinary `tmux new-session -A -s <derived>` path, so a second call with the same `project`/`pane` returns the same name and attaches to the session already running — no second ssh, no second tmux session.
 - **The remote command** runs inside tmux, never in the HTTP handler (the handler returns as soon as the session exists):
@@ -420,7 +455,7 @@ Open a **Mac-side herdr view** inside a bridge tmux session, so the phone termin
     'export PATH=<dirname GEO_STATUS_HERDR>:$PATH; <GEO_STATUS_HERDR> --session <project> [agent attach <pane>]'
   ```
   argv list, never `shell=True`; every interpolated part is `shlex.quote`d on top of the strict regexes. `-tt` is mandatory — herdr panics (`failed to initialize terminal`) without a TTY and renders empty on a zero-sized one, which is why this only works from inside a real tmux session. No `--takeover`: herdr accepts several simultaneous clients, so attaching from the VM does **not** kick the Mac's own herdr window.
-- Success → `200 {"session":"<derived name>"}`. The bridge does not wait for ssh: an unreachable Mac, a dead herdr or a wrong project surfaces as the error text *inside the terminal stream*, not as an HTTP code.
+- Success → `200 {"session":"<derived name>"}`. The bridge does not wait for ssh: a herdr that dies for any other reason, or a wrong project on `attach-herdr`, still surfaces as the error text *inside the terminal stream*, not as an HTTP code.
 - **Ephemeral by nature.** These sessions are ordinary bridge sessions: they show up in `/term/list`, `/term/preview` and `/term/winsize`, and `POST /term/kill?session=<derived>` kills them like any other. When the remote ssh/herdr exits, tmux tears the session down on its own. The 600 s idle reaper (no `/term/stream` client) tears the bridge's attach down as usual; re-issuing `attach-agent`/`attach-herdr` is always the way back in and is idempotent.
 
 ### GET /term/agent-chat
@@ -486,6 +521,52 @@ Drops a file into a fixed inbox on the Mac so the phone can paste its path into 
 - Size cap 32 MiB (33554432 bytes) measured from `Content-Length`. Larger → `413 {"error":"too_large"}`. Missing/zero/unparseable length, or a body shorter than announced → `400 {"error":"invalid_body"}`.
 - Success → `200 {"path":"/Users/<user>/garime-uploads/<name>"}`. The client types that path into the terminal as input; running it is the user's decision.
 - **The body is never logged** (only method+path reach the log). The connection is closed after the response.
+
+### GET /term/agent-commands
+
+The `/` menu of the chat composer: which slash commands **that** agent can actually run, so the phone offers a list instead of the user typing from memory.
+
+- Auth: the terminal token (`_term_gate`). Main bridge token → `401`. Terminal disabled → `404`.
+- Params — the same `project`/`pane` pair as `/term/agent-chat`, validated by the same anchored regexes (`\A[A-Za-z0-9_-]{1,24}\Z`, `\Aw[0-9]{1,3}:p[0-9]{1,3}\Z`, never `$`). Both required; anything else → `400 {"error":"bad_target"}` and no ssh happens.
+
+```json
+{"agent":"claude","commands":[
+  {"name":"g-omni","description":"Conduz qualquer tarefa não-trivial…","scope":"user"},
+  {"name":"soltar","description":"comando de projeto","scope":"project"}
+]}
+```
+
+- **Resolution** costs zero extra ssh: same memoized scan as `/term/agents` (`host=="mac"` + exact `project` + exact `pane`). No agent in a pane that exists → `409 {"error":"no_agent_in_pane"}`; pane not in the scan at all → `404 {"error":"no_agent"}`; scan failed → `503`.
+- **`cwd` comes from the scan, never from the client.** There is no `cwd` param and none would be honoured: the project scope is rooted at the `cwd` herdr reported for that pane, `shlex.quote`d.
+- **Sources** (one single ssh, whatever the agent):
+  - `claude` — `$HOME/.claude/skills/*/SKILL.md` (`scope:"user"`), plus `<cwd>/.claude/skills/*/SKILL.md` and `<cwd>/.claude/commands/*.md` (`scope:"project"`). This Mac has **no** `~/.claude/commands/`; the user-level slash commands *are* the skills.
+  - `pi` — `$HOME/.pi/agent/skills/*/SKILL.md` and `$HOME/.pi/agent/skills/*.md` (`scope:"user"`).
+  - Any other agent (codex, kimi, opencode…) → `200` with `commands: []`, **no ssh at all**. Not knowing an agent's skill layout is not an error.
+- **`name`** = the skill directory's name, or the `.md` file's basename without the extension. It is re-validated on the VM against `\A[A-Za-z0-9._-]{1,64}\Z` (and never `.`/`..`); a directory whose name carries shell metacharacters is dropped from the list rather than shipped to the phone.
+- **`description`** = the first `description:` line of the frontmatter, trimmed and **truncated to 160 characters** (the payload travels on 4G). No description, empty directory, no frontmatter at all → `""`, never an error and never a missing key.
+- **The `SKILL.md` bodies never cross the network.** The remote side lists the files with the shell's `printf` builtin and extracts descriptions with **one** `awk` over the whole list, which stops at line `GEO_AGENT_COMMANDS_HEAD_LINES` (12) of each file and emits at most 400 bytes per description. A 400 KB skill costs the same handful of bytes as a 400 B one (proven in the smoke: 400 048 B on disk → 2 261 B on the wire for the whole list). A `description:` further down than line 12 is reported as `""` on purpose — that is the price of the cheap read.
+- **Ordering and precedence**: alphabetical by `name`. If the same name exists in both scopes, **`project` wins and the entry appears once** (more specific overrides; no duplicates).
+- **The remote side never runs under the Mac's login shell.** ssh hands the command to the login shell, which on this Mac is `/bin/zsh`, where an unmatched glob is a **fatal** error (`NOMATCH` is on even for `zsh -c`) that would abort the listing before it printed anything — and no project here has `.claude/skills`, `.claude/commands` nor a loose `~/.pi/agent/skills/*.md`, so that is the normal case, not the exception. The listing is therefore always wrapped as `/bin/sh -c '<script>'` (single argument, `shlex.quote`d), and POSIX `sh` passes an unmatched pattern through as a literal word that `[ -f "$f" ]` discards. Each glob is additionally guarded by `[ -d ]` on its directory.
+- **"Empty" is proven, never assumed.** The script does not force `exit 0`. It fails loudly instead: no `$HOME` → `6`, a skills directory that exists but is not readable/searchable → `7`, `awk` missing or unable to read a file → `8`; and when it does reach the end it prints a final `Z` line. The VM only accepts the result when the ssh exit code is `0` **and** the last output line is `Z`; anything else is `503 unavailable`. A remote error can therefore never be rendered as `commands: []`.
+- **Cache**: own cache keyed by `(project, pane, agent, cwd)` with TTL `GEO_AGENT_COMMANDS_TTL` (120 s), much longer than the 10 s agent scan. Serialization is **per key**, not global: two concurrent calls for the same pane = **one** ssh, while a slow pane never blocks another pane's list. The cache (and its lock table) is bounded to `GEO_AGENT_COMMANDS_CACHE_MAX` (64) entries, oldest evicted first — `cwd` is part of the key and changes on every `cd`, so it must not grow forever. Only successes are cached; a failure is never memoized as an empty list.
+- Codes: `200` (list, possibly empty) · `400 bad_target` · `404 no_agent` · `409 no_agent_in_pane` · `503 {"error":"unavailable"}` when the scan or the skills ssh failed/timed out. As everywhere in `/term/*`, `503` means "we could not find out" and is **not** the same as an empty list — the client must not blank the menu on it.
+
+### POST /term/agent-upload
+
+Sends a photo/file **to the Mac where the agent runs** (not to the VM), so the phone can then cite the path in a prompt. Sibling of `/term/upload`, same rigor, different destination host. **It never executes anything and never sets the executable bit.**
+
+- Auth: the terminal token (`_term_gate`). Params `project`/`pane` exactly as above → `400 {"error":"bad_target"}`.
+- Request body: the **raw bytes** of the file (not base64, not multipart). Header `X-Geo-Filename` carries the desired basename.
+- **Filename validation identical to `/term/upload`**: `\A[A-Za-z0-9._-]{1,80}\Z` (anchored — a trailing `\n`, including one smuggled in by an obs-fold header, is rejected), must equal its own `os.path.basename`, must not start with `.`. So `../../etc/x`, `a/b.png`, `.bashrc`, `..`, the empty name and any name with `$`/backticks/quotes → `400 {"error":"invalid_filename"}`, **before any ssh**. There is no sanitizing rewrite.
+- Size cap **32 MiB** (33554432 bytes) from `Content-Length` → `413 {"error":"too_large"}` (refused before the body is read). Missing/zero/unparseable length, or a body shorter than announced → `400 {"error":"invalid_body"}`.
+- **Resolution before transfer** (after the `400`s, so malformed input costs no scan): the same memoized lookup — `404 no_agent`, `409 no_agent_in_pane`, `503 unavailable`.
+- **Transfer**: the bytes go through the **stdin** of the ssh into a remote `cat`; file content is never interpolated into a command line. The local argv is a list, never `shell=True`, and every interpolated fragment of the remote script (inbox name, filename, stem, extension) is `shlex.quote`d — a name/content carrying `'; rm -rf …; $(id)` and backticks is inert (proven in the smoke against a sentinel that survives).
+- **Destination** is fixed: `$HOME/<GEO_AGENT_UPLOAD_DIR>` (`~/garime-uploads`) on the Mac, `mkdir -p` under `umask 077` → the dir is `0700` and the file `0600`.
+- **Collision**: `nome.txt`, `nome-1.txt`, `nome-2.txt`, … Existing files are never overwritten (>1000 collisions → the remote script exits non-zero → `503`).
+- **No symlink following, no overwrite** — with the limitation that POSIX `sh` has no `O_NOFOLLOW`: the guarantee is built from `[ -e "$p" ] || [ -L "$p" ]` (the `-L` also catches a **dangling** symlink that `-e` misses) plus `set -C` (noclobber), which opens with `O_CREAT|O_EXCL`. `O_EXCL` fails with `EEXIST` when the path is a symlink *regardless of its target*, so the symlink is never followed and nothing existing is ever truncated. What this is not: an atomic `O_NOFOLLOW` on the same descriptor — a symlink created between the test and the redirect still ends in a failed open (`503`), never in a followed write.
+- Success → `200 {"path":"/Users/<user>/garime-uploads/<final-name>"}` — the **final** name after collision handling, validated against `\A/[^\x00-\x1f]{1,500}\Z` before being echoed. The client cites that path in the next `/term/agent-prompt`; running anything with it is the user's decision.
+- `503 {"error":"unavailable"}` — Mac unreachable at either step, ssh timeout, or the remote script failed (`mkdir`, collision ceiling, write error). Nothing landed, or we cannot tell: the client must not assume the file exists.
+- **The body is never logged** (only method+path reach the log, like `/term/input`, `/term/upload` and `/term/agent-prompt`). The connection is closed after the response.
 
 ## Mac-app integration facts (why writing the file is enough)
 

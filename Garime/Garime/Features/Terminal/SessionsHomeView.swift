@@ -21,7 +21,9 @@ struct TermAgentProcess: Decodable, Identifiable, Equatable {
     let cwd: String
     let pane: String
 
-    var id: String { "\(host)|\(project)|\(agent)|\(pane)|\(title)" }
+    var id: String {
+        pane.isEmpty ? "\(host)|\(project)|\(agent)|\(title)" : "\(host)|\(project)|\(agent)|\(pane)"
+    }
 
     var isBusy: Bool { status == "working" || status == "running" }
     var isIdle: Bool { status == "idle" }
@@ -76,6 +78,19 @@ struct TermAgentGroup: Identifiable, Equatable {
 
     var id: String { project }
     var label: String { project.isEmpty ? "sem projeto" : project }
+
+    var hasBusy: Bool { agents.contains(where: \.isBusy) }
+
+    var level: StatusLevel {
+        if hasBusy { return .working }
+        if agents.contains(where: \.isIdle) { return .idle }
+        return .dormant
+    }
+
+    var marks: (symbols: [String], overflow: Int) {
+        let symbols = agents.prefix(5).map { AgentMark.symbol(for: $0.agent) ?? AgentMark.glyph(for: $0.agent) }
+        return (symbols, max(0, agents.count - 5))
+    }
 }
 
 enum TermAgentOrder {
@@ -91,8 +106,48 @@ enum TermAgentOrder {
         return groups
     }
 
-    static func showsProjectLabels(_ groups: [TermAgentGroup]) -> Bool {
-        groups.contains { !$0.project.isEmpty }
+    static func ranked(_ groups: [TermAgentGroup]) -> [TermAgentGroup] {
+        groups.enumerated().sorted { lhs, rhs in
+            if lhs.element.project.isEmpty != rhs.element.project.isEmpty {
+                return rhs.element.project.isEmpty
+            }
+            if lhs.element.hasBusy != rhs.element.hasBusy {
+                return lhs.element.hasBusy
+            }
+            if lhs.element.project != rhs.element.project {
+                return lhs.element.project < rhs.element.project
+            }
+            return lhs.offset < rhs.offset
+        }
+        .map(\.element)
+    }
+
+    static func autoExpanded(_ groups: [TermAgentGroup]) -> Set<String> {
+        var open = Set(groups.filter(\.hasBusy).map(\.project))
+        open.insert("")
+        return open
+    }
+
+    static func merged(layout: [TermAgentGroup], live: [TermAgentProcess]) -> [TermAgentGroup] {
+        var fresh: [String: TermAgentProcess] = [:]
+        for agent in live { fresh[agent.id] = agent }
+        var kept = Set<String>()
+        var result: [TermAgentGroup] = []
+        for group in layout {
+            let agents = group.agents.compactMap { fresh[$0.id] }
+            guard !agents.isEmpty else { continue }
+            agents.forEach { kept.insert($0.id) }
+            result.append(TermAgentGroup(project: group.project, agents: agents))
+        }
+        for agent in live where !kept.contains(agent.id) {
+            kept.insert(agent.id)
+            if let index = result.firstIndex(where: { $0.project == agent.project }) {
+                result[index] = TermAgentGroup(project: agent.project, agents: result[index].agents + [agent])
+            } else {
+                result.append(TermAgentGroup(project: agent.project, agents: [agent]))
+            }
+        }
+        return result
     }
 
     static func sorted(_ agents: [TermAgentProcess]) -> [TermAgentProcess] {
@@ -262,6 +317,9 @@ struct SessionsHomeView: View {
     @State private var renameText = ""
     @State private var renameError: String?
     @State private var attaching: String?
+    @State private var layout: [TermAgentGroup] = []
+    @State private var expanded: Set<String> = []
+    @Environment(\.scenePhase) private var scenePhase
 
     private static let macSession = TerminalSessionList.mac
 
@@ -285,7 +343,10 @@ struct SessionsHomeView: View {
                 .padding(.bottom, 32)
             }
             .background(Color.slateCanvas.ignoresSafeArea())
-            .refreshable { await refreshAll() }
+            .refreshable {
+                await refreshAll()
+                resetLayout()
+            }
             .safeAreaInset(edge: .top) { header }
             .navigationBarHidden(true)
             .navigationDestination(for: SessionsHomeRoute.self) { route in
@@ -314,9 +375,21 @@ struct SessionsHomeView: View {
         ) {
             Button("ok", role: .cancel) { renameError = nil }
         }
-        .task { await refreshAll() }
+        .task {
+            await refreshAll()
+            resetLayout()
+        }
         .onAppear { startTicker() }
         .onDisappear { stopTicker() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                startTicker()
+                Task { await refreshAll() }
+            } else {
+                stopTicker()
+            }
+        }
+        .animation(.spring(response: 0.34, dampingFraction: 1), value: expanded)
         .animation(.spring(response: 0.34, dampingFraction: 1), value: sessionsRaw)
         .animation(.spring(response: 0.34, dampingFraction: 1), value: model.units)
         .animation(.spring(response: 0.34, dampingFraction: 1), value: model.agents)
@@ -402,12 +475,7 @@ struct SessionsHomeView: View {
                     .lineLimit(1)
                     .opacity(dead ? 0.45 : 1)
                 Spacer(minLength: 4)
-                Text(TerminalSessionList.origin(for: name))
-                    .font(.system(size: 9, weight: .medium, design: .monospaced))
-                    .foregroundStyle(Color.slateTextDim)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .overlay(Capsule().stroke(Color.slateStroke, lineWidth: 0.5))
+                HostBadge(host: TerminalSessionList.origin(for: name))
             }
         }
         .padding(12)
@@ -422,15 +490,20 @@ struct SessionsHomeView: View {
                 .foregroundStyle(Color.slateTextFaint)
                 .padding(.leading, 4)
             VStack(spacing: 0) {
-                let groups = TermAgentOrder.grouped(model.agents)
-                let showsLabels = TermAgentOrder.showsProjectLabels(groups)
-                ForEach(groups) { group in
-                    if showsLabels {
-                        projectHeader(group)
-                    }
-                    ForEach(group.agents) { agent in
-                        processRow(agent)
+                let groups = TermAgentOrder.merged(layout: layout, live: model.agents)
+                if groups.isEmpty {
+                    emptyAgents
+                }
+                ForEach(Array(groups.enumerated()), id: \.element.id) { index, group in
+                    if index > 0 {
                         Divider().overlay(Color.slateStroke.opacity(0.4))
+                    }
+                    projectHeader(group)
+                    if isExpanded(group) {
+                        ForEach(group.agents) { agent in
+                            Divider().overlay(Color.slateStroke.opacity(0.4))
+                            processRow(agent)
+                        }
                     }
                 }
                 if !model.agents.isEmpty {
@@ -452,36 +525,114 @@ struct SessionsHomeView: View {
         }
     }
 
+    private var emptyAgents: some View {
+        Text(model.reachable ? "nenhum agente rodando" : "sem conexão com o mac")
+            .font(.system(size: 11, design: .monospaced))
+            .foregroundStyle(Color.slateTextFaint)
+            .frame(maxWidth: .infinity, minHeight: 44)
+    }
+
+    private func isExpanded(_ group: TermAgentGroup) -> Bool {
+        group.project.isEmpty || expanded.contains(group.project)
+    }
+
     @ViewBuilder
     private func projectHeader(_ group: TermAgentGroup) -> some View {
-        if group.project.isEmpty {
-            projectHeaderBody(group, tappable: false)
-        } else {
-            Button { attachHerdr(group.project) } label: { projectHeaderBody(group, tappable: true) }
+        let open = isExpanded(group)
+        HStack(spacing: 6) {
+            Button { toggle(group.project) } label: {
+                HStack(spacing: 6) {
+                    if !open {
+                        StatusDot(level: group.level)
+                    }
+                    Text(group.label)
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .foregroundStyle(Color.slateTextDim)
+                        .lineLimit(1)
+                    if !open {
+                        marks(group)
+                    }
+                    Spacer(minLength: 4)
+                    if !open {
+                        Text("\(group.agents.count) agentes")
+                            .font(.system(size: 9, design: .monospaced))
+                            .foregroundStyle(Color.slateTextFaint)
+                            .layoutPriority(1)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(group.project.isEmpty)
+            if !group.project.isEmpty {
+                Button { attachHerdr(group.project) } label: {
+                    if attaching == Self.herdrKey(group.project) {
+                        ProgressView().controlSize(.mini)
+                    } else {
+                        tag("herdr")
+                    }
+                }
                 .buttonStyle(.plain)
+                Button { toggle(group.project) } label: {
+                    Image(systemName: open ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 8, weight: .semibold))
+                        .foregroundStyle(Color.slateTextFaint)
+                        .frame(width: 22, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 14)
+        .frame(height: 44)
+    }
+
+    private func marks(_ group: TermAgentGroup) -> some View {
+        let (symbols, overflow) = group.marks
+        return HStack(spacing: 4) {
+            ForEach(Array(symbols.enumerated()), id: \.offset) { _, mark in
+                if mark.count == 1 {
+                    Text(mark)
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                } else {
+                    Image(systemName: mark)
+                        .font(.system(size: 11, weight: .semibold))
+                }
+            }
+            if overflow > 0 {
+                Text("+\(overflow)")
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundStyle(Color.slateTextFaint)
+            }
+        }
+        .foregroundStyle(Color.slateTextDim)
+        .layoutPriority(1)
+    }
+
+    private func tag(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 9, weight: .medium, design: .monospaced))
+            .foregroundStyle(Color.slateTextDim)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .overlay(Capsule().stroke(Color.slateStroke, lineWidth: 0.5))
+            .layoutPriority(1)
+    }
+
+    private func toggle(_ project: String) {
+        guard !project.isEmpty else { return }
+        if expanded.contains(project) {
+            expanded.remove(project)
+        } else {
+            expanded.insert(project)
         }
     }
 
-    private func projectHeaderBody(_ group: TermAgentGroup, tappable: Bool) -> some View {
-        HStack(spacing: 5) {
-            Text(group.label)
-                .font(.system(size: 9, weight: .medium, design: .monospaced))
-                .foregroundStyle(Color.slateTextFaint)
-            if tappable {
-                if attaching == Self.herdrKey(group.project) {
-                    ProgressView()
-                        .controlSize(.mini)
-                } else {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 8, weight: .semibold))
-                        .foregroundStyle(Color.slateTextFaint)
-                }
-            }
-            Spacer(minLength: 4)
-        }
-        .padding(.horizontal, 14)
-        .frame(minHeight: 44, alignment: .bottomLeading)
-        .contentShape(Rectangle())
+    private func resetLayout() {
+        let groups = TermAgentOrder.ranked(TermAgentOrder.grouped(model.agents))
+        layout = groups
+        expanded = TermAgentOrder.autoExpanded(groups)
     }
 
     @ViewBuilder
@@ -522,12 +673,7 @@ struct SessionsHomeView: View {
                     .truncationMode(.tail)
             }
             Spacer(minLength: 4)
-            Text(agent.host)
-                .font(.system(size: 9, weight: .medium, design: .monospaced))
-                .foregroundStyle(Color.slateTextDim)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .overlay(Capsule().stroke(Color.slateStroke, lineWidth: 0.5))
+            HostBadge(host: agent.host)
                 .layoutPriority(1)
             if agent.isAttachable {
                 Image(systemName: "chevron.right")

@@ -15,6 +15,8 @@ enum BridgeEndpoint {
     case termAttachHerdr(project: String)
     case termAgentChat(project: String, pane: String, limit: Int)
     case termAgentPrompt(project: String, pane: String)
+    case termAgentCommands(project: String, pane: String)
+    case termAgentUpload(project: String, pane: String)
     case termUpload
     case tasksList
     case tasksCreate
@@ -56,6 +58,10 @@ enum BridgeEndpoint {
             return "/term/agent-chat?project=\(Self.encode(project))&pane=\(Self.encode(pane))&limit=\(max(1, min(200, limit)))"
         case .termAgentPrompt(let project, let pane):
             return "/term/agent-prompt?project=\(Self.encode(project))&pane=\(Self.encode(pane))"
+        case .termAgentCommands(let project, let pane):
+            return "/term/agent-commands?project=\(Self.encode(project))&pane=\(Self.encode(pane))"
+        case .termAgentUpload(let project, let pane):
+            return "/term/agent-upload?project=\(Self.encode(project))&pane=\(Self.encode(pane))"
         case .termUpload:
             return "/term/upload"
         case .tasksList, .tasksCreate:

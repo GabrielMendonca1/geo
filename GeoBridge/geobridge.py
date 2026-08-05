@@ -71,10 +71,23 @@ AGENT_CHAT_TAIL_BYTES = int(os.environ.get("GEO_AGENT_CHAT_TAIL_BYTES", "131072"
 AGENT_CHAT_TIMEOUT = float(os.environ.get("GEO_AGENT_CHAT_TIMEOUT", "12"))
 AGENT_PROMPT_MAX = 8192
 AGENT_PROMPT_TIMEOUT = float(os.environ.get("GEO_AGENT_PROMPT_TIMEOUT", "15"))
+AGENT_COMMANDS_TTL = float(os.environ.get("GEO_AGENT_COMMANDS_TTL", "120"))
+AGENT_COMMANDS_TIMEOUT = float(os.environ.get("GEO_AGENT_COMMANDS_TIMEOUT", "15"))
+AGENT_COMMANDS_HEAD_LINES = int(os.environ.get("GEO_AGENT_COMMANDS_HEAD_LINES", "12"))
+AGENT_COMMANDS_DESC_MAX = 160
+AGENT_COMMANDS_WIRE_MAX = 400
+AGENT_COMMANDS_CACHE_MAX = int(os.environ.get("GEO_AGENT_COMMANDS_CACHE_MAX", "64"))
+AGENT_COMMANDS_END = "Z"
+AGENT_COMMAND_NAME_RE = re.compile(r"\A[A-Za-z0-9._-]{1,64}\Z")
+AGENT_UPLOAD_DIR = os.environ.get("GEO_AGENT_UPLOAD_DIR", "garime-uploads")
+AGENT_UPLOAD_MAX = 32 * 1024 * 1024
+AGENT_UPLOAD_TIMEOUT = float(os.environ.get("GEO_AGENT_UPLOAD_TIMEOUT", "120"))
+AGENT_UPLOAD_PATH_RE = re.compile(r"\A/[^\x00-\x1f]{1,500}\Z")
 AGENT_SESSION_ID_RE = re.compile(r"\A[A-Za-z0-9._-]{1,80}\Z")
 AGENT_SESSION_PATH_RE = re.compile(r"\A/[^\x00-\x1f]{1,500}\.jsonl\Z")
 AGENT_CHAT_DROP_TYPES = ("attachment", "custom-title", "mode", "last-prompt", "summary", "system")
 AGENT_PUBLIC_KEYS = ("host", "agent", "status", "title", "project", "pane", "cwd")
+PANE_PUBLIC_KEYS = ("pane", "agent", "status", "title", "cwd", "tab")
 
 ID_RE = re.compile(r"\A[A-Za-z0-9._-]+\Z")
 DATE_RE = re.compile(r"\A\d{4}-\d{2}-\d{2}\Z")
@@ -87,9 +100,12 @@ TERM_TOKEN = ""
 LOG_LOCK = threading.Lock()
 TERM_REGISTRY = {}
 TERM_REGISTRY_LOCK = threading.Lock()
-AGENTS_CACHE = {"at": 0.0, "value": [], "mac_ok": False}
+AGENTS_CACHE = {"at": 0.0, "value": [], "panes": [], "mac_ok": False}
 AGENTS_CACHE_LOCK = threading.Lock()
 AGENTS_REFRESH_LOCK = threading.Lock()
+COMMANDS_CACHE = {}
+COMMANDS_CACHE_LOCK = threading.Lock()
+COMMANDS_REFRESH_LOCKS = {}
 
 
 class TermSubscriber:
@@ -320,12 +336,16 @@ def herdr_remote_script():
     return (
         "export PATH=%s:$PATH; "
         "for s in $(%s session list | awk 'NR>1 && $2==\"running\" {print $1}'); do "
-        "echo \"%s$s\"; %s --session \"$s\" agent list; done"
-    ) % (os.path.dirname(STATUS_HERDR) or "/usr/bin", STATUS_HERDR, STATUS_SESSION_MARK, STATUS_HERDR)
+        "echo \"%s$s\"; %s --session \"$s\" agent list; %s --session \"$s\" pane list; done"
+    ) % (
+        os.path.dirname(STATUS_HERDR) or "/usr/bin", STATUS_HERDR,
+        STATUS_SESSION_MARK, STATUS_HERDR, STATUS_HERDR,
+    )
 
 
-def parse_herdr_agents(text):
+def parse_herdr_scan(text):
     agents = []
+    panes = []
     project = ""
     for line in text.split("\n"):
         line = line.strip()
@@ -341,33 +361,56 @@ def parse_herdr_agents(text):
         if not isinstance(payload, dict):
             continue
         result = payload.get("result")
-        entries = result.get("agents") if isinstance(result, dict) else None
+        if not isinstance(result, dict):
+            continue
+        entries = result.get("agents")
+        if isinstance(entries, list):
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    continue
+                name = entry.get("agent")
+                if not isinstance(name, str) or not name:
+                    continue
+                title = entry.get("terminal_title_stripped") or entry.get("terminal_title") or ""
+                status = entry.get("agent_status") or "unknown"
+                pane = entry.get("pane_id")
+                session = entry.get("agent_session")
+                agents.append({
+                    "host": "mac",
+                    "agent": name,
+                    "status": status if isinstance(status, str) else "unknown",
+                    "title": title if isinstance(title, str) else "",
+                    "project": project,
+                    "pane": pane if isinstance(pane, str) else "",
+                    "cwd": entry.get("cwd") if isinstance(entry.get("cwd"), str) else "",
+                    "session": session if isinstance(session, dict) else None,
+                })
+            continue
+        entries = result.get("panes")
         if not isinstance(entries, list):
             continue
         for entry in entries:
             if not isinstance(entry, dict):
                 continue
-            name = entry.get("agent")
-            if not isinstance(name, str) or not name:
+            pane = entry.get("pane_id")
+            if not isinstance(pane, str) or not pane:
                 continue
+            name = entry.get("agent")
             title = entry.get("terminal_title_stripped") or entry.get("terminal_title") or ""
             status = entry.get("agent_status") or "unknown"
-            pane = entry.get("pane_id")
-            session = entry.get("agent_session")
-            agents.append({
-                "host": "mac",
-                "agent": name,
+            panes.append({
+                "project": project,
+                "pane": pane,
+                "agent": name if isinstance(name, str) else "",
                 "status": status if isinstance(status, str) else "unknown",
                 "title": title if isinstance(title, str) else "",
-                "project": project,
-                "pane": pane if isinstance(pane, str) else "",
                 "cwd": entry.get("cwd") if isinstance(entry.get("cwd"), str) else "",
-                "session": session if isinstance(session, dict) else None,
+                "tab": entry.get("tab_id") if isinstance(entry.get("tab_id"), str) else "",
             })
-    return agents
+    return agents, panes
 
 
-def status_mac_agents():
+def status_mac_scan():
     try:
         proc = subprocess.run(
             [
@@ -378,9 +421,9 @@ def status_mac_agents():
             capture_output=True, timeout=STATUS_AGENTS_TIMEOUT,
         )
     except Exception:
-        return False, []
-    agents = parse_herdr_agents(proc.stdout.decode("utf-8", "replace"))
-    return proc.returncode == 0 or bool(agents), agents
+        return False, [], []
+    agents, panes = parse_herdr_scan(proc.stdout.decode("utf-8", "replace"))
+    return proc.returncode == 0 or bool(agents) or bool(panes), agents, panes
 
 
 def status_vm_agents():
@@ -410,26 +453,27 @@ def status_vm_agents():
     return agents
 
 
-def status_agents_full():
+def status_scan_full():
     now = time.monotonic()
     with AGENTS_CACHE_LOCK:
         if AGENTS_CACHE["at"] and now - AGENTS_CACHE["at"] < STATUS_AGENTS_TTL:
-            return AGENTS_CACHE["mac_ok"], list(AGENTS_CACHE["value"])
+            return AGENTS_CACHE["mac_ok"], list(AGENTS_CACHE["value"]), list(AGENTS_CACHE["panes"])
     with AGENTS_REFRESH_LOCK:
         with AGENTS_CACHE_LOCK:
             if AGENTS_CACHE["at"] and time.monotonic() - AGENTS_CACHE["at"] < STATUS_AGENTS_TTL:
-                return AGENTS_CACHE["mac_ok"], list(AGENTS_CACHE["value"])
-        mac_ok, mac = status_mac_agents()
+                return AGENTS_CACHE["mac_ok"], list(AGENTS_CACHE["value"]), list(AGENTS_CACHE["panes"])
+        mac_ok, mac, panes = status_mac_scan()
         agents = mac + status_vm_agents()
         with AGENTS_CACHE_LOCK:
             AGENTS_CACHE["at"] = time.monotonic()
             AGENTS_CACHE["value"] = agents
+            AGENTS_CACHE["panes"] = panes
             AGENTS_CACHE["mac_ok"] = mac_ok
-        return mac_ok, list(agents)
+        return mac_ok, list(agents), list(panes)
 
 
 def status_agents():
-    return status_agents_full()[1]
+    return status_scan_full()[1]
 
 
 def agent_public(entry):
@@ -443,6 +487,17 @@ def agent_find(agents, project, pane):
     return None
 
 
+def pane_public(entry):
+    return {key: entry.get(key, "") for key in PANE_PUBLIC_KEYS}
+
+
+def pane_find(panes, project, pane):
+    for entry in panes:
+        if entry.get("project") == project and entry.get("pane") == pane:
+            return entry
+    return None
+
+
 def agent_transcript_script(session):
     if not isinstance(session, dict):
         return ""
@@ -451,10 +506,12 @@ def agent_transcript_script(session):
     if not isinstance(value, str):
         return ""
     if kind == "id" and AGENT_SESSION_ID_RE.match(value):
-        return (
-            'for f in "$HOME"/.claude/projects/*/%s.jsonl; do '
-            'if [ -f "$f" ]; then tail -c %d "$f"; break; fi; done; exit 0'
-        ) % (shlex.quote(value), AGENT_CHAT_TAIL_BYTES)
+        return "/bin/sh -c " + shlex.quote(
+            (
+                'for f in "$HOME"/.claude/projects/*/%s.jsonl; do '
+                'if [ -f "$f" ]; then tail -c %d "$f"; break; fi; done; exit 0'
+            ) % (shlex.quote(value), AGENT_CHAT_TAIL_BYTES)
+        )
     if kind == "path" and AGENT_SESSION_PATH_RE.match(value):
         quoted = shlex.quote(value)
         return 'if [ -f %s ]; then tail -c %d %s; fi; exit 0' % (quoted, AGENT_CHAT_TAIL_BYTES, quoted)
@@ -471,15 +528,145 @@ def agent_prompt_script(project, pane, text):
     )
 
 
-def agent_ssh(script, timeout):
+def agent_ssh(script, timeout, data=None):
     return subprocess.run(
         [
             STATUS_SSH, "-o", "BatchMode=yes", "-o", "ConnectTimeout=" + TERM_ATTACH_SSH_TIMEOUT,
             "%s@%s" % (STATUS_MAC_USER, STATUS_MAC_ADDR[0]),
             script,
         ],
-        capture_output=True, timeout=timeout,
+        input=data, capture_output=True, timeout=timeout,
     )
+
+
+def agent_commands_awk():
+    return (
+        'FNR==1 { d=0 } '
+        'd { next } '
+        'FNR>%d { d=1; next } '
+        '/^description:/ { s=$0; sub(/^description:[ \\t\\r]*/, "", s); gsub(/[\\t\\r]/, " ", s); '
+        'printf "D\\t%%s\\t%%s\\n", FILENAME, substr(s, 1, %d); d=1 }'
+    ) % (AGENT_COMMANDS_HEAD_LINES, AGENT_COMMANDS_WIRE_MAX)
+
+
+def agent_commands_script(agent, cwd):
+    globs = []
+    if agent == "claude":
+        globs.append(("user", '"$HOME"/.claude/skills', "*/SKILL.md"))
+        if cwd.startswith("/"):
+            root = shlex.quote(cwd)
+            globs.append(("project", root + "/.claude/skills", "*/SKILL.md"))
+            globs.append(("project", root + "/.claude/commands", "*.md"))
+    elif agent == "pi":
+        globs.append(("user", '"$HOME"/.pi/agent/skills', "*/SKILL.md"))
+        globs.append(("user", '"$HOME"/.pi/agent/skills', "*.md"))
+    else:
+        return ""
+    parts = ['[ -n "$HOME" ] || exit 6', "set --"]
+    for scope, base, pattern in globs:
+        parts.append(
+            'if [ -d %s ]; then [ -r %s ] && [ -x %s ] || exit 7; '
+            'for f in %s/%s; do [ -f "$f" ] || continue; printf %s "$f"; set -- "$@" "$f"; done; fi'
+            % (base, base, base, base, pattern, shlex.quote("F\\t" + scope + "\\t%s\\n"))
+        )
+    parts.append('if [ "$#" -gt 0 ]; then awk %s "$@" || exit 8; fi' % shlex.quote(agent_commands_awk()))
+    parts.append("printf %s" % shlex.quote(AGENT_COMMANDS_END + "\\n"))
+    return "/bin/sh -c " + shlex.quote("; ".join(parts))
+
+
+def agent_command_name(path):
+    base = os.path.basename(path)
+    if base == "SKILL.md":
+        name = os.path.basename(os.path.dirname(path))
+    elif base.endswith(".md"):
+        name = base[:-3]
+    else:
+        name = base
+    if name in (".", "..") or not AGENT_COMMAND_NAME_RE.match(name):
+        return ""
+    return name
+
+
+def agent_commands_parse(text):
+    files = []
+    descriptions = {}
+    for line in text.split("\n"):
+        kind, _, rest = line.partition("\t")
+        if kind == "F":
+            scope, _, path = rest.partition("\t")
+            if path:
+                files.append((scope, path))
+        elif kind == "D":
+            path, _, desc = rest.partition("\t")
+            if path:
+                descriptions[path] = desc.strip()[:AGENT_COMMANDS_DESC_MAX]
+    found = {}
+    for scope, path in files:
+        name = agent_command_name(path)
+        if not name:
+            continue
+        current = found.get(name)
+        if current is not None and current["scope"] == "project":
+            continue
+        found[name] = {"name": name, "description": descriptions.get(path, ""), "scope": scope}
+    return [found[name] for name in sorted(found)]
+
+
+def agent_commands_complete(text):
+    lines = text.rstrip("\n").split("\n")
+    return lines[-1] == AGENT_COMMANDS_END
+
+
+def agent_commands_lock(key):
+    with COMMANDS_CACHE_LOCK:
+        lock = COMMANDS_REFRESH_LOCKS.get(key)
+        if lock is None:
+            if len(COMMANDS_REFRESH_LOCKS) >= AGENT_COMMANDS_CACHE_MAX:
+                for stale in [k for k in COMMANDS_REFRESH_LOCKS if k not in COMMANDS_CACHE]:
+                    del COMMANDS_REFRESH_LOCKS[stale]
+            lock = threading.Lock()
+            COMMANDS_REFRESH_LOCKS[key] = lock
+        return lock
+
+
+def agent_commands_store(key, commands):
+    with COMMANDS_CACHE_LOCK:
+        COMMANDS_CACHE[key] = {"at": time.monotonic(), "value": commands}
+        while len(COMMANDS_CACHE) > AGENT_COMMANDS_CACHE_MAX:
+            oldest = min(COMMANDS_CACHE, key=lambda k: COMMANDS_CACHE[k]["at"])
+            del COMMANDS_CACHE[oldest]
+
+
+def agent_commands_fetch(key, script):
+    now = time.monotonic()
+    with COMMANDS_CACHE_LOCK:
+        hit = COMMANDS_CACHE.get(key)
+        if hit is not None and now - hit["at"] < AGENT_COMMANDS_TTL:
+            return list(hit["value"])
+    with agent_commands_lock(key):
+        with COMMANDS_CACHE_LOCK:
+            hit = COMMANDS_CACHE.get(key)
+            if hit is not None and time.monotonic() - hit["at"] < AGENT_COMMANDS_TTL:
+                return list(hit["value"])
+        proc = agent_ssh(script, AGENT_COMMANDS_TIMEOUT)
+        if proc.returncode != 0:
+            return None
+        out = proc.stdout.decode("utf-8", "replace")
+        if not agent_commands_complete(out):
+            return None
+        commands = agent_commands_parse(out)
+        agent_commands_store(key, commands)
+        return list(commands)
+
+
+def agent_upload_script(name):
+    stem, ext = os.path.splitext(name)
+    return (
+        'umask 077; d="$HOME"/%s; mkdir -p "$d" || exit 3; p="$d"/%s; i=0; '
+        'while [ -e "$p" ] || [ -L "$p" ]; do i=$((i+1)); '
+        'if [ "$i" -gt 1000 ]; then exit 4; fi; p="$d"/%s-"$i"%s; done; '
+        'set -C; cat > "$p" || exit 5; printf %%s"\\n" "$p"'
+    ) % (shlex.quote(AGENT_UPLOAD_DIR), shlex.quote(name), shlex.quote(stem), shlex.quote(ext))
 
 
 def agent_chat_parts(content):
@@ -836,9 +1023,9 @@ class Handler(BaseHTTPRequestHandler):
             return None, None
         return project, pane
 
-    def _term_agent_resolve(self, project, pane):
+    def _term_agent_resolve(self, project, pane, pane_conflict=False):
         try:
-            mac_ok, agents = status_agents_full()
+            mac_ok, agents, panes = status_scan_full()
         except Exception:
             self._json(503, b'{"error":"unavailable"}')
             return None
@@ -847,9 +1034,34 @@ class Handler(BaseHTTPRequestHandler):
             return None
         entry = agent_find(agents, project, pane)
         if entry is None:
-            self._json(404, b'{"error":"no_agent"}')
+            if pane_conflict and pane_find(panes, project, pane) is not None:
+                self._json(409, b'{"error":"no_agent_in_pane"}')
+            else:
+                self._json(404, b'{"error":"no_agent"}')
             return None
         return entry
+
+    def _term_panes(self):
+        if not self._term_gate():
+            return
+        q = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
+        project = (q.get("project") or [""])[0]
+        if not TERM_ATTACH_PROJECT_RE.match(project):
+            self._json(400, b'{"error":"bad_target"}')
+            return
+        try:
+            mac_ok, _, panes = status_scan_full()
+        except Exception:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        if not mac_ok:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        body = {
+            "project": project,
+            "panes": [pane_public(entry) for entry in panes if entry.get("project") == project],
+        }
+        self._json(200, json.dumps(body, ensure_ascii=False).encode())
 
     def _term_agent_chat(self):
         if not self._term_gate():
@@ -917,6 +1129,75 @@ class Handler(BaseHTTPRequestHandler):
             return
         self._json(200, b'{"ok":true}')
 
+    def _term_agent_commands(self):
+        if not self._term_gate():
+            return
+        project, pane = self._term_agent_target()
+        if project is None:
+            return
+        entry = self._term_agent_resolve(project, pane, True)
+        if entry is None:
+            return
+        agent = entry.get("agent", "")
+        cwd = entry.get("cwd", "")
+        body = {"agent": agent, "commands": []}
+        script = agent_commands_script(agent, cwd)
+        if not script:
+            self._json(200, json.dumps(body, ensure_ascii=False).encode())
+            return
+        try:
+            commands = agent_commands_fetch((project, pane, agent, cwd), script)
+        except Exception:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        if commands is None:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        body["commands"] = commands
+        self._json(200, json.dumps(body, ensure_ascii=False).encode())
+
+    def _term_agent_upload(self):
+        if not self._term_gate():
+            return
+        self.close_connection = True
+        project, pane = self._term_agent_target()
+        if project is None:
+            return
+        name = (self.headers.get("X-Geo-Filename") or "").strip()
+        if (
+            not TERM_UPLOAD_NAME_RE.match(name)
+            or name != os.path.basename(name)
+            or name.startswith(".")
+        ):
+            self._json(400, b'{"error":"invalid_filename"}')
+            return
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            length = -1
+        if length > AGENT_UPLOAD_MAX:
+            self._json(413, b'{"error":"too_large"}')
+            return
+        if length <= 0:
+            self._json(400, b'{"error":"invalid_body"}')
+            return
+        data = self.rfile.read(length)
+        if len(data) != length:
+            self._json(400, b'{"error":"invalid_body"}')
+            return
+        if self._term_agent_resolve(project, pane, True) is None:
+            return
+        try:
+            proc = agent_ssh(agent_upload_script(name), AGENT_UPLOAD_TIMEOUT, data)
+        except Exception:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        path = proc.stdout.decode("utf-8", "replace").strip()
+        if proc.returncode != 0 or not AGENT_UPLOAD_PATH_RE.match(path):
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        self._json(200, json.dumps({"path": path}, ensure_ascii=False).encode())
+
     def _term_attach(self, prefix, want_pane):
         if not self._term_gate():
             return
@@ -929,6 +1210,8 @@ class Handler(BaseHTTPRequestHandler):
         if want_pane:
             if not TERM_ATTACH_PANE_RE.match(pane):
                 self._json(400, b'{"error":"bad_target"}')
+                return
+            if self._term_agent_resolve(project, pane, True) is None:
                 return
         else:
             pane = ""
@@ -1072,8 +1355,12 @@ class Handler(BaseHTTPRequestHandler):
                 self._term_preview()
             elif path == "/term/agents":
                 self._term_agents()
+            elif path == "/term/panes":
+                self._term_panes()
             elif path == "/term/agent-chat":
                 self._term_agent_chat()
+            elif path == "/term/agent-commands":
+                self._term_agent_commands()
             elif not self._authed():
                 self._json(401, b'{"error":"unauthorized"}')
             elif path == "/tasks":
@@ -1119,6 +1406,9 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if path == "/term/upload":
                 self._term_upload()
+                return
+            if path == "/term/agent-upload":
+                self._term_agent_upload()
                 return
             if path == "/term/attach-agent":
                 self._term_attach(TERM_ATTACH_AGENT_PREFIX, True)

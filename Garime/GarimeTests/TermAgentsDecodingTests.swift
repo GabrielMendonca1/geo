@@ -110,7 +110,6 @@ final class TermAgentsDecodingTests: XCTestCase {
         XCTAssertEqual(groups.map(\.project), ["garime", "omni", ""])
         XCTAssertEqual(groups.map { $0.agents.count }, [1, 1, 1])
         XCTAssertEqual(groups.last?.label, "sem projeto")
-        XCTAssertTrue(TermAgentOrder.showsProjectLabels(groups))
     }
 
     func testSingleProjectShowsLabels() throws {
@@ -122,7 +121,6 @@ final class TermAgentsDecodingTests: XCTestCase {
         let groups = TermAgentOrder.grouped(payload.agents)
         XCTAssertEqual(groups.count, 1)
         XCTAssertEqual(groups.first?.agents.count, 2)
-        XCTAssertTrue(TermAgentOrder.showsProjectLabels(groups))
     }
 
     func testAllEmptyProjectsHideLabels() throws {
@@ -133,6 +131,130 @@ final class TermAgentsDecodingTests: XCTestCase {
         """)
         let groups = TermAgentOrder.grouped(payload.agents)
         XCTAssertEqual(groups.map(\.project), [""])
-        XCTAssertFalse(TermAgentOrder.showsProjectLabels(groups))
+    }
+
+    func testIdIsStableWhenTitleAndStatusChange() throws {
+        let before = try decode("""
+        {"units":[],"mac_online":true,"agents":[
+          {"host":"mac","agent":"claude","status":"idle","title":"a","project":"garime","pane":"w1:p3"}]}
+        """)
+        let after = try decode("""
+        {"units":[],"mac_online":true,"agents":[
+          {"host":"mac","agent":"claude","status":"working","title":"b","project":"garime","pane":"w1:p3"}]}
+        """)
+        XCTAssertEqual(before.agents.first?.id, after.agents.first?.id)
+    }
+
+    func testIdFallsBackToTitleWhenPaneIsEmpty() throws {
+        let payload = try decode("""
+        {"units":[],"mac_online":true,"agents":[
+          {"host":"vm","agent":"pi","status":"running","title":"curador","project":""}]}
+        """)
+        XCTAssertEqual(payload.agents.first?.id, "vm||pi|curador")
+    }
+
+    func testGroupLevelTakesTheMostActiveAgent() throws {
+        let payload = try decode("""
+        {"units":[],"mac_online":true,"agents":[
+          {"host":"mac","agent":"claude","status":"idle","project":"a"},
+          {"host":"mac","agent":"codex","status":"working","project":"a"},
+          {"host":"mac","agent":"kimi","status":"idle","project":"b"},
+          {"host":"mac","agent":"pi","status":"unknown","project":"c"}]}
+        """)
+        let groups = TermAgentOrder.grouped(payload.agents)
+        XCTAssertEqual(groups.map(\.level), [.working, .idle, .dormant])
+        XCTAssertEqual(groups.map(\.hasBusy), [true, false, false])
+    }
+
+    func testRankedPutsBusyFirstThenAlphabeticalAndEmptyLast() throws {
+        let payload = try decode("""
+        {"units":[],"mac_online":true,"agents":[
+          {"host":"vm","agent":"pi","status":"running","project":""},
+          {"host":"mac","agent":"claude","status":"idle","project":"alfa"},
+          {"host":"mac","agent":"codex","status":"idle","project":"beta"},
+          {"host":"mac","agent":"kimi","status":"working","project":"zulu"}]}
+        """)
+        let ranked = TermAgentOrder.ranked(TermAgentOrder.grouped(payload.agents))
+        XCTAssertEqual(ranked.map(\.project), ["zulu", "alfa", "beta", ""])
+    }
+
+    func testAutoExpandedHoldsBusyProjectsPlusTheEmptyOne() throws {
+        let payload = try decode("""
+        {"units":[],"mac_online":true,"agents":[
+          {"host":"mac","agent":"claude","status":"working","project":"alfa"},
+          {"host":"mac","agent":"codex","status":"idle","project":"beta"},
+          {"host":"vm","agent":"pi","status":"unknown","project":""}]}
+        """)
+        let open = TermAgentOrder.autoExpanded(TermAgentOrder.grouped(payload.agents))
+        XCTAssertEqual(open, ["alfa", ""])
+    }
+
+    func testMergedKeepsFrozenOrderWhenOnlyStatusChanges() throws {
+        let first = try decode("""
+        {"units":[],"mac_online":true,"agents":[
+          {"host":"mac","agent":"claude","status":"working","project":"alfa","pane":"w1:p1"},
+          {"host":"mac","agent":"codex","status":"idle","project":"beta","pane":"w1:p2"}]}
+        """)
+        let layout = TermAgentOrder.ranked(TermAgentOrder.grouped(first.agents))
+        let second = try decode("""
+        {"units":[],"mac_online":true,"agents":[
+          {"host":"mac","agent":"codex","status":"working","project":"beta","pane":"w1:p2"},
+          {"host":"mac","agent":"claude","status":"idle","project":"alfa","pane":"w1:p1"}]}
+        """)
+        let merged = TermAgentOrder.merged(layout: layout, live: TermAgentOrder.sorted(second.agents))
+        XCTAssertEqual(merged.map(\.project), ["alfa", "beta"])
+        XCTAssertEqual(merged.first?.agents.first?.status, "idle")
+        XCTAssertEqual(merged.last?.agents.first?.status, "working")
+    }
+
+    func testMergedAppendsNewAgentAndNewProjectAtTheEnd() throws {
+        let first = try decode("""
+        {"units":[],"mac_online":true,"agents":[
+          {"host":"mac","agent":"claude","status":"idle","project":"alfa","pane":"w1:p1"}]}
+        """)
+        let layout = TermAgentOrder.grouped(first.agents)
+        let second = try decode("""
+        {"units":[],"mac_online":true,"agents":[
+          {"host":"mac","agent":"kimi","status":"working","project":"zulu","pane":"w2:p1"},
+          {"host":"mac","agent":"codex","status":"working","project":"alfa","pane":"w1:p9"},
+          {"host":"mac","agent":"claude","status":"idle","project":"alfa","pane":"w1:p1"}]}
+        """)
+        let merged = TermAgentOrder.merged(layout: layout, live: second.agents)
+        XCTAssertEqual(merged.map(\.project), ["alfa", "zulu"])
+        XCTAssertEqual(merged.first?.agents.map(\.agent), ["claude", "codex"])
+    }
+
+    func testMergedDropsVanishedAgentsAndEmptyGroups() throws {
+        let first = try decode("""
+        {"units":[],"mac_online":true,"agents":[
+          {"host":"mac","agent":"claude","status":"idle","project":"alfa","pane":"w1:p1"},
+          {"host":"mac","agent":"codex","status":"idle","project":"beta","pane":"w1:p2"}]}
+        """)
+        let layout = TermAgentOrder.grouped(first.agents)
+        let second = try decode("""
+        {"units":[],"mac_online":true,"agents":[
+          {"host":"mac","agent":"codex","status":"idle","project":"beta","pane":"w1:p2"}]}
+        """)
+        let merged = TermAgentOrder.merged(layout: layout, live: second.agents)
+        XCTAssertEqual(merged.map(\.project), ["beta"])
+    }
+
+    func testMarksCapAtFiveWithOverflow() throws {
+        let payload = try decode("""
+        {"units":[],"mac_online":true,"agents":[
+          {"host":"mac","agent":"claude","status":"idle","project":"a","pane":"w1:p1"},
+          {"host":"mac","agent":"codex","status":"idle","project":"a","pane":"w1:p2"},
+          {"host":"mac","agent":"opencode","status":"idle","project":"a","pane":"w1:p3"},
+          {"host":"mac","agent":"kimi","status":"idle","project":"a","pane":"w1:p4"},
+          {"host":"mac","agent":"pi","status":"idle","project":"a","pane":"w1:p5"},
+          {"host":"mac","agent":"aider","status":"idle","project":"a","pane":"w1:p6"},
+          {"host":"mac","agent":"claude","status":"idle","project":"a","pane":"w1:p7"}]}
+        """)
+        let group = try XCTUnwrap(TermAgentOrder.grouped(payload.agents).first)
+        XCTAssertEqual(group.marks.overflow, 2)
+        XCTAssertEqual(
+            group.marks.symbols,
+            ["A", "asterisk", "asterisk", "chevron.left.forwardslash.chevron.right", "moon"]
+        )
     }
 }
