@@ -11,6 +11,7 @@ let package = Package(
         .library(name: "GeoCore", targets: ["GeoCore"])
     ],
     targets: [
-        .target(name: "GeoCore")
+        .target(name: "GeoCore"),
+        .testTarget(name: "GeoCoreTests", dependencies: ["GeoCore"])
     ]
 )

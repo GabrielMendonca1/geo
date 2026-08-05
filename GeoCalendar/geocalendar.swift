@@ -9,7 +9,7 @@ func logErr(_ message: String) {
 
 let fm = FileManager.default
 let tasksDir = fm.homeDirectoryForCurrentUser
-    .appendingPathComponent("GeoVault", isDirectory: true)
+    .appendingPathComponent("Vault", isDirectory: true)
     .appendingPathComponent("Tasks", isDirectory: true)
 let stateDir = fm.homeDirectoryForCurrentUser
     .appendingPathComponent(".hermes", isDirectory: true)

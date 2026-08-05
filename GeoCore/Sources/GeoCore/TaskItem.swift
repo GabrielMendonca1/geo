@@ -1,11 +1,11 @@
 import Foundation
 
-public enum TaskStatus: String, Codable, CaseIterable, Hashable {
+public enum TaskStatus: String, Codable, CaseIterable, Hashable, Sendable {
     case pending
     case completed
 }
 
-public enum TaskKind: String, Codable, CaseIterable, Hashable, Identifiable {
+public enum TaskKind: String, Codable, CaseIterable, Hashable, Identifiable, Sendable {
     case task
     case event
     case habit
@@ -32,7 +32,7 @@ public enum TaskKind: String, Codable, CaseIterable, Hashable, Identifiable {
     }
 }
 
-public enum TaskPriority: String, Codable, CaseIterable, Hashable, Identifiable, Comparable {
+public enum TaskPriority: String, Codable, CaseIterable, Hashable, Identifiable, Comparable, Sendable {
     case urgent
     case high
     case medium
@@ -76,7 +76,7 @@ public enum TaskPriority: String, Codable, CaseIterable, Hashable, Identifiable,
     }
 }
 
-public enum ReminderOffset: String, Codable, CaseIterable, Identifiable, Hashable {
+public enum ReminderOffset: String, Codable, CaseIterable, Identifiable, Hashable, Sendable {
     case atTime = "At time"
     case fiveMinutes = "5 minutes before"
     case fifteenMinutes = "15 minutes before"
@@ -104,7 +104,7 @@ public enum ReminderOffset: String, Codable, CaseIterable, Identifiable, Hashabl
     }
 }
 
-public enum RecurrenceFrequency: String, Codable, CaseIterable, Identifiable, Hashable {
+public enum RecurrenceFrequency: String, Codable, CaseIterable, Identifiable, Hashable, Sendable {
     case daily = "Day"
     case weekly = "Week"
     case monthly = "Month"
@@ -122,8 +122,8 @@ public enum RecurrenceFrequency: String, Codable, CaseIterable, Identifiable, Ha
     }
 }
 
-public struct RecurrenceRule: Codable, Hashable {
-    public enum RuleType: String, Codable {
+public struct RecurrenceRule: Codable, Hashable, Sendable {
+    public enum RuleType: String, Codable, Sendable {
         case never
         case daily
         case weekdays
@@ -299,7 +299,7 @@ public struct RecurrenceRule: Codable, Hashable {
     }
 }
 
-public enum TaskBody: Hashable {
+public enum TaskBody: Hashable, Sendable {
     case task(due: Date, estimatedMinutes: Int?)
     case event(start: Date, end: Date, externalEKEventID: String?)
     case habit(rule: RecurrenceRule, timeOfDay: Date, occurrences: [Date])
@@ -390,7 +390,7 @@ extension TaskBody: Codable {
     }
 }
 
-public enum ReminderTrigger: Hashable {
+public enum ReminderTrigger: Hashable, Sendable {
     case offset(ReminderOffset)
     case absolute(Date)
 }
@@ -406,13 +406,15 @@ extension ReminderTrigger: Codable {
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        let tag = try c.decode(Tag.self, forKey: .kind)
-        switch tag {
+        switch try? c.decode(Tag.self, forKey: .kind) {
         case .offset:
-            let raw = try c.decode(ReminderOffset.self, forKey: .offset)
-            self = .offset(raw)
-        case .absolute:
-            self = .absolute(try c.decode(Date.self, forKey: .date))
+            self = .offset((try? c.decode(ReminderOffset.self, forKey: .offset)) ?? .atTime)
+        case .absolute, nil:
+            if let date = try? c.decode(Date.self, forKey: .date) {
+                self = .absolute(date)
+            } else {
+                self = .offset((try? c.decode(ReminderOffset.self, forKey: .offset)) ?? .atTime)
+            }
         }
     }
 
@@ -429,7 +431,7 @@ extension ReminderTrigger: Codable {
     }
 }
 
-public struct Reminder: Identifiable, Codable, Hashable {
+public struct Reminder: Identifiable, Codable, Hashable, Sendable {
     public let id: UUID
     public var trigger: ReminderTrigger
     public var fired: Bool
@@ -507,22 +509,24 @@ public struct TaskItem: Identifiable, Codable, Hashable {
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(String.self, forKey: .id)
-        title = try c.decode(String.self, forKey: .title)
-        linkedBlockId = try c.decodeIfPresent(String.self, forKey: .linkedBlockId)
+        title = (try? c.decode(String.self, forKey: .title)) ?? ""
+        linkedBlockId = try? c.decode(String.self, forKey: .linkedBlockId)
         status = (try? c.decode(TaskStatus.self, forKey: .status)) ?? .pending
         priority = (try? c.decode(TaskPriority.self, forKey: .priority)) ?? .unset
-        tagIds = try c.decodeIfPresent([String].self, forKey: .tagIds) ?? []
-        orderIndex = try c.decodeIfPresent(Int.self, forKey: .orderIndex) ?? 0
-        estimatedMinutes = try c.decodeIfPresent(Int.self, forKey: .estimatedMinutes)
-        createdAt = try c.decode(Date.self, forKey: .createdAt)
-        modifiedAt = try c.decodeIfPresent(Date.self, forKey: .modifiedAt) ?? createdAt
-        body = try c.decode(TaskBody.self, forKey: .body)
-        reminders = try c.decodeIfPresent([Reminder].self, forKey: .reminders) ?? []
+        tagIds = (try? c.decode([String].self, forKey: .tagIds)) ?? []
+        orderIndex = (try? c.decode(Int.self, forKey: .orderIndex)) ?? 0
+        estimatedMinutes = try? c.decode(Int.self, forKey: .estimatedMinutes)
+        let decodedCreatedAt = try? c.decode(Date.self, forKey: .createdAt)
+        let decodedModifiedAt = try? c.decode(Date.self, forKey: .modifiedAt)
+        createdAt = decodedCreatedAt ?? decodedModifiedAt ?? Date()
+        modifiedAt = decodedModifiedAt ?? createdAt
+        body = Self.decodeBody(from: c, fallback: createdAt)
+        reminders = Self.decodeReminders(from: c)
         externalEKEventID = Self.resolveExternalEKEventID(
-            topLevel: try c.decodeIfPresent(String.self, forKey: .externalEKEventID),
+            topLevel: try? c.decode(String.self, forKey: .externalEKEventID),
             body: body
         )
-        isAllDay = try c.decodeIfPresent(Bool.self, forKey: .isAllDay)
+        isAllDay = try? c.decode(Bool.self, forKey: .isAllDay)
     }
 
     public init(
@@ -555,6 +559,82 @@ public struct TaskItem: Identifiable, Codable, Hashable {
         self.reminders = reminders
         self.externalEKEventID = Self.resolveExternalEKEventID(topLevel: externalEKEventID, body: body)
         self.isAllDay = isAllDay
+    }
+
+    private struct LenientBody: Decodable {
+        private enum Keys: String, CodingKey {
+            case kind, due, estimatedMinutes, start, end, externalEKEventID, rule, timeOfDay, occurrences, target
+        }
+
+        let kind: String?
+        let due: Date?
+        let estimatedMinutes: Int?
+        let start: Date?
+        let end: Date?
+        let externalEKEventID: String?
+        let rule: RecurrenceRule?
+        let timeOfDay: Date?
+        let occurrences: [Date]?
+        let target: Date?
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: Keys.self)
+            kind = try? c.decode(String.self, forKey: .kind)
+            due = try? c.decode(Date.self, forKey: .due)
+            estimatedMinutes = try? c.decode(Int.self, forKey: .estimatedMinutes)
+            start = try? c.decode(Date.self, forKey: .start)
+            end = try? c.decode(Date.self, forKey: .end)
+            externalEKEventID = try? c.decode(String.self, forKey: .externalEKEventID)
+            rule = try? c.decode(RecurrenceRule.self, forKey: .rule)
+            timeOfDay = try? c.decode(Date.self, forKey: .timeOfDay)
+            occurrences = try? c.decode([Date].self, forKey: .occurrences)
+            target = try? c.decode(Date.self, forKey: .target)
+        }
+
+        func resolved(fallback: Date) -> TaskBody {
+            switch kind {
+            case TaskKind.event.rawValue:
+                return .event(
+                    start: start ?? end ?? fallback,
+                    end: end ?? start ?? fallback,
+                    externalEKEventID: externalEKEventID
+                )
+            case TaskKind.habit.rawValue:
+                return .habit(
+                    rule: rule ?? .never,
+                    timeOfDay: timeOfDay ?? fallback,
+                    occurrences: occurrences ?? []
+                )
+            case TaskKind.milestone.rawValue:
+                return .milestone(target: target ?? fallback)
+            default:
+                return .task(
+                    due: due ?? target ?? start ?? timeOfDay ?? fallback,
+                    estimatedMinutes: estimatedMinutes
+                )
+            }
+        }
+    }
+
+    private struct LenientReminder: Decodable {
+        let reminder: Reminder?
+
+        init(from decoder: Decoder) throws {
+            reminder = try? Reminder(from: decoder)
+        }
+    }
+
+    private static func decodeBody(from c: KeyedDecodingContainer<CodingKeys>, fallback: Date) -> TaskBody {
+        if let body = try? c.decode(TaskBody.self, forKey: .body) { return body }
+        guard let lenient = try? c.decode(LenientBody.self, forKey: .body) else {
+            return .task(due: fallback, estimatedMinutes: nil)
+        }
+        return lenient.resolved(fallback: fallback)
+    }
+
+    private static func decodeReminders(from c: KeyedDecodingContainer<CodingKeys>) -> [Reminder] {
+        guard let items = try? c.decode([LenientReminder].self, forKey: .reminders) else { return [] }
+        return items.compactMap(\.reminder)
     }
 
     private static func resolveExternalEKEventID(topLevel: String?, body: TaskBody) -> String? {

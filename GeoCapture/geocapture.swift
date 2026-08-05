@@ -11,12 +11,12 @@ func logErr(_ message: String) {
 
 let fm = FileManager.default
 let vaultCapturesDir = fm.homeDirectoryForCurrentUser
-    .appendingPathComponent("GeoVault", isDirectory: true)
+    .appendingPathComponent("Vault", isDirectory: true)
     .appendingPathComponent("Captures", isDirectory: true)
 let processedRegistryURL = vaultCapturesDir.appendingPathComponent(".processed.json", isDirectory: false)
 
 let pollInterval: TimeInterval = 1
-let recencyWindow: TimeInterval = 15
+let recencyWindow: TimeInterval = 3600
 let stabilizeRetries = 10
 let stabilizeDelay: TimeInterval = 0.3
 let readRetries = 10
@@ -30,31 +30,20 @@ let forbiddenOldVault = fm.homeDirectoryForCurrentUser
     .standardizedFileURL.path
 
 func screenshotsDirectory() -> URL {
-    let task = Process()
-    task.executableURL = URL(fileURLWithPath: "/usr/bin/defaults")
-    task.arguments = ["read", "com.apple.screencapture", "location"]
-    let pipe = Pipe()
-    task.standardOutput = pipe
-    task.standardError = Pipe()
-    do {
-        try task.run()
-        task.waitUntilExit()
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        if let path = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !path.isEmpty {
-            let expanded = (path as NSString).expandingTildeInPath
-            let standardized = URL(fileURLWithPath: expanded, isDirectory: true).standardizedFileURL
-            if standardized.path.hasPrefix(forbiddenOldVault) {
-                logErr("screencapture location points into retired Geo vault (\(standardized.path)); ignoring, falling back to Desktop")
-            } else {
-                var isDir: ObjCBool = false
-                if fm.fileExists(atPath: expanded, isDirectory: &isDir), isDir.boolValue {
-                    return standardized
-                }
+    let domain = "com.apple.screencapture" as CFString
+    CFPreferencesAppSynchronize(domain)
+    if let path = CFPreferencesCopyAppValue("location" as CFString, domain) as? String,
+       !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        let expanded = (path as NSString).expandingTildeInPath
+        let standardized = URL(fileURLWithPath: expanded, isDirectory: true).standardizedFileURL
+        if standardized.path.hasPrefix(forbiddenOldVault) {
+            logErr("screencapture location points into retired Geo vault (\(standardized.path)); ignoring, falling back to Desktop")
+        } else {
+            var isDir: ObjCBool = false
+            if fm.fileExists(atPath: expanded, isDirectory: &isDir), isDir.boolValue {
+                return standardized
             }
         }
-    } catch {
-        logErr("failed to read screencapture location: \(error.localizedDescription)")
     }
     return fm.urls(for: .desktopDirectory, in: .userDomainMask).first ?? fm.homeDirectoryForCurrentUser
 }
@@ -389,12 +378,27 @@ func warmUpOCR() {
     logErr("Vision model warm (\(Int(Date().timeIntervalSince(start)))s)")
 }
 
+let heartbeatURL = fm.homeDirectoryForCurrentUser
+    .appendingPathComponent(".hermes/status/geocapture.heartbeat", isDirectory: false)
+
+func beatHeart() {
+    try? String(Int(Date().timeIntervalSince1970)).write(to: heartbeatURL, atomically: true, encoding: .utf8)
+}
+
 try? fm.createDirectory(at: vaultCapturesDir, withIntermediateDirectories: true)
+try? fm.createDirectory(at: heartbeatURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+beatHeart()
 warmUpOCR()
-logErr("geocapture starting, watching \(screenshotsDirectory().path)")
+var watchedDir = screenshotsDirectory()
+logErr("geocapture starting, watching \(watchedDir.path)")
 
 while true {
     let dir = screenshotsDirectory()
+    if dir != watchedDir {
+        logErr("watched directory changed: \(watchedDir.path) -> \(dir.path)")
+        watchedDir = dir
+    }
     scan(directory: dir)
+    beatHeart()
     Thread.sleep(forTimeInterval: pollInterval)
 }
