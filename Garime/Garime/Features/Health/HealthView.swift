@@ -1,0 +1,245 @@
+import SwiftUI
+
+struct HealthView: View {
+    @StateObject private var viewModel = HealthViewModel()
+    @State private var showOnboarding = false
+    @State private var loggingExercise: VitalsExercise?
+    @State private var note = ""
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    if let error = viewModel.errorMessage {
+                        errorState(error)
+                    } else if viewModel.isLoading, !viewModel.hasLoaded {
+                        ProgressView()
+                            .tint(.slateText)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 60)
+                    } else if let session = viewModel.todaySession {
+                        sessionBody(for: session)
+                    } else if viewModel.hasLoaded, !viewModel.needsOnboarding {
+                        Text("sem protocolo")
+                            .font(.system(size: 13, design: .monospaced))
+                            .foregroundStyle(Color.slateTextDim)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 60)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 28)
+            }
+            .background(Color.slateCanvas)
+            .safeAreaInset(edge: .top) { header }
+            .navigationBarHidden(true)
+            .refreshable { await viewModel.reload() }
+            .sheet(isPresented: $showOnboarding) {
+                OnboardingSheet(
+                    title: viewModel.vitalsProtocol?.name ?? "",
+                    sessions: viewModel.sessions,
+                    selected: viewModel.todayIndex
+                ) { index in
+                    await viewModel.anchor(to: index)
+                }
+            }
+            .sheet(item: $loggingExercise) { exercise in
+                ExerciseLogSheet(
+                    exercise: exercise,
+                    logged: viewModel.todayEntry(for: exercise.id),
+                    lastWeight: viewModel.lastWeight(for: exercise.id)
+                ) { sets in
+                    try await viewModel.saveExercise(
+                        sessionIndex: viewModel.todaySession?.index ?? 0,
+                        exerciseId: exercise.id,
+                        sets: sets
+                    )
+                }
+            }
+        }
+        .tint(Color.slateText)
+        .task { await viewModel.reload() }
+        .onChange(of: viewModel.needsOnboarding) { _, needs in
+            if needs, !showOnboarding { showOnboarding = true }
+        }
+        .onChange(of: viewModel.todayNote) { _, value in
+            if note != value { note = value }
+        }
+    }
+
+    private var header: some View {
+        GlassChrome {
+            HStack(alignment: .firstTextBaseline) {
+                Text(viewModel.todaySession?.short.lowercased() ?? "saúde")
+                    .font(.system(size: 34, weight: .bold, design: .monospaced))
+                    .foregroundStyle(Color.slateText)
+                Spacer(minLength: 8)
+                if !viewModel.sessions.isEmpty {
+                    Button { showOnboarding = true } label: {
+                        Text("trocar")
+                            .font(.system(size: 12, design: .monospaced))
+                            .foregroundStyle(.primary)
+                            .padding(.horizontal, 14)
+                            .frame(minHeight: 34)
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .glassSurface(shape: Capsule(), interactive: true)
+                }
+            }
+            .padding(.horizontal, 16)
+            .frame(minHeight: 52)
+        }
+    }
+
+    @ViewBuilder
+    private func sessionBody(for session: VitalsSession) -> some View {
+        Text(session.name.lowercased())
+            .font(.system(size: 12, design: .monospaced))
+            .foregroundStyle(Color.slateTextDim)
+
+        BodyMapView(highlighted: viewModel.highlightedMuscles)
+            .frame(height: 300)
+            .frame(maxWidth: .infinity)
+
+        if session.rest {
+            Text("Descanso ativo — cardio")
+                .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                .foregroundStyle(Color.slateText)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(18)
+                .glassSurface(shape: RoundedRectangle(cornerRadius: SlateRadius.card, style: .continuous))
+        } else {
+            VStack(spacing: 0) {
+                ForEach(Array(session.exercises.enumerated()), id: \.element.id) { index, exercise in
+                    if index > 0 {
+                        Divider().overlay(Color.slateStroke.opacity(0.4))
+                    }
+                    Button {
+                        loggingExercise = exercise
+                    } label: {
+                        exerciseRow(exercise, session: session)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .glassSurface(shape: RoundedRectangle(cornerRadius: SlateRadius.card, style: .continuous))
+
+            noteField(session: session)
+        }
+    }
+
+    private func exerciseRow(_ exercise: VitalsExercise, session: VitalsSession) -> some View {
+        let entry = viewModel.todayEntry(for: exercise.id)
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(exercise.name.lowercased())
+                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(Color.slateText)
+                Spacer(minLength: 8)
+                if entry != nil {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Color.slateTextDim)
+                } else if viewModel.shouldIncreaseLoad(exercise) {
+                    Text("subir carga")
+                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(BodyMapPalette.highlight)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(BodyMapPalette.highlight.opacity(0.16), in: Capsule())
+                }
+            }
+            if let entry {
+                Text(VitalsFormat.logged(entry.sets))
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundStyle(Color.slateText)
+            } else {
+                HStack(spacing: 10) {
+                    Text(VitalsFormat.sets(exercise.sets))
+                        .font(.system(size: 12, design: .monospaced))
+                        .foregroundStyle(Color.slateTextDim)
+                    if let weight = viewModel.lastWeight(for: exercise.id) {
+                        Text(VitalsFormat.kg(weight))
+                            .font(.system(size: 12, design: .monospaced))
+                            .foregroundStyle(Color.slateTextFaint)
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .contentShape(Rectangle())
+    }
+
+    private func noteField(session: VitalsSession) -> some View {
+        TextField("", text: $note, prompt: Text("nota").foregroundStyle(.tertiary))
+            .font(.system(size: 12, design: .monospaced))
+            .foregroundStyle(Color.slateTextDim)
+            .submitLabel(.done)
+            .onSubmit {
+                let trimmed = note.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard trimmed != viewModel.todayNote else { return }
+                Task { try? await viewModel.saveNote(sessionIndex: session.index, note: trimmed) }
+            }
+            .padding(14)
+            .glassSurface(shape: RoundedRectangle(cornerRadius: SlateRadius.cell, style: .continuous))
+    }
+
+    private func errorState(_ message: String) -> some View {
+        VStack(spacing: 12) {
+            Text(message)
+                .font(.system(size: 12, design: .monospaced))
+                .multilineTextAlignment(.center)
+                .foregroundStyle(Color.slateTextDim)
+            Button("tentar de novo") {
+                Task { await viewModel.reload() }
+            }
+            .font(.system(size: 13, weight: .semibold, design: .monospaced))
+            .foregroundStyle(Color.slateText)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 60)
+    }
+}
+
+enum VitalsFormat {
+    private static let number: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.locale = Locale(identifier: "pt_BR")
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = 1
+        return formatter
+    }()
+
+    static func kg(_ value: Double) -> String {
+        let text = number.string(from: NSNumber(value: value)) ?? String(value)
+        return "\(text) kg"
+    }
+
+    static func logged(_ sets: [VitalsLogSet]) -> String {
+        guard !sets.isEmpty else { return "" }
+        let reps = sets.map { "\($0.reps)" }.joined(separator: "/")
+        let weights = sets.map(\.kg)
+        if let first = weights.first, weights.allSatisfy({ $0 == first }) {
+            return "\(kg(first)) · \(reps)"
+        }
+        return sets.map { "\($0.reps)×\(kg($0.kg))" }.joined(separator: " / ")
+    }
+
+    static func sets(_ sets: [[Int]]) -> String {
+        guard !sets.isEmpty else { return "" }
+        let ranges = sets.map { range -> String in
+            guard let low = range.first, let high = range.last else { return "" }
+            return low == high ? "\(low)" : "\(low)-\(high)"
+        }
+        if let first = ranges.first, ranges.allSatisfy({ $0 == first }) {
+            return "\(sets.count)×\(first)"
+        }
+        return ranges.joined(separator: " / ")
+    }
+}
+
+#Preview {
+    HealthView()
+}
