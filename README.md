@@ -1,6 +1,6 @@
 # Geo
 
-Personal, local-first knowledge system: a plain-Markdown vault (**`~/Vault/`**, edited via Obsidian) plus **hermes**, a 24/7 agent LaunchAgent on the same Mac, and a set of satellite daemons that capture, index, and mirror everything — all over the native filesystem. No MCP, no HTTP API, no socket between components.
+Personal, local-first knowledge system: a plain-Markdown vault (**`~/Vault/`**, edited via Obsidian) plus a set of satellite daemons that capture, index, and mirror everything — all over the native filesystem. No MCP, no HTTP API, no socket between components.
 
 > **Personal, non-commercial project.** Geo is built and run for one person's own use.
 > It is not a product, it is not for sale, and it is not intended for commercial
@@ -16,23 +16,21 @@ Personal, local-first knowledge system: a plain-Markdown vault (**`~/Vault/`**, 
   Index/blocks.sqlite  rebuildable FTS cache (geo_indexer) — never authoritative
         ▲ native filesystem only
         │
-hermes (LaunchAgent 24/7)   WhatsApp · Gmail · Telegram · cron · cc-dispatch
-GeoBridge (launchd)         tasks/terminal/chat → GeoMobile over Tailscale
-GeoCalendar / GeoCapture    daemons: task→EKEvent mirror · screenshot+OCR
+geo_indexer (VM garime)     rebuilds the FTS index over the vault
+GeoBridge                   tasks/terminal/chat → Garime (iOS) over Tailscale
+GeoCapture                  daemon: screenshot + OCR → Captures/
 ```
 
 ## Components (this repo)
 
 | Dir | What it is |
 |---|---|
-| `hermes/` | Geo layer over the upstream hermes-agent: `SOUL.md`, `PATCHES.md`, hooks (`geo-context`), scripts (`geo_indexer.py`, `context_scraping.py`), whatsapp-ingest, launch-agents |
-| `hermes-extensions/` | Plugins: `geo-tools` (file-native `geo_*` vault tools + layer guard), geo-search-tool, whatsapp-confirm, brain-vault |
+| `hermes/` | Agent identity (`SOUL.md`) and vault scripts (`geo_indexer.py`, `context_scraping.py`) — the scripts' deployed copy runs on the VM garime |
 | `GeoBridge/` | HTTP bridge (launchd `ai.geo.bridge`) serving tasks/terminal/chat to GeoMobile over the tailnet — see `GeoBridge/CONTRACT.md` |
-| `GeoMobile/` | iOS app (SwiftUI): unified Today, Chat, Agents, Terminal |
-| `GeoCore/` | Swift package shared with GeoMobile |
-| `GeoCalendar/` | Swift daemon mirroring vault tasks into Apple Calendar EKEvents (4 calendars by type) |
+| `Garime/` | iOS app (SwiftUI): unified Today, Chat, Agents, Terminal |
+| `GeoCore/` | Swift package shared with the iOS app |
 | `GeoCapture/` | Swift daemon: screenshot + OCR → `Captures/` in the vault |
-| `tests/` | `geo_time_contract.py` — time/timezone contract for the geo-tools |
+| `tests/` | `geo_time_contract.py` — time/timezone contract for `context_scraping` |
 
 The former macOS app (Swift/SwiftUI) was **retired on 2026-07-04** — its code was removed from the repo (lives in git history). The old vault at `~/Library/Application Support/Geo/` is a frozen backup, read and written by nothing.
 
