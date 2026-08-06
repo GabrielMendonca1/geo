@@ -238,21 +238,21 @@ final class AgentChatEmptyTests: XCTestCase {
 final class AgentChatEndpointTests: XCTestCase {
     func testChatPathEncodesPaneColon() {
         XCTAssertEqual(
-            BridgeEndpoint.termAgentChat(project: "garime", pane: "w1:p3", limit: 40).path,
+            BridgeEndpoint.termAgentChat(target: .pane(project: "garime", pane: "w1:p3"), limit: 40).path,
             "/term/agent-chat?project=garime&pane=w1%3Ap3&limit=40"
         )
     }
 
     func testChatPathClampsLimit() {
         XCTAssertEqual(
-            BridgeEndpoint.termAgentChat(project: "g", pane: "w1:p1", limit: 900).path,
+            BridgeEndpoint.termAgentChat(target: .pane(project: "g", pane: "w1:p1"), limit: 900).path,
             "/term/agent-chat?project=g&pane=w1%3Ap1&limit=200"
         )
     }
 
     func testPromptPathEncodesPaneColon() {
         XCTAssertEqual(
-            BridgeEndpoint.termAgentPrompt(project: "meu projeto", pane: "w1:p3").path,
+            BridgeEndpoint.termAgentPrompt(target: .pane(project: "meu projeto", pane: "w1:p3")).path,
             "/term/agent-prompt?project=meu%20projeto&pane=w1%3Ap3"
         )
     }

@@ -3,10 +3,21 @@ import SwiftUI
 enum AgentChatSpan: Equatable {
     case text(String)
     case code(String)
+    case strong(String)
+    case emphasis(String)
+    case link(String)
 }
 
 enum AgentChatChunk: Equatable {
     case prose(String)
+    case code(String)
+}
+
+enum AgentChatBlock: Equatable {
+    case paragraph(String)
+    case heading(Int, String)
+    case bullet(String)
+    case ordered(String, String)
     case code(String)
 }
 
@@ -39,32 +50,132 @@ enum AgentChatMarkup {
         return result
     }
 
+    static func blocks(_ raw: String) -> [AgentChatBlock] {
+        chunks(raw).flatMap { chunk -> [AgentChatBlock] in
+            switch chunk {
+            case .code(let body): return [.code(body)]
+            case .prose(let body): return proseBlocks(body)
+            }
+        }
+    }
+
     static func spans(_ raw: String) -> [AgentChatSpan] {
-        guard raw.contains("`") else { return [.text(raw)] }
+        guard raw.contains("`") || raw.contains("*") || raw.contains("[") else { return [.text(raw)] }
         var spans: [AgentChatSpan] = []
         var pending = ""
-        var rest = Substring(raw)
-        while let open = rest.firstIndex(of: "`") {
-            let after = rest.index(after: open)
-            guard let close = rest[after...].firstIndex(of: "`") else { break }
-            let inner = String(rest[after..<close])
-            let tail = rest.index(after: close)
-            guard !inner.isEmpty else {
-                pending += String(rest[..<tail])
-                rest = rest[tail...]
+        var index = raw.startIndex
+        func flush() {
+            guard !pending.isEmpty else { return }
+            spans.append(.text(pending))
+            pending = ""
+        }
+        while index < raw.endIndex {
+            if let (span, next) = inline(raw, at: index) {
+                flush()
+                spans.append(span)
+                index = next
                 continue
             }
-            pending += String(rest[..<open])
-            if !pending.isEmpty {
-                spans.append(.text(pending))
-                pending = ""
-            }
-            spans.append(.code(inner))
-            rest = rest[tail...]
+            pending.append(raw[index])
+            index = raw.index(after: index)
         }
-        pending += String(rest)
-        if !pending.isEmpty { spans.append(.text(pending)) }
+        flush()
         return spans.isEmpty ? [.text(raw)] : spans
+    }
+
+    private static func inline(_ raw: String, at index: String.Index) -> (AgentChatSpan, String.Index)? {
+        switch raw[index] {
+        case "`":
+            guard let (inner, next) = delimited(raw, at: index, marker: "`") else { return nil }
+            return (.code(inner), next)
+        case "*":
+            if raw[index...].hasPrefix("**"),
+               let (inner, next) = delimited(raw, at: index, marker: "**"),
+               tight(inner) {
+                return (.strong(inner), next)
+            }
+            guard let (inner, next) = delimited(raw, at: index, marker: "*"), tight(inner) else { return nil }
+            return (.emphasis(inner), next)
+        case "[":
+            guard let (label, next) = link(raw, at: index) else { return nil }
+            return (.link(label), next)
+        default:
+            return nil
+        }
+    }
+
+    private static func tight(_ inner: String) -> Bool {
+        guard let first = inner.first, let last = inner.last else { return false }
+        return !first.isWhitespace && !last.isWhitespace
+    }
+
+    private static func delimited(_ raw: String, at index: String.Index, marker: String) -> (String, String.Index)? {
+        guard let start = raw.index(index, offsetBy: marker.count, limitedBy: raw.endIndex), start < raw.endIndex,
+              let close = raw.range(of: marker, range: start..<raw.endIndex)
+        else { return nil }
+        let inner = String(raw[start..<close.lowerBound])
+        guard !inner.isEmpty, !inner.contains("\n") else { return nil }
+        return (inner, close.upperBound)
+    }
+
+    private static func link(_ raw: String, at index: String.Index) -> (String, String.Index)? {
+        let start = raw.index(after: index)
+        guard start < raw.endIndex,
+              let middle = raw.range(of: "](", range: start..<raw.endIndex),
+              let close = raw.range(of: ")", range: middle.upperBound..<raw.endIndex)
+        else { return nil }
+        let label = String(raw[start..<middle.lowerBound])
+        guard !label.isEmpty, !label.contains("\n"), !label.contains("[") else { return nil }
+        return (label, close.upperBound)
+    }
+
+    private static func proseBlocks(_ body: String) -> [AgentChatBlock] {
+        var result: [AgentChatBlock] = []
+        var para: [String] = []
+        func flush() {
+            let text = para.joined(separator: "\n").trimmingCharacters(in: .newlines)
+            para = []
+            guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+            result.append(.paragraph(text))
+        }
+        for line in body.split(separator: "\n", omittingEmptySubsequences: false).map(String.init) {
+            if let block = heading(line) ?? item(line) {
+                flush()
+                result.append(block)
+                continue
+            }
+            para.append(line)
+        }
+        flush()
+        return result
+    }
+
+    private static func heading(_ line: String) -> AgentChatBlock? {
+        let hashes = line.prefix(while: { $0 == "#" }).count
+        guard (1...3).contains(hashes) else { return nil }
+        let rest = line.dropFirst(hashes)
+        guard rest.hasPrefix(" ") else { return nil }
+        let text = rest.trimmingCharacters(in: .whitespaces)
+        guard !text.isEmpty else { return nil }
+        return .heading(hashes, text)
+    }
+
+    private static func item(_ line: String) -> AgentChatBlock? {
+        let indent = line.prefix(while: { $0 == " " }).count
+        guard indent <= 7 else { return nil }
+        let body = line.dropFirst(indent)
+        if let first = body.first, first == "-" || first == "*" {
+            let rest = body.dropFirst()
+            guard rest.hasPrefix(" ") else { return nil }
+            let text = rest.trimmingCharacters(in: .whitespaces)
+            return text.isEmpty ? nil : .bullet(text)
+        }
+        let digits = body.prefix(while: \.isNumber)
+        guard (1...3).contains(digits.count) else { return nil }
+        let rest = body.dropFirst(digits.count)
+        guard rest.hasPrefix(". ") else { return nil }
+        let text = rest.dropFirst(2).trimmingCharacters(in: .whitespaces)
+        return text.isEmpty ? nil : .ordered(String(digits) + ".", text)
     }
 
     static func code(in raw: String) -> String {
@@ -73,7 +184,7 @@ enum AgentChatMarkup {
             .joined(separator: "\n\n")
     }
 
-    static func attributed(_ raw: String) -> AttributedString {
+    static func attributed(_ raw: String, base: Font = .body) -> AttributedString {
         var out = AttributedString()
         for span in spans(raw) {
             switch span {
@@ -82,6 +193,20 @@ enum AgentChatMarkup {
             case .code(let value):
                 var chunk = AttributedString(value)
                 chunk.backgroundColor = Color.slateInk(0.12)
+                chunk.font = .system(.body, design: .monospaced)
+                out.append(chunk)
+            case .strong(let value):
+                var chunk = AttributedString(value)
+                chunk.font = base.bold()
+                out.append(chunk)
+            case .emphasis(let value):
+                var chunk = AttributedString(value)
+                chunk.font = base.italic()
+                out.append(chunk)
+            case .link(let value):
+                var chunk = AttributedString(value)
+                chunk.foregroundColor = .accentColor
+                chunk.underlineStyle = .single
                 out.append(chunk)
             }
         }

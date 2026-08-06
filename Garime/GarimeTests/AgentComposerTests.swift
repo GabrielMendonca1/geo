@@ -112,14 +112,14 @@ final class AgentUploadFailureTests: XCTestCase {
 final class AgentComposerEndpointTests: XCTestCase {
     func testCommandsPathEncodesPaneColon() {
         XCTAssertEqual(
-            BridgeEndpoint.termAgentCommands(project: "garime", pane: "w1:p3").path,
+            BridgeEndpoint.termAgentCommands(target: .pane(project: "garime", pane: "w1:p3")).path,
             "/term/agent-commands?project=garime&pane=w1%3Ap3"
         )
     }
 
     func testUploadPathEncodesPaneColon() {
         XCTAssertEqual(
-            BridgeEndpoint.termAgentUpload(project: "meu projeto", pane: "w1:p3").path,
+            BridgeEndpoint.termAgentUpload(target: .pane(project: "meu projeto", pane: "w1:p3")).path,
             "/term/agent-upload?project=meu%20projeto&pane=w1%3Ap3"
         )
     }

@@ -150,6 +150,62 @@ final class SessionsHomeRefreshTests: XCTestCase {
         XCTAssertEqual(fake.count("/term/preview"), names.count * 2)
     }
 
+    private func workingFake() -> FakeBridge {
+        let fake = loadedFake()
+        fake.routes["/term/agent-work"] = .success(data(#"""
+        {"agent":"claude","supported":true,"resolved":"reported",
+         "workflows":[{"id":"wf_a","running":2,"done":6,"since":""}],
+         "subagents":[{"id":"s1","type":"worker","running":true,"since":""}]}
+        """#))
+        return fake
+    }
+
+    func testWorkCountsOnlyBusyAttachableAgents() async {
+        let fake = workingFake()
+        let model = SessionsHomeModel(client: fake)
+        await model.refresh(names)
+
+        XCTAssertEqual(model.work["mac|garime|claude|w1:p1"], 3)
+        XCTAssertEqual(fake.count("/term/agent-work"), 1)
+    }
+
+    func testWorkSurvivesFailedProbe() async {
+        let fake = workingFake()
+        let model = SessionsHomeModel(client: fake)
+        await model.refresh(names)
+
+        fake.routes["/term/agent-work"] = .failure(BridgeError.server(status: 503, code: "unavailable"))
+        await model.refresh(names)
+
+        XCTAssertEqual(model.work["mac|garime|claude|w1:p1"], 3)
+    }
+
+    func testWorkClearsWhenAgentReportsNoWork() async {
+        let fake = workingFake()
+        let model = SessionsHomeModel(client: fake)
+        await model.refresh(names)
+
+        fake.routes["/term/agent-work"] = .success(data(#"{"agent":"pi","supported":false}"#))
+        await model.refresh(names)
+
+        XCTAssertTrue(model.work.isEmpty)
+    }
+
+    func testWorkIsPrunedWhenAgentStopsWorking() async {
+        let fake = workingFake()
+        let model = SessionsHomeModel(client: fake)
+        await model.refresh(names)
+
+        fake.routes["/term/agents"] = .success(data(#"""
+        {"units":[],"mac_online":true,
+         "agents":[{"host":"mac","agent":"claude","status":"idle","project":"garime","pane":"w1:p1"}]}
+        """#))
+        await model.refresh(names)
+
+        XCTAssertTrue(model.work.isEmpty)
+        XCTAssertEqual(fake.count("/term/agent-work"), 1)
+    }
+
     func testForcedRefreshAlwaysFetchesPreviews() async {
         let fake = loadedFake()
         let model = SessionsHomeModel(client: fake)

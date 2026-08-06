@@ -180,6 +180,12 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.primary)
             }
+
+            if let keychainError = viewModel.keychainError {
+                Text(keychainError)
+                    .font(.caption)
+                    .foregroundStyle(.primary)
+            }
         } header: {
             sectionHeader("bridge")
         } footer: {

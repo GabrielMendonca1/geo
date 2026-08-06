@@ -26,20 +26,29 @@ enum BridgeConfig {
     static func isAllowedBaseURL(_ raw: String) -> Bool {
         guard let url = URL(string: raw), let host = url.host else { return false }
         if url.scheme == "https" && host.hasSuffix(".ts.net") { return true }
-        if url.scheme == "https" { return true }
         guard url.scheme == "http" else { return false }
         let octets = host.split(separator: ".").compactMap { UInt8($0) }
         return octets.count == 4 && octets[0] == 100 && (64...127).contains(octets[1])
     }
 
-    static var token: String {
-        get { KeychainStore.read(tokenAccount) ?? BridgeSecrets.token }
-        set { KeychainStore.write(tokenAccount, newValue) }
+    static var token: String? {
+        get { KeychainStore.read(tokenAccount) }
+        set { _ = setToken(newValue ?? "") }
     }
 
-    static var termToken: String {
-        get { KeychainStore.read(termTokenAccount) ?? BridgeSecrets.termToken }
-        set { KeychainStore.write(termTokenAccount, newValue) }
+    static var termToken: String? {
+        get { KeychainStore.read(termTokenAccount) }
+        set { _ = setTermToken(newValue ?? "") }
+    }
+
+    @discardableResult
+    static func setToken(_ value: String) -> Bool {
+        KeychainStore.write(tokenAccount, value)
+    }
+
+    @discardableResult
+    static func setTermToken(_ value: String) -> Bool {
+        KeychainStore.write(termTokenAccount, value)
     }
 }
 
@@ -61,16 +70,18 @@ enum KeychainStore {
         return String(data: data, encoding: .utf8)
     }
 
-    static func write(_ account: String, _ value: String) {
+    @discardableResult
+    static func write(_ account: String, _ value: String) -> Bool {
         let base: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
         ]
-        SecItemDelete(base as CFDictionary)
-        guard !value.isEmpty else { return }
+        let deleted = SecItemDelete(base as CFDictionary)
+        guard deleted == errSecSuccess || deleted == errSecItemNotFound else { return false }
+        guard !value.isEmpty else { return true }
         var attributes = base
         attributes[kSecValueData as String] = Data(value.utf8)
-        SecItemAdd(attributes as CFDictionary, nil)
+        return SecItemAdd(attributes as CFDictionary, nil) == errSecSuccess
     }
 }

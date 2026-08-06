@@ -239,6 +239,33 @@ final class TermAgentsDecodingTests: XCTestCase {
         XCTAssertEqual(merged.map(\.project), ["beta"])
     }
 
+    func testAdoptingReturnsOnlyProjectsMissingFromTheFrozenLayout() throws {
+        let first = try decode("""
+        {"units":[],"mac_online":true,"agents":[
+          {"host":"mac","agent":"claude","status":"idle","project":"alfa","pane":"w1:p1"}]}
+        """)
+        let layout = TermAgentOrder.grouped(first.agents)
+        let second = try decode("""
+        {"units":[],"mac_online":true,"agents":[
+          {"host":"mac","agent":"claude","status":"idle","project":"alfa","pane":"w1:p1"},
+          {"host":"mac","agent":"codex","status":"idle","project":"alfa","pane":"w1:p9"},
+          {"host":"mac","agent":"kimi","status":"idle","project":"zulu","pane":"w2:p1"}]}
+        """)
+        let fresh = TermAgentOrder.adopting(layout: layout, live: second.agents)
+        XCTAssertEqual(fresh.map(\.project), ["zulu"])
+        XCTAssertTrue(TermAgentOrder.adopting(layout: layout + fresh, live: second.agents).isEmpty)
+    }
+
+    func testPlaceIsTheCwdBasenameUnlessItRepeatsTheProject() throws {
+        let payload = try decode("""
+        {"units":[],"mac_online":true,"agents":[
+          {"host":"mac","agent":"claude","status":"idle","project":"garime","cwd":"/Users/biel/Garime/Geo","pane":"w1:p1"},
+          {"host":"mac","agent":"claude","status":"idle","project":"garime","cwd":"/Users/biel/garime","pane":"w1:p2"},
+          {"host":"vm","agent":"pi","status":"running","project":"","cwd":"","pane":""}]}
+        """)
+        XCTAssertEqual(payload.agents.map(\.place), ["Geo", "", ""])
+    }
+
     func testMarksCapAtFiveWithOverflow() throws {
         let payload = try decode("""
         {"units":[],"mac_online":true,"agents":[

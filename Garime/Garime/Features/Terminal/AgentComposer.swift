@@ -6,6 +6,7 @@ struct AgentCommand: Identifiable, Equatable {
     let name: String
     let description: String
     let scope: String
+    var builtin = false
 
     var id: String { name }
 }
@@ -18,6 +19,7 @@ struct AgentCommandsPayload: Decodable {
         let name: String?
         let description: String?
         let scope: String?
+        let builtin: Bool?
     }
 
     enum CodingKeys: String, CodingKey {
@@ -34,7 +36,8 @@ struct AgentCommandsPayload: Decodable {
             return AgentCommand(
                 name: name,
                 description: item.description ?? "",
-                scope: item.scope ?? ""
+                scope: item.scope ?? "",
+                builtin: item.builtin ?? false
             )
         }
     }
@@ -122,7 +125,7 @@ final class AgentComposerModel: ObservableObject {
         loadingCommands = true
         commandsLoaded = true
         defer { loadingCommands = false }
-        let path = BridgeEndpoint.termAgentCommands(project: target.project, pane: target.pane).path
+        let path = BridgeEndpoint.termAgentCommands(target: target.ref).path
         guard let data = try? await client.getData(path, token: BridgeConfig.termToken),
               let payload = try? JSONDecoder().decode(AgentCommandsPayload.self, from: data) else { return }
         commands = payload.commands
@@ -140,7 +143,7 @@ final class AgentComposerModel: ObservableObject {
         uploading = true
         notice = "enviando \(filename)"
         defer { uploading = false }
-        let path = BridgeEndpoint.termAgentUpload(project: target.project, pane: target.pane).path
+        let path = BridgeEndpoint.termAgentUpload(target: target.ref).path
         do {
             let response = try await client.uploadFile(
                 path,

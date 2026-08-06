@@ -60,6 +60,12 @@ STATUS_MAC_ADDR = (os.environ.get("GEO_STATUS_MAC_HOST", "100.123.44.9"), 22)
 STATUS_MAC_USER = os.environ.get("GEO_STATUS_MAC_USER", "biel")
 STATUS_HERDR = os.environ.get("GEO_STATUS_HERDR", "/opt/homebrew/bin/herdr")
 STATUS_SSH = os.environ.get("GEO_STATUS_SSH", "ssh")
+SSH_CONTROL_DIR = os.path.expanduser("~/.garime/ssh")
+SSH_CONTROL_PATH = os.path.join(SSH_CONTROL_DIR, "%r@%h:%p")
+try:
+    os.makedirs(SSH_CONTROL_DIR, mode=0o700, exist_ok=True)
+except OSError:
+    pass
 STATUS_AGENTS_TTL = float(os.environ.get("GEO_STATUS_AGENTS_TTL", "10"))
 STATUS_AGENTS_TIMEOUT = float(os.environ.get("GEO_STATUS_AGENTS_TIMEOUT", "12"))
 STATUS_VM_AGENTS = ("pi", "claude", "codex", "kimi", "opencode")
@@ -79,6 +85,18 @@ AGENT_COMMANDS_WIRE_MAX = 400
 AGENT_COMMANDS_CACHE_MAX = int(os.environ.get("GEO_AGENT_COMMANDS_CACHE_MAX", "64"))
 AGENT_COMMANDS_END = "Z"
 AGENT_COMMAND_NAME_RE = re.compile(r"\A[A-Za-z0-9._-]{1,64}\Z")
+AGENT_WORK_TTL = float(os.environ.get("GEO_AGENT_WORK_TTL", "5"))
+AGENT_WORK_TIMEOUT = float(os.environ.get("GEO_AGENT_WORK_TIMEOUT", "12"))
+AGENT_WORK_RUNNING_WINDOW = float(os.environ.get("GEO_AGENT_WORK_RUNNING_WINDOW", "120"))
+AGENT_WORK_STALE_AFTER = float(os.environ.get("GEO_AGENT_WORK_STALE_AFTER", "3600"))
+AGENT_WORK_WORKFLOWS_MAX = int(os.environ.get("GEO_AGENT_WORK_WORKFLOWS_MAX", "10"))
+AGENT_WORK_SUBAGENTS_MAX = int(os.environ.get("GEO_AGENT_WORK_SUBAGENTS_MAX", "20"))
+AGENT_WORK_SCAN_MAX = int(os.environ.get("GEO_AGENT_WORK_SCAN_MAX", "200"))
+AGENT_WORK_CACHE_MAX = int(os.environ.get("GEO_AGENT_WORK_CACHE_MAX", "64"))
+AGENT_WORK_LINE_SCAN = 400
+AGENT_WORK_END = "Z"
+AGENT_WORK_ID_RE = re.compile(r"\A[A-Za-z0-9._-]{1,80}\Z")
+AGENT_WORK_TYPE_RE = re.compile(r"\A[A-Za-z0-9._:-]{1,64}\Z")
 AGENT_UPLOAD_DIR = os.environ.get("GEO_AGENT_UPLOAD_DIR", "garime-uploads")
 AGENT_UPLOAD_MAX = 32 * 1024 * 1024
 AGENT_UPLOAD_TIMEOUT = float(os.environ.get("GEO_AGENT_UPLOAD_TIMEOUT", "120"))
@@ -86,6 +104,32 @@ AGENT_UPLOAD_PATH_RE = re.compile(r"\A/[^\x00-\x1f]{1,500}\Z")
 AGENT_SESSION_ID_RE = re.compile(r"\A[A-Za-z0-9._-]{1,80}\Z")
 AGENT_SESSION_PATH_RE = re.compile(r"\A/[^\x00-\x1f]{1,500}\.jsonl\Z")
 AGENT_CHAT_DROP_TYPES = ("attachment", "custom-title", "mode", "last-prompt", "summary", "system")
+AGENT_RESOLVED_MARK = "R\t"
+AGENT_RESOLVED_KINDS = ("reported", "fallback")
+AGENT_WORK_LIVE_KINDS = ("alive", "unknown", "dead")
+AGENT_PROJECT_DIR_RE = re.compile(r"[^A-Za-z0-9-]")
+AGENT_PI_SESSIONS_DIR = os.environ.get("GEO_AGENT_PI_SESSIONS_DIR", "/mnt/garime/pi/agent/sessions")
+AGENT_VM_DEPTH = int(os.environ.get("GEO_AGENT_VM_DEPTH", "3"))
+AGENT_PROMPT_CONTROL_RE = re.compile(r"[\x00-\x09\x0b-\x1f\x7f]")
+AGENT_ASK_SCAN_LINES = int(os.environ.get("GEO_AGENT_ASK_SCAN_LINES", "60"))
+AGENT_ASK_TIMEOUT = float(os.environ.get("GEO_AGENT_ASK_TIMEOUT", "5"))
+AGENT_ASK_OPTION_RE = re.compile("\\A(?P<cursor>[\u276f>\u25b6\u00bb]\\s+)?(?P<index>[0-9]{1,2})\\.\\s+(?P<label>\\S.*)\\Z")
+AGENT_ASK_BORDER = "\u2502|"
+AGENT_ASK_QUESTION_LOOKBACK = 5
+AGENT_ASK_QUESTION_MAX = 240
+AGENT_ASK_LABEL_MAX = 120
+AGENT_ASK_HINT_MAX = 1200
+AGENT_ASK_MAX_OPTIONS = 9
+AGENT_ASK_PERMISSION_RE = re.compile(r"(?i)proceed|permission|allow|trust|do you want|prosseguir|permit")
+AGENT_ANSWER_BODY_MAX = 1024
+AGENT_INTERRUPT_KEY = os.environ.get("GEO_AGENT_INTERRUPT_KEY", "Escape")
+AGENT_START_COMMANDS = {"claude": "~/.local/bin/claude", "pi": "/usr/bin/pi", "codex": "codex"}
+AGENT_COMMANDS_BUILTIN = {
+    "claude": (
+        ("clear", "limpa o contexto da conversa"),
+        ("compact", "compacta o contexto da conversa"),
+    ),
+}
 AGENT_PUBLIC_KEYS = ("host", "agent", "status", "title", "project", "pane", "cwd")
 PANE_PUBLIC_KEYS = ("pane", "agent", "status", "title", "cwd", "tab")
 
@@ -106,6 +150,9 @@ AGENTS_REFRESH_LOCK = threading.Lock()
 COMMANDS_CACHE = {}
 COMMANDS_CACHE_LOCK = threading.Lock()
 COMMANDS_REFRESH_LOCKS = {}
+WORK_CACHE = {}
+WORK_CACHE_LOCK = threading.Lock()
+WORK_REFRESH_LOCKS = {}
 
 
 class TermSubscriber:
@@ -415,6 +462,7 @@ def status_mac_scan():
         proc = subprocess.run(
             [
                 STATUS_SSH, "-o", "BatchMode=yes", "-o", "ConnectTimeout=4",
+                "-o", "ControlMaster=auto", "-o", "ControlPath=" + SSH_CONTROL_PATH, "-o", "ControlPersist=120",
                 "%s@%s" % (STATUS_MAC_USER, STATUS_MAC_ADDR[0]),
                 herdr_remote_script(),
             ],
@@ -426,19 +474,111 @@ def status_mac_scan():
     return proc.returncode == 0 or bool(agents) or bool(panes), agents, panes
 
 
+def vm_process_tree():
+    out = subprocess.run(
+        ["ps", "-eo", "pid=", "-o", "ppid=", "-o", "comm="], capture_output=True, timeout=5
+    ).stdout.decode("utf-8", "replace")
+    names = {}
+    children = {}
+    for line in out.split("\n"):
+        fields = line.split(None, 2)
+        if len(fields) < 3:
+            continue
+        try:
+            pid = int(fields[0])
+            ppid = int(fields[1])
+        except ValueError:
+            continue
+        names[pid] = os.path.basename(fields[2].strip().split()[0])
+        children.setdefault(ppid, []).append(pid)
+    return names, children
+
+
+def vm_descendants(pid, children, depth=AGENT_VM_DEPTH):
+    seen = set()
+    level = [pid]
+    for _ in range(depth):
+        nxt = []
+        for parent in level:
+            for child in children.get(parent, []):
+                if child in seen or child == parent:
+                    continue
+                seen.add(child)
+                nxt.append(child)
+        if not nxt:
+            break
+        level = nxt
+    return seen
+
+
+def vm_pane_agent(pid, command, names, children):
+    if os.path.basename(command) in STATUS_VM_AGENTS:
+        return os.path.basename(command)
+    for child in sorted(vm_descendants(pid, children)):
+        name = names.get(child, "")
+        if name in STATUS_VM_AGENTS:
+            return name
+    return ""
+
+
+def vm_panes(args):
+    proc = subprocess.run(
+        [TERM_TMUX, "list-panes"] + args + [
+            "-F", "#{session_name}\t#{pane_pid}\t#{pane_current_command}\t#{pane_current_path}",
+        ],
+        capture_output=True, timeout=5,
+    )
+    if proc.returncode != 0:
+        return None
+    panes = []
+    for line in proc.stdout.decode("utf-8", "replace").split("\n"):
+        fields = line.split("\t")
+        if len(fields) != 4:
+            continue
+        try:
+            pid = int(fields[1])
+        except ValueError:
+            continue
+        panes.append((fields[0], pid, fields[2], fields[3]))
+    return panes
+
+
+def vm_session_agent(session):
+    panes = vm_panes(["-t", term_pane_target(session)])
+    if panes is None:
+        return None
+    names, children = vm_process_tree()
+    for _, pid, command, path in panes:
+        agent = vm_pane_agent(pid, command, names, children)
+        if agent:
+            return agent, path
+    return "", ""
+
+
+def vm_pid_sessions(children):
+    try:
+        panes = vm_panes(["-a"])
+    except Exception:
+        return {}
+    if not panes:
+        return {}
+    sessions = {}
+    for name, pid, _, _ in panes:
+        sessions.setdefault(pid, name)
+        for child in vm_descendants(pid, children):
+            sessions.setdefault(child, name)
+    return sessions
+
+
 def status_vm_agents():
     try:
-        out = subprocess.run(
-            ["ps", "-eo", "comm="], capture_output=True, timeout=5
-        ).stdout.decode("utf-8", "replace")
+        names, children = vm_process_tree()
     except Exception:
         return []
+    sessions = vm_pid_sessions(children)
     agents = []
-    for line in out.split("\n"):
-        line = line.strip()
-        if not line:
-            continue
-        name = os.path.basename(line.split()[0])
+    for pid in sorted(names):
+        name = names[pid]
         if name not in STATUS_VM_AGENTS:
             continue
         agents.append({
@@ -449,6 +589,7 @@ def status_vm_agents():
             "project": "",
             "pane": "",
             "cwd": "",
+            "session": sessions.get(pid, ""),
         })
     return agents
 
@@ -477,7 +618,11 @@ def status_agents():
 
 
 def agent_public(entry):
-    return {key: entry.get(key, "") for key in AGENT_PUBLIC_KEYS}
+    body = {key: entry.get(key, "") for key in AGENT_PUBLIC_KEYS}
+    if entry.get("host") == "vm":
+        session = entry.get("session")
+        body["session"] = session if isinstance(session, str) else ""
+    return body
 
 
 def agent_find(agents, project, pane):
@@ -498,24 +643,94 @@ def pane_find(panes, project, pane):
     return None
 
 
-def agent_transcript_script(session):
+def agent_project_dir(cwd):
+    if not isinstance(cwd, str) or not cwd.startswith("/"):
+        return ""
+    return AGENT_PROJECT_DIR_RE.sub("-", cwd)
+
+
+def agent_pi_dir(cwd):
+    project = agent_project_dir(cwd)
+    return ("-" + project + "-") if project else ""
+
+
+def vm_agent_session(agent):
+    if agent == "claude":
+        return {"kind": "cwd", "value": ""}
+    if agent == "pi":
+        return {"kind": "pi", "value": ""}
+    return None
+
+
+def agent_transcript_script(session, cwd=""):
     if not isinstance(session, dict):
         return ""
     kind = session.get("kind")
     value = session.get("value")
+    if kind == "cwd":
+        project = agent_project_dir(cwd)
+        if not project:
+            return ""
+        inner = (
+            'd="$HOME"/.claude/projects/%s; '
+            'c=$(ls -1t "$d"/*.jsonl 2>/dev/null | head -n 1); '
+            'if [ -f "$c" ]; then printf "R\\tfallback\\n"; tail -c %d "$c"; fi; exit 0'
+        ) % (shlex.quote(project), AGENT_CHAT_TAIL_BYTES)
+        return "/bin/sh -c " + shlex.quote(inner)
+    if kind == "pi":
+        name = agent_pi_dir(cwd)
+        if not name:
+            return ""
+        inner = (
+            'd=%s/%s; [ -d "$d" ] || d="$HOME"/.pi/agent/sessions/%s; '
+            'c=$(ls -1t "$d"/*.jsonl 2>/dev/null | head -n 1); '
+            'if [ -f "$c" ]; then printf "R\\tfallback\\n"; tail -c %d "$c"; fi; exit 0'
+        ) % (
+            shlex.quote(AGENT_PI_SESSIONS_DIR), shlex.quote(name),
+            shlex.quote(name), AGENT_CHAT_TAIL_BYTES,
+        )
+        return "/bin/sh -c " + shlex.quote(inner)
     if not isinstance(value, str):
         return ""
     if kind == "id" and AGENT_SESSION_ID_RE.match(value):
-        return "/bin/sh -c " + shlex.quote(
-            (
-                'for f in "$HOME"/.claude/projects/*/%s.jsonl; do '
-                'if [ -f "$f" ]; then tail -c %d "$f"; break; fi; done; exit 0'
-            ) % (shlex.quote(value), AGENT_CHAT_TAIL_BYTES)
+        parts = [
+            'f=""',
+            "r=reported",
+            'for c in "$HOME"/.claude/projects/*/%s.jsonl; do '
+            'if [ -f "$c" ]; then f="$c"; break; fi; done' % shlex.quote(value),
+        ]
+        project = agent_project_dir(cwd)
+        if project:
+            parts.append(
+                'if [ -z "$f" ]; then d="$HOME"/.claude/projects/%s; '
+                'c=$(ls -1t "$d"/*.jsonl 2>/dev/null | head -n 1); '
+                'if [ -f "$c" ]; then f="$c"; r=fallback; fi; fi' % shlex.quote(project)
+            )
+        parts.append(
+            'if [ -n "$f" ]; then printf "R\\t%%s\\n" "$r"; tail -c %d "$f"; fi'
+            % AGENT_CHAT_TAIL_BYTES
         )
+        parts.append("exit 0")
+        return "/bin/sh -c " + shlex.quote("; ".join(parts))
     if kind == "path" and AGENT_SESSION_PATH_RE.match(value):
-        quoted = shlex.quote(value)
-        return 'if [ -f %s ]; then tail -c %d %s; fi; exit 0' % (quoted, AGENT_CHAT_TAIL_BYTES, quoted)
+        inner = (
+            'f=%s; r=reported; '
+            'if [ ! -f "$f" ]; then d=${f%%/*}; [ -n "$d" ] || d=/; '
+            'c=$(ls -1t "$d"/*.jsonl 2>/dev/null | head -n 1); '
+            'if [ -f "$c" ]; then f="$c"; r=fallback; fi; fi; '
+            'if [ -f "$f" ]; then printf "R\\t%%s\\n" "$r"; tail -c %d "$f"; fi; exit 0'
+        ) % (shlex.quote(value), AGENT_CHAT_TAIL_BYTES)
+        return "/bin/sh -c " + shlex.quote(inner)
     return ""
+
+
+def agent_chat_resolved(text):
+    head, sep, rest = text.partition("\n")
+    if sep and head.startswith(AGENT_RESOLVED_MARK):
+        tag = head[len(AGENT_RESOLVED_MARK):].strip()
+        if tag in AGENT_RESOLVED_KINDS:
+            return tag, rest
+    return "", text
 
 
 def agent_prompt_script(project, pane, text):
@@ -532,10 +747,17 @@ def agent_ssh(script, timeout, data=None):
     return subprocess.run(
         [
             STATUS_SSH, "-o", "BatchMode=yes", "-o", "ConnectTimeout=" + TERM_ATTACH_SSH_TIMEOUT,
+            "-o", "ControlMaster=auto", "-o", "ControlPath=" + SSH_CONTROL_PATH, "-o", "ControlPersist=120",
             "%s@%s" % (STATUS_MAC_USER, STATUS_MAC_ADDR[0]),
             script,
         ],
         input=data, capture_output=True, timeout=timeout,
+    )
+
+
+def agent_local(script, timeout, data=None):
+    return subprocess.run(
+        ["/bin/sh", "-c", script], input=data, capture_output=True, timeout=timeout,
     )
 
 
@@ -669,6 +891,361 @@ def agent_upload_script(name):
     ) % (shlex.quote(AGENT_UPLOAD_DIR), shlex.quote(name), shlex.quote(stem), shlex.quote(ext))
 
 
+def agent_work_session_id(session):
+    if not isinstance(session, dict) or session.get("kind") != "id":
+        return ""
+    value = session.get("value")
+    if not isinstance(value, str) or not AGENT_SESSION_ID_RE.match(value):
+        return ""
+    return value
+
+
+def agent_work_journal_awk():
+    return (
+        '{ s = substr($0, 1, %d); gsub(/[ \\t]*:[ \\t]*/, ":", s); '
+        'if (!match(s, /"type":"[a-z_]+"/)) next; '
+        't = substr(s, RSTART + 8, RLENGTH - 9); '
+        'if (!match(s, /"agentId":"[A-Za-z0-9._-]+"/)) next; '
+        'a = substr(s, RSTART + 11, RLENGTH - 12); '
+        'if (t == "started") st[a] = 1; else if (t == "result") rs[a] = 1 } '
+        'END { r = 0; d = 0; for (a in st) { if (a in rs) d++; else r++ } printf "%%d\\t%%d", r, d }'
+    ) % AGENT_WORK_LINE_SCAN
+
+
+def agent_work_meta_awk():
+    return (
+        '{ s = $0; gsub(/[ \\t]*:[ \\t]*/, ":", s); '
+        'if (match(s, /"agentType":"[A-Za-z0-9._:-]+"/)) '
+        '{ print substr(s, RSTART + 13, RLENGTH - 14); exit } }'
+    )
+
+
+def agent_work_ps_awk():
+    return (
+        '$1 == me || $2 == me || $1 == pa || $2 == pa { next } '
+        'index($0, "subagents") { next } '
+        'index($0, "claude") { a = 1 } '
+        'END { if (a) print "alive"; else if (NR == 0) print "unknown"; else print "dead" }'
+    )
+
+
+def agent_work_script(session, cwd=""):
+    project = agent_project_dir(cwd)
+    if isinstance(session, dict) and session.get("kind") == "cwd":
+        if not project:
+            return ""
+        parts = [
+            '[ -n "$HOME" ] || exit 6',
+            "r=fallback",
+            'b=""',
+            'd="$HOME"/.claude/projects/%s; '
+            'c=$(ls -1t "$d"/*.jsonl 2>/dev/null | head -n 1); '
+            'if [ -f "$c" ]; then n=${c##*/}; n=${n%%.jsonl}; '
+            'if [ -d "$d/$n" ]; then b="$d/$n"; fi; fi' % shlex.quote(project),
+        ]
+    else:
+        value = agent_work_session_id(session)
+        if not value:
+            return ""
+        parts = ['[ -n "$HOME" ] || exit 6', "r=reported", 'b=""']
+        if project:
+            parts.append(
+                'd="$HOME"/.claude/projects/%s/%s; if [ -d "$d" ]; then b="$d"; fi'
+                % (shlex.quote(project), shlex.quote(value))
+            )
+        parts.append(
+            'if [ -z "$b" ]; then '
+            'b=$(find "$HOME/.claude/projects" -mindepth 2 -maxdepth 2 -type d -name %s 2>/dev/null '
+            '| while IFS= read -r c; do if [ -d "$c/subagents" ]; then printf %%s "$c"; break; fi; done); fi'
+            % shlex.quote(value)
+        )
+        parts.append(
+            'if [ -z "$b" ]; then '
+            'k=$(find "$HOME/.claude/projects" -mindepth 2 -maxdepth 2 -type f -name %s 2>/dev/null '
+            '| head -n 1); [ -n "$k" ] || exit 9; fi' % shlex.quote(value + ".jsonl")
+        )
+    inner = "; ".join(parts) + "; " + (
+        's="$b/subagents"; '
+        'if [ -n "$b" ] && [ -d "$s" ]; then '
+        '[ -r "$s" ] && [ -x "$s" ] || exit 7; '
+        'printf "R\\t%%s\\n" "$r"; '
+        'printf "N\\t%%s\\n" "$(date -u +%%s)"; '
+        'l=$(ps -Ao pid=,ppid=,args= 2>/dev/null '
+        '| LC_ALL=C awk -v me="$$" -v pa="$PPID" %s 2>/dev/null); '
+        '[ -n "$l" ] || l=unknown; printf "L\\t%%s\\n" "$l"; '
+        'if [ -d "$s/workflows" ]; then [ -r "$s/workflows" ] && [ -x "$s/workflows" ] || exit 7; fi; '
+        'find "$s/workflows" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | head -n %d '
+        '| while IFS= read -r w; do '
+        'j="$w/journal.jsonl"; '
+        'if [ ! -f "$j" ]; then [ -r "$w" ] && [ -x "$w" ] || exit 7; continue; fi; '
+        'm=$(stat -f %%m "$j" 2>/dev/null) || m=$(stat -c %%Y "$j" 2>/dev/null) || exit 7; '
+        'q=$(ls -1t "$w"/agent-*.jsonl 2>/dev/null | head -n 1); '
+        'if [ -f "$q" ]; then '
+        'k=$(stat -f %%m "$q" 2>/dev/null) || k=$(stat -c %%Y "$q" 2>/dev/null); '
+        'case "$k" in ""|*[!0-9]*) ;; *) [ "$k" -gt "$m" ] && m=$k ;; esac; fi; '
+        'c=$(LC_ALL=C awk %s "$j" 2>/dev/null) || exit 8; '
+        '[ -n "$c" ] || exit 8; '
+        'n=${w##*/}; printf "W\\t%%s\\t%%s\\t%%s\\n" "$n" "$m" "$c"; done || exit $?; '
+        'find "$s" -mindepth 1 -maxdepth 1 -name "agent-*.meta.json" 2>/dev/null | head -n %d '
+        '| while IFS= read -r f; do '
+        'n=${f##*/}; n=${n#agent-}; n=${n%%.meta.json}; '
+        'p=${f%%.meta.json}.jsonl; [ -f "$p" ] || p="$f"; '
+        'm=$(stat -f %%m "$p" 2>/dev/null) || m=$(stat -c %%Y "$p" 2>/dev/null) || exit 7; '
+        't=$(LC_ALL=C awk %s "$f" 2>/dev/null); '
+        'printf "A\\t%%s\\t%%s\\t%%s\\n" "$n" "$m" "$t"; done || exit $?; '
+        'fi; printf "%s\\n"'
+    ) % (
+        shlex.quote(agent_work_ps_awk()),
+        AGENT_WORK_SCAN_MAX, shlex.quote(agent_work_journal_awk()),
+        AGENT_WORK_SCAN_MAX, shlex.quote(agent_work_meta_awk()), AGENT_WORK_END,
+    )
+    return "/bin/sh -c " + shlex.quote(inner)
+
+
+def agent_work_epoch(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def agent_work_iso(epoch):
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(epoch))
+
+
+def agent_work_stale(item, now):
+    return item["running"] > 0 and now - item["at"] > AGENT_WORK_STALE_AFTER
+
+
+def agent_work_parse(text):
+    lines = [line for line in text.replace("\r", "").split("\n") if line != ""]
+    if not lines or lines[-1] != AGENT_WORK_END:
+        return None
+    now = None
+    resolved = ""
+    live = "unknown"
+    workflows = []
+    subagents = []
+    for line in lines[:-1]:
+        fields = line.split("\t")
+        kind = fields[0]
+        if kind == "R" and len(fields) == 2 and fields[1] in AGENT_RESOLVED_KINDS:
+            resolved = fields[1]
+        elif kind == "L" and len(fields) == 2 and fields[1] in AGENT_WORK_LIVE_KINDS:
+            live = fields[1]
+        elif kind == "N" and len(fields) == 2:
+            now = agent_work_epoch(fields[1])
+        elif kind == "W" and len(fields) == 5:
+            at = agent_work_epoch(fields[2])
+            running = agent_work_epoch(fields[3])
+            done = agent_work_epoch(fields[4])
+            if at is None or running is None or done is None:
+                continue
+            if not AGENT_WORK_ID_RE.match(fields[1]):
+                continue
+            workflows.append({"id": fields[1], "at": at, "running": running, "done": done})
+        elif kind == "A" and len(fields) == 4:
+            at = agent_work_epoch(fields[2])
+            if at is None or not AGENT_WORK_ID_RE.match(fields[1]):
+                continue
+            kind_name = fields[3] if AGENT_WORK_TYPE_RE.match(fields[3]) else "unknown"
+            subagents.append({"id": fields[1], "at": at, "type": kind_name})
+    if now is None:
+        now = int(time.time())
+    workflows.sort(key=lambda item: item["at"], reverse=True)
+    subagents.sort(key=lambda item: item["at"], reverse=True)
+    truncated = (
+        len(workflows) > AGENT_WORK_WORKFLOWS_MAX
+        or len(subagents) > AGENT_WORK_SUBAGENTS_MAX
+    )
+    body = {
+        "resolved": resolved,
+        "workflows": [
+            {
+                "id": item["id"],
+                "running": 0 if agent_work_stale(item, now) else item["running"],
+                "done": item["done"],
+                "since": agent_work_iso(item["at"]),
+                "stale": agent_work_stale(item, now),
+            }
+            for item in workflows[:AGENT_WORK_WORKFLOWS_MAX]
+        ],
+        "subagents": [
+            {
+                "id": item["id"],
+                "type": item["type"],
+                "running": live != "dead" and now - item["at"] <= AGENT_WORK_RUNNING_WINDOW,
+                "since": agent_work_iso(item["at"]),
+            }
+            for item in subagents[:AGENT_WORK_SUBAGENTS_MAX]
+        ],
+        "truncated": truncated,
+    }
+    return body
+
+
+def agent_work_lock(key):
+    with WORK_CACHE_LOCK:
+        lock = WORK_REFRESH_LOCKS.get(key)
+        if lock is None:
+            if len(WORK_REFRESH_LOCKS) >= AGENT_WORK_CACHE_MAX:
+                for stale in [k for k in WORK_REFRESH_LOCKS if k not in WORK_CACHE]:
+                    del WORK_REFRESH_LOCKS[stale]
+            lock = threading.Lock()
+            WORK_REFRESH_LOCKS[key] = lock
+        return lock
+
+
+def agent_work_store(key, value):
+    with WORK_CACHE_LOCK:
+        WORK_CACHE[key] = {"at": time.monotonic(), "value": value}
+        while len(WORK_CACHE) > AGENT_WORK_CACHE_MAX:
+            oldest = min(WORK_CACHE, key=lambda k: WORK_CACHE[k]["at"])
+            del WORK_CACHE[oldest]
+
+
+def agent_work_fetch(key, script, runner=None):
+    runner = runner or agent_ssh
+    now = time.monotonic()
+    with WORK_CACHE_LOCK:
+        hit = WORK_CACHE.get(key)
+        if hit is not None and now - hit["at"] < AGENT_WORK_TTL:
+            return json.loads(hit["value"])
+    with agent_work_lock(key):
+        with WORK_CACHE_LOCK:
+            hit = WORK_CACHE.get(key)
+            if hit is not None and time.monotonic() - hit["at"] < AGENT_WORK_TTL:
+                return json.loads(hit["value"])
+        proc = runner(script, AGENT_WORK_TIMEOUT)
+        if proc.returncode != 0:
+            return None
+        body = agent_work_parse(proc.stdout.decode("utf-8", "replace"))
+        if body is None:
+            return None
+        agent_work_store(key, json.dumps(body))
+        return body
+
+
+def agent_prompt_line(text):
+    if AGENT_PROMPT_CONTROL_RE.search(text):
+        return ""
+    return " ".join(part.strip() for part in text.split("\n") if part.strip())
+
+
+def agent_ask_empty():
+    return {"asking": False, "kind": "", "question": "", "options": [], "raw_hint": ""}
+
+
+def agent_ask_line(line):
+    return line.strip().strip(AGENT_ASK_BORDER).strip()
+
+
+def agent_ask_capture(session):
+    proc = subprocess.run(
+        [TERM_TMUX, "capture-pane", "-p", "-t", term_pane_target(session)],
+        capture_output=True, timeout=AGENT_ASK_TIMEOUT,
+    )
+    if proc.returncode != 0:
+        return None
+    return proc.stdout.decode("utf-8", "replace")
+
+
+def agent_ask_block(lines):
+    end = len(lines) - 1
+    floor = max(0, len(lines) - AGENT_ASK_SCAN_LINES)
+    while end >= floor and AGENT_ASK_OPTION_RE.match(agent_ask_line(lines[end])) is None:
+        end -= 1
+    if end < floor:
+        return []
+    matches = []
+    while end >= 0:
+        m = AGENT_ASK_OPTION_RE.match(agent_ask_line(lines[end]))
+        if m is None:
+            break
+        matches.append((end, m))
+        end -= 1
+    matches.reverse()
+    return matches
+
+
+def agent_ask_parse(text):
+    body = agent_ask_empty()
+    lines = [line.rstrip() for line in text.split("\n")]
+    matches = agent_ask_block(lines)
+    if len(matches) < 2 or not any(m.group("cursor") for _, m in matches):
+        return body
+    options = []
+    for position, (_, m) in enumerate(matches, 1):
+        if int(m.group("index")) != position:
+            return body
+        options.append({
+            "index": position,
+            "label": m.group("label").strip()[:AGENT_ASK_LABEL_MAX],
+            "selected": bool(m.group("cursor")),
+        })
+    start = matches[0][0]
+    question = ""
+    probe = start - 1
+    while probe >= 0 and start - probe <= AGENT_ASK_QUESTION_LOOKBACK:
+        candidate = agent_ask_line(lines[probe])
+        if candidate:
+            if candidate.endswith("?"):
+                question = candidate[:AGENT_ASK_QUESTION_MAX]
+                start = probe
+            break
+        probe -= 1
+    labels = " ".join(option["label"] for option in options)
+    body["asking"] = True
+    body["kind"] = "permission" if AGENT_ASK_PERMISSION_RE.search(question + " " + labels) else "choice"
+    body["question"] = question
+    body["options"] = options
+    body["raw_hint"] = "\n".join(
+        agent_ask_line(line) for line in lines[start:matches[-1][0] + 1]
+    )[:AGENT_ASK_HINT_MAX]
+    return body
+
+
+def agent_ask_choice(options, choice):
+    kind, value = choice
+    for option in options:
+        if option["index"] > AGENT_ASK_MAX_OPTIONS:
+            continue
+        if kind == "index" and option["index"] == value:
+            return option["index"]
+        if kind == "option" and option["label"].strip().lower() == value.lower():
+            return option["index"]
+    return None
+
+
+def term_has_session(session):
+    proc = subprocess.run(
+        [TERM_TMUX, "has-session", "-t", term_target(session)],
+        capture_output=True, timeout=5,
+    )
+    return proc.returncode == 0
+
+
+def term_send_key(session, key):
+    proc = subprocess.run(
+        [TERM_TMUX, "send-keys", "-t", term_pane_target(session), key],
+        capture_output=True, timeout=5,
+    )
+    return proc.returncode == 0
+
+
+def agent_commands_with_builtins(agent, commands):
+    builtins = AGENT_COMMANDS_BUILTIN.get(agent, ())
+    if not builtins:
+        return list(commands)
+    names = {name for name, _ in builtins}
+    merged = [entry for entry in commands if entry.get("name") not in names]
+    merged += [
+        {"name": name, "description": description, "scope": "builtin", "builtin": True}
+        for name, description in builtins
+    ]
+    return sorted(merged, key=lambda entry: entry.get("name", ""))
+
+
 def agent_chat_parts(content):
     parts = []
     if isinstance(content, str):
@@ -767,7 +1344,9 @@ def read_hermes_key():
 
 
 class Handler(BaseHTTPRequestHandler):
-    timeout = 30
+    protocol_version = "HTTP/1.1"
+    timeout = 120
+    _body_read = False
 
     def log_request(self, code="-", size="-"):
         line = "%s %s %s %s %s\n" % (now_iso(), self.client_address[0], self.command, self.path, code)
@@ -778,10 +1357,25 @@ class Handler(BaseHTTPRequestHandler):
         except OSError:
             pass
 
+    def _undrained(self):
+        encoding = (self.headers.get("Transfer-Encoding") or "").strip().lower()
+        if encoding and encoding != "identity":
+            return True
+        try:
+            pending = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            return True
+        if pending < 0:
+            return True
+        return bool(pending) and not self._body_read
+
     def _json(self, status, body):
+        close = self._undrained() or self.close_connection
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
+        if close:
+            self.send_header("Connection", "close")
         self.end_headers()
         self.wfile.write(body)
 
@@ -803,9 +1397,10 @@ class Handler(BaseHTTPRequestHandler):
         return True
 
     def _term_session_name(self):
-        q = parse_qs(urlsplit(self.path).query)
-        name = (q.get("session") or [TERM_SESSION])[0]
-        return name if TERM_SESSION_RE.match(name) else TERM_SESSION
+        name = self._term_session_name_strict()
+        if name is None:
+            self._json(400, b'{"error":"bad_name"}')
+        return name
 
     def _term_session_name_strict(self):
         q = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
@@ -843,10 +1438,13 @@ class Handler(BaseHTTPRequestHandler):
         if not self._term_gate():
             return
         session = self._term_session_name()
+        if session is None:
+            return
         sess = self._term_session(session)
         sub = TermSubscriber()
         snapshot = sess.subscribe(sub)
         try:
+            self.close_connection = True
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream")
             self.send_header("Cache-Control", "no-cache")
@@ -888,13 +1486,17 @@ class Handler(BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length") or 0)
         except ValueError:
             length = 0
+        self._body_read = True
         raw = self.rfile.read(length) if length else b""
         try:
             data = base64.b64decode(raw, validate=True)
         except ValueError:
             self._json(400, b'{"error":"invalid_body"}')
             return
-        sess = self._term_session(self._term_session_name())
+        session = self._term_session_name()
+        if session is None:
+            return
+        sess = self._term_session(session)
         try:
             sess.write(data)
         except OSError:
@@ -910,6 +1512,7 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             length = 0
         try:
+            self._body_read = True
             body = json.loads(self.rfile.read(length)) if length else None
         except ValueError:
             body = None
@@ -924,7 +1527,10 @@ class Handler(BaseHTTPRequestHandler):
         ):
             self._json(400, b'{"error":"invalid_body"}')
             return
-        sess = self._term_session(self._term_session_name())
+        session = self._term_session_name()
+        if session is None:
+            return
+        sess = self._term_session(session)
         try:
             sess.set_winsize(rows, cols)
         except OSError:
@@ -936,6 +1542,8 @@ class Handler(BaseHTTPRequestHandler):
         if not self._term_gate():
             return
         session = self._term_session_name()
+        if session is None:
+            return
         try:
             out = subprocess.run(
                 [TERM_TMUX, "display-message", "-p", "-t", term_pane_target(session), "#{window_width} #{window_height}"],
@@ -951,6 +1559,8 @@ class Handler(BaseHTTPRequestHandler):
     def _term_list(self):
         if not self._term_gate():
             return
+        if self._term_session_name() is None:
+            return
         try:
             out = subprocess.run(
                 [TERM_TMUX, "list-sessions", "-F", "#{session_name}"],
@@ -965,6 +1575,8 @@ class Handler(BaseHTTPRequestHandler):
         if not self._term_gate():
             return
         session = self._term_session_name()
+        if session is None:
+            return
         q = parse_qs(urlsplit(self.path).query)
         try:
             lines = int((q.get("lines") or [str(TERM_PREVIEW_LINES)])[0])
@@ -1023,6 +1635,54 @@ class Handler(BaseHTTPRequestHandler):
             return None, None
         return project, pane
 
+    def _term_vm_target(self):
+        q = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
+        raw = q.get("session")
+        if raw is None:
+            return ""
+        if q.get("project") is not None or q.get("pane") is not None or len(raw) != 1:
+            self._json(400, b'{"error":"bad_target"}')
+            return None
+        if not TERM_SESSION_RE.match(raw[0]):
+            self._json(400, b'{"error":"bad_target"}')
+            return None
+        return raw[0]
+
+    def _term_vm_session_required(self):
+        q = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
+        raw = q.get("session")
+        if (
+            raw is None or len(raw) != 1
+            or q.get("project") is not None or q.get("pane") is not None
+            or not TERM_SESSION_RE.match(raw[0])
+        ):
+            self._json(400, b'{"error":"bad_target"}')
+            return None
+        return raw[0]
+
+    def _term_vm_agent(self, session):
+        try:
+            found = vm_session_agent(session)
+        except Exception:
+            self._json(503, b'{"error":"unavailable"}')
+            return None
+        if found is None:
+            self._json(404, b'{"error":"no_session"}')
+            return None
+        agent, cwd = found
+        if not agent:
+            self._json(404, b'{"error":"no_agent"}')
+            return None
+        return agent, cwd
+
+    def _term_chat_limit(self):
+        q = parse_qs(urlsplit(self.path).query)
+        try:
+            limit = int((q.get("limit") or [str(AGENT_CHAT_LIMIT)])[0])
+        except ValueError:
+            limit = AGENT_CHAT_LIMIT
+        return max(1, min(AGENT_CHAT_MAX_LIMIT, limit))
+
     def _term_agent_resolve(self, project, pane, pane_conflict=False):
         try:
             mac_ok, agents, panes = status_scan_full()
@@ -1063,23 +1723,53 @@ class Handler(BaseHTTPRequestHandler):
         }
         self._json(200, json.dumps(body, ensure_ascii=False).encode())
 
+    def _term_agent_chat_vm(self, session):
+        found = self._term_vm_agent(session)
+        if found is None:
+            return
+        agent, cwd = found
+        limit = self._term_chat_limit()
+        body = {"agent": agent, "status": "running", "resolved": "", "messages": []}
+        script = agent_transcript_script(vm_agent_session(agent), cwd)
+        if not script:
+            self._json(200, json.dumps(body, ensure_ascii=False).encode())
+            return
+        try:
+            proc = agent_local(script, AGENT_CHAT_TIMEOUT)
+        except Exception:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        if proc.returncode != 0:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        resolved, out = agent_chat_resolved(proc.stdout.decode("utf-8", "replace"))
+        body["resolved"] = resolved
+        body["messages"] = agent_chat_messages(out, limit)
+        self._json(200, json.dumps(body, ensure_ascii=False).encode())
+
     def _term_agent_chat(self):
         if not self._term_gate():
+            return
+        vm = self._term_vm_target()
+        if vm is None:
+            return
+        if vm:
+            self._term_agent_chat_vm(vm)
             return
         project, pane = self._term_agent_target()
         if project is None:
             return
-        q = parse_qs(urlsplit(self.path).query)
-        try:
-            limit = int((q.get("limit") or [str(AGENT_CHAT_LIMIT)])[0])
-        except ValueError:
-            limit = AGENT_CHAT_LIMIT
-        limit = max(1, min(AGENT_CHAT_MAX_LIMIT, limit))
+        limit = self._term_chat_limit()
         entry = self._term_agent_resolve(project, pane)
         if entry is None:
             return
-        body = {"agent": entry.get("agent", ""), "status": entry.get("status", "unknown"), "messages": []}
-        script = agent_transcript_script(entry.get("session"))
+        body = {
+            "agent": entry.get("agent", ""),
+            "status": entry.get("status", "unknown"),
+            "resolved": "",
+            "messages": [],
+        }
+        script = agent_transcript_script(entry.get("session"), entry.get("cwd", ""))
         if not script:
             self._json(200, json.dumps(body, ensure_ascii=False).encode())
             return
@@ -1091,31 +1781,70 @@ class Handler(BaseHTTPRequestHandler):
         if proc.returncode != 0:
             self._json(503, b'{"error":"unavailable"}')
             return
-        body["messages"] = agent_chat_messages(proc.stdout.decode("utf-8", "replace"), limit)
+        resolved, out = agent_chat_resolved(proc.stdout.decode("utf-8", "replace"))
+        body["resolved"] = resolved
+        body["messages"] = agent_chat_messages(out, limit)
         self._json(200, json.dumps(body, ensure_ascii=False).encode())
 
-    def _term_agent_prompt(self):
-        if not self._term_gate():
-            return
-        self.close_connection = True
-        project, pane = self._term_agent_target()
-        if project is None:
-            return
+    def _term_agent_prompt_body(self):
         try:
             length = int(self.headers.get("Content-Length") or 0)
         except ValueError:
             length = -1
         if length <= 0 or length > AGENT_PROMPT_MAX:
             self._json(400, b'{"error":"invalid_body"}')
-            return
+            return None
+        self._body_read = True
         raw = self.rfile.read(length)
         try:
             text = raw.decode("utf-8")
         except UnicodeDecodeError:
             self._json(400, b'{"error":"invalid_body"}')
-            return
+            return None
         if len(raw) != length or not text.strip():
             self._json(400, b'{"error":"invalid_body"}')
+            return None
+        return text
+
+    def _term_agent_prompt_vm(self, session):
+        text = self._term_agent_prompt_body()
+        if text is None:
+            return
+        line = agent_prompt_line(text)
+        if not line:
+            self._json(400, b'{"error":"invalid_body"}')
+            return
+        if self._term_vm_agent(session) is None:
+            return
+        try:
+            sess = self._term_session(session)
+        except Exception:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        try:
+            sess.write(line.encode())
+            time.sleep(0.05)
+            sess.write(b"\r")
+        except OSError:
+            self._json(409, b'{"error":"no_attach"}')
+            return
+        self._json(200, b'{"ok":true}')
+
+    def _term_agent_prompt(self):
+        if not self._term_gate():
+            return
+        self.close_connection = True
+        vm = self._term_vm_target()
+        if vm is None:
+            return
+        if vm:
+            self._term_agent_prompt_vm(vm)
+            return
+        project, pane = self._term_agent_target()
+        if project is None:
+            return
+        text = self._term_agent_prompt_body()
+        if text is None:
             return
         if self._term_agent_resolve(project, pane) is None:
             return
@@ -1156,6 +1885,77 @@ class Handler(BaseHTTPRequestHandler):
         body["commands"] = commands
         self._json(200, json.dumps(body, ensure_ascii=False).encode())
 
+    def _term_agent_work_vm(self, session):
+        found = self._term_vm_agent(session)
+        if found is None:
+            return
+        agent, cwd = found
+        body = {
+            "agent": agent,
+            "supported": False,
+            "resolved": "",
+            "workflows": [],
+            "subagents": [],
+            "truncated": False,
+        }
+        script = agent_work_script({"kind": "cwd", "value": ""}, cwd) if agent == "claude" else ""
+        if not script:
+            self._json(200, json.dumps(body, ensure_ascii=False).encode())
+            return
+        try:
+            work = agent_work_fetch(("vm", session, agent, cwd), script, agent_local)
+        except Exception:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        if work is None:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        body["supported"] = True
+        body.update(work)
+        self._json(200, json.dumps(body, ensure_ascii=False).encode())
+
+    def _term_agent_work(self):
+        if not self._term_gate():
+            return
+        vm = self._term_vm_target()
+        if vm is None:
+            return
+        if vm:
+            self._term_agent_work_vm(vm)
+            return
+        project, pane = self._term_agent_target()
+        if project is None:
+            return
+        entry = self._term_agent_resolve(project, pane, True)
+        if entry is None:
+            return
+        agent = entry.get("agent", "")
+        session = entry.get("session")
+        cwd = entry.get("cwd", "")
+        body = {
+            "agent": agent,
+            "supported": False,
+            "resolved": "",
+            "workflows": [],
+            "subagents": [],
+            "truncated": False,
+        }
+        script = agent_work_script(session, cwd) if agent == "claude" else ""
+        if not script:
+            self._json(200, json.dumps(body, ensure_ascii=False).encode())
+            return
+        try:
+            work = agent_work_fetch((project, pane, agent_work_session_id(session), cwd), script)
+        except Exception:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        if work is None:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        body["supported"] = True
+        body.update(work)
+        self._json(200, json.dumps(body, ensure_ascii=False).encode())
+
     def _term_agent_upload(self):
         if not self._term_gate():
             return
@@ -1181,6 +1981,7 @@ class Handler(BaseHTTPRequestHandler):
         if length <= 0:
             self._json(400, b'{"error":"invalid_body"}')
             return
+        self._body_read = True
         data = self.rfile.read(length)
         if len(data) != length:
             self._json(400, b'{"error":"invalid_body"}')
@@ -1308,6 +2109,7 @@ class Handler(BaseHTTPRequestHandler):
         if length <= 0:
             self._json(400, b'{"error":"invalid_body"}')
             return
+        self._body_read = True
         data = self.rfile.read(length)
         if len(data) != length:
             self._json(400, b'{"error":"invalid_body"}')
@@ -1341,6 +2143,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         self._streaming = False
+        self._body_read = False
         try:
             path = urlsplit(self.path).path
             if path == "/health":
@@ -1361,6 +2164,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._term_agent_chat()
             elif path == "/term/agent-commands":
                 self._term_agent_commands()
+            elif path == "/term/agent-work":
+                self._term_agent_work()
             elif not self._authed():
                 self._json(401, b'{"error":"unauthorized"}')
             elif path == "/tasks":
@@ -1390,6 +2195,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         self._streaming = False
+        self._body_read = False
         try:
             path = urlsplit(self.path).path
             if path == "/term/input":
@@ -1446,6 +2252,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_DELETE(self):
         self._streaming = False
+        self._body_read = False
         try:
             path = urlsplit(self.path).path
             if not self._authed():
@@ -1524,7 +2331,7 @@ class Handler(BaseHTTPRequestHandler):
                 os.fsync(fd)
                 os.close(fd)
                 fd = -1
-                os.chmod(tmp, 0o644)
+                os.chmod(tmp, 0o600)
                 current = os.stat(path)
                 if attempt == 0 and (current.st_mtime_ns, current.st_size) != (before.st_mtime_ns, before.st_size):
                     os.unlink(tmp)
@@ -1551,6 +2358,7 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             length = 0
         try:
+            self._body_read = True
             task = json.loads(self.rfile.read(length)) if length else None
         except ValueError:
             task = None
@@ -1581,7 +2389,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
         path = os.path.join(TASKS_DIR, task["id"] + ".json")
         try:
-            marker = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
+            marker = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
         except FileExistsError:
             self._json(409, b'{"error":"task_exists"}')
             return
@@ -1596,7 +2404,7 @@ class Handler(BaseHTTPRequestHandler):
             os.fsync(fd)
             os.close(fd)
             fd = -1
-            os.chmod(tmp, 0o644)
+            os.chmod(tmp, 0o600)
             os.replace(tmp, path)
         except OSError:
             if fd != -1:
@@ -1638,7 +2446,7 @@ class Handler(BaseHTTPRequestHandler):
             os.fsync(fd)
             os.close(fd)
             fd = -1
-            os.chmod(tmp, 0o644)
+            os.chmod(tmp, 0o600)
             os.replace(tmp, path)
         except OSError:
             if fd != -1:
@@ -1660,6 +2468,7 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             length = 0
         try:
+            self._body_read = True
             return json.loads(self.rfile.read(length)) if length else None
         except ValueError:
             return None
@@ -1776,6 +2585,7 @@ class Handler(BaseHTTPRequestHandler):
         if not os.path.isfile(os.path.join(dispatch_dir, "meta.json")):
             self._json(404, b'{"error":"not_found"}')
             return
+        self.close_connection = True
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream")
         self.send_header("Cache-Control", "no-cache")
@@ -1838,9 +2648,12 @@ class Handler(BaseHTTPRequestHandler):
         return conn, conn.getresponse()
 
     def _relay_error(self, resp, body):
+        close = self._undrained() or self.close_connection
         self.send_response(resp.status)
         self.send_header("Content-Type", resp.getheader("Content-Type", "application/json"))
         self.send_header("Content-Length", str(len(body)))
+        if close:
+            self.send_header("Connection", "close")
         self.end_headers()
         self.wfile.write(body)
 
@@ -1850,6 +2663,7 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             length = 0
         try:
+            self._body_read = True
             body = json.loads(self.rfile.read(length)) if length else None
         except ValueError:
             body = None
@@ -1886,6 +2700,7 @@ class Handler(BaseHTTPRequestHandler):
             conn.close()
             self._relay_error(resp, error_body)
             return
+        self.close_connection = True
         self.send_response(resp.status)
         self.send_header("Content-Type", resp.getheader("Content-Type", "text/event-stream"))
         session_header = resp.getheader("X-Hermes-Session-Id")
