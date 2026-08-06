@@ -24,8 +24,8 @@ enum BridgeEndpoint {
     case termAgentCommands(target: AgentTargetRef)
     case termAgentUpload(target: AgentTargetRef)
     case termAgentAsk(target: AgentTargetRef)
-    case termAgentAnswer(target: AgentTargetRef)
-    case termAgentInterrupt(target: AgentTargetRef)
+    case termAgentAnswer(session: String)
+    case termAgentInterrupt(session: String)
     case termAgentStart(session: String)
     case termUpload
     case tasksList
@@ -76,10 +76,10 @@ enum BridgeEndpoint {
             return "/term/agent-upload?\(Self.selector(target))"
         case .termAgentAsk(let target):
             return "/term/agent-ask?\(Self.selector(target))"
-        case .termAgentAnswer(let target):
-            return "/term/agent-answer?\(Self.selector(target))"
-        case .termAgentInterrupt(let target):
-            return "/term/agent-interrupt?\(Self.selector(target))"
+        case .termAgentAnswer(let session):
+            return "/term/agent-answer?session=\(Self.encode(session))"
+        case .termAgentInterrupt(let session):
+            return "/term/agent-interrupt?session=\(Self.encode(session))"
         case .termAgentStart(let session):
             return "/term/agent-start?session=\(Self.encode(session))"
         case .termUpload:

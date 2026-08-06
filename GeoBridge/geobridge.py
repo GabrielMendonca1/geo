@@ -109,12 +109,28 @@ AGENT_RESOLVED_KINDS = ("reported", "fallback")
 AGENT_WORK_LIVE_KINDS = ("alive", "unknown", "dead")
 AGENT_PROJECT_DIR_RE = re.compile(r"[^A-Za-z0-9-]")
 AGENT_PI_SESSIONS_DIR = os.environ.get("GEO_AGENT_PI_SESSIONS_DIR", "/mnt/garime/pi/agent/sessions")
+AGENT_PI_SKILLS_DIR = os.environ.get("GEO_AGENT_PI_SKILLS_DIR", "/mnt/garime/pi/skills")
 AGENT_VM_DEPTH = int(os.environ.get("GEO_AGENT_VM_DEPTH", "3"))
 AGENT_PROMPT_CONTROL_RE = re.compile(r"[\x00-\x09\x0b-\x1f\x7f]")
 AGENT_ASK_SCAN_LINES = int(os.environ.get("GEO_AGENT_ASK_SCAN_LINES", "60"))
 AGENT_ASK_TIMEOUT = float(os.environ.get("GEO_AGENT_ASK_TIMEOUT", "5"))
-AGENT_ASK_OPTION_RE = re.compile("\\A(?P<cursor>[\u276f>\u25b6\u00bb]\\s+)?(?P<index>[0-9]{1,2})\\.\\s+(?P<label>\\S.*)\\Z")
+AGENT_ASK_OPTION_RE = re.compile("\\A(?P<cursor>[\u276f\u25b6\u00bb\u203a]\\s+)?(?P<index>[0-9]{1,2})\\.\\s+(?P<label>\\S.*)\\Z")
+AGENT_ASK_OPTION_GAP = int(os.environ.get("GEO_AGENT_ASK_OPTION_GAP", "6"))
 AGENT_ASK_BORDER = "\u2502|"
+AGENT_ASK_CHROME_RE = re.compile("\\A[\u2500-\u257f\\s]+\\Z")
+AGENT_ASK_AFFORD_RE = re.compile(
+    "(?i)(?:\\A|[\\s·|(])(?:press\\s+)?(?:esc(?:ape)?|enter|return)\\s+to\\s+(?!interrupt\\b)\\S"
+)
+AGENT_ASK_HINT_RE = re.compile(
+    "(?i)(?:\\A|[\\s·|(])"
+    "(?:[←-⇿/]+|(?:ctrl|alt|opt|option|shift|cmd|meta)\\+\\S+"
+    "|esc(?:ape)?|enter|return|tab|space|arrows?|[a-z0-9])"
+    "\\s+to\\s+\\S"
+)
+AGENT_ASK_TAIL_BODY = int(os.environ.get("GEO_AGENT_ASK_TAIL_BODY", "4"))
+AGENT_ASK_TRANSCRIPT_RE = re.compile(
+    "\\A[\u276f\u25b6\u00bb\u203a\u273b\u23bf\u23f8\u2022\u258e>$#%]|\\A[0-9]{1,2}\\.\\s"
+)
 AGENT_ASK_QUESTION_LOOKBACK = 5
 AGENT_ASK_QUESTION_MAX = 240
 AGENT_ASK_LABEL_MAX = 120
@@ -524,7 +540,8 @@ def vm_pane_agent(pid, command, names, children):
 def vm_panes(args):
     proc = subprocess.run(
         [TERM_TMUX, "list-panes"] + args + [
-            "-F", "#{session_name}\t#{pane_pid}\t#{pane_current_command}\t#{pane_current_path}",
+            "-F", "#{session_name}\t#{pane_pid}\t#{pane_current_command}\t#{pane_current_path}"
+                  "\t#{pane_active}\t#{window_active}",
         ],
         capture_output=True, timeout=5,
     )
@@ -533,13 +550,13 @@ def vm_panes(args):
     panes = []
     for line in proc.stdout.decode("utf-8", "replace").split("\n"):
         fields = line.split("\t")
-        if len(fields) != 4:
+        if len(fields) != 6:
             continue
         try:
             pid = int(fields[1])
         except ValueError:
             continue
-        panes.append((fields[0], pid, fields[2], fields[3]))
+        panes.append((fields[0], pid, fields[2], fields[3], fields[4], fields[5]))
     return panes
 
 
@@ -548,7 +565,9 @@ def vm_session_agent(session):
     if panes is None:
         return None
     names, children = vm_process_tree()
-    for _, pid, command, path in panes:
+    for _, pid, command, path, active, _win in panes:
+        if active != "1":
+            continue
         agent = vm_pane_agent(pid, command, names, children)
         if agent:
             return agent, path
@@ -563,7 +582,9 @@ def vm_pid_sessions(children):
     if not panes:
         return {}
     sessions = {}
-    for name, pid, _, _ in panes:
+    for name, pid, _, _, active, window in panes:
+        if active != "1" or window != "1":
+            continue
         sessions.setdefault(pid, name)
         for child in vm_descendants(pid, children):
             sessions.setdefault(child, name)
@@ -782,6 +803,8 @@ def agent_commands_script(agent, cwd):
     elif agent == "pi":
         globs.append(("user", '"$HOME"/.pi/agent/skills', "*/SKILL.md"))
         globs.append(("user", '"$HOME"/.pi/agent/skills', "*.md"))
+        globs.append(("user", shlex.quote(AGENT_PI_SKILLS_DIR), "*/SKILL.md"))
+        globs.append(("user", shlex.quote(AGENT_PI_SKILLS_DIR), "*.md"))
     else:
         return ""
     parts = ['[ -n "$HOME" ] || exit 6', "set --"]
@@ -859,7 +882,7 @@ def agent_commands_store(key, commands):
             del COMMANDS_CACHE[oldest]
 
 
-def agent_commands_fetch(key, script):
+def agent_commands_fetch(key, script, runner=agent_ssh):
     now = time.monotonic()
     with COMMANDS_CACHE_LOCK:
         hit = COMMANDS_CACHE.get(key)
@@ -870,7 +893,7 @@ def agent_commands_fetch(key, script):
             hit = COMMANDS_CACHE.get(key)
             if hit is not None and time.monotonic() - hit["at"] < AGENT_COMMANDS_TTL:
                 return list(hit["value"])
-        proc = agent_ssh(script, AGENT_COMMANDS_TIMEOUT)
+        proc = runner(script, AGENT_COMMANDS_TIMEOUT)
         if proc.returncode != 0:
             return None
         out = proc.stdout.decode("utf-8", "replace")
@@ -1140,6 +1163,28 @@ def agent_ask_line(line):
     return line.strip().strip(AGENT_ASK_BORDER).strip()
 
 
+def agent_ask_signal(lines, end):
+    found = False
+    body = 0
+    for probe in range(end + 1, len(lines)):
+        candidate = agent_ask_line(lines[probe])
+        if not candidate or AGENT_ASK_CHROME_RE.match(candidate):
+            continue
+        if AGENT_ASK_TRANSCRIPT_RE.match(candidate):
+            return False
+        if AGENT_ASK_AFFORD_RE.search(candidate):
+            found = True
+            continue
+        if AGENT_ASK_HINT_RE.search(candidate):
+            continue
+        if found:
+            return False
+        body += 1
+        if body > AGENT_ASK_TAIL_BODY:
+            return False
+    return found
+
+
 def agent_ask_capture(session):
     proc = subprocess.run(
         [TERM_TMUX, "capture-pane", "-p", "-t", term_pane_target(session)],
@@ -1151,19 +1196,22 @@ def agent_ask_capture(session):
 
 
 def agent_ask_block(lines):
-    end = len(lines) - 1
     floor = max(0, len(lines) - AGENT_ASK_SCAN_LINES)
-    while end >= floor and AGENT_ASK_OPTION_RE.match(agent_ask_line(lines[end])) is None:
-        end -= 1
-    if end < floor:
+    hits = []
+    for index in range(floor, len(lines)):
+        m = AGENT_ASK_OPTION_RE.match(agent_ask_line(lines[index]))
+        if m is not None:
+            hits.append((index, m))
+    if not hits:
         return []
-    matches = []
-    while end >= 0:
-        m = AGENT_ASK_OPTION_RE.match(agent_ask_line(lines[end]))
-        if m is None:
+    matches = [hits[-1]]
+    for index, m in reversed(hits[:-1]):
+        head_index, head_m = matches[-1]
+        if head_index - index > AGENT_ASK_OPTION_GAP:
             break
-        matches.append((end, m))
-        end -= 1
+        if int(m.group("index")) != int(head_m.group("index")) - 1:
+            break
+        matches.append((index, m))
     matches.reverse()
     return matches
 
@@ -1172,7 +1220,9 @@ def agent_ask_parse(text):
     body = agent_ask_empty()
     lines = [line.rstrip() for line in text.split("\n")]
     matches = agent_ask_block(lines)
-    if len(matches) < 2 or not any(m.group("cursor") for _, m in matches):
+    if len(matches) < 2 or sum(1 for _, m in matches if m.group("cursor")) != 1:
+        return body
+    if not agent_ask_signal(lines, matches[-1][0]):
         return body
     options = []
     for position, (_, m) in enumerate(matches, 1):
@@ -1858,8 +1908,222 @@ class Handler(BaseHTTPRequestHandler):
             return
         self._json(200, b'{"ok":true}')
 
+    def _term_agent_ask_vm(self, session):
+        found = self._term_vm_agent(session)
+        if found is None:
+            return
+        agent, _ = found
+        try:
+            text = agent_ask_capture(session)
+        except Exception:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        if text is None:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        body = {"agent": agent}
+        body.update(agent_ask_parse(text))
+        self._json(200, json.dumps(body, ensure_ascii=False).encode())
+
+    def _term_agent_ask(self):
+        if not self._term_gate():
+            return
+        vm = self._term_vm_target()
+        if vm is None:
+            return
+        if vm:
+            self._term_agent_ask_vm(vm)
+            return
+        project, pane = self._term_agent_target()
+        if project is None:
+            return
+        entry = self._term_agent_resolve(project, pane)
+        if entry is None:
+            return
+        body = {"agent": entry.get("agent", "")}
+        body.update(agent_ask_empty())
+        self._json(200, json.dumps(body, ensure_ascii=False).encode())
+
+    def _term_answer_body(self):
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            length = -1
+        if length <= 0 or length > AGENT_ANSWER_BODY_MAX:
+            self._json(400, b'{"error":"invalid_body"}')
+            return None
+        self._body_read = True
+        raw = self.rfile.read(length)
+        try:
+            body = json.loads(raw) if len(raw) == length else None
+        except ValueError:
+            body = None
+        if not isinstance(body, dict):
+            self._json(400, b'{"error":"invalid_body"}')
+            return None
+        index = body.get("index")
+        option = body.get("option")
+        if (index is None) == (option is None):
+            self._json(400, b'{"error":"invalid_body"}')
+            return None
+        if index is not None:
+            if not isinstance(index, int) or isinstance(index, bool):
+                self._json(400, b'{"error":"invalid_body"}')
+                return None
+            return "index", index
+        if not isinstance(option, str) or not option.strip():
+            self._json(400, b'{"error":"invalid_body"}')
+            return None
+        return "option", option.strip()
+
+    def _term_agent_answer(self):
+        if not self._term_gate():
+            return
+        self.close_connection = True
+        session = self._term_vm_session_required()
+        if session is None:
+            return
+        choice = self._term_answer_body()
+        if choice is None:
+            return
+        if self._term_vm_agent(session) is None:
+            return
+        try:
+            text = agent_ask_capture(session)
+        except Exception:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        if text is None:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        ask = agent_ask_parse(text)
+        if not ask["asking"]:
+            self._json(409, b'{"error":"not_asking"}')
+            return
+        index = agent_ask_choice(ask["options"], choice)
+        if index is None:
+            self._json(400, b'{"error":"bad_option"}')
+            return
+        try:
+            sess = self._term_session(session)
+        except Exception:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        try:
+            sess.write(str(index).encode())
+            time.sleep(0.05)
+            sess.write(b"\r")
+        except OSError:
+            self._json(409, b'{"error":"no_attach"}')
+            return
+        self._json(200, json.dumps({"ok": True, "index": index}).encode())
+
+    def _term_agent_interrupt(self):
+        if not self._term_gate():
+            return
+        session = self._term_vm_session_required()
+        if session is None:
+            return
+        if self._term_vm_agent(session) is None:
+            return
+        try:
+            sent = term_send_key(session, AGENT_INTERRUPT_KEY)
+        except Exception:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        if not sent:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        self._json(200, b'{"ok":true}')
+
+    def _term_start_body(self):
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            length = -1
+        if length <= 0 or length > AGENT_ANSWER_BODY_MAX:
+            self._json(400, b'{"error":"invalid_body"}')
+            return None
+        self._body_read = True
+        raw = self.rfile.read(length)
+        try:
+            body = json.loads(raw) if len(raw) == length else None
+        except ValueError:
+            body = None
+        if not isinstance(body, dict):
+            self._json(400, b'{"error":"invalid_body"}')
+            return None
+        agent = body.get("agent")
+        if not isinstance(agent, str) or agent not in AGENT_START_COMMANDS:
+            self._json(400, b'{"error":"bad_agent"}')
+            return None
+        return agent
+
+    def _term_agent_start(self):
+        if not self._term_gate():
+            return
+        self.close_connection = True
+        session = self._term_vm_session_required()
+        if session is None:
+            return
+        agent = self._term_start_body()
+        if agent is None:
+            return
+        try:
+            found = vm_session_agent(session)
+        except Exception:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        if found is None:
+            self._json(404, b'{"error":"no_session"}')
+            return
+        if found[0]:
+            self._json(409, b'{"error":"already_running"}')
+            return
+        try:
+            sess = self._term_session(session)
+        except Exception:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        try:
+            sess.write(AGENT_START_COMMANDS[agent].encode())
+            time.sleep(0.05)
+            sess.write(b"\r")
+        except OSError:
+            self._json(409, b'{"error":"no_attach"}')
+            return
+        self._json(200, json.dumps({"ok": True, "agent": agent}).encode())
+
+    def _term_agent_commands_vm(self, session):
+        found = self._term_vm_agent(session)
+        if found is None:
+            return
+        agent, cwd = found
+        body = {"agent": agent, "commands": []}
+        script = agent_commands_script(agent, cwd)
+        if not script:
+            body["commands"] = agent_commands_with_builtins(agent, [])
+            self._json(200, json.dumps(body, ensure_ascii=False).encode())
+            return
+        try:
+            commands = agent_commands_fetch(("vm", session, agent, cwd), script, agent_local)
+        except Exception:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        if commands is None:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        body["commands"] = agent_commands_with_builtins(agent, commands)
+        self._json(200, json.dumps(body, ensure_ascii=False).encode())
+
     def _term_agent_commands(self):
         if not self._term_gate():
+            return
+        vm = self._term_vm_target()
+        if vm is None:
+            return
+        if vm:
+            self._term_agent_commands_vm(vm)
             return
         project, pane = self._term_agent_target()
         if project is None:
@@ -1882,7 +2146,7 @@ class Handler(BaseHTTPRequestHandler):
         if commands is None:
             self._json(503, b'{"error":"unavailable"}')
             return
-        body["commands"] = commands
+        body["commands"] = agent_commands_with_builtins(agent, commands)
         self._json(200, json.dumps(body, ensure_ascii=False).encode())
 
     def _term_agent_work_vm(self, session):
@@ -2162,6 +2426,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._term_panes()
             elif path == "/term/agent-chat":
                 self._term_agent_chat()
+            elif path == "/term/agent-ask":
+                self._term_agent_ask()
             elif path == "/term/agent-commands":
                 self._term_agent_commands()
             elif path == "/term/agent-work":
@@ -2224,6 +2490,15 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if path == "/term/agent-prompt":
                 self._term_agent_prompt()
+                return
+            if path == "/term/agent-answer":
+                self._term_agent_answer()
+                return
+            if path == "/term/agent-interrupt":
+                self._term_agent_interrupt()
+                return
+            if path == "/term/agent-start":
+                self._term_agent_start()
                 return
             if not self._authed():
                 self._json(401, b'{"error":"unauthorized"}')

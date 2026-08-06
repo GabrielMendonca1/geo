@@ -141,20 +141,25 @@ struct AgentAskOption: Decodable, Identifiable, Equatable {
 }
 
 struct AgentAskPayload: Decodable, Equatable {
+    static let answerableMax = 9
+
     let asking: Bool
     let kind: String
     let question: String
     let options: [AgentAskOption]
     let rawHint: String
+    let truncated: Bool
 
     static let none = AgentAskPayload(asking: false, kind: "", question: "", options: [], rawHint: "")
 
     init(asking: Bool, kind: String, question: String, options: [AgentAskOption], rawHint: String) {
+        let answerable = options.filter { $0.index <= AgentAskPayload.answerableMax }
         self.asking = asking
         self.kind = kind
         self.question = question
-        self.options = options
+        self.options = answerable
         self.rawHint = rawHint
+        self.truncated = answerable.count != options.count
     }
 
     enum CodingKeys: String, CodingKey {
@@ -169,8 +174,10 @@ struct AgentAskPayload: Decodable, Equatable {
         question = ((try? container.decodeIfPresent(String.self, forKey: .question)) ?? nil) ?? ""
         rawHint = ((try? container.decodeIfPresent(String.self, forKey: .rawHint)) ?? nil) ?? ""
         var seen = Set<Int>()
-        options = (((try? container.decodeIfPresent([AgentAskOption].self, forKey: .options)) ?? nil) ?? [])
+        let decoded = (((try? container.decodeIfPresent([AgentAskOption].self, forKey: .options)) ?? nil) ?? [])
             .filter { $0.index >= 0 && !$0.label.isEmpty && seen.insert($0.index).inserted }
+        options = decoded.filter { $0.index <= AgentAskPayload.answerableMax }
+        truncated = options.count != decoded.count
     }
 
     var showsCard: Bool { asking && !options.isEmpty }
@@ -178,6 +185,21 @@ struct AgentAskPayload: Decodable, Equatable {
     var prompt: String { question.isEmpty ? rawHint : question }
 
     var title: String { kind.isEmpty ? "aguardando resposta" : kind }
+}
+
+enum AgentAskDisplay {
+    static func session(_ target: AgentTargetRef) -> String? {
+        guard case .session(let name) = target else { return nil }
+        return name
+    }
+
+    static func shows(_ payload: AgentAskPayload, target: AgentTargetRef) -> Bool {
+        session(target) != nil && payload.showsCard
+    }
+
+    static func canInterrupt(working: Bool, target: AgentTargetRef) -> Bool {
+        session(target) != nil && working
+    }
 }
 
 enum AgentChatItem: Identifiable {
@@ -261,6 +283,7 @@ final class AgentChatModel: ObservableObject {
     private var server: [AgentChatMessage] = []
     private var drafts: [Draft] = []
     private var refreshing = false
+    private var askSeq = 0
 
     init(target: AgentChatTarget, client: any BridgeAPI = BridgeClient.shared) {
         self.target = target
@@ -276,8 +299,16 @@ final class AgentChatModel: ObservableObject {
         isWorking ? Self.workingInterval : Self.restingInterval
     }
 
+    var showsAskCard: Bool {
+        AgentAskDisplay.shows(ask, target: target.ref)
+    }
+
+    var canInterrupt: Bool {
+        AgentAskDisplay.canInterrupt(working: isWorking, target: target.ref)
+    }
+
     var feedKey: String {
-        let asking = ask.showsCard ? "1" : "0"
+        let asking = showsAskCard ? "1" : "0"
         guard let last = messages.last else { return "0|\(asking)" }
         return "\(messages.count)|\(last.id)|\(last.text.count)|\(asking)"
     }
@@ -319,40 +350,52 @@ final class AgentChatModel: ObservableObject {
 
     private func refreshAsk() async {
         guard answering == nil else { return }
+        let seq = askSeq
         let path = BridgeEndpoint.termAgentAsk(target: target.ref).path
         guard let data = try? await client.getData(path, token: BridgeConfig.termToken),
               let payload = try? JSONDecoder().decode(AgentAskPayload.self, from: data)
         else {
-            ask = .none
+            if seq == askSeq { ask = .none }
             return
         }
+        guard seq == askSeq else { return }
         ask = payload
     }
 
     func answer(_ index: Int) async {
-        guard answering == nil else { return }
+        guard answering == nil, let session = AgentAskDisplay.session(target.ref) else { return }
         answering = index
+        askSeq += 1
         notice = ""
-        let path = BridgeEndpoint.termAgentAnswer(target: target.ref).path
+        let path = BridgeEndpoint.termAgentAnswer(session: session).path
         let body = Data(#"{"index":\#(index)}"#.utf8)
         do {
             _ = try await client.postData(path, body: body, token: BridgeConfig.termToken)
-        } catch BridgeError.server(let status, _) where status == 409 {
-            ask = .none
+        } catch BridgeError.server(let status, let code) where status == 409 {
             answering = nil
-            notice = "a pergunta expirou"
+            askSeq += 1
+            if code == "not_asking" {
+                ask = .none
+                notice = "a pergunta expirou"
+            } else {
+                notice = "não deu pra entregar a resposta"
+            }
             return
         } catch {
             answering = nil
+            askSeq += 1
             notice = "não deu pra responder"
             return
         }
+        ask = .none
         answering = nil
+        askSeq += 1
         await refresh()
     }
 
     func interrupt() async {
-        let path = BridgeEndpoint.termAgentInterrupt(target: target.ref).path
+        guard let session = AgentAskDisplay.session(target.ref) else { return }
+        let path = BridgeEndpoint.termAgentInterrupt(session: session).path
         do {
             _ = try await client.postData(path, body: nil, token: BridgeConfig.termToken)
             notice = "interrupção enviada"
@@ -522,7 +565,7 @@ struct AgentChatView: View {
                         AgentChatWorkingRow()
                             .transition(.opacity)
                     }
-                    if model.ask.showsCard {
+                    if model.showsAskCard {
                         askCard
                     }
                     Color.clear
@@ -634,6 +677,11 @@ struct AgentChatView: View {
             .foregroundStyle(Color.slateTextDim)
             if !model.ask.prompt.isEmpty {
                 prose(model.ask.prompt, onGlass: true)
+            }
+            if model.ask.truncated {
+                Text("só as \(AgentAskPayload.answerableMax) primeiras dá pra responder aqui — o resto, pelo terminal")
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundStyle(Color.slateTextDim)
             }
             VStack(spacing: 6) {
                 ForEach(model.ask.options) { option in
@@ -749,7 +797,7 @@ struct AgentChatView: View {
                 }
             }
             Spacer(minLength: 4)
-            if model.isWorking {
+            if model.canInterrupt {
                 stopButton
                     .transition(.opacity)
             }
@@ -978,14 +1026,14 @@ struct AgentChatView: View {
                 }
                 .foregroundStyle(.primary)
                 .glassSurface(shape: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: true)
-                .opacity(model.ask.showsCard ? 0.5 : 1)
+                .opacity(model.showsAskCard ? 0.5 : 1)
             }
             .padding(.horizontal, 12)
             .padding(.bottom, 8)
         }
         .animation(.spring(response: 0.3, dampingFraction: 1), value: menuCommands.count)
         .animation(.spring(response: 0.3, dampingFraction: 1), value: statusLine)
-        .animation(.spring(response: 0.3, dampingFraction: 1), value: model.ask.showsCard)
+        .animation(.spring(response: 0.3, dampingFraction: 1), value: model.showsAskCard)
         .photosPicker(isPresented: $showPhotoPicker, selection: $photoItem, matching: .images)
         .fileImporter(isPresented: $showFileImporter, allowedContentTypes: [.item]) { result in
             importFile(result)
@@ -1021,27 +1069,32 @@ struct AgentChatView: View {
     }
 
     private var commandMenu: some View {
-        ScrollView {
+        let sections = AgentCommandMenu.split(menuCommands)
+        return ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                ForEach(menuCommands) { command in
-                    Button {
-                        draft = AgentCommandMenu.inserted(command.name)
-                    } label: {
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text("/\(command.name)")
-                                .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                            if !command.description.isEmpty {
-                                Text(command.description)
-                                    .font(.system(size: 10, design: .monospaced))
-                                    .foregroundStyle(Color.slateTextDim)
-                                    .lineLimit(1)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                if !sections.builtin.isEmpty {
+                    Text("do agente")
+                        .font(.system(size: 9, weight: .medium, design: .monospaced))
+                        .foregroundStyle(Color.slateTextFaint)
                         .padding(.horizontal, 14)
-                        .contentShape(Rectangle())
+                        .padding(.top, 4)
+                        .padding(.bottom, 2)
+                    ForEach(sections.builtin) { command in
+                        commandRow(command)
                     }
-                    .buttonStyle(.plain)
+                    if !sections.rest.isEmpty {
+                        Divider()
+                            .overlay(Color.slateStroke.opacity(0.4))
+                            .padding(.vertical, 4)
+                        Text("skills")
+                            .font(.system(size: 9, weight: .medium, design: .monospaced))
+                            .foregroundStyle(Color.slateTextFaint)
+                            .padding(.horizontal, 14)
+                            .padding(.bottom, 2)
+                    }
+                }
+                ForEach(sections.rest) { command in
+                    commandRow(command)
                 }
             }
             .padding(.vertical, 4)
@@ -1050,6 +1103,27 @@ struct AgentChatView: View {
         .frame(maxHeight: 220)
         .foregroundStyle(.primary)
         .glassSurface(shape: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private func commandRow(_ command: AgentCommand) -> some View {
+        Button {
+            draft = AgentCommandMenu.inserted(command.name)
+        } label: {
+            VStack(alignment: .leading, spacing: 1) {
+                Text("/\(command.name)")
+                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                if !command.description.isEmpty {
+                    Text(command.description)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(Color.slateTextDim)
+                        .lineLimit(1)
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .padding(.horizontal, 14)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private var attachButton: some View {

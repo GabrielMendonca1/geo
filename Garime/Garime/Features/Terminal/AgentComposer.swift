@@ -60,6 +60,10 @@ enum AgentCommandMenu {
     static func inserted(_ name: String) -> String {
         "/\(name) "
     }
+
+    static func split(_ commands: [AgentCommand]) -> (builtin: [AgentCommand], rest: [AgentCommand]) {
+        (commands.filter(\.builtin), commands.filter { !$0.builtin })
+    }
 }
 
 enum DictationDraft {

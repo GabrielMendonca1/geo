@@ -233,6 +233,7 @@ final class SessionsHomeModel: ObservableObject {
 
     private let client: any BridgeAPI
     private var refreshing = false
+    private var starting = false
     private var coalesced = false
     private var previewCycle = 0
 
@@ -391,6 +392,22 @@ final class SessionsHomeModel: ObservableObject {
         return session
     }
 
+    func startAgent(_ name: String, agent: String) async -> AgentStartOutcome? {
+        guard !starting else { return nil }
+        starting = true
+        defer { starting = false }
+        let path = BridgeEndpoint.termAgentStart(session: TerminalSessionList.endpoint(for: name)).path
+        let body = Data(#"{"agent":"\#(agent)"}"#.utf8)
+        do {
+            _ = try await client.postData(path, body: body, token: BridgeConfig.termToken)
+            return .ok
+        } catch BridgeError.server(let status, let code) where status == 409 {
+            return code == "already_running" ? .running : .failed
+        } catch {
+            return .failed
+        }
+    }
+
     func rename(_ name: String, to: String) async -> Bool {
         let path = BridgeEndpoint.termRename(session: TerminalSessionList.endpoint(for: name), to: to).path
         do {
@@ -398,6 +415,28 @@ final class SessionsHomeModel: ObservableObject {
             return true
         } catch {
             return false
+        }
+    }
+}
+
+enum AgentStartOutcome {
+    case ok
+    case running
+    case failed
+}
+
+enum SessionsHomeStart {
+    static let agents = ["claude", "pi", "codex"]
+
+    static func startable(session name: String) -> Bool {
+        TerminalSessionList.origin(for: name) != "mac" && !TerminalSessionList.label(for: name).isEmpty
+    }
+
+    static func notice(_ outcome: AgentStartOutcome) -> String? {
+        switch outcome {
+        case .ok: return nil
+        case .running: return "já tem agente nessa sessão"
+        case .failed: return "falha ao iniciar agente"
         }
     }
 }
@@ -640,6 +679,17 @@ struct SessionsHomeView: View {
         Button { path.append(.session(name)) } label: { sessionRowBody(name) }
             .buttonStyle(.plain)
             .contextMenu {
+                if SessionsHomeStart.startable(session: name) {
+                    Menu {
+                        ForEach(SessionsHomeStart.agents, id: \.self) { agent in
+                            Button { startAgent(name, agent: agent) } label: {
+                                Label(agent, systemImage: AgentMark.symbol(for: agent) ?? "sparkle")
+                            }
+                        }
+                    } label: {
+                        Label("iniciar agente", systemImage: "play")
+                    }
+                }
                 if name != Self.macSession {
                     Button { startRename(name) } label: {
                         Label("renomear", systemImage: "pencil")
@@ -937,6 +987,17 @@ struct SessionsHomeView: View {
 
     private static func herdrKey(_ project: String) -> String {
         "herdr|\(project)"
+    }
+
+    private func startAgent(_ name: String, agent: String) {
+        Task {
+            guard let outcome = await model.startAgent(name, agent: agent) else { return }
+            guard let notice = SessionsHomeStart.notice(outcome) else {
+                await refreshAll()
+                return
+            }
+            await presentRenameError(notice)
+        }
     }
 
     private func startRename(_ name: String) {

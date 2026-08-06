@@ -308,3 +308,39 @@ private final class FakeComposerBridge: BridgeAPI, @unchecked Sendable {
 
     func health() async throws {}
 }
+
+final class AgentBuiltinCommandTests: XCTestCase {
+    func testBuiltinFlagDecodesAndDefaultsToFalse() throws {
+        let payload = try JSONDecoder().decode(AgentCommandsPayload.self, from: Data(#"""
+        {"agent":"claude","commands":[
+         {"name":"clear","description":"limpa o contexto","builtin":true},
+         {"name":"compact","description":"compacta","builtin":true},
+         {"name":"g-omni","description":"conduz"}
+        ]}
+        """#.utf8))
+        XCTAssertEqual(payload.commands.map(\.builtin), [true, true, false])
+    }
+
+    func testSplitKeepsBuiltinsFirstAndPreservesOrder() {
+        let commands = [
+            AgentCommand(name: "g-omni", description: "", scope: "user"),
+            AgentCommand(name: "clear", description: "", scope: "", builtin: true),
+            AgentCommand(name: "review", description: "", scope: "project"),
+            AgentCommand(name: "compact", description: "", scope: "", builtin: true),
+        ]
+        let sections = AgentCommandMenu.split(commands)
+        XCTAssertEqual(sections.builtin.map(\.name), ["clear", "compact"])
+        XCTAssertEqual(sections.rest.map(\.name), ["g-omni", "review"])
+    }
+
+    func testSplitOfFilteredMenuKeepsSections() {
+        let commands = [
+            AgentCommand(name: "clear", description: "", scope: "", builtin: true),
+            AgentCommand(name: "compact", description: "", scope: "", builtin: true),
+            AgentCommand(name: "commit", description: "", scope: "project"),
+        ]
+        let sections = AgentCommandMenu.split(AgentCommandMenu.filter(commands, query: "c"))
+        XCTAssertEqual(sections.builtin.map(\.name), ["clear", "compact"])
+        XCTAssertEqual(sections.rest.map(\.name), ["commit"])
+    }
+}
