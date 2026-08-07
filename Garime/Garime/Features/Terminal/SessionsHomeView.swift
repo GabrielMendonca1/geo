@@ -1,9 +1,5 @@
 import SwiftUI
 
-struct TermPreviewPayload: Decodable {
-    let text: String
-}
-
 struct TermAgentUnit: Decodable, Identifiable, Equatable {
     let name: String
     let active: Bool
@@ -198,44 +194,22 @@ enum TermAgentOrder {
     }
 }
 
-enum ANSIText {
-    private static let escapes = try? NSRegularExpression(
-        pattern: "\u{1B}\\[[0-9;?]*[ -/]*[@-~]|\u{1B}\\][^\u{07}\u{1B}]*(\u{07}|\u{1B}\\\\)|\u{1B}[@-Z\\\\-_]"
-    )
-
-    static func stripped(_ raw: String) -> String {
-        let range = NSRange(raw.startIndex..., in: raw)
-        let clean = escapes?.stringByReplacingMatches(in: raw, range: range, withTemplate: "") ?? raw
-        var lines = clean.components(separatedBy: "\n")
-        while let last = lines.last, last.trimmingCharacters(in: .whitespaces).isEmpty {
-            lines.removeLast()
-        }
-        while let first = lines.first, first.trimmingCharacters(in: .whitespaces).isEmpty {
-            lines.removeFirst()
-        }
-        return lines.joined(separator: "\n")
-    }
-}
-
 @MainActor
 final class SessionsHomeModel: ObservableObject {
     @Published private(set) var serverSessions: [String] = []
     @Published private(set) var serverListLoaded = false
-    @Published private(set) var previews: [String: String] = [:]
     @Published private(set) var units: [TermAgentUnit] = []
     @Published private(set) var agents: [TermAgentProcess] = []
     @Published private(set) var macOnline = false
     @Published private(set) var reachable = true
     @Published private(set) var work: [String: Int] = [:]
 
-    static let previewEveryNCycles = 3
     static let workProbeLimit = 6
 
     private let client: any BridgeAPI
     private var refreshing = false
     private var starting = false
     private var coalesced = false
-    private var previewCycle = 0
 
     init(client: any BridgeAPI = BridgeClient.shared) {
         self.client = client
@@ -246,29 +220,24 @@ final class SessionsHomeModel: ObservableObject {
         return !serverSessions.contains(TerminalSessionList.endpoint(for: name))
     }
 
-    func refresh(_ names: [String], force: Bool = true) async {
+    func refresh(force: Bool = true) async {
         guard !refreshing else {
             coalesced = coalesced || force
             return
         }
         refreshing = true
         defer { refreshing = false }
-        await cycle(names, force: force)
+        await cycle()
         if coalesced {
             coalesced = false
-            await cycle(names, force: true)
+            await cycle()
         }
     }
 
-    private func cycle(_ names: [String], force: Bool) async {
+    private func cycle() async {
         let client = self.client
-        let targets = previewTargets(names, force: force)
-        let previewPaths = targets.map {
-            ($0, BridgeEndpoint.termPreview(session: TerminalSessionList.endpoint(for: $0), lines: 12).path)
-        }
         async let listed = Self.fetch(client, BridgeEndpoint.termList.path, as: TermSessions.self)
         async let probed = Self.fetch(client, BridgeEndpoint.termAgents.path, as: TermAgentsPayload.self)
-        async let previewed = Self.fetchPreviews(client, previewPaths)
 
         var ok = false
         if let payload = await probed {
@@ -281,15 +250,6 @@ final class SessionsHomeModel: ObservableObject {
         if let list = await listed?.sessions {
             serverSessions = list
             serverListLoaded = true
-            ok = true
-        }
-        let texts = await previewed
-        for name in targets {
-            guard let text = texts[name] else {
-                if isDead(name) { previews[name] = nil }
-                continue
-            }
-            previews[name] = ANSIText.stripped(text)
             ok = true
         }
         await worked
@@ -310,8 +270,6 @@ final class SessionsHomeModel: ObservableObject {
         work = live.filter { ids.contains($0.key) }
     }
 
-    private nonisolated static let previewFanout = 4
-
     private nonisolated static func fetch<T: Decodable & Sendable>(
         _ client: any BridgeAPI,
         _ path: String,
@@ -319,30 +277,6 @@ final class SessionsHomeModel: ObservableObject {
     ) async -> T? {
         guard let data = try? await client.getData(path, token: BridgeConfig.termToken) else { return nil }
         return try? JSONDecoder().decode(T.self, from: data)
-    }
-
-    private nonisolated static func fetchPreviews(
-        _ client: any BridgeAPI,
-        _ targets: [(String, String)]
-    ) async -> [String: String] {
-        guard !targets.isEmpty else { return [:] }
-        return await withTaskGroup(of: (String, String?).self) { group in
-            var next = 0
-            func spawn() {
-                let (name, path) = targets[next]
-                next += 1
-                group.addTask {
-                    (name, await fetch(client, path, as: TermPreviewPayload.self)?.text)
-                }
-            }
-            while next < min(previewFanout, targets.count) { spawn() }
-            var texts: [String: String] = [:]
-            for await (name, text) in group {
-                if let text { texts[name] = text }
-                if next < targets.count { spawn() }
-            }
-            return texts
-        }
     }
 
     private nonisolated static func fetchWork(
@@ -362,13 +296,6 @@ final class SessionsHomeModel: ObservableObject {
             }
             return results
         }
-    }
-
-    private func previewTargets(_ names: [String], force: Bool) -> [String] {
-        guard !force else { return names }
-        let due = previewCycle == 0
-        previewCycle = (previewCycle + 1) % Self.previewEveryNCycles
-        return due ? names : names.filter { previews[$0] == nil }
     }
 
     func kill(_ name: String) async {
@@ -593,12 +520,12 @@ struct SessionsHomeView: View {
 
     private var hostCards: some View {
         HStack(spacing: 12) {
-            hostCard(host: "vm", detail: "nova sessão") { create() }
-            hostCard(host: "mac", detail: "sessão mac") { path.append(.session(Self.macSession)) }
+            hostCard(host: "vm", verb: "nova sessão") { create() }
+            hostCard(host: "mac", verb: "abrir mac") { path.append(.session(Self.macSession)) }
         }
     }
 
-    private func hostCard(host: String, detail: String, action: @escaping () -> Void) -> some View {
+    private func hostCard(host: String, verb: String, action: @escaping () -> Void) -> some View {
         let shape = RoundedRectangle(cornerRadius: SlateRadius.card, style: .continuous)
         return Button(action: action) {
             VStack(alignment: .leading, spacing: 0) {
@@ -606,10 +533,12 @@ struct SessionsHomeView: View {
                     .font(.system(size: 28, weight: .regular))
                     .foregroundStyle(.primary)
                 Spacer(minLength: 10)
-                Text(HostMark.label(for: host))
+                Text(verb)
                     .font(.system(size: 15, weight: .semibold, design: .monospaced))
                     .foregroundStyle(.primary)
-                Text(detail)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                Text("no \(HostMark.label(for: host))")
                     .font(.system(size: 11, design: .monospaced))
                     .foregroundStyle(Color.slateTextFaint)
                     .lineLimit(1)
@@ -621,7 +550,10 @@ struct SessionsHomeView: View {
         }
         .buttonStyle(.plain)
         .glassSurface(shape: shape, interactive: true)
-        .accessibilityLabel("\(HostMark.label(for: host)) — \(detail)")
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(verb)
+        .accessibilityHint("abre um terminal no \(HostMark.label(for: host))")
+        .accessibilityAddTraits(.isButton)
     }
 
     private var connectionDot: some View {
@@ -669,7 +601,7 @@ struct SessionsHomeView: View {
                     agentRow(name: unit.name, active: unit.active, detail: Self.relative(unit.since))
                     Divider().overlay(Color.slateStroke.opacity(0.4))
                 }
-                agentRow(name: "mac", active: model.macOnline, detail: nil)
+                agentRow(name: "host mac", active: model.macOnline, detail: nil)
             }
             .glassSurface(shape: RoundedRectangle(cornerRadius: SlateRadius.card, style: .continuous))
         }
@@ -678,6 +610,11 @@ struct SessionsHomeView: View {
     private func sessionRow(_ name: String) -> some View {
         Button { path.append(.session(name)) } label: { sessionRowBody(name) }
             .buttonStyle(.plain)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("sessão \(TerminalSessionList.label(for: name)) no \(TerminalSessionList.origin(for: name))")
+            .accessibilityValue(model.isDead(name) ? StatusLevel.dormant.label : StatusLevel.healthy.label)
+            .accessibilityHint("abre o terminal")
+            .accessibilityAddTraits(.isButton)
             .contextMenu {
                 if SessionsHomeStart.startable(session: name) {
                     Menu {
@@ -931,10 +868,13 @@ struct SessionsHomeView: View {
         }
         .padding(.horizontal, 14)
         .frame(minHeight: 44)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(name)
+        .accessibilityValue(active ? StatusLevel.healthy.label : StatusLevel.dormant.label)
     }
 
     private func refreshAll(force: Bool = true) async {
-        await model.refresh([], force: force)
+        await model.refresh(force: force)
         let known = Set(vmSessions)
         let extras = model.serverSessions
             .filter { $0 != "mac" }
@@ -942,7 +882,7 @@ struct SessionsHomeView: View {
             .filter { !known.contains($0) }
         guard !extras.isEmpty else { return }
         sessionsRaw = (vmSessions + extras).joined(separator: ",")
-        await model.refresh([], force: force)
+        await model.refresh(force: force)
     }
 
     private func create() {

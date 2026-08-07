@@ -58,8 +58,6 @@ private final class FakeBridge: BridgeAPI, @unchecked Sendable {
 
 @MainActor
 final class SessionsHomeRefreshTests: XCTestCase {
-    private let names = ["vm:mobile", "mac:mac"]
-
     private func data(_ json: String) -> Data { Data(json.utf8) }
 
     private func loadedFake() -> FakeBridge {
@@ -70,7 +68,6 @@ final class SessionsHomeRefreshTests: XCTestCase {
             {"units":[{"name":"garime-wa","active":true,"since":""}],"mac_online":true,
              "agents":[{"host":"mac","agent":"claude","status":"working","project":"garime","pane":"w1:p1"}]}
             """#)),
-            "/term/preview": .success(data(#"{"text":"hello"}"#)),
         ]
         return fake
     }
@@ -78,19 +75,16 @@ final class SessionsHomeRefreshTests: XCTestCase {
     func testFailedCycleKeepsLastGoodData() async {
         let fake = loadedFake()
         let model = SessionsHomeModel(client: fake)
-        await model.refresh(names)
+        await model.refresh()
 
-        XCTAssertEqual(model.previews["vm:mobile"], "hello")
         XCTAssertEqual(model.agents.count, 1)
         XCTAssertEqual(model.units.count, 1)
         XCTAssertTrue(model.macOnline)
         XCTAssertTrue(model.reachable)
 
         fake.routes = [:]
-        await model.refresh(names)
+        await model.refresh()
 
-        XCTAssertEqual(model.previews["vm:mobile"], "hello")
-        XCTAssertEqual(model.previews["mac:mac"], "hello")
         XCTAssertEqual(model.agents.count, 1)
         XCTAssertEqual(model.units.count, 1)
         XCTAssertTrue(model.macOnline)
@@ -101,10 +95,10 @@ final class SessionsHomeRefreshTests: XCTestCase {
     func testServiceUnavailableIsNotAnEmptyList() async {
         let fake = loadedFake()
         let model = SessionsHomeModel(client: fake)
-        await model.refresh(names)
+        await model.refresh()
 
         fake.routes["/term/agents"] = .failure(BridgeError.server(status: 503, code: "unavailable"))
-        await model.refresh(names)
+        await model.refresh()
 
         XCTAssertEqual(model.agents.count, 1)
         XCTAssertEqual(model.units.count, 1)
@@ -115,13 +109,11 @@ final class SessionsHomeRefreshTests: XCTestCase {
     func testGoodResponseReplacesData() async {
         let fake = loadedFake()
         let model = SessionsHomeModel(client: fake)
-        await model.refresh(names)
+        await model.refresh()
 
-        fake.routes["/term/preview"] = .success(data(#"{"text":"\u001b[31mnovo\u001b[0m"}"#))
         fake.routes["/term/agents"] = .success(data(#"{"units":[],"mac_online":false,"agents":[]}"#))
-        await model.refresh(names)
+        await model.refresh()
 
-        XCTAssertEqual(model.previews["vm:mobile"], "novo")
         XCTAssertTrue(model.agents.isEmpty)
         XCTAssertTrue(model.units.isEmpty)
         XCTAssertFalse(model.macOnline)
@@ -131,23 +123,10 @@ final class SessionsHomeRefreshTests: XCTestCase {
     func testEmptyAgentListFromHealthyBridgeStillClears() async {
         let fake = loadedFake()
         let model = SessionsHomeModel(client: fake)
-        await model.refresh(names)
+        await model.refresh()
         fake.routes["/term/agents"] = .success(data(#"{"units":[],"mac_online":false}"#))
-        await model.refresh(names)
+        await model.refresh()
         XCTAssertTrue(model.agents.isEmpty)
-    }
-
-    func testTickerSkipsPreviewsBetweenCadenceWindows() async {
-        let fake = loadedFake()
-        let model = SessionsHomeModel(client: fake)
-        for _ in 0..<SessionsHomeModel.previewEveryNCycles {
-            await model.refresh(names, force: false)
-        }
-        XCTAssertEqual(fake.count("/term/list"), SessionsHomeModel.previewEveryNCycles)
-        XCTAssertEqual(fake.count("/term/preview"), names.count)
-
-        await model.refresh(names, force: false)
-        XCTAssertEqual(fake.count("/term/preview"), names.count * 2)
     }
 
     private func workingFake() -> FakeBridge {
@@ -163,7 +142,7 @@ final class SessionsHomeRefreshTests: XCTestCase {
     func testWorkCountsOnlyBusyAttachableAgents() async {
         let fake = workingFake()
         let model = SessionsHomeModel(client: fake)
-        await model.refresh(names)
+        await model.refresh()
 
         XCTAssertEqual(model.work["mac|garime|claude|w1:p1"], 3)
         XCTAssertEqual(fake.count("/term/agent-work"), 1)
@@ -172,10 +151,10 @@ final class SessionsHomeRefreshTests: XCTestCase {
     func testWorkSurvivesFailedProbe() async {
         let fake = workingFake()
         let model = SessionsHomeModel(client: fake)
-        await model.refresh(names)
+        await model.refresh()
 
         fake.routes["/term/agent-work"] = .failure(BridgeError.server(status: 503, code: "unavailable"))
-        await model.refresh(names)
+        await model.refresh()
 
         XCTAssertEqual(model.work["mac|garime|claude|w1:p1"], 3)
     }
@@ -183,10 +162,10 @@ final class SessionsHomeRefreshTests: XCTestCase {
     func testWorkClearsWhenAgentReportsNoWork() async {
         let fake = workingFake()
         let model = SessionsHomeModel(client: fake)
-        await model.refresh(names)
+        await model.refresh()
 
         fake.routes["/term/agent-work"] = .success(data(#"{"agent":"pi","supported":false}"#))
-        await model.refresh(names)
+        await model.refresh()
 
         XCTAssertTrue(model.work.isEmpty)
     }
@@ -194,32 +173,24 @@ final class SessionsHomeRefreshTests: XCTestCase {
     func testWorkIsPrunedWhenAgentStopsWorking() async {
         let fake = workingFake()
         let model = SessionsHomeModel(client: fake)
-        await model.refresh(names)
+        await model.refresh()
 
         fake.routes["/term/agents"] = .success(data(#"""
         {"units":[],"mac_online":true,
          "agents":[{"host":"mac","agent":"claude","status":"idle","project":"garime","pane":"w1:p1"}]}
         """#))
-        await model.refresh(names)
+        await model.refresh()
 
         XCTAssertTrue(model.work.isEmpty)
         XCTAssertEqual(fake.count("/term/agent-work"), 1)
-    }
-
-    func testForcedRefreshAlwaysFetchesPreviews() async {
-        let fake = loadedFake()
-        let model = SessionsHomeModel(client: fake)
-        await model.refresh(names)
-        await model.refresh(names)
-        XCTAssertEqual(fake.count("/term/preview"), names.count * 2)
     }
 
     func testConcurrentRefreshDoesNotStack() async {
         let fake = loadedFake()
         fake.delay = 30_000_000
         let model = SessionsHomeModel(client: fake)
-        async let first: Void = model.refresh(names, force: false)
-        async let second: Void = model.refresh(names, force: false)
+        async let first: Void = model.refresh(force: false)
+        async let second: Void = model.refresh(force: false)
         _ = await (first, second)
         XCTAssertEqual(fake.count("/term/list"), 1)
     }
@@ -228,9 +199,9 @@ final class SessionsHomeRefreshTests: XCTestCase {
         let fake = loadedFake()
         fake.delay = 30_000_000
         let model = SessionsHomeModel(client: fake)
-        async let first: Void = model.refresh(names, force: false)
-        async let second: Void = model.refresh(names, force: true)
-        async let third: Void = model.refresh(names, force: true)
+        async let first: Void = model.refresh(force: false)
+        async let second: Void = model.refresh(force: true)
+        async let third: Void = model.refresh(force: true)
         _ = await (first, second, third)
         XCTAssertEqual(fake.count("/term/list"), 2)
     }

@@ -521,6 +521,7 @@ private final class FakeAskBridge: BridgeAPI, @unchecked Sendable {
     var askJSON = #"{"asking":false}"#
     var chatUnreachable = false
     var answerResult: Result<Data, Error> = .success(Data(#"{"ok":true}"#.utf8))
+    var postDelay: UInt64 = 0
 
     var calls: [String] {
         lock.lock()
@@ -553,7 +554,9 @@ private final class FakeAskBridge: BridgeAPI, @unchecked Sendable {
         log.append(path)
         if let body { bodies.append(String(decoding: body, as: UTF8.self)) }
         let result = answerResult
+        let wait = postDelay
         lock.unlock()
+        if wait > 0 { try? await Task.sleep(nanoseconds: wait) }
         return try result.get()
     }
 
@@ -673,6 +676,21 @@ final class AgentAskModelTests: XCTestCase {
         XCTAssertTrue(fake.sentBodies.isEmpty)
         XCTAssertFalse(fake.calls.contains { $0.hasPrefix("/term/agent-answer") })
         XCTAssertFalse(fake.calls.contains { $0.hasPrefix("/term/agent-interrupt") })
+    }
+
+    func testInterruptShowsBusyStateAndDoesNotStack() async {
+        let fake = FakeAskBridge()
+        fake.postDelay = 40_000_000
+        let model = AgentChatModel(target: target, client: fake)
+        XCTAssertFalse(model.interrupting)
+        async let first: Void = model.interrupt()
+        try? await Task.sleep(nanoseconds: 10_000_000)
+        XCTAssertTrue(model.interrupting)
+        await model.interrupt()
+        await first
+        XCTAssertFalse(model.interrupting)
+        XCTAssertEqual(fake.calls.filter { $0.hasPrefix("/term/agent-interrupt") }.count, 1)
+        XCTAssertEqual(model.notice, "interrupção enviada")
     }
 
     func testInterruptIsHonestAboutDelivery() async {

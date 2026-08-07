@@ -14,7 +14,7 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "9CDD8AF8619C4ED1F6264038"
+               BlueprintIdentifier = "E7AAECB737414D37405BDE9A"
                BuildableName = "Garime.app"
                BlueprintName = "Garime"
                ReferencedContainer = "container:Garime.xcodeproj">
@@ -30,7 +30,7 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "9CDD8AF8619C4ED1F6264038"
+            BlueprintIdentifier = "E7AAECB737414D37405BDE9A"
             BuildableName = "Garime.app"
             BlueprintName = "Garime"
             ReferencedContainer = "container:Garime.xcodeproj">
@@ -41,7 +41,7 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "D83BCB96C7355035F1D59136"
+               BlueprintIdentifier = "B3BCF1B1B623A95B9AEC46C3"
                BuildableName = "GarimeTests.xctest"
                BlueprintName = "GarimeTests"
                ReferencedContainer = "container:Garime.xcodeproj">
@@ -51,7 +51,7 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "9C10B54E75F29EE9ED5D5DDE"
+               BlueprintIdentifier = "48544F9F665419657DDE3DD3"
                BuildableName = "GarimeUITests.xctest"
                BlueprintName = "GarimeUITests"
                ReferencedContainer = "container:Garime.xcodeproj">
@@ -73,7 +73,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "9CDD8AF8619C4ED1F6264038"
+            BlueprintIdentifier = "E7AAECB737414D37405BDE9A"
             BuildableName = "Garime.app"
             BlueprintName = "Garime"
             ReferencedContainer = "container:Garime.xcodeproj">
@@ -90,7 +90,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "9CDD8AF8619C4ED1F6264038"
+            BlueprintIdentifier = "E7AAECB737414D37405BDE9A"
             BuildableName = "Garime.app"
             BlueprintName = "Garime"
             ReferencedContainer = "container:Garime.xcodeproj">

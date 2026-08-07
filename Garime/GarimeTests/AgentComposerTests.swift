@@ -159,6 +159,20 @@ final class AgentComposerModelTests: XCTestCase {
         XCTAssertTrue(fake.calls.isEmpty)
     }
 
+    func testCommandsLoadingIsVisibleWhileFetching() async {
+        let fake = FakeComposerBridge()
+        fake.getDelay = 40_000_000
+        fake.getResult = .success(Data(#"{"agent":"claude","commands":[{"name":"g-omni"}]}"#.utf8))
+        let model = AgentComposerModel(target: target, client: fake)
+        XCTAssertFalse(model.loadingCommands)
+        async let load: Void = model.loadCommands()
+        try? await Task.sleep(nanoseconds: 10_000_000)
+        XCTAssertTrue(model.loadingCommands)
+        await load
+        XCTAssertFalse(model.loadingCommands)
+        XCTAssertEqual(model.commands.map(\.name), ["g-omni"])
+    }
+
     func testCommandsAreFetchedOnceAndCached() async {
         let fake = FakeComposerBridge()
         fake.getResult = .success(Data(#"{"agent":"claude","commands":[{"name":"g-omni"}]}"#.utf8))
@@ -265,6 +279,7 @@ private final class FakeComposerBridge: BridgeAPI, @unchecked Sendable {
 
     var getResult: Result<Data, Error> = .failure(BridgeError.unreachable("unset"))
     var uploadResult: Result<Data, Error> = .failure(BridgeError.unreachable("unset"))
+    var getDelay: UInt64 = 0
 
     var calls: [String] {
         lock.lock()
@@ -275,7 +290,9 @@ private final class FakeComposerBridge: BridgeAPI, @unchecked Sendable {
     func getData(_ path: String, token: String?) async throws -> Data {
         lock.lock()
         log.append(path)
+        let wait = getDelay
         lock.unlock()
+        if wait > 0 { try? await Task.sleep(nanoseconds: wait) }
         return try getResult.get()
     }
 

@@ -68,7 +68,7 @@ except OSError:
     pass
 STATUS_AGENTS_TTL = float(os.environ.get("GEO_STATUS_AGENTS_TTL", "10"))
 STATUS_AGENTS_TIMEOUT = float(os.environ.get("GEO_STATUS_AGENTS_TIMEOUT", "12"))
-STATUS_VM_AGENTS = ("pi", "claude", "codex", "kimi", "opencode")
+STATUS_VM_AGENTS = ("pi", "prime-agent", "claude", "codex", "kimi", "opencode")
 STATUS_SESSION_MARK = "##session "
 AGENT_CHAT_LIMIT = int(os.environ.get("GEO_AGENT_CHAT_LIMIT", "40"))
 AGENT_CHAT_MAX_LIMIT = int(os.environ.get("GEO_AGENT_CHAT_MAX_LIMIT", "200"))
@@ -109,6 +109,8 @@ AGENT_RESOLVED_KINDS = ("reported", "fallback")
 AGENT_WORK_LIVE_KINDS = ("alive", "unknown", "dead")
 AGENT_PROJECT_DIR_RE = re.compile(r"[^A-Za-z0-9-]")
 AGENT_PI_SESSIONS_DIR = os.environ.get("GEO_AGENT_PI_SESSIONS_DIR", "/mnt/garime/pi/agent/sessions")
+AGENT_PRIME_SESSIONS_DIR = os.environ.get("GEO_AGENT_PRIME_SESSIONS_DIR", "")
+AGENT_PRIME_SCAN_MAX = int(os.environ.get("GEO_AGENT_PRIME_SCAN_MAX", "50"))
 AGENT_PI_SKILLS_DIR = os.environ.get("GEO_AGENT_PI_SKILLS_DIR", "/mnt/garime/pi/skills")
 AGENT_VM_DEPTH = int(os.environ.get("GEO_AGENT_VM_DEPTH", "3"))
 AGENT_PROMPT_CONTROL_RE = re.compile(r"[\x00-\x09\x0b-\x1f\x7f]")
@@ -139,6 +141,23 @@ AGENT_ASK_MAX_OPTIONS = 9
 AGENT_ASK_PERMISSION_RE = re.compile(r"(?i)proceed|permission|allow|trust|do you want|prosseguir|permit")
 AGENT_ANSWER_BODY_MAX = 1024
 AGENT_INTERRUPT_KEY = os.environ.get("GEO_AGENT_INTERRUPT_KEY", "Escape")
+AGENT_INTERRUPT_KEY_MAC = os.environ.get("GEO_AGENT_INTERRUPT_KEY_MAC", "esc")
+AGENT_ASK_MAC_TIMEOUT = float(os.environ.get("GEO_AGENT_ASK_MAC_TIMEOUT", "12"))
+AGENT_ASK_MAC_READ = (("read", ("--source", "visible", "--format", "text")),)
+AGENT_WATCH_ENABLED = os.environ.get("GEO_AGENT_WATCH", "0") == "1"
+AGENT_WATCH_INTERVAL = max(5.0, float(os.environ.get("GEO_AGENT_WATCH_INTERVAL", "30")))
+AGENT_WATCH_COOLDOWN = float(os.environ.get("GEO_AGENT_WATCH_COOLDOWN", "300"))
+AGENT_WATCH_MAX_HOUR = int(os.environ.get("GEO_AGENT_WATCH_MAX_HOUR", "12"))
+AGENT_WATCH_HOUR_WINDOW = 3600.0
+AGENT_WATCH_SEEN_TTL = float(os.environ.get("GEO_AGENT_WATCH_SEEN_TTL", "86400"))
+AGENT_WATCH_MIN_COLS = int(os.environ.get("GEO_AGENT_WATCH_MIN_COLS", "40"))
+AGENT_WATCH_LABEL_MAX = 80
+AGENT_WATCH_SPACE_RE = re.compile(r"\s+")
+AGENT_WATCH_PATH_RE = re.compile(r"\S*/\S*")
+AGENT_WATCH_STATE_PATH = os.path.expanduser(
+    os.environ.get("GEO_AGENT_WATCH_STATE", "~/.garime/agent-watch.json")
+)
+WA_OUTBOX_DIR = os.environ.get("GEO_WA_OUTBOX", "/mnt/garime/pi/wa-outbox")
 AGENT_START_COMMANDS = {"claude": "~/.local/bin/claude", "pi": "/usr/bin/pi", "codex": "codex"}
 AGENT_COMMANDS_BUILTIN = {
     "claude": (
@@ -169,6 +188,10 @@ COMMANDS_REFRESH_LOCKS = {}
 WORK_CACHE = {}
 WORK_CACHE_LOCK = threading.Lock()
 WORK_REFRESH_LOCKS = {}
+WATCH_SEEN = {}
+WATCH_SENT_AT = {}
+WATCH_HOUR = []
+WATCH_LOADED = [False]
 
 
 class TermSubscriber:
@@ -597,10 +620,16 @@ def status_vm_agents():
     except Exception:
         return []
     sessions = vm_pid_sessions(children)
+    parents = {}
+    for parent, kids in children.items():
+        for child in kids:
+            parents[child] = parent
     agents = []
     for pid in sorted(names):
         name = names[pid]
         if name not in STATUS_VM_AGENTS:
+            continue
+        if names.get(parents.get(pid)) == name:
             continue
         agents.append({
             "host": "vm",
@@ -680,6 +709,8 @@ def vm_agent_session(agent):
         return {"kind": "cwd", "value": ""}
     if agent == "pi":
         return {"kind": "pi", "value": ""}
+    if agent == "prime-agent":
+        return {"kind": "prime", "value": ""}
     return None
 
 
@@ -711,6 +742,27 @@ def agent_transcript_script(session, cwd=""):
             shlex.quote(name), AGENT_CHAT_TAIL_BYTES,
         )
         return "/bin/sh -c " + shlex.quote(inner)
+    if kind == "prime":
+        if not isinstance(cwd, str) or not cwd.startswith("/"):
+            return ""
+        needles = ['"cwd":"' + cwd + '"']
+        escaped = '"cwd":' + json.dumps(cwd)
+        if escaped not in needles:
+            needles.append(escaped)
+        match = " ".join(["-e " + shlex.quote(n) for n in needles])
+        parts = [
+            "d=%s" % shlex.quote(AGENT_PRIME_SESSIONS_DIR),
+            '[ -d "$d" ] || d="$HOME"/.prime/agent/sessions',
+            'l=$(ls -1t "$d"/*.jsonl 2>/dev/null | head -n %d)' % AGENT_PRIME_SCAN_MAX,
+            'f=$(printf "%%s\\n" "$l" | while IFS= read -r c; do '
+            '[ -f "$c" ] || continue; '
+            'if head -n 1 "$c" | grep -qF %s; then printf "%%s\\n" "$c"; break; fi; done)'
+            % match,
+            'if [ -f "$f" ]; then printf "R\\tfallback\\n"; tail -c %d "$f"; fi'
+            % AGENT_CHAT_TAIL_BYTES,
+            "exit 0",
+        ]
+        return "/bin/sh -c " + shlex.quote("; ".join(parts))
     if not isinstance(value, str):
         return ""
     if kind == "id" and AGENT_SESSION_ID_RE.match(value):
@@ -761,6 +813,19 @@ def agent_prompt_script(project, pane, text):
         shlex.quote(project),
         shlex.quote(pane),
         shlex.quote(text),
+    )
+
+
+def herdr_pane_script(project, pane, commands):
+    parts = []
+    for verb, args in commands:
+        parts.append(" ".join([
+            shlex.quote(STATUS_HERDR), "--session", shlex.quote(project),
+            "pane", verb, shlex.quote(pane),
+        ] + [shlex.quote(arg) for arg in args]))
+    return "export PATH=%s:$PATH; %s" % (
+        shlex.quote(os.path.dirname(STATUS_HERDR) or "/usr/bin"),
+        " && ".join(parts),
     )
 
 
@@ -1267,6 +1332,239 @@ def agent_ask_choice(options, choice):
     return None
 
 
+def watch_log(message):
+    line = "%s watch %s\n" % (now_iso(), message)
+    try:
+        with LOG_LOCK:
+            with open(LOG_PATH, "a") as f:
+                f.write(line)
+    except OSError:
+        pass
+
+
+def wa_outbox_write(name, text):
+    path = os.path.join(WA_OUTBOX_DIR, name)
+    tmp = path + ".tmp"
+    try:
+        with open(tmp, "w") as f:
+            f.write(text)
+            f.flush()
+            os.fsync(f.fileno())
+        os.rename(tmp, path)
+    except OSError:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+    return path
+
+
+def watch_state_load():
+    if WATCH_LOADED[0]:
+        return
+    WATCH_LOADED[0] = True
+    try:
+        with open(AGENT_WATCH_STATE_PATH) as f:
+            data = json.load(f)
+        seen = data.get("seen") if isinstance(data, dict) else None
+        sent = data.get("sent") if isinstance(data, dict) else None
+        hour = data.get("hour") if isinstance(data, dict) else None
+        if isinstance(seen, dict):
+            for session, entry in seen.items():
+                fp = entry.get("fp") if isinstance(entry, dict) else None
+                if not isinstance(fp, dict):
+                    continue
+                question = fp.get("question")
+                labels = fp.get("labels")
+                if not isinstance(question, str) or not isinstance(labels, list):
+                    continue
+                if not all(isinstance(label, str) for label in labels):
+                    continue
+                WATCH_SEEN[session] = {
+                    "fp": {"question": question, "labels": labels},
+                    "at": float(entry.get("at") or 0),
+                }
+        if isinstance(sent, dict):
+            for session, at in sent.items():
+                WATCH_SENT_AT[session] = float(at)
+        if isinstance(hour, list):
+            WATCH_HOUR[:] = [float(at) for at in hour]
+    except (OSError, ValueError, TypeError, AttributeError) as exc:
+        watch_log("state load failed %r" % (exc,))
+
+
+def watch_state_save():
+    tmp = AGENT_WATCH_STATE_PATH + ".tmp"
+    try:
+        os.makedirs(os.path.dirname(AGENT_WATCH_STATE_PATH), mode=0o700, exist_ok=True)
+        with open(tmp, "w") as f:
+            json.dump({"seen": WATCH_SEEN, "sent": WATCH_SENT_AT, "hour": WATCH_HOUR}, f)
+            f.flush()
+            os.fsync(f.fileno())
+        os.rename(tmp, AGENT_WATCH_STATE_PATH)
+    except (OSError, ValueError) as exc:
+        watch_log("state save failed %r" % (exc,))
+
+
+def agent_watch_norm(text):
+    return AGENT_WATCH_SPACE_RE.sub(" ", text.strip()).lower()
+
+
+def agent_watch_fingerprint(ask):
+    return {
+        "question": agent_watch_norm(ask["question"]),
+        "labels": [agent_watch_norm(option["label"]) for option in ask["options"]],
+    }
+
+
+def agent_watch_same(old, new):
+    if not old or not new:
+        return False
+    if len(old["labels"]) != len(new["labels"]):
+        return False
+    for left, right in zip(old["labels"], new["labels"]):
+        if not left.startswith(right) and not right.startswith(left):
+            return False
+    left, right = old["question"], new["question"]
+    return left.endswith(right) or right.endswith(left)
+
+
+def agent_watch_merge(old, new):
+    return {
+        "question": max(old["question"], new["question"], key=len),
+        "labels": [max(left, right, key=len) for left, right in zip(old["labels"], new["labels"])],
+    }
+
+
+def agent_watch_tag(fp):
+    raw = "\n".join([fp["question"]] + fp["labels"])
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
+
+
+def agent_watch_scrub(text):
+    return AGENT_WATCH_PATH_RE.sub("…", text).strip()
+
+
+def agent_watch_message(agent, session, ask):
+    lines = ["\U0001f916 %s (%s) precisa de você:" % (agent, session), ""]
+    question = agent_watch_scrub(ask["question"])
+    if question:
+        lines.append('"%s"' % question)
+    for option in ask["options"][:AGENT_ASK_MAX_OPTIONS]:
+        lines.append("%d. %s" % (option["index"], agent_watch_scrub(option["label"])[:AGENT_WATCH_LABEL_MAX]))
+    lines += ["", "Responda pelo app garime."]
+    return "\n".join(lines)
+
+
+def agent_watch_width(session):
+    proc = subprocess.run(
+        [TERM_TMUX, "display-message", "-p", "-t", term_pane_target(session), "#{pane_width}"],
+        capture_output=True, timeout=AGENT_ASK_TIMEOUT,
+    )
+    if proc.returncode != 0:
+        return None
+    raw = proc.stdout.decode("utf-8", "replace").strip()
+    return int(raw) if raw.isdigit() else None
+
+
+def agent_watch_notify(session, agent, ask, key, now):
+    last = WATCH_SENT_AT.get(session)
+    if last is not None and 0 <= now - last < AGENT_WATCH_COOLDOWN:
+        watch_log("%s dropped cooldown" % session)
+        return "dropped"
+    WATCH_HOUR[:] = [at for at in WATCH_HOUR if 0 <= now - at < AGENT_WATCH_HOUR_WINDOW]
+    if len(WATCH_HOUR) >= AGENT_WATCH_MAX_HOUR:
+        watch_log("%s dropped hourly cap %d" % (session, AGENT_WATCH_MAX_HOUR))
+        return "dropped"
+    name = "agent-ask-%d-%s-%s.txt" % (int(now), session, key)
+    try:
+        wa_outbox_write(name, agent_watch_message(agent, session, ask))
+    except OSError as exc:
+        watch_log("%s outbox failed %r" % (session, exc))
+        return "failed"
+    WATCH_SENT_AT[session] = now
+    WATCH_HOUR.append(now)
+    watch_log("%s notified %s" % (session, name))
+    return "sent"
+
+
+def agent_watch_sessions():
+    names = set()
+    for entry in status_vm_agents():
+        session = entry.get("session")
+        if isinstance(session, str) and TERM_SESSION_RE.match(session):
+            names.add(session)
+    return sorted(names)
+
+
+def agent_watch_tick():
+    watch_state_load()
+    now = time.time()
+    dirty = False
+    for session in agent_watch_sessions():
+        try:
+            found = vm_session_agent(session)
+            if not found or not found[0]:
+                continue
+            width = agent_watch_width(session)
+            if width is None or width < AGENT_WATCH_MIN_COLS:
+                watch_log("%s skipped narrow pane %s" % (session, width))
+                continue
+            text = agent_ask_capture(session)
+        except Exception as exc:
+            watch_log("%s capture failed %r" % (session, exc))
+            continue
+        if text is None:
+            continue
+        ask = agent_ask_parse(text)
+        if not ask["asking"]:
+            if WATCH_SEEN.pop(session, None) is not None:
+                dirty = True
+            continue
+        fp = agent_watch_fingerprint(ask)
+        entry = WATCH_SEEN.get(session)
+        seen = entry.get("fp") if entry else None
+        if agent_watch_same(seen, fp):
+            merged = agent_watch_merge(seen, fp)
+            if merged != seen or now - entry.get("at", 0) >= AGENT_WATCH_HOUR_WINDOW:
+                dirty = True
+            entry["fp"] = merged
+            entry["at"] = now
+            continue
+        if agent_watch_notify(session, found[0], ask, agent_watch_tag(fp), now) != "failed":
+            WATCH_SEEN[session] = {"fp": fp, "at": now}
+            dirty = True
+    for stale in [s for s, e in WATCH_SEEN.items() if now - e.get("at", 0) >= AGENT_WATCH_SEEN_TTL]:
+        WATCH_SEEN.pop(stale, None)
+        dirty = True
+    for stale in [s for s, at in WATCH_SENT_AT.items() if now - at >= AGENT_WATCH_COOLDOWN]:
+        WATCH_SENT_AT.pop(stale, None)
+        dirty = True
+    if dirty:
+        watch_state_save()
+
+
+def agent_watch_loop():
+    while True:
+        try:
+            agent_watch_tick()
+        except Exception as exc:
+            watch_log("tick failed %r" % (exc,))
+        time.sleep(AGENT_WATCH_INTERVAL)
+
+
+def agent_watch_start():
+    if not AGENT_WATCH_ENABLED:
+        return
+    if not os.path.isdir(WA_OUTBOX_DIR):
+        watch_log("outbox missing %s" % WA_OUTBOX_DIR)
+    watch_state_load()
+    watch_log("started interval=%gs outbox=%s state=%s" % (
+        AGENT_WATCH_INTERVAL, WA_OUTBOX_DIR, AGENT_WATCH_STATE_PATH))
+    threading.Thread(target=agent_watch_loop, daemon=True).start()
+
+
 def term_has_session(session):
     proc = subprocess.run(
         [TERM_TMUX, "has-session", "-t", term_target(session)],
@@ -1313,7 +1611,7 @@ def agent_chat_parts(content):
             value = block.get("text")
             if isinstance(value, str):
                 parts.append(("text", value))
-        elif kind == "tool_use":
+        elif kind in ("tool_use", "toolCall"):
             name = block.get("name")
             parts.append(("tool", name if isinstance(name, str) and name else "tool"))
         elif kind is None:
@@ -1940,9 +2238,25 @@ class Handler(BaseHTTPRequestHandler):
         entry = self._term_agent_resolve(project, pane)
         if entry is None:
             return
-        body = {"agent": entry.get("agent", "")}
-        body.update(agent_ask_empty())
+        text = self._term_agent_ask_mac_read(project, pane)
+        if text is None:
+            return
+        body = {"agent": entry.get("agent", ""), "blocked": entry.get("status") == "blocked"}
+        body.update(agent_ask_parse(text))
         self._json(200, json.dumps(body, ensure_ascii=False).encode())
+
+    def _term_agent_ask_mac_read(self, project, pane):
+        try:
+            proc = agent_ssh(
+                herdr_pane_script(project, pane, AGENT_ASK_MAC_READ), AGENT_ASK_MAC_TIMEOUT
+            )
+        except Exception:
+            self._json(503, b'{"error":"unavailable"}')
+            return None
+        if proc.returncode != 0:
+            self._json(503, b'{"error":"unavailable"}')
+            return None
+        return proc.stdout.decode("utf-8", "replace")
 
     def _term_answer_body(self):
         try:
@@ -1980,9 +2294,43 @@ class Handler(BaseHTTPRequestHandler):
         if not self._term_gate():
             return
         self.close_connection = True
-        session = self._term_vm_session_required()
-        if session is None:
+        vm = self._term_vm_target()
+        if vm is None:
             return
+        if vm:
+            self._term_agent_answer_vm(vm)
+            return
+        project, pane = self._term_agent_target()
+        if project is None:
+            return
+        choice = self._term_answer_body()
+        if choice is None:
+            return
+        if self._term_agent_resolve(project, pane) is None:
+            return
+        text = self._term_agent_ask_mac_read(project, pane)
+        if text is None:
+            return
+        ask = agent_ask_parse(text)
+        if not ask["asking"]:
+            self._json(409, b'{"error":"not_asking"}')
+            return
+        index = agent_ask_choice(ask["options"], choice)
+        if index is None:
+            self._json(400, b'{"error":"bad_option"}')
+            return
+        commands = (("send-text", (str(index),)), ("send-keys", ("enter",)))
+        try:
+            proc = agent_ssh(herdr_pane_script(project, pane, commands), AGENT_ASK_MAC_TIMEOUT)
+        except Exception:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        if proc.returncode != 0:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        self._json(200, json.dumps({"ok": True, "index": index}).encode())
+
+    def _term_agent_answer_vm(self, session):
         choice = self._term_answer_body()
         if choice is None:
             return
@@ -2021,9 +2369,29 @@ class Handler(BaseHTTPRequestHandler):
     def _term_agent_interrupt(self):
         if not self._term_gate():
             return
-        session = self._term_vm_session_required()
-        if session is None:
+        vm = self._term_vm_target()
+        if vm is None:
             return
+        if vm:
+            self._term_agent_interrupt_vm(vm)
+            return
+        project, pane = self._term_agent_target()
+        if project is None:
+            return
+        if self._term_agent_resolve(project, pane) is None:
+            return
+        commands = (("send-keys", (AGENT_INTERRUPT_KEY_MAC,)),)
+        try:
+            proc = agent_ssh(herdr_pane_script(project, pane, commands), AGENT_ASK_MAC_TIMEOUT)
+        except Exception:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        if proc.returncode != 0:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        self._json(200, b'{"ok":true}')
+
+    def _term_agent_interrupt_vm(self, session):
         if self._term_vm_agent(session) is None:
             return
         try:
@@ -3012,6 +3380,7 @@ def main():
     except OSError:
         TERM_TOKEN = ""
     os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
+    agent_watch_start()
     server = ThreadingHTTPServer((BIND, PORT), Handler)
     signal.signal(signal.SIGTERM, lambda signum, frame: threading.Thread(target=server.shutdown).start())
     try:

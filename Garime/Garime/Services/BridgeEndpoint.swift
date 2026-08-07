@@ -14,7 +14,6 @@ enum BridgeEndpoint {
     case termKill(session: String)
     case termRename(session: String, to: String)
     case termList
-    case termPreview(session: String, lines: Int)
     case termAgents
     case termAttachAgent(project: String, pane: String)
     case termAttachHerdr(project: String)
@@ -56,8 +55,6 @@ enum BridgeEndpoint {
             return "/term/rename?session=\(Self.encode(session))&to=\(Self.encode(to))"
         case .termList:
             return "/term/list"
-        case .termPreview(let session, let lines):
-            return "/term/preview?session=\(Self.encode(session))&lines=\(max(1, min(40, lines)))"
         case .termAgents:
             return "/term/agents"
         case .termAttachAgent(let project, let pane):

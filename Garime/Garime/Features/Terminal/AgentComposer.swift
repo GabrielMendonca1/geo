@@ -112,12 +112,12 @@ enum AgentUploadFailure {
 final class AgentComposerModel: ObservableObject {
     @Published private(set) var commands: [AgentCommand] = []
     @Published private(set) var uploading = false
+    @Published private(set) var loadingCommands = false
     @Published private(set) var notice = ""
 
     private let client: any BridgeAPI
     private let target: AgentChatTarget
     private var commandsLoaded = false
-    private var loadingCommands = false
 
     init(target: AgentChatTarget, client: any BridgeAPI = BridgeClient.shared) {
         self.target = target
