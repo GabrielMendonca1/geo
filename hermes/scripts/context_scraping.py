@@ -3,13 +3,15 @@
 context_scraping.py — self-contained context scraper, fully on Gabriel's
 Claude Code account (Claude Max OAuth), like the brain-vault Haiku ingest.
 
-Pipeline (no gateway, no Codex, no agent phase):
-  1. read the last 6h from ~/.hermes/wa_ingest.jsonl, bucket by chat
+Pipeline (no gateway, no agent phase):
+  1. read the last 6h from /mnt/garime/Vault/Inbox/wa_ingest.jsonl, bucket by chat
   2. CLASSIFY each bucket in parallel with Haiku (model.nano) → proposals
-  3. DECIDE with Sonnet 5 by default (or HERMES_WA_DECIDE_MODEL) — one call,
-     hermes choosing what is genuinely worth keeping: dedup, drop noise, emit
-     final {blocks, tasks, urgent}.
-     Patient rate-limit-aware retry (Claude Max OAuth can throttle included usage).
+  3. DECIDE via one stateless `prime-agent -p` subprocess — openai-codex /
+     gpt-5.6-sol / thinking high by default (HERMES_WA_DECIDE_PROVIDER,
+     HERMES_WA_DECIDE_MODEL, HERMES_WA_DECIDE_EFFORT). No session, no tools,
+     no skills/extensions/prompt-templates/context-files: the prompt is the
+     only input. Runs only when CLASSIFY kept at least one proposal, and
+     emits the final {blocks, tasks, urgent}.
   4. PERSIST (all file-native, works app-closed): facts → block .md files,
      commitments → Tasks/<UUID>.json task files; only urgent → a Telegram DM.
      Each block weaves [[wikilinks]] + a `Parte de [[MOC — X]]` home from the
@@ -25,32 +27,36 @@ the LLM gateway never runs:
 from __future__ import annotations
 
 import asyncio
-import getpass
+import hashlib
+import importlib
 import json
 import os
 import re
 import subprocess
 import sys
 import unicodedata
-import urllib.parse
-import urllib.request
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import httpx
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from geo_context import render_brain_context
 
-HERMES_HOME = Path(os.path.expanduser("~/.hermes"))
-JSONL_PATH = HERMES_HOME / "wa_ingest.jsonl"
-AUTH_PATH = HERMES_HOME / "auth.json"
-ENV_PATH = HERMES_HOME / ".env"
-CONFIG_PATH = Path(__file__).parent.parent / "config.yaml"
-STATE_PATH = HERMES_HOME / "context_scraping.state.json"
-CHATS_PATH = HERMES_HOME / "context_scraping.chats.json"
-TASK_ARCHIVE_DIR = HERMES_HOME / "task_archive"
+PKG_DIR = Path(__file__).resolve().parent
+GARIME_MOUNT = Path("/mnt/garime")
+STATE_DIR = GARIME_MOUNT / "pi" / "state"
+JSONL_PATH = GARIME_MOUNT / "Vault" / "Inbox" / "wa_ingest.jsonl"
+EMAIL_JSONL_PATH = GARIME_MOUNT / "Vault" / "Inbox" / "email_ingest.jsonl"
+OUTBOX_DIR = GARIME_MOUNT / "pi" / "wa-outbox"
+AUTH_PATH = Path(os.path.expanduser("~/.prime/agent/auth.json"))
+ENV_PATH = STATE_DIR / ".env"
+STATE_PATH = STATE_DIR / "context_scraping.state.json"
+CHATS_PATH = STATE_DIR / "context_scraping.chats.json"
+PROPOSALS_PATH = STATE_DIR / "task_proposals.json"
+TASK_ARCHIVE_DIR = STATE_DIR / "task_archive"
 ARCHIVE_LOG = TASK_ARCHIVE_DIR / "archive_log.jsonl"
 
 GABRIEL_TELEGRAM_CHAT_ID = "5225262193"
@@ -64,7 +70,7 @@ def _load_geo_write():
     import importlib
     import importlib.util
 
-    pdir = HERMES_HOME / "plugins" / "geo-tools"
+    pdir = PKG_DIR / "plugins" / "geo-tools"
     spec = importlib.util.spec_from_file_location(
         "geo_tools", pdir / "__init__.py", submodule_search_locations=[str(pdir)]
     )
@@ -75,25 +81,17 @@ def _load_geo_write():
 
 
 geo_write = _load_geo_write()
+tasks_fs = importlib.import_module("geo_tools.tasks_fs")
 GeoError = geo_write._GeoError
 WRITER = "context-scraping"
-MAX_BLOCKS_PER_RUN = 3
-MAX_TASKS_PER_RUN = 3
+MAX_BLOCKS_PER_RUN = int(os.environ.get("HERMES_MAX_BLOCKS_PER_RUN", "3"))
+MAX_TASKS_PER_RUN = int(os.environ.get("HERMES_MAX_TASKS_PER_RUN", "3"))
 
 
 def _config_model(key: str, env_key: str, fallback: str) -> str:
     env = os.environ.get(env_key)
     if env:
         return env
-    try:
-        import yaml
-
-        data = yaml.safe_load(CONFIG_PATH.read_text()) or {}
-        val = (data.get("model") or {}).get(key)
-        if val:
-            return str(val)
-    except Exception:
-        pass
     return fallback
 
 
@@ -101,21 +99,26 @@ def _nano_model() -> str:
     return _config_model("nano", "HERMES_NANO_MODEL", "claude-haiku-4-5")
 
 
+def _decide_provider() -> str:
+    return os.environ.get("HERMES_WA_DECIDE_PROVIDER") or "openai-codex"
+
+
 def _decide_model() -> str:
-    # WhatsApp uses the direct Claude OAuth API, not the Claude Code CLI model alias.
-    # Keep this job independent from model.full because other standalone scripts
-    # (close-day, geo-context) may still want Opus/Haiku defaults.
-    return os.environ.get("HERMES_WA_DECIDE_MODEL") or "claude-opus-4-8"
+    return os.environ.get("HERMES_WA_DECIDE_MODEL") or "gpt-5.6-sol"
 
 
 def _decide_effort() -> str:
-    return os.environ.get("HERMES_WA_DECIDE_EFFORT") or "xhigh"
+    return os.environ.get("HERMES_WA_DECIDE_EFFORT") or "high"
 
 
 # Persisted watermark (STATE_PATH, key last_processed_ts) is the real anti-overlap
 # mechanism: read_window() only returns messages newer than it. WINDOW_HOURS is just
 # the bootstrap lookback the very first time a chat/state file is seen.
 WINDOW_HOURS = int(os.environ.get("HERMES_WA_WINDOW_HOURS", "2"))
+EMAIL_WINDOW_HOURS = int(os.environ.get("HERMES_EMAIL_WINDOW_HOURS", "24"))
+EMAIL_TEXT_CAP = 1200
+MAX_PROPOSALS_PER_RUN = int(os.environ.get("HERMES_MAX_PROPOSALS_PER_RUN", "3"))
+PROPOSAL_TTL_DAYS = 7
 HAIKU_MODEL = _nano_model()
 MAX_CONCURRENT = 6
 PER_CALL_TIMEOUT_S = 45.0
@@ -134,7 +137,7 @@ BOOTSTRAP_CHUNK_MSGS = 250
 CHAT_PRUNE_DAYS = 90
 MAX_TASK_MUTATIONS = 5
 
-MEDIA_DIR = HERMES_HOME / "wa_media"
+MEDIA_DIR = STATE_DIR / "wa_media"
 FFMPEG_BIN = os.environ.get("HERMES_FFMPEG_BIN", "/opt/homebrew/bin/ffmpeg")
 WHISPER_BIN = os.environ.get("HERMES_WHISPER_BIN", "/opt/homebrew/bin/whisper-cli")
 WHISPER_MODEL = Path(os.path.expanduser(os.environ.get("HERMES_WHISPER_MODEL", "~/.cache/whisper/ggml-large-v3-turbo.bin")))
@@ -164,6 +167,7 @@ def _headers_oauth(token: str) -> dict:
 
 HAIKU_PROMPT_TEMPLATE = """Você é classificador. NÃO resume, NÃO escreve, NÃO cria nada. Sua única tarefa: olhar essa conversa e propor (em JSON) o que pode valer a pena guardar no cérebro do Gabriel. Outro agente mais inteligente vai decidir o que de fato fazer com sua proposta — você só sugere.
 
+ORIGEM: {source_note}
 Chat: {label} (group={is_group}, jid={chat_id})
 Mensagens (cronológicas, últimas {window}h):
 {messages}
@@ -197,7 +201,7 @@ Retorne JSON estrito (sem markdown, sem prefácio, sem ```):
 
 Se nada vale a pena: retorne proposals com todas as listas vazias. Bias: propor MENOS."""
 
-DECIDE_PROMPT_TEMPLATE = """Você é o segundo cérebro do Gabriel (garime). Abaixo estão propostas extraídas de conversas de WhatsApp das últimas {window}h por um classificador rápido. Você é o filtro inteligente: decida o que REALMENTE vale guardar. Dedup, una propostas relacionadas, descarte ruído. Bias: guardar MENOS, com qualidade.
+DECIDE_PROMPT_TEMPLATE = """Você é o segundo cérebro do Gabriel (garime). Abaixo estão propostas extraídas por um classificador rápido de duas origens: conversas de WhatsApp das últimas {window}h e emails recém-chegados (cada entrada traz "source": "whatsapp" ou "email"; em email a "conversa" é uma caixa de entrada, o Gabriel é o destinatário, não o autor). Você é o filtro inteligente: decida o que REALMENTE vale guardar. Dedup, una propostas relacionadas, descarte ruído. Bias para BLOCOS: guardar MENOS, com qualidade. Bias para TAREFAS: puxar pro AUTÔNOMO (ver CONFIANÇA).
 
 CONTEXTO DO CÉREBRO (vault real do Gabriel, files-are-truth — use para LINKAR e DEDUPLICAR):
 {brain_context}
@@ -213,7 +217,12 @@ PROPOSTAS (JSON, uma entrada por chat):
 
 Como decidir:
 - FATO durável sobre pessoa/projeto/decisão/preferência → um bloco. layer "agent" se é fato sólido e auto-evidente; layer "review" se merece o olhar dele antes de virar canônico. Auto-extraído de chat tende a "review".
-- COMPROMISSO/algo a fazer → uma task, SÓ quando os três estiverem presentes na conversa: verbo de ação explícito (vou fazer, vou mandar, vou resolver, preciso enviar), dono claramente o Gabriel (não outra pessoa, não o grupo), e prazo ou dia dito explicitamente (hoje, amanhã, sexta, uma data). Faltando qualquer um dos três, não é task — vira linha de contexto no bloco pessoa/projeto (people[]) ou digest.social. NÃO crie task de convite social casual ("bora sair", "vamos marcar"), de logística de encontro (horário/local de algo já combinado), ou de micro-passo de conversa em andamento ("manda o link", "me avisa quando chegar") — isso é ruído conversacional, não compromisso. title curto e acionável; tasks não carregam prosa — contexto durável vira bloco. PRAZO (due): NÃO invente horário. Se a conversa dá dia E hora explícitos → due em hora LOCAL naive, SEM 'Z' (ex: 2026-06-22T13:00:00) — NÃO converta pra UTC, o código faz isso. Se dá só o dia → due como SÓ DATA (ex: 2026-06-22), sem hora — o sistema põe no fim daquele dia. NUNCA data no passado, NUNCA horário aleatório.
+- COMPROMISSO/algo a fazer → uma task quando houver AÇÃO CLARA (verbo acionável: mandar, pagar, resolver, enviar, responder, agendar) e DONO CLARO = o Gabriel (não outra pessoa, não o grupo). Prazo explícito NÃO é mais obrigatório — sem prazo, deixe "due" null e o sistema põe pra hoje. Sem ação clara ou sem dono claro, não é task — vira linha de contexto no bloco pessoa/projeto (people[]) ou digest.social. NÃO crie task de convite social casual ("bora sair", "vamos marcar"), de logística de encontro (horário/local de algo já combinado), ou de micro-passo de conversa em andamento ("manda o link", "me avisa quando chegar") — isso é ruído conversacional, não compromisso. title curto e acionável; tasks não carregam prosa — contexto durável vira bloco. PRAZO (due): NÃO invente horário. Se a conversa dá dia E hora explícitos → due em hora LOCAL naive, SEM 'Z' (ex: 2026-06-22T13:00:00) — NÃO converta pra UTC, o código faz isso. Se dá só o dia → due como SÓ DATA (ex: 2026-06-22), sem hora — o sistema põe no fim daquele dia. NUNCA data no passado, NUNCA horário aleatório.
+- CONFIANÇA (obrigatório em toda task): campo "confidence" = "alta" ou "ambigua".
+  - "alta" → o sistema CRIA a task sozinho. Use quando a ação é clara E o dono é o Gabriel. Na dúvida razoável entre alta e ambígua, escolha ALTA — o custo de uma task a mais é baixo, o de perder um compromisso é alto.
+  - "ambigua" → NÃO cria; o sistema pergunta ao Gabriel no WhatsApp antes. Reserve para quando falta a INTENÇÃO dele: alguém pediu/cobrou algo e ele não respondeu nem assumiu, o email sugere uma ação mas ninguém a atribuiu a ele, ou é um "talvez" sem dono.
+  - Email de robô/marketing/newsletter/notificação automática não vira task nem proposta — descarta.
+  - "origem" (obrigatório): de onde veio, curto — nome do chat ou "email <conta>: <remetente/assunto>". É o que o Gabriel vê ao ser perguntado.
 - URGENTE: alguém esperando ele agora, decisão/deadline batendo → urgent (ele recebe no Telegram).
 - Conversa fiada, piada, combinado vago, fofoca, novidade qualquer → descarta.
 - SINAL: só vira bloco ou task se tiver conteúdo acionável ou memorável de verdade. "Bom dia", reação, emoji solto, "tudo bem?", combinado que já era óbvio → sem sinal, descarta (não é bloco nem task).
@@ -224,8 +233,10 @@ Como decidir:
 - Não duplique em digest.social/people algo que já virou task ou já existe no CONTEXTO.
 - Não invente nada fora das propostas. Dúvida = não guarda.
 - CICLO DE VIDA DE TASKS EXISTENTES — só com evidência EXPLÍCITA na conversa (dúvida = não mexe):
-  - Se o contexto/resumo mostra que uma task ATIVA já foi FEITA → task_updates com action "complete" e o id EXATO dela.
+  - Se uma task ATIVA já foi FEITA → action "complete" com o id EXATO. BARRA DE EVIDÊNCIA: só marque complete com prova explícita de conclusão na conversa ("já resolvi", "paguei", "mandei", comprovante/print enviado, a outra pessoa confirmando o recebimento). Suspeita, silêncio, "vou fazer", ou o assunto ter só saído de pauta NÃO bastam — nesse caso não mexe.
+  - Se uma task ATIVA mudou de prazo ou de escopo/título (foi remarcada, adiada, renomeada) → action "update" com o id EXATO e os campos "title" e/ou "due" (pelo menos um). PREFIRA "update" de uma task existente a criar uma task nova parecida: se o compromisso é o mesmo e só mudou a data ou a redação, é update, não task nova.
   - Se uma task ATIVA foi claramente CANCELADA, virou obsoleta, ou é DUPLICATA de outra → action "delete" com o id EXATO.
+  - As tasks CONCLUÍDAS recentes aparecem na lista de contexto só para você saber o que já foi feito — NÃO as recrie como task nova e NÃO as reabra.
   - Use SOMENTE ids que aparecem na lista de TASKS EXISTENTES. NUNCA invente id. NUNCA reabra uma task concluída. No máximo poucas mutações por ciclo — só as inequívocas.
   - "reason" curta em português citando a evidência da conversa.
 
@@ -240,7 +251,8 @@ Para cada bloco:
   2) envolve cada pessoa/projeto/conceito saliente em [[wikilinks]]. Linke para títulos REAIS do contexto quando existirem; nunca invente um título de MOC fora da lista.
 
 Retorne JSON estrito (sem markdown, sem prefácio, sem ```):
-{{"blocks": [{{"title": "...", "body": "Parte de [[MOC — X]]\\n...com [[wikilinks]]...", "type": "fleeting", "layer": "review"}}], "tasks": [{{"title": "...", "due": "2026-06-22"}}], "urgent": [{{"text": "...", "chat": "..."}}], "people": [{{"target_block": "Antônio Gili ou null", "person": "Antônio", "note": "...", "moc": "MOC — Pessoal"}}], "digest": {{"social": ["jantar sexta com [[Bernardo Biglia]]"]}}, "task_updates": [{{"id": "ABC-123...", "action": "complete", "reason": "Antonio confirmou que o QR PIX já está no ar"}}]}}
+{{"blocks": [{{"title": "...", "body": "Parte de [[MOC — X]]\\n...com [[wikilinks]]...", "type": "fleeting", "layer": "review"}}], "tasks": [{{"title": "...", "due": "2026-06-22 ou null", "confidence": "alta", "origem": "Antônio Gili"}}], "urgent": [{{"text": "...", "chat": "..."}}], "people": [{{"target_block": "Antônio Gili ou null", "person": "Antônio", "note": "...", "moc": "MOC — Pessoal"}}], "digest": {{"social": ["jantar sexta com [[Bernardo Biglia]]"]}}, "task_updates": [{{"id": "ABC-123...", "action": "complete", "reason": "Antonio confirmou que o QR PIX já está no ar"}}, {{"id": "DEF-456...", "action": "update", "due": "2026-06-25", "title": "opcional — novo título", "reason": "Marcos adiou a entrega pra quinta"}}]}}
+action só pode ser "complete", "delete" ou "update". Em "update", mande "title" e/ou "due" (pelo menos um); "due" segue o MESMO formato das tasks novas (só data YYYY-MM-DD, ou hora local naive YYYY-MM-DDTHH:MM:SS sem 'Z').
 
 Se nada vale: retorne as listas vazias."""
 
@@ -278,121 +290,87 @@ def log(msg: str) -> None:
     print(f"[context-scraping] {msg}", file=sys.stderr, flush=True)
 
 
-KEYCHAIN_SERVICE = "Claude Code-credentials"
-OAUTH_CLIENT_ID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
-OAUTH_TOKEN_ENDPOINTS = (
-    "https://platform.claude.com/v1/oauth/token",
-    "https://console.anthropic.com/v1/oauth/token",
-)
 TOKEN_EXPIRY_BUFFER_MS = 60_000
+_auth_error_calls = 0
 
 
-def _keychain_read() -> dict | None:
-    try:
-        out = subprocess.run(
-            ["security", "find-generic-password", "-s", KEYCHAIN_SERVICE, "-w"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-    except Exception as e:
-        log(f"keychain lookup failed: {e}")
-        return None
-    if out.returncode != 0:
-        return None
-    try:
-        full = json.loads(out.stdout.strip())
-    except Exception as e:
-        log(f"keychain payload unparseable: {e}")
-        return None
-    return full if isinstance(full.get("claudeAiOauth"), dict) else None
-
-
-def _keychain_write(full: dict) -> bool:
-    try:
-        blob = json.dumps(full)
-        json.loads(blob)
-        w = subprocess.run(
-            ["security", "add-generic-password", "-U", "-s", KEYCHAIN_SERVICE,
-             "-a", getpass.getuser(), "-w", blob],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        if w.returncode != 0:
-            log(f"keychain write failed rc={w.returncode}: {w.stderr.strip()[:120]}")
-            return False
-        return True
-    except Exception as e:
-        log(f"keychain write error: {e}")
-        return False
-
-
-def _refresh_oauth(refresh_token: str) -> dict | None:
-    body = urllib.parse.urlencode(
-        {"grant_type": "refresh_token", "refresh_token": refresh_token, "client_id": OAUTH_CLIENT_ID}
-    ).encode()
-    headers = {"Content-Type": "application/x-www-form-urlencoded", "User-Agent": CLAUDE_CODE_USER_AGENT}
-    for url in OAUTH_TOKEN_ENDPOINTS:
-        try:
-            req = urllib.request.Request(url, data=body, headers=headers, method="POST")
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                data = json.loads(resp.read().decode())
-            if data.get("access_token"):
-                return data
-            log(f"refresh at {url}: response had no access_token")
-        except Exception as e:
-            log(f"refresh at {url} failed: {type(e).__name__}: {str(e)[:120]}")
-    return None
-
-
-def _keychain_oauth_token() -> str | None:
-    full = _keychain_read()
-    if full is None:
-        return None
-    oauth = full["claudeAiOauth"]
-    access = oauth.get("accessToken")
-    exp_ms = oauth.get("expiresAt")
-    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
-    if access and (not exp_ms or now_ms < exp_ms - TOKEN_EXPIRY_BUFFER_MS):
-        return access
-    refresh = oauth.get("refreshToken")
-    if not refresh:
-        return access
-    log("keychain Claude Max OAuth token expired — refreshing via refresh_token")
-    refreshed = _refresh_oauth(refresh)
-    if not refreshed:
-        return access
-    oauth["accessToken"] = refreshed["access_token"]
-    oauth["refreshToken"] = refreshed.get("refresh_token", refresh)
-    oauth["expiresAt"] = now_ms + int(refreshed.get("expires_in", 3600)) * 1000
-    if _keychain_write(full):
-        log("keychain token refreshed and persisted")
-    return oauth["accessToken"]
-
-
-def _authjson_oauth_token() -> str | None:
+def load_oauth_token() -> str | None:
     if not AUTH_PATH.exists():
+        log(f"auth do pi ausente: {AUTH_PATH}")
         return None
     try:
         data = json.loads(AUTH_PATH.read_text(encoding="utf-8"))
     except Exception as e:
-        log(f"auth.json unreadable: {e}")
+        log(f"auth do pi ilegivel ({AUTH_PATH}): {e}")
         return None
-    pool = (data.get("credential_pool") or {}).get("anthropic") or []
-    entries = [e for e in pool if isinstance(e, dict) and e.get("access_token")]
-    if not entries:
+    entry = data.get("anthropic") if isinstance(data, dict) else None
+    if not isinstance(entry, dict):
+        log(f"auth do pi sem bloco anthropic: {AUTH_PATH}")
         return None
-    entries.sort(key=lambda e: (e.get("priority", 999), -(e.get("expires_at_ms") or 0)))
-    chosen = entries[0]
-    exp_ms = chosen.get("expires_at_ms")
-    if exp_ms and exp_ms / 1000.0 < datetime.now(timezone.utc).timestamp() + 60:
-        log(f"primary anthropic OAuth token expired (id={chosen.get('id')})")
-    return chosen.get("access_token")
+    access = entry.get("access") or entry.get("access_token")
+    if not access:
+        log(f"auth do pi sem access token: {AUTH_PATH}")
+        return None
+    exp_ms = entry.get("expires") or entry.get("expires_at_ms")
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    if exp_ms and now_ms >= int(exp_ms) - TOKEN_EXPIRY_BUFFER_MS:
+        log(f"auth do pi expirada ({AUTH_PATH}) — o pi é dono do refresh, curator não renova")
+        return None
+    return access
 
 
-def load_oauth_token() -> str | None:
-    return _keychain_oauth_token() or _authjson_oauth_token()
+PI_BIN = os.environ.get("HERMES_PI_BIN", "/usr/bin/prime-agent")
+PI_DECIDE_TIMEOUT_S = float(os.environ.get("HERMES_PI_TIMEOUT_S", "900"))
+
+
+class PiLaneError(RuntimeError):
+    pass
+
+
+def _pi_argv(prompt: str) -> list[str]:
+    return [
+        PI_BIN,
+        "-p",
+        "--no-session",
+        "--no-tools",
+        "--no-skills",
+        "--no-context-files",
+        "--no-extensions",
+        "--no-prompt-templates",
+        "--provider", _decide_provider(),
+        "--model", _decide_model(),
+        "--thinking", _decide_effort(),
+        "--", prompt,
+    ]
+
+
+async def _pi_complete(prompt: str, timeout_s: float) -> str:
+    argv = _pi_argv(prompt)
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *argv,
+            stdin=asyncio.subprocess.DEVNULL,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+    except Exception as e:
+        raise PiLaneError(f"nao consegui executar {PI_BIN}: {type(e).__name__}: {e}") from e
+    try:
+        out, err = await asyncio.wait_for(proc.communicate(), timeout=timeout_s)
+    except asyncio.TimeoutError:
+        try:
+            proc.kill()
+        except Exception:
+            pass
+        await proc.wait()
+        raise PiLaneError(f"pi excedeu {timeout_s}s na lane DECIDE")
+    if proc.returncode != 0:
+        tail = (err or b"").decode(errors="replace").strip()[-400:]
+        raise PiLaneError(f"pi saiu rc={proc.returncode}: {tail}")
+    text = (out or b"").decode(errors="replace").strip()
+    if not text:
+        raise PiLaneError("pi devolveu saida vazia na lane DECIDE")
+    return text
 
 
 def _read_env_value(key: str) -> str | None:
@@ -437,23 +415,60 @@ def save_state(state: dict) -> None:
         log(f"state save failed: {e}")
 
 
-def _advance_watermark(state: dict, records: list[dict]) -> None:
+def _advance_watermark_keyed(state: dict, records: list[dict], ts_key: str, ids_key: str) -> None:
     ts_values = [r.get("ts") for r in records if r.get("ts")]
     if not ts_values:
         return
     new_ts = max(ts_values)
-    last_ts = state.get("last_processed_ts") or ""
+    last_ts = state.get(ts_key) or ""
     if new_ts > last_ts:
-        state["last_processed_ts"] = new_ts
-        state["boundary_msg_ids"] = [r.get("msg_id") for r in records if r.get("ts") == new_ts and r.get("msg_id")]
+        state[ts_key] = new_ts
+        state[ids_key] = [r.get("msg_id") for r in records if r.get("ts") == new_ts and r.get("msg_id")]
         state["last_run_at"] = _now_z()
         save_state(state)
     elif new_ts == last_ts:
-        existing = list(state.get("boundary_msg_ids") or [])
+        existing = list(state.get(ids_key) or [])
         new_ids = [r.get("msg_id") for r in records if r.get("ts") == new_ts and r.get("msg_id")]
-        state["boundary_msg_ids"] = existing + [i for i in new_ids if i not in existing]
+        state[ids_key] = existing + [i for i in new_ids if i not in existing]
         state["last_run_at"] = _now_z()
         save_state(state)
+
+
+def _advance_watermark(state: dict, records: list[dict]) -> None:
+    _advance_watermark_keyed(state, records, "last_processed_ts", "boundary_msg_ids")
+
+
+def _email_uid(msg_id) -> int | None:
+    raw = _as_text(msg_id)
+    head = raw.split("@", 1)[0].strip()
+    try:
+        return int(head)
+    except Exception:
+        return None
+
+
+def _email_uids(state: dict) -> dict:
+    uids = state.get("email_uids")
+    return uids if isinstance(uids, dict) else {}
+
+
+def _advance_email_watermark(state: dict, records: list[dict]) -> None:
+    uids = dict(_email_uids(state))
+    changed = False
+    for r in records:
+        uid = _email_uid(r.get("msg_id"))
+        if uid is None:
+            continue
+        acct = r.get("account") or "?"
+        cur = uids.get(acct)
+        if not isinstance(cur, int) or uid > cur:
+            uids[acct] = uid
+            changed = True
+    if not changed:
+        return
+    state["email_uids"] = uids
+    state["last_run_at"] = _now_z()
+    save_state(state)
 
 
 def read_window(watermark: str | None, boundary_msg_ids: list[str] | None = None) -> list[dict]:
@@ -467,6 +482,13 @@ def read_window(watermark: str | None, boundary_msg_ids: list[str] | None = None
             wm_dt = None
     boundary_ids = set(boundary_msg_ids or [])
     fallback_cutoff = datetime.now(timezone.utc) - timedelta(hours=WINDOW_HOURS)
+    end_dt = None
+    end_raw = os.environ.get("HERMES_WA_WINDOW_END")
+    if end_raw:
+        try:
+            end_dt = datetime.fromisoformat(end_raw.replace("Z", "+00:00"))
+        except Exception:
+            end_dt = None
     out: list[dict] = []
     dropped_empty = 0
     dropped_oneway = 0
@@ -480,6 +502,8 @@ def read_window(watermark: str | None, boundary_msg_ids: list[str] | None = None
                 ts_raw = rec.get("ts", "")
                 ts = datetime.fromisoformat(ts_raw.replace("Z", "+00:00"))
             except Exception:
+                continue
+            if end_dt is not None and ts > end_dt:
                 continue
             if wm_dt is not None:
                 if ts < wm_dt:
@@ -500,6 +524,86 @@ def read_window(watermark: str | None, boundary_msg_ids: list[str] | None = None
     return out
 
 
+def read_email_window(uids: dict | None = None) -> list[dict]:
+    if not EMAIL_JSONL_PATH.exists():
+        return []
+    seen_uids = uids if isinstance(uids, dict) else {}
+    fallback_cutoff = datetime.now(timezone.utc) - timedelta(hours=EMAIL_WINDOW_HOURS)
+    dropped_noid = 0
+    out: list[dict] = []
+    try:
+        with EMAIL_JSONL_PATH.open("r", encoding="utf-8", errors="replace") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except Exception:
+                    continue
+                acct = rec.get("account") or "?"
+                uid = _email_uid(rec.get("msg_id"))
+                if uid is None:
+                    dropped_noid += 1
+                    continue
+                last_uid = seen_uids.get(acct)
+                if isinstance(last_uid, int):
+                    if uid <= last_uid:
+                        continue
+                else:
+                    try:
+                        ts = datetime.fromisoformat((rec.get("ts") or "").replace("Z", "+00:00"))
+                    except Exception:
+                        ts = None
+                    if ts is not None and ts < fallback_cutoff:
+                        continue
+                subject = (rec.get("subject") or "").strip()
+                body = (rec.get("text") or "").strip()
+                if not subject and not body:
+                    continue
+                out.append({
+                    "ts": rec.get("ts"),
+                    "msg_id": rec.get("msg_id"),
+                    "chat": f"email:{rec.get('account') or '?'}",
+                    "account": rec.get("account") or "?",
+                    "sender": rec.get("sender") or "?",
+                    "push_name": rec.get("sender") or "?",
+                    "from_me": False,
+                    "is_group": False,
+                    "type": "email",
+                    "source": "email",
+                    "text": f"assunto: {subject} | {body[:EMAIL_TEXT_CAP]}",
+                })
+    except Exception as e:
+        log(f"email window read failed: {e}")
+        return []
+    if dropped_noid:
+        log(f"email dropped: sem uid no msg_id={dropped_noid}")
+    return out
+
+
+def bucket_by_account(records: list[dict]) -> list[dict]:
+    by_account: dict[str, dict] = {}
+    for r in records:
+        acct = r.get("account") or "?"
+        bucket = by_account.get(acct)
+        if bucket is None:
+            bucket = {
+                "chat_id": f"email:{acct}",
+                "is_group": False,
+                "source": "email",
+                "label": f"Email — {acct}",
+                "messages": [],
+            }
+            by_account[acct] = bucket
+        bucket["messages"].append(r)
+    out: list[dict] = []
+    for bucket in by_account.values():
+        bucket["messages"].sort(key=lambda r: r.get("ts", ""))
+        out.append(bucket)
+    return out
+
+
 def bucket_by_chat(records: list[dict]) -> list[dict]:
     by_chat: dict[str, dict] = {}
     for r in records:
@@ -511,6 +615,7 @@ def bucket_by_chat(records: list[dict]) -> list[dict]:
             bucket = {
                 "chat_id": chat,
                 "is_group": bool(r.get("is_group")),
+                "source": "whatsapp",
                 "messages": [],
                 "_name_counts": {},
             }
@@ -751,6 +856,9 @@ async def _call_model(
                 except Exception:
                     pass
             elif resp.status_code >= 400:
+                if resp.status_code in (401, 403):
+                    global _auth_error_calls
+                    _auth_error_calls += 1
                 last_err = f"HTTP {resp.status_code}: {resp.text[:160]} (attempt {attempt + 1})"
             else:
                 data = resp.json()
@@ -767,7 +875,14 @@ async def _call_model(
 
 
 async def classify_bucket(http: httpx.AsyncClient, headers: dict, bucket: dict) -> dict:
+    is_email = bucket.get("source") == "email"
+    source_note = (
+        "EMAIL — cada 'mensagem' é um email recebido pelo Gabriel (remetente + assunto no texto). "
+        "Ele é o destinatário, não o autor. Newsletter/marketing/notificação automática é ruído: ignore."
+        if is_email else "WhatsApp — conversa real, o Gabriel é um dos interlocutores."
+    )
     prompt = HAIKU_PROMPT_TEMPLATE.format(
+        source_note=source_note,
         label=bucket["label"],
         chat_id=bucket["chat_id"],
         is_group=bucket["is_group"],
@@ -780,6 +895,7 @@ async def classify_bucket(http: httpx.AsyncClient, headers: dict, bucket: dict) 
         "chat": bucket["label"],
         "chat_id": bucket["chat_id"],
         "is_group": bucket["is_group"],
+        "source": bucket.get("source") or "whatsapp",
         "proposals": empty_proposals,
     }
     raw = await _call_model(http, headers, HAIKU_MODEL, prompt, MAX_TOKENS_OUT, PER_CALL_TIMEOUT_S)
@@ -798,6 +914,7 @@ async def classify_bucket(http: httpx.AsyncClient, headers: dict, bucket: dict) 
     parsed.setdefault("chat", bucket["label"])
     parsed.setdefault("chat_id", bucket["chat_id"])
     parsed.setdefault("is_group", bucket["is_group"])
+    parsed["source"] = bucket.get("source") or "whatsapp"
     return parsed
 
 
@@ -960,7 +1077,8 @@ async def update_chat_summaries(http: httpx.AsyncClient, headers: dict, sem: asy
 
 async def decide(http: httpx.AsyncClient, headers: dict, kept: list[dict], brain_context: str, chat_summaries: str, tasks_context: str) -> tuple[dict, bool]:
     payload = [
-        {"chat": k.get("chat"), "is_group": k.get("is_group"), "proposals": k.get("proposals")}
+        {"chat": k.get("chat"), "source": k.get("source") or "whatsapp",
+         "is_group": k.get("is_group"), "proposals": k.get("proposals")}
         for k in kept
     ]
     prompt = DECIDE_PROMPT_TEMPLATE.format(
@@ -970,20 +1088,11 @@ async def decide(http: httpx.AsyncClient, headers: dict, kept: list[dict], brain
         tasks_context=tasks_context,
         proposals_json=json.dumps(payload, ensure_ascii=False, indent=2),
     )
-    decide_model = _decide_model()
-    raw = await _call_model(
-        http, headers, decide_model, prompt, DECIDE_MAX_TOKENS_OUT, DECIDE_TIMEOUT_S,
-        attempts=DECIDE_ATTEMPTS, effort=_decide_effort(), adaptive_thinking=True,
-    )
-    if raw is None:
-        log(f"{decide_model} decide unavailable — falling back to {HAIKU_MODEL} this run")
-        raw = await _call_model(http, headers, HAIKU_MODEL, prompt, DECIDE_MAX_TOKENS_OUT, DECIDE_TIMEOUT_S)
-    empty = {"blocks": [], "tasks": [], "urgent": [], "people": [], "digest": {}, "task_updates": []}
-    if raw is None:
-        return empty, False
+    prompt += "\n\nIMPORTANTE: responda APENAS com o JSON pedido — sem markdown, sem prefacio, sem comentario."
+    raw = await _pi_complete(prompt, PI_DECIDE_TIMEOUT_S)
     parsed = parse_json_response(raw)
     if not isinstance(parsed, dict):
-        return empty, False
+        raise PiLaneError(f"pi devolveu JSON invalido na lane DECIDE: {raw[:300]}")
     out: dict = {}
     for key in ("blocks", "tasks", "urgent"):
         v = parsed.get(key)
@@ -1282,7 +1391,70 @@ def _as_text(v) -> str:
     return str(v)
 
 
+COMPLETED_DEDUP_DAYS = 14
+
+
+def _completed_at(task: dict, fallback_modified: bool = False) -> datetime | None:
+    raw = task.get("completedAt") or ""
+    if not raw and fallback_modified:
+        raw = task.get("modifiedAt") or ""
+    try:
+        dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except Exception:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+def _recent_completed_match(title) -> str | None:
+    norm = geo_write._normalize(_as_text(title))
+    if not norm:
+        return None
+    cutoff = datetime.now(timezone.utc) - timedelta(days=COMPLETED_DEDUP_DAYS)
+    for f in sorted(TASKS_DIR.glob("*.json")):
+        if ".sync-conflict-" in f.name:
+            continue
+        try:
+            t = json.loads(f.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if t.get("status") != "completed":
+            continue
+        if geo_write._normalize(_as_text(t.get("title"))) != norm:
+            continue
+        done = _completed_at(t)
+        if done is not None and done >= cutoff:
+            return _as_text(t.get("id")).strip() or f.stem
+    return None
+
+
+def _pending_title_owner(title, skip_id: str) -> str | None:
+    norm = geo_write._normalize(_as_text(title))
+    if not norm:
+        return None
+    for f in geo_write._task_files():
+        try:
+            t = json.loads(f.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        tid = _as_text(t.get("id")).strip() or f.stem
+        if tid == skip_id:
+            continue
+        if (t.get("status") == "pending"
+                and (t.get("body") or {}).get("kind") == "task"
+                and geo_write._normalize(_as_text(t.get("title"))) == norm):
+            return tid
+    return None
+
+
 def write_task_file(title, due) -> tuple[str, bool]:
+    done_id = _recent_completed_match(title)
+    if done_id:
+        log(f"task skipped (dedup, completed <{COMPLETED_DEDUP_DAYS}d): {done_id}.json [{_as_text(title)[:40]}]")
+        return f"{done_id}.json", False
+    if not _as_text(due).strip():
+        due = _resolve_due(None)
     try:
         task = geo_write.write_task(writer=WRITER, title=_as_text(title), due=due)
         return f"{task.get('id')}.json", True
@@ -1294,6 +1466,91 @@ def write_task_file(title, due) -> tuple[str, bool]:
             log(f"task skipped (dedup, same title): {existing}.json [{_as_text(title)[:40]}]")
             return f"{existing}.json", False
         raise
+
+
+def _proposal_hash(title) -> str:
+    norm = geo_write._normalize(_as_text(title)) or _as_text(title).strip().lower()
+    return hashlib.sha1(norm.encode("utf-8")).hexdigest()[:6]
+
+
+def _load_proposals(state: dict) -> list[dict]:
+    items: list[dict] = []
+    try:
+        raw = json.loads(PROPOSALS_PATH.read_text(encoding="utf-8"))
+        if isinstance(raw, list):
+            items = [p for p in raw if isinstance(p, dict)]
+    except Exception:
+        items = []
+    legacy = state.pop("task_proposals", None)
+    if isinstance(legacy, dict) and legacy:
+        known = {p.get("hash") for p in items}
+        for h, v in legacy.items():
+            if h in known or not isinstance(v, dict):
+                continue
+            items.append({
+                "hash": h,
+                "title": v.get("title", ""),
+                "origin": v.get("origem", ""),
+                "due": v.get("due", ""),
+                "ts": v.get("at", ""),
+                "status": "pending",
+            })
+        _save_proposals(items)
+        save_state(state)
+        log(f"proposals migrated from state: {len(legacy)}")
+    return items
+
+
+def _save_proposals(items: list[dict]) -> None:
+    try:
+        _atomic_write(PROPOSALS_PATH, json.dumps(items, ensure_ascii=False, indent=2) + "\n")
+    except Exception as e:
+        log(f"proposals save failed: {e}")
+
+
+def _prune_proposals(state: dict) -> list[dict]:
+    items = _load_proposals(state)
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=PROPOSAL_TTL_DAYS)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    kept = [p for p in items if (p.get("ts") or "") >= cutoff]
+    if len(kept) != len(items):
+        _save_proposals(kept)
+    return kept
+
+
+def propose_task(title, origem: str, state: dict, due: str = "") -> str | None:
+    title = _as_text(title).strip()
+    if not title:
+        return None
+    props = _prune_proposals(state)
+    h = _proposal_hash(title)
+    if any(p.get("hash") == h for p in props):
+        log(f"proposal skipped (já proposta <{PROPOSAL_TTL_DAYS}d): {h} [{title[:40]}]")
+        return None
+    owner = _pending_title_owner(title, skip_id="")
+    if owner:
+        log(f"proposal skipped (task pendente {owner} com mesmo título): [{title[:40]}]")
+        return None
+    if _recent_completed_match(title):
+        log(f"proposal skipped (concluída recente): [{title[:40]}]")
+        return None
+    msg = f'🤔 detectei possível tarefa: "{title}" (de {origem or "?"}). Crio? responda: sim {h}'
+    try:
+        OUTBOX_DIR.mkdir(parents=True, exist_ok=True)
+        _atomic_write(OUTBOX_DIR / f"task-proposal-{h}.txt", msg + "\n")
+    except Exception as e:
+        log(f"proposal write failed [{title[:40]}]: {e}")
+        return None
+    props.append({
+        "hash": h,
+        "title": title,
+        "origin": origem,
+        "due": due,
+        "ts": _now_z(),
+        "status": "pending",
+    })
+    _save_proposals(props)
+    log(f"proposal: task-proposal-{h}.txt [{title[:40]}]")
+    return h
 
 
 def _recent_tasks_context(completed_days: int = 14) -> str:
@@ -1312,11 +1569,8 @@ def _recent_tasks_context(completed_days: int = 14) -> str:
         if not tid:
             continue
         if t.get("status") == "completed":
-            try:
-                mod = datetime.fromisoformat((t.get("modifiedAt") or "").replace("Z", "+00:00"))
-            except Exception:
-                mod = None
-            if mod is not None and mod >= cutoff:
+            at = _completed_at(t, fallback_modified=True)
+            if at is not None and at >= cutoff:
                 done.append(f"[{tid}] {title}")
         else:
             due = (t.get("body") or {}).get("due") or ""
@@ -1343,6 +1597,19 @@ def _label_unusable(label: str) -> bool:
     if _JID_SHAPE_RE.search(label):
         return True
     return False
+
+
+MATERIALIZE_TZ = ZoneInfo("America/Sao_Paulo")
+
+
+def _materialize_if_due(store: dict, state: dict) -> None:
+    today = datetime.now(MATERIALIZE_TZ).strftime("%Y-%m-%d")
+    if state.get("last_materialized_on") == today:
+        log(f"materialize skipped — already ran on {today}")
+        return
+    materialize_chat_summaries(store)
+    state["last_materialized_on"] = today
+    save_state(state)
 
 
 def materialize_chat_summaries(store: dict) -> int:
@@ -1412,7 +1679,7 @@ def apply_task_updates(updates: list[dict], dry: bool) -> list[dict]:
         tid = _as_text(u.get("id")).strip()
         action = _as_text(u.get("action")).strip().lower()
         reason = _as_text(u.get("reason")).strip()
-        if not tid or action not in ("complete", "delete"):
+        if not tid or action not in ("complete", "delete", "update"):
             log(f"task_update skipped (bad id/action): {u}")
             continue
         if not re.fullmatch(r"[0-9A-Fa-f-]{36}", tid):
@@ -1434,9 +1701,58 @@ def apply_task_updates(updates: list[dict], dry: bool) -> list[dict]:
                 continue
             task["status"] = "completed"
             task["modifiedAt"] = _now_z()
+            task["completedAt"] = task["modifiedAt"]
             if not dry:
                 _atomic_write(path, json.dumps(task, ensure_ascii=False))
             log(f"{'[dry] ' if dry else ''}task complete {tid}: {reason}")
+        elif action == "update":
+            if status == "completed":
+                log(f"task_update update skipped — already completed: {tid}")
+                continue
+            new_title = _as_text(u.get("title")).strip()
+            new_due = None
+            due_raw = u.get("due")
+            if isinstance(due_raw, str) and due_raw.strip():
+                new_due = geo_write._normalize_anchor(due_raw.strip(), geo_write._LOCAL_TZ)
+                if not new_due:
+                    log(f"task_update update skipped (malformed due) {tid}: {due_raw!r}")
+                    continue
+                try:
+                    due_dt = datetime.fromisoformat(new_due.replace("Z", "+00:00"))
+                except Exception:
+                    due_dt = None
+                now_local = datetime.now(_local_tz())
+                if due_dt is not None and due_dt < now_local:
+                    eod = _end_of_day_local(now_local.year, now_local.month, now_local.day)
+                    if eod < now_local:
+                        eod = eod + timedelta(days=1)
+                    clamped = eod.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+                    log(f"task_update update due no passado, clampado {tid}: {new_due} → {clamped}")
+                    new_due = clamped
+            if not new_title and not new_due:
+                log(f"task_update update skipped (no title/due): {tid}")
+                continue
+            body = task.get("body")
+            if new_due and (not isinstance(body, dict) or body.get("kind") != "task"):
+                log(f"task_update update skipped (not a task kind) {tid}")
+                continue
+            if new_title:
+                dup = _pending_title_owner(new_title, tid)
+                if dup:
+                    log(f"task_update update skipped (title já pendente em {dup}): {tid}")
+                    continue
+                task["title"] = new_title
+            if new_due:
+                body["due"] = new_due
+                reminders = [r for r in (task.get("reminders") or []) if isinstance(r, dict)]
+                if any((r.get("trigger") or {}).get("kind") == "absolute" for r in reminders):
+                    task["reminders"] = tasks_fs._default_reminders(body)
+                else:
+                    task["reminders"] = [{**r, "fired": False} for r in reminders]
+            task["modifiedAt"] = _now_z()
+            if not dry:
+                _atomic_write(path, json.dumps(task, ensure_ascii=False))
+            log(f"{'[dry] ' if dry else ''}task update {tid} (title={new_title or '—'} due={new_due or '—'}): {reason}")
         else:
             if not dry:
                 TASK_ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
@@ -1515,14 +1831,14 @@ def expire_stale_tasks(dry: bool, now: datetime | None = None) -> list[dict]:
     return expired
 
 
-async def persist(decided: dict) -> dict:
+async def persist(decided: dict, state: dict | None = None) -> dict:
     blocks = decided.get("blocks") or []
     tasks = decided.get("tasks") or []
     urgent = decided.get("urgent") or []
     date_iso = datetime.now().strftime("%Y-%m-%d")
     stats = {"blocks_created": 0, "blocks_appended": 0, "blocks_capped": 0,
              "dedup_skips": 0, "tasks_created": 0, "tasks_capped": 0,
-             "urgent": 0, "task_mutations": 0}
+             "tasks_proposed": 0, "urgent": 0, "task_mutations": 0}
     descartes_lines: list[str] = []
 
     for b in blocks:
@@ -1565,6 +1881,17 @@ async def persist(decided: dict) -> dict:
         if not title:
             continue
         due = t.get("due")
+        if _as_text(t.get("confidence")).strip().lower().startswith("ambig"):
+            if state is None:
+                log(f"task ambígua sem state — descartada: {title[:60]!r}")
+                continue
+            if stats["tasks_proposed"] >= MAX_PROPOSALS_PER_RUN:
+                descartes_lines.append(f"proposta não enviada (cap): {title}")
+                log(f"proposal capped (>{MAX_PROPOSALS_PER_RUN}/run): {title[:60]!r}")
+                continue
+            if propose_task(title, _as_text(t.get("origem")).strip(), state, due=_as_text(due).strip()):
+                stats["tasks_proposed"] += 1
+            continue
         if stats["tasks_created"] >= MAX_TASKS_PER_RUN:
             descartes_lines.append(f"task não criada (cap): {title} (due {_as_text(due) or '—'})")
             stats["tasks_capped"] += 1
@@ -1574,6 +1901,8 @@ async def persist(decided: dict) -> dict:
             rid, created = write_task_file(title, due)
             if created:
                 stats["tasks_created"] += 1
+            else:
+                stats["dedup_skips"] += 1
             log(f"task: {rid} [{title[:40]}]{'' if created else ' (dedup skip)'}")
         except Exception as e:
             log(f"task write failed [{title[:40]}]: {e}")
@@ -1623,19 +1952,25 @@ async def run_whatsapp() -> int:
     dry = "--dry-run" in sys.argv
     token = load_oauth_token()
     if not token:
-        log("no anthropic OAuth token (Keychain/auth.json) — aborting")
+        log(f"nenhuma credencial anthropic utilizável — semear {AUTH_PATH.name}")
         return 1
 
     state = load_state()
     store = load_chats()
     watermark = state.get("last_processed_ts")
     records = read_window(watermark, state.get("boundary_msg_ids"))
-    buckets = bucket_by_chat(records)
-    log(f"window={WINDOW_HOURS}h watermark={watermark or 'none'} records={len(records)} buckets={len(buckets)} dry_run={dry}")
+    email_uids = _email_uids(state)
+    email_records = read_email_window(email_uids)
+    buckets = bucket_by_chat(records) + bucket_by_account(email_records)
+    log(f"window={WINDOW_HOURS}h watermark={watermark or 'none'} records={len(records)} "
+        f"email_window={EMAIL_WINDOW_HOURS}h email_uids={email_uids or 'none'} "
+        f"email_records={len(email_records)} buckets={len(buckets)} dry_run={dry}")
     if not buckets:
         print("[context-scraping] no messages in window")
         if records and not dry:
             _advance_watermark(state, records)
+        if email_records and not dry:
+            _advance_email_watermark(state, email_records)
         return 0
 
     headers = _headers_oauth(token)
@@ -1653,15 +1988,22 @@ async def run_whatsapp() -> int:
         errored = [r for r in results if r.get("error")]
         log(f"classify: with_proposals={len(keep)} errored={len(errored)}")
         advance_ok = not errored
-        ctx, summary_ok = await update_chat_summaries(http, headers, sem, buckets, store)
+        chat_buckets = [b for b in buckets if b.get("source") != "email"]
+        ctx, summary_ok = await update_chat_summaries(http, headers, sem, chat_buckets, store)
         advance_ok = advance_ok and summary_ok
         if not keep:
+            if results and len(errored) == len(results):
+                if _auth_error_calls:
+                    log(f"todas as chamadas falharam com auth (401/403) — semear {AUTH_PATH.name}")
+                log(f"all {len(results)} buckets errored — no classification happened")
+                return 1
             print("[context-scraping] classifier surfaced nothing")
             if advance_ok and not dry:
                 _advance_watermark(state, records)
+                _advance_email_watermark(state, email_records)
                 save_chats(store)
             if not dry:
-                materialize_chat_summaries(store)
+                _materialize_if_due(store, state)
             return 0
 
         brain_context = render_brain_context()
@@ -1669,7 +2011,9 @@ async def run_whatsapp() -> int:
         decided, decide_ok = await decide(http, headers, keep, brain_context, ctx, tasks_context)
     log(
         f"decided: blocks={len(decided.get('blocks', []))} "
-        f"tasks={len(decided.get('tasks', []))} urgent={len(decided.get('urgent', []))} "
+        f"tasks={len(decided.get('tasks', []))} "
+        f"tasks_ambiguas={sum(1 for t in decided.get('tasks', []) if isinstance(t, dict) and _as_text(t.get('confidence')).strip().lower().startswith('ambig'))} "
+        f"urgent={len(decided.get('urgent', []))} "
         f"task_updates={len(decided.get('task_updates', []))} "
         f"calls={_usage_totals['calls']} in={_usage_totals['input_tokens']} out={_usage_totals['output_tokens']}"
     )
@@ -1680,25 +2024,39 @@ async def run_whatsapp() -> int:
         print(json.dumps(decided, ensure_ascii=False, indent=2))
         return 0
 
-    stats = await persist(decided)
+    stats = await persist(decided, state)
     ne = len(expire_stale_tasks(dry=False))
     if advance_ok and decide_ok:
         _advance_watermark(state, records)
+        _advance_email_watermark(state, email_records)
         save_chats(store)
     else:
         log("watermark/chats not advanced (classify/summary/decide error) — overlapping retry next cycle")
-    materialize_chat_summaries(store)
+    _materialize_if_due(store, state)
     print(
         f"[context-scraping] persisted blocks_created={stats['blocks_created']} "
         f"blocks_appended={stats['blocks_appended']} blocks_capped={stats['blocks_capped']} "
         f"dedup_skips={stats['dedup_skips']} tasks_created={stats['tasks_created']} "
+        f"tasks_proposed={stats['tasks_proposed']} "
         f"tasks_capped={stats['tasks_capped']} urgent_dm={stats['urgent']} "
         f"task_mutations={stats['task_mutations']} expired={ne}"
     )
     return 0
 
 
+def _require_mount() -> bool:
+    try:
+        r = subprocess.run(["mountpoint", "-q", str(GARIME_MOUNT)], timeout=10)
+        return r.returncode == 0
+    except Exception as e:
+        log(f"mountpoint check failed: {e}")
+        return False
+
+
 async def main(source: str = "whatsapp") -> int:
+    if not _require_mount():
+        log(f"{GARIME_MOUNT} not mounted — aborting")
+        return 1
     if source == "whatsapp":
         return await run_whatsapp()
     log(f"unknown source: {source}")

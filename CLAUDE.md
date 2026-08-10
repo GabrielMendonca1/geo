@@ -35,7 +35,7 @@ This file is the source of truth for architecture and rules. Deep dives: mobile�
 | `GeoCore/` | Swift package shared with the iOS app |
 | `GarimeCapture/` | Daemon local: screenshot dir watch + Vision OCR → texto no clipboard, imagem no archive local de 30 dias. Sem rede, sem markdown (tests: `GarimeCapture/tests/run.sh`) |
 | `GarimeWhisper/` | Menu-bar dictation app (hotkey → local whisper → paste). Build/install/smoke scripts in-tree; `build/` is not versioned |
-| `tests/` | `geo_time_contract.py` — time/tz contract for `context_scraping._resolve_due` (run: `python3 tests/geo_time_contract.py`) |
+| `tests/` | `geo_time_contract.py` — time/tz contract for `context_scraping._resolve_due`; `pi_lane_contract.py` — DECIDE lane contract (argv hermético/stateless, portão, timeout/rc/JSON, watermark). Run: `python3 tests/<name>.py` |
 
 ## iOS app build (device)
 

@@ -57,6 +57,7 @@ def _load_extractor(base: Path):
         stub = Path(tmp)
         (stub / "__init__.py").write_text("")
         (stub / "geo_write.py").write_text("class _GeoError(Exception):\n    pass\n")
+        (stub / "tasks_fs.py").write_text("def _default_reminders(body):\n    return []\n")
         real_spec_from_file = importlib.util.spec_from_file_location
 
         def _redirecting(name, location=None, *args, **kwargs):

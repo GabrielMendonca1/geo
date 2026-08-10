@@ -22,14 +22,17 @@ Cada execução do serviço roda um pipeline de dois estágios com um portão en
    `update_chat_summaries` atualiza o resumo de cada chat ativo.
 2. **Portão** — `keep = [r for r in results if has_proposals(r)]`.
    Se `keep` estiver vazio, o run imprime `classifier surfaced nothing`, avança watermark e **retorna sem nunca instanciar o estágio 2**.
-3. **Decisão cara — Opus, via `prime-agent`**
+3. **Decisão cara — `prime-agent` sem estado**
    Uma única chamada, recebendo todos os buckets aprovados + `brain_context` + `chat_summaries` + `tasks_context`.
+   Desde 10/08 a lane é hermética: `-p --no-session --no-tools --no-skills --no-context-files --no-extensions --no-prompt-templates --provider openai-codex --model gpt-5.6-sol --thinking high -- <prompt>`. O prompt é a única entrada.
+
+O portão e a hermeticidade da lane são travados por `tests/pi_lane_contract.py` (`python3 tests/pi_lane_contract.py`).
 
 O portão não é teórico: nos 12 runs entre 07/08 e 10/08, **3 imprimiram `classifier surfaced nothing`** e nunca chegaram ao estágio 2.
 
 ## Custo: o que o log mede e o que ele não mede
 
-**O `decide` não passa pela API HTTP.** `decide()` recebe um `httpx.AsyncClient`, mas não o usa para o modelo: resolve por `_pi_complete`, que faz `subprocess` do `prime-agent` com `-c` (sessão continuada).
+**O `decide` não passa pela API HTTP.** `decide()` recebe um `httpx.AsyncClient`, mas não o usa para o modelo: resolve por `_pi_complete`, que faz `subprocess` do `prime-agent` — hoje com `--no-session`, sem sessão continuada.
 
 `_usage_totals` só é incrementado dentro do helper httpx. Logo, o `calls=/in=/out=` que cada run imprime conta **apenas classify + summary (Haiku)** — a chamada cara do `decide` é invisível ali.
 
@@ -40,7 +43,9 @@ Consequência prática — essa métrica não é inútil, mas precisa ser chamad
 - O que o log mede é **exatamente a parte que dobra com a cadência**: o custo fixo por run em Haiku, sobretudo `update_chat_summaries`, que roda **antes** do portão, incondicionalmente. Como métrica de "o que a cadência me custou a mais", ele serve.
 - O que o log **não** mede é o Opus. Para 4 → 8 slots, o volume de proposals/dia é ~constante e o portão continua barrando runs vazios; o custo extra do decide é o contexto fixo re-pago pelas chamadas adicionais que passem no portão.
 
-**O driver de custo dominante não é a cadência — é a sessão continuada.** O `-c` aponta para um único arquivo que só cresce: hoje `/mnt/garime/pi/prime-sessions/curator/019fdd88-….jsonl` está em **138 KB / 34 linhas**, acumulado desde a criação. Cada `decide` re-envia esse transcript inteiro. O input por chamada cresce monotonicamente com o histórico, não com o número de slots — e dobrar a cadência dobra a taxa com que ele engorda.
+**O driver de custo dominante era a sessão continuada — resolvido em 10/08.** O `-c` apontava para um único arquivo que só crescia: `/mnt/garime/pi/prime-sessions/curator/019fdd88-….jsonl` chegou a **138 KB / 34 linhas**, acumulado desde a criação, e cada `decide` re-enviava esse transcript inteiro. O input por chamada crescia monotonicamente com o histórico, não com o número de slots.
+
+Com `--no-session` o input por chamada volta a ser função só do prompt (que já era autocontido: injeta `brain_context` + `chat_summaries` + `tasks_context` + as propostas inteiras a cada chamada). A sessão continuada não carregava função nenhuma — só custo, latência e contaminação de decisões velhas. O `.jsonl` órfão é lixo morto: apagar é **manual**, depois do soak, nunca automático.
 
 Como medir de verdade:
 
@@ -66,24 +71,23 @@ Baseline de 7d antes × 7d depois nas **duas** medidas. Alarme se o Haiku/dia pa
 3. **O slot de 00:00 muda a bucketização do digest diário.** Mensagens de ~21h–00h passam a poder cair no `date_iso` do dia seguinte. É drift de bucket, não perda.
 4. **Pressão no OAuth.** Dobrar a cadência dobra a frequência de refresh do token do curator. Falha de auth (401/403) faz o run retornar 1 → alerta; recuperação é re-semear via `setup-token`.
 
-## Por que não há pin de modelos
+## Pin de modelo: no código, não em drop-in
 
-Uma versão anterior desta mudança trazia um drop-in `models.conf` fixando `HERMES_NANO_MODEL`, `HERMES_WA_DECIDE_MODEL` e `HERMES_WA_DECIDE_EFFORT`. **Foi removido**, e o motivo vale documentar para ninguém reintroduzir:
+Um drop-in `models.conf` fixando `HERMES_NANO_MODEL`/`HERMES_WA_DECIDE_MODEL`/`HERMES_WA_DECIDE_EFFORT` foi **rejeitado** — dois pins eram no-op e o terceiro era uma regressão silenciosa, porque `_pi_complete` só passava `--model` se a var estivesse setada. Com ela unset, quem resolvia era o `prime-agent`: **`claude-opus-4-7`** nas 10 chamadas da sessão viva.
 
-- `HERMES_NANO_MODEL` — `_nano_model()` (L96) é env-first com fallback `claude-haiku-4-5`. Pin idêntico ao fallback: **no-op**.
-- `HERMES_WA_DECIDE_EFFORT` — `_decide_effort()` (L108) já é aplicado incondicionalmente em `_pi_complete`. Pin idêntico ao fallback: **no-op**.
-- `HERMES_WA_DECIDE_MODEL` — aqui está a armadilha. `_decide_model()` (L100), que devolve `claude-opus-4-8`, é **código morto: zero call sites**. O consumidor real é `_pi_complete` L335, e ele é *condicional*:
+Em 10/08 o pin virou **decisão consciente no código**, que é a condição que a versão anterior desta seção exigia:
 
-  ```python
-  model = os.environ.get("HERMES_WA_DECIDE_MODEL")
-  if model: argv += ["--model", model]
-  ```
+| var | default | resolvido por |
+|---|---|---|
+| `HERMES_WA_DECIDE_PROVIDER` | `openai-codex` | `_decide_provider()` |
+| `HERMES_WA_DECIDE_MODEL` | `gpt-5.6-sol` | `_decide_model()` |
+| `HERMES_WA_DECIDE_EFFORT` | `high` | `_decide_effort()` |
 
-  Com a var **unset** (estado atual: `systemctl show -p Environment` lista só `HOME` + as 3 do whisper), `--model` nunca é passado e quem resolve é o `prime-agent` — que na sessão viva do curator resolveu **`claude-opus-4-7`** nas 10 chamadas registradas.
+Os três são **incondicionais** no argv — não existe mais o ramo `if model:`, então não existe mais a divergência entre "o que o env diz" e "o que o `prime-agent` resolve". `_decide_model()` deixou de ser código morto: era ele o call site que faltava. Cada var é independente; setar uma sozinha usa o default das outras.
 
-Ou seja: instalar o pin **trocaria** o modelo do decide de 4-7 para 4-8 em produção, 8×/dia, sob um comentário que dizia "não muda comportamento nenhum". Dos três pins, os dois inertes não valiam nada e o único ativo era uma regressão silenciosa. Um drop-in assim não é pin, é passivo — e era escopo alheio a uma mudança de cadência.
+Par validado contra a VM antes do pin (`prime-agent model list` lista `openai-codex gpt-5.6-sol`). **O `Environment` do service segue sem nenhuma `HERMES_WA_DECIDE_*`** — o default do código é quem manda, e é de propósito: o pin fica versionado no repo, não espalhado num drop-in.
 
-Se um pin for desejado um dia, ele tem que ser uma decisão consciente sobre **qual** modelo, validada contra o que o `prime-agent` resolve hoje — não uma cópia dos fallbacks do código.
+Continua valendo: nenhum drop-in novo entra sem estar em `UNITS`.
 
 `install.sh` agora **falha** se aparecer qualquer drop-in em `garime-curator.service.d/` que não esteja declarado em `UNITS`: todo drop-in altera o `Environment` do service, então nenhum entra por acidente.
 
@@ -106,7 +110,9 @@ O script é idempotente: compara cada arquivo com o destino via `cmp` e só faz 
 
 ### O script nunca faz deploy de código
 
-`/opt/garime-curator/context_scraping.py` **divergiu** do fonte no repo (`hermes/scripts/context_scraping.py`) em ~790 linhas — paths `/mnt/garime` em vez de `~/.hermes`, ingest de e-mail, campo `confidence` em tasks, entre outros. **Produção é a referência, não o repo.**
+`/opt/garime-curator/context_scraping.py` **divergiu** do repo por meses (paths `/mnt/garime` em vez de `~/.hermes`, ingest de e-mail, campo `confidence` em tasks). Em 10/08 o arquivo vivo foi copiado da VM para `hermes/scripts/context_scraping.py` e **o repo voltou a ser a referência** — a lane DECIDE já foi alterada só no repo, e a VM está atrás dessa mudança até alguém fazer o deploy manual.
+
+Duas dependências de runtime continuam **só na VM**, fora do git: `email_ingest.py` (produtor do `email_ingest.jsonl`; não é importado pelo script) e `plugins/geo-tools/` (`geo_write`, `tasks_fs` — importados no topo). Reconciliar essas duas é trabalho separado; enquanto isso, `hermes/` não é auto-suficiente para rodar.
 
 Por isso `install.sh` opera sobre uma allowlist explícita de unit files e aborta se qualquer arquivo fora dela (em especial `.py`) aparecer no payload. Reconciliar o script Python é um trabalho separado, feito conscientemente — nunca um efeito colateral de mexer no timer.
 
