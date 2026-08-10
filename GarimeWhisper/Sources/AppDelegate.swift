@@ -1,0 +1,406 @@
+import AppKit
+
+enum Phase {
+    case idle
+    case starting
+    case recording
+    case transcribing
+    case flushing
+    case done(String)
+    case failed(String)
+}
+
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    private var icon: StatusIcon!
+    private let recorder = Recorder()
+    private let transcriber = Transcriber()
+    private let paster = Paster()
+    private let typist = Typist()
+    private let focusGate = SystemFocusGate()
+
+    private var phase: Phase = .idle
+    private var generation = 0
+    private var autoStop: DispatchWorkItem?
+    private var resetIcon: DispatchWorkItem?
+    private var blockingError: String?
+    private var awaitingMicrophone = false
+
+    private var session: DictationSession?
+    private var decoder: WindowedDecoder?
+    private var streamingLost = false
+    private var lastLevelAt = Date()
+    private var meter = LevelMeter(
+        attack: Config.meterAttack,
+        release: Config.meterRelease,
+        floorDecibels: Config.meterFloorDecibels,
+        holdSeconds: Config.meterPeakHoldSeconds
+    )
+
+    private let statusItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let toggleItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let accessibilityItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        icon = StatusIcon()
+        buildMenu()
+
+        recorder.onRouteChange = { [weak self] in
+            guard let self, case .recording = self.phase else { return }
+            self.recorder.abort()
+            self.fail(RecorderError.routeChanged.localizedDescription)
+        }
+
+        recorder.onLevel = { [weak self] rms, peak in
+            guard let self else { return }
+            let now = Date()
+            let elapsed = max(0, now.timeIntervalSince(self.lastLevelAt))
+            self.lastLevelAt = now
+            self.meter.ingest(rms: rms, peak: peak, elapsed: elapsed)
+            self.icon.updateLevel(self.meter.level, peak: self.meter.peak)
+        }
+
+        Hotkey.shared.onTrigger = { [weak self] in self?.toggle() }
+        if !Hotkey.shared.register() {
+            blockingError = "⌥Space já está em uso — use o menu para ditar"
+        }
+        if let missing = Preflight.missingDependency() {
+            blockingError = missing
+        }
+
+        if blockingError != nil {
+            icon.apply(.error)
+        }
+        refreshMenu()
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        session?.cancel()
+        decoder?.cancel()
+        recorder.abort()
+        transcriber.cancel()
+    }
+
+    private func buildMenu() {
+        statusItem.isEnabled = false
+        icon.menu.addItem(statusItem)
+        icon.menu.addItem(.separator())
+
+        toggleItem.target = self
+        toggleItem.action = #selector(menuToggle)
+        icon.menu.addItem(toggleItem)
+
+        accessibilityItem.target = self
+        accessibilityItem.action = #selector(menuAccessibility)
+        accessibilityItem.title = "Ativar colagem automática…"
+        icon.menu.addItem(accessibilityItem)
+
+        icon.menu.addItem(.separator())
+        let quit = NSMenuItem(title: "Sair", action: #selector(menuQuit), keyEquivalent: "q")
+        quit.target = self
+        icon.menu.addItem(quit)
+    }
+
+    private func refreshMenu() {
+        statusItem.title = statusText()
+        switch phase {
+        case .recording: toggleItem.title = "Parar e transcrever (⌥Space)"
+        case .transcribing, .flushing: toggleItem.title = "Cancelar (⌥Space)"
+        default: toggleItem.title = "Ditar (⌥Space)"
+        }
+        accessibilityItem.isHidden = paster.accessibilityTrusted
+    }
+
+    private func statusText() -> String {
+        if let blockingError { return "Erro: \(blockingError)" }
+        switch phase {
+        case .idle: return "Pronto"
+        case .starting: return "Preparando…"
+        case .recording: return recordingStatus()
+        case .transcribing: return "Transcrevendo…"
+        case .flushing: return "Finalizando…"
+        case .done(let detail): return detail
+        case .failed(let detail): return "Erro: \(detail)"
+        }
+    }
+
+    private func recordingStatus() -> String {
+        guard let session else { return "Gravando…" }
+        if let reason = session.latch { return "Gravando — \(reason.message)" }
+        let words = session.typedText.split(whereSeparator: \.isWhitespace).count
+        return words > 0 ? "Ditando — \(words) palavras" : "Gravando…"
+    }
+
+    @objc private func menuToggle() { toggle() }
+
+    @objc private func menuAccessibility() {
+        paster.requestAccessibilityOnce()
+        paster.openAccessibilitySettings()
+    }
+
+    @objc private func menuQuit() { NSApp.terminate(nil) }
+
+    private func toggle() {
+        if let missing = Preflight.missingDependency() {
+            blockingError = missing
+            fail(missing)
+            return
+        }
+        blockingError = nil
+
+        switch phase {
+        case .recording:
+            finishRecording()
+        case .transcribing, .flushing:
+            cancelTranscription()
+        case .starting:
+            break
+        case .idle, .done, .failed:
+            beginRecording()
+        }
+    }
+
+    private func beginRecording() {
+        guard !awaitingMicrophone, !recorder.isRecording else { return }
+        awaitingMicrophone = true
+        enter(.starting, icon: .starting)
+        Recorder.microphoneAuthorized { [weak self] granted in
+            guard let self else { return }
+            self.awaitingMicrophone = false
+            guard granted else {
+                self.fail(RecorderError.microphoneDenied.localizedDescription)
+                return
+            }
+            switch self.phase {
+            case .recording, .transcribing, .flushing: return
+            default: break
+            }
+            do {
+                try self.recorder.start()
+            } catch {
+                self.fail(error.localizedDescription)
+                return
+            }
+            self.generation += 1
+            let token = self.generation
+            self.meter.reset()
+            self.lastLevelAt = Date()
+            self.streamingLost = false
+            self.startStreaming(token: token)
+            self.enter(.recording, icon: .recording)
+
+            let stopper = DispatchWorkItem { [weak self] in
+                guard let self, self.generation == token, case .recording = self.phase else { return }
+                self.finishRecording()
+            }
+            self.autoStop = stopper
+            DispatchQueue.main.asyncAfter(
+                deadline: .now() + Config.maxRecordingSeconds,
+                execute: stopper
+            )
+        }
+    }
+
+    private func startStreaming(token: Int) {
+        teardownStreaming()
+        guard Config.streamingEnabled else { return }
+
+        let candidate = DictationSession(generation: token, sink: typist, gate: focusGate)
+        guard candidate.begin() else {
+            paster.requestAccessibilityOnce()
+            return
+        }
+
+        let engine = WindowedDecoder(
+            source: recorder.stream,
+            backend: WhisperBackend(),
+            tuning: .standard
+        )
+        engine.onDelta = { [weak self] delta in
+            guard let self, let active = self.session, active.generation == token else { return }
+            guard self.generation == token else { return }
+            _ = active.ingest(delta, generation: token)
+            self.refreshMenu()
+        }
+        engine.onStreamingLost = { [weak self] in
+            guard let self, self.generation == token else { return }
+            self.streamingLost = true
+        }
+        session = candidate
+        decoder = engine
+        engine.start()
+    }
+
+    private func finishRecording() {
+        autoStop?.cancel()
+        autoStop = nil
+        guard let capture = recorder.stop() else {
+            teardownStreaming()
+            enter(.idle, icon: .idle)
+            return
+        }
+        guard capture.duration >= Config.minRecordingSeconds else {
+            try? FileManager.default.removeItem(at: capture.url)
+            teardownStreaming()
+            enter(.idle, icon: .idle)
+            return
+        }
+
+        let token = generation
+        guard let engine = decoder, let active = session, active.generation == token else {
+            teardownStreaming()
+            runBatch(capture: capture)
+            return
+        }
+
+        enter(.flushing, icon: .flushing)
+        engine.finish { [weak self] tail, failed in
+            guard let self, self.generation == token else {
+                try? FileManager.default.removeItem(at: capture.url)
+                return
+            }
+            self.completeStreaming(capture: capture, tail: tail, failed: failed, token: token)
+        }
+    }
+
+    private func completeStreaming(
+        capture: (url: URL, duration: TimeInterval),
+        tail: String,
+        failed: Bool,
+        token: Int
+    ) {
+        guard let active = session, active.generation == token else {
+            try? FileManager.default.removeItem(at: capture.url)
+            return
+        }
+
+        let outcome = active.finish(tail: tail, generation: token)
+        let typed = active.typedText
+        let transcript = active.transcript
+
+        if transcript.isEmpty {
+            teardownStreaming()
+            runBatch(capture: capture)
+            return
+        }
+        if failed, !typed.isEmpty {
+            teardownStreaming()
+            runReviewBatch(capture: capture)
+            return
+        }
+
+        try? FileManager.default.removeItem(at: capture.url)
+        teardownStreaming()
+
+        switch outcome {
+        case .clipboard(let text, let reason):
+            paster.copy(text, concealed: reason == .secure)
+            enter(.done(reason.message), icon: .success)
+        case .typed, .nothing, .duplicate:
+            enter(.done("Digitado"), icon: .success)
+        }
+        scheduleIdle(after: 2.0)
+    }
+
+    private func runBatch(capture: (url: URL, duration: TimeInterval)) {
+        generation += 1
+        let token = generation
+        enter(.transcribing, icon: .transcribing)
+
+        transcriber.transcribe(source: capture.url) { [weak self] result in
+            try? FileManager.default.removeItem(at: capture.url)
+            guard let self, token == self.generation else { return }
+            switch result {
+            case .success(let text):
+                self.handle(text)
+            case .failure(let error):
+                self.fail(error.localizedDescription)
+            }
+        }
+    }
+
+    private func runReviewBatch(capture: (url: URL, duration: TimeInterval)) {
+        generation += 1
+        let token = generation
+        enter(.transcribing, icon: .transcribing)
+
+        transcriber.transcribe(source: capture.url) { [weak self] result in
+            try? FileManager.default.removeItem(at: capture.url)
+            guard let self, token == self.generation else { return }
+            switch result {
+            case .success(let text):
+                self.paster.copy(text)
+                self.enter(.done("revisão no clipboard"), icon: .success)
+                self.scheduleIdle(after: 3.0)
+            case .failure(let error):
+                self.fail(error.localizedDescription)
+            }
+        }
+    }
+
+    private func cancelTranscription() {
+        generation += 1
+        session?.cancel()
+        decoder?.cancel()
+        transcriber.cancel()
+        recorder.abort()
+        teardownStreaming()
+        enter(.idle, icon: .cancelled)
+    }
+
+    private func teardownStreaming() {
+        session = nil
+        decoder?.cancel()
+        decoder = nil
+        focusGate.release()
+    }
+
+    private func handle(_ text: String) {
+        switch paster.deliver(text) {
+        case .pasted:
+            enter(.done("Colado"), icon: .success)
+        case .copiedOnly(let reason):
+            enter(.done(reason), icon: .success)
+        }
+        scheduleIdle(after: 2.0)
+    }
+
+    private func fail(_ message: String) {
+        session?.cancel()
+        decoder?.cancel()
+        teardownStreaming()
+        recorder.abort()
+        enter(.failed(message), icon: .error)
+        scheduleIdle(after: 3.0)
+    }
+
+    private func enter(_ next: Phase, icon state: IconState) {
+        switch next {
+        case .recording: break
+        default:
+            autoStop?.cancel()
+            autoStop = nil
+        }
+        phase = next
+        icon.apply(state)
+        refreshMenu()
+    }
+
+    private func scheduleIdle(after delay: TimeInterval) {
+        resetIcon?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            switch self.phase {
+            case .done, .failed:
+                if let blockingError = self.blockingError {
+                    self.enter(.failed(blockingError), icon: .error)
+                } else {
+                    self.enter(.idle, icon: .idle)
+                }
+            default:
+                break
+            }
+        }
+        resetIcon = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+    }
+}

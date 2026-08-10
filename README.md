@@ -12,13 +12,14 @@ Personal, local-first knowledge system: a plain-Markdown vault (**`~/Vault/`**, 
 ~/Vault/                              ← single source of truth
   Blocks/**.md       Zettelkasten (frontmatter id/type/status/layer/tags + [[wikilinks]])
   Tasks/<id>.json    one file per task
-  Captures/          screenshot .png + .md OCR pairs (written by geocapture)
+  Captures/          screenshot .png + .md OCR pairs (uploaded by GarimeCapture)
   Index/blocks.sqlite  rebuildable FTS cache (geo_indexer) — never authoritative
         ▲ native filesystem only
         │
 geo_indexer (VM garime)     rebuilds the FTS index over the vault
 GeoBridge                   tasks/terminal/chat → Garime (iOS) over Tailscale
-GeoCapture                  daemon: screenshot + OCR → Captures/
+GarimeCapture               daemon: screenshot + OCR → local spool → vault on the VM
+GarimeWhisper               menu-bar dictation: hotkey → local whisper → paste
 ```
 
 ## Components (this repo)
@@ -29,7 +30,8 @@ GeoCapture                  daemon: screenshot + OCR → Captures/
 | `GeoBridge/` | HTTP bridge (launchd `ai.geo.bridge`) serving tasks/terminal/chat to GeoMobile over the tailnet — see `GeoBridge/CONTRACT.md` |
 | `Garime/` | iOS app (SwiftUI): unified Today, Chat, Agents, Terminal |
 | `GeoCore/` | Swift package shared with the iOS app |
-| `GeoCapture/` | Swift daemon: screenshot + OCR → `Captures/` in the vault |
+| `GarimeCapture/` | Swift daemon: screenshot + Vision OCR → durable local spool → `Captures/` in the vault on the VM garime. Never writes the local `~/Vault/` |
+| `GarimeWhisper/` | Swift menu-bar dictation app: hotkey → local whisper → paste |
 | `tests/` | `geo_time_contract.py` — time/timezone contract for `context_scraping` |
 
 The former macOS app (Swift/SwiftUI) was **retired on 2026-07-04** — its code was removed from the repo (lives in git history). The old vault at `~/Library/Application Support/Geo/` is a frozen backup, read and written by nothing.

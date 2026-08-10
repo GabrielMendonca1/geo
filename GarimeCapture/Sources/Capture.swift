@@ -4,19 +4,7 @@ import CoreGraphics
 import ImageIO
 import Vision
 
-func logErr(_ message: String) {
-    let ts = ISO8601DateFormatter().string(from: Date())
-    FileHandle.standardError.write("[\(ts)] \(message)\n".data(using: .utf8)!)
-}
-
-let fm = FileManager.default
-let vaultCapturesDir = fm.homeDirectoryForCurrentUser
-    .appendingPathComponent("Vault", isDirectory: true)
-    .appendingPathComponent("Captures", isDirectory: true)
-let processedRegistryURL = vaultCapturesDir.appendingPathComponent(".processed.json", isDirectory: false)
-
 let pollInterval: TimeInterval = 1
-let recencyWindow: TimeInterval = 3600
 let stabilizeRetries = 10
 let stabilizeDelay: TimeInterval = 0.3
 let readRetries = 10
@@ -24,20 +12,25 @@ let readRetryDelay: TimeInterval = 0.2
 let ocrTimeout: TimeInterval = 30
 let registryRetentionSeconds: TimeInterval = 30 * 86_400
 let registryMaxCount = 500
-
-let forbiddenOldVault = fm.homeDirectoryForCurrentUser
-    .appendingPathComponent("Library/Application Support/Geo", isDirectory: true)
-    .standardizedFileURL.path
+let spoolFailureLimit = 5
 
 func screenshotsDirectory() -> URL {
+    if let override = envValue("GARIME_WATCH_DIR") {
+        let url = expandPath(override)
+        if isForbiddenPath(url) {
+            logErr("GARIME_WATCH_DIR points into a forbidden vault root (\(url.path)); ignoring")
+        } else {
+            return url
+        }
+    }
     let domain = "com.apple.screencapture" as CFString
     CFPreferencesAppSynchronize(domain)
     if let path = CFPreferencesCopyAppValue("location" as CFString, domain) as? String,
        !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
         let expanded = (path as NSString).expandingTildeInPath
         let standardized = URL(fileURLWithPath: expanded, isDirectory: true).standardizedFileURL
-        if standardized.path.hasPrefix(forbiddenOldVault) {
-            logErr("screencapture location points into retired Geo vault (\(standardized.path)); ignoring, falling back to Desktop")
+        if isForbiddenPath(standardized) {
+            logErr("screencapture location points into a forbidden vault root (\(standardized.path)); ignoring, falling back to Desktop")
         } else {
             var isDir: ObjCBool = false
             if fm.fileExists(atPath: expanded, isDirectory: &isDir), isDir.boolValue {
@@ -45,7 +38,7 @@ func screenshotsDirectory() -> URL {
             }
         }
     }
-    return fm.urls(for: .desktopDirectory, in: .userDomainMask).first ?? fm.homeDirectoryForCurrentUser
+    return fm.urls(for: .desktopDirectory, in: .userDomainMask).first ?? homeDir
 }
 
 final class ProcessedRegistry {
@@ -75,7 +68,8 @@ final class ProcessedRegistry {
     }
 
     private func persist() {
-        guard let data = try? JSONEncoder().encode(entries) else { return }
+        guard !isForbiddenPath(url), let data = try? JSONEncoder().encode(entries) else { return }
+        try? fm.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         try? data.write(to: url, options: .atomic)
     }
 
@@ -210,17 +204,6 @@ func decodeCGImage(from data: Data) -> CGImage? {
     return CGImageSourceCreateImageAtIndex(source, 0, nil)
 }
 
-func dayFolderName(for date: Date) -> String {
-    let formatter = DateFormatter()
-    formatter.dateFormat = "yyyy-MM-dd"
-    formatter.timeZone = TimeZone.current
-    return formatter.string(from: date)
-}
-
-func yamlEscape(_ value: String) -> String {
-    value.replacingOccurrences(of: "\"", with: "\\\"")
-}
-
 @discardableResult
 func writeClipboardPayload(imageData: Data, ocrText: String, fileURL: URL?) -> Int {
     let pasteboard = NSPasteboard.general
@@ -243,65 +226,34 @@ func writeClipboardPayload(imageData: Data, ocrText: String, fileURL: URL?) -> I
     return pasteboard.changeCount
 }
 
-func persistCapture(originalName: String, data: Data, ocrText: String, capturedAt: Date) -> URL? {
-    let dayDir = vaultCapturesDir.appendingPathComponent(dayFolderName(for: capturedAt), isDirectory: true)
-    do {
-        try fm.createDirectory(at: dayDir, withIntermediateDirectories: true)
-    } catch {
-        logErr("failed to create day dir: \(error.localizedDescription)")
-        return nil
-    }
-
-    let baseName = (originalName as NSString).deletingPathExtension
-    let ext = (originalName as NSString).pathExtension.isEmpty ? "png" : (originalName as NSString).pathExtension
-    var pngURL = dayDir.appendingPathComponent("\(baseName).\(ext)", isDirectory: false)
-    var mdURL = dayDir.appendingPathComponent("\(baseName).md", isDirectory: false)
-    var suffix = 1
-    while fm.fileExists(atPath: pngURL.path) || fm.fileExists(atPath: mdURL.path) {
-        pngURL = dayDir.appendingPathComponent("\(baseName)-\(suffix).\(ext)", isDirectory: false)
-        mdURL = dayDir.appendingPathComponent("\(baseName)-\(suffix).md", isDirectory: false)
-        suffix += 1
-    }
-
-    do {
-        try data.write(to: pngURL, options: .atomic)
-    } catch {
-        logErr("failed to write image: \(error.localizedDescription)")
-        return nil
-    }
-
-    let iso = ISO8601DateFormatter().string(from: capturedAt)
-    let frontmatter = """
-    ---
-    type: capture
-    captured: \(iso)
-    source: "\(yamlEscape(originalName))"
-    tags: [capture]
-    ---
-
-    \(ocrText)
-    """
-    do {
-        try frontmatter.write(to: mdURL, atomically: true, encoding: .utf8)
-    } catch {
-        logErr("failed to write markdown: \(error.localizedDescription)")
-    }
-    return pngURL
-}
-
 struct Candidate {
     let url: URL
     let key: String
     let timestamp: Date
 }
 
+let bootstrapURL = registryURL.deletingLastPathComponent()
+    .appendingPathComponent("bootstrap", isDirectory: false)
+
+let bootstrapCutoff: Date = {
+    if let raw = try? String(contentsOf: bootstrapURL, encoding: .utf8),
+       let epoch = TimeInterval(raw.trimmingCharacters(in: .whitespacesAndNewlines)) {
+        return Date(timeIntervalSince1970: epoch)
+    }
+    let now = Date()
+    try? fm.createDirectory(at: bootstrapURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try? String(Int(now.timeIntervalSince1970)).write(to: bootstrapURL, atomically: true, encoding: .utf8)
+    logErr("first run: images predating \(ISO8601DateFormatter().string(from: now)) stay in place; everything newer is consumed no matter how long this daemon is down")
+    return now
+}()
+
 var processing: Set<String> = []
-let processed = ProcessedRegistry(url: processedRegistryURL)
-let imageExtensions: Set<String> = ["png", "jpg", "jpeg", "heic", "heif"]
+var spoolFailures: [String: Int] = [:]
+var loggedStale: Set<String> = []
+let processed = ProcessedRegistry(url: registryURL)
 
 func scan(directory: URL) {
-    let now = Date()
-    let cutoff = now.addingTimeInterval(-recencyWindow)
+    let cutoff = bootstrapCutoff
     let keys: [URLResourceKey] = [.creationDateKey, .contentModificationDateKey, .isDirectoryKey, .fileSizeKey]
 
     let files: [URL]
@@ -321,10 +273,17 @@ func scan(directory: URL) {
         let size = values.fileSize ?? 0
         if size <= 0 { continue }
         let ts = values.creationDate ?? values.contentModificationDate ?? .distantPast
-        if ts < cutoff { continue }
         let key = "\(file.lastPathComponent)|\(size)|\(Int(ts.timeIntervalSince1970))"
+        if ts < cutoff {
+            if !loggedStale.contains(key) {
+                loggedStale.insert(key)
+                logErr("skip \(file.lastPathComponent): predates this daemon's first run, left in place")
+            }
+            continue
+        }
         if processing.contains(key) { continue }
         if processed.contains(key) { continue }
+        if (spoolFailures[key] ?? 0) >= spoolFailureLimit { continue }
         candidates.append(Candidate(url: file, key: key, timestamp: ts))
     }
 
@@ -347,23 +306,35 @@ func process(_ candidate: Candidate) {
         return
     }
 
-    // Phase 1: image is pasteable immediately; OCR text upgrades the same clipboard entry later.
     let instantChange = writeClipboardPayload(imageData: data, ocrText: "", fileURL: nil)
     logErr("clipboard primed with \(candidate.url.lastPathComponent) (image only)")
 
     let text = runOCR(on: cgImage)
-    let storedURL = persistCapture(originalName: candidate.url.lastPathComponent, data: data, ocrText: text, capturedAt: candidate.timestamp)
+    guard let spooledURL = spoolCapture(
+        originalName: candidate.url.lastPathComponent,
+        data: data,
+        ocrText: text,
+        capturedAt: candidate.timestamp
+    ) else {
+        let attempts = (spoolFailures[candidate.key] ?? 0) + 1
+        spoolFailures[candidate.key] = attempts
+        logErr("spool failed for \(candidate.url.lastPathComponent) (attempt \(attempts)); original kept on disk")
+        if attempts >= spoolFailureLimit {
+            logErr("giving up on \(candidate.url.lastPathComponent) after \(attempts) spool failures")
+        }
+        return
+    }
+
     processed.insert(candidate.key)
+    spoolFailures[candidate.key] = nil
     try? fm.removeItem(at: candidate.url)
 
-    // Phase 2: only overwrite if the clipboard still holds our phase-1 payload —
-    // anything the user copied during OCR must win.
     if NSPasteboard.general.changeCount == instantChange {
-        writeClipboardPayload(imageData: data, ocrText: text, fileURL: storedURL ?? candidate.url)
+        writeClipboardPayload(imageData: data, ocrText: text, fileURL: spooledURL)
     } else {
         logErr("clipboard changed during OCR; leaving user content untouched")
     }
-    logErr("processed \(candidate.url.lastPathComponent) (\(text.count) chars OCR)")
+    logErr("spooled \(candidate.url.lastPathComponent) as \(spooledURL.lastPathComponent) (\(text.count) chars OCR)")
 }
 
 func warmUpOCR() {
@@ -378,27 +349,32 @@ func warmUpOCR() {
     logErr("Vision model warm (\(Int(Date().timeIntervalSince(start)))s)")
 }
 
-let heartbeatURL = fm.homeDirectoryForCurrentUser
-    .appendingPathComponent(".hermes/status/geocapture.heartbeat", isDirectory: false)
-
-func beatHeart() {
-    try? String(Int(Date().timeIntervalSince1970)).write(to: heartbeatURL, atomically: true, encoding: .utf8)
-}
-
-try? fm.createDirectory(at: vaultCapturesDir, withIntermediateDirectories: true)
-try? fm.createDirectory(at: heartbeatURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-beatHeart()
-warmUpOCR()
-var watchedDir = screenshotsDirectory()
-logErr("geocapture starting, watching \(watchedDir.path)")
-
-while true {
-    let dir = screenshotsDirectory()
-    if dir != watchedDir {
-        logErr("watched directory changed: \(watchedDir.path) -> \(dir.path)")
-        watchedDir = dir
+func spoolAdd(paths: [String]) -> Bool {
+    guard !paths.isEmpty else {
+        logErr("spool-add: no paths given")
+        return false
     }
-    scan(directory: dir)
-    beatHeart()
-    Thread.sleep(forTimeInterval: pollInterval)
+    var ok = true
+    for path in paths {
+        let url = URL(fileURLWithPath: path).standardizedFileURL
+        guard let data = readWithRetry(at: url) else {
+            logErr("spool-add: unreadable \(path)")
+            ok = false
+            continue
+        }
+        let values = try? url.resourceValues(forKeys: [.creationDateKey, .contentModificationDateKey])
+        let capturedAt = values?.creationDate ?? values?.contentModificationDate ?? Date()
+        guard let spooled = spoolCapture(
+            originalName: url.lastPathComponent,
+            data: data,
+            ocrText: "",
+            capturedAt: capturedAt
+        ) else {
+            ok = false
+            continue
+        }
+        try? fm.removeItem(at: url)
+        logErr("spool-add: \(url.lastPathComponent) -> \(spooled.lastPathComponent)")
+    }
+    return ok
 }

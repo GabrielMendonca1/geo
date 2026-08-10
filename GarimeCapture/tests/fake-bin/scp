@@ -1,0 +1,62 @@
+#!/bin/sh
+{
+  echo "--- scp ---"
+  for a in "$@"; do echo "arg: $a"; done
+} >> "$GARIME_FAKE_LOG"
+
+[ -n "${GARIME_FAKE_SLEEP:-}" ] && sleep "$GARIME_FAKE_SLEEP"
+
+if [ -n "${GARIME_FAKE_FAIL_TIMES:-}" ]; then
+  count=$(cat "$GARIME_FAKE_COUNTER" 2>/dev/null || echo 0)
+  if [ "$count" -lt "$GARIME_FAKE_FAIL_TIMES" ]; then
+    echo $((count + 1)) > "$GARIME_FAKE_COUNTER"
+    exit 255
+  fi
+fi
+
+[ "${GARIME_FAKE_EXIT:-0}" != "0" ] && exit "$GARIME_FAKE_EXIT"
+
+LIST=$(mktemp)
+skip_next=0
+for a in "$@"; do
+  if [ "$skip_next" = "1" ]; then skip_next=0; continue; fi
+  case "$a" in
+    -o|-i) skip_next=1; continue;;
+    -*) continue;;
+  esac
+  printf '%s\n' "$a" >> "$LIST"
+done
+
+total=$(wc -l < "$LIST" | tr -d ' ')
+if [ "$total" -lt 2 ]; then
+  rm -f "$LIST"
+  echo "fake scp: need at least one source and a destination" >&2
+  exit 2
+fi
+
+dest=$(tail -n 1 "$LIST")
+target="${dest#*:}"
+
+case "$target" in
+  *"'"*|*'"'*)
+    rm -f "$LIST"
+    echo "fake scp: dest open \"$target\": No such file or directory" >&2
+    exit 1
+    ;;
+esac
+
+if [ ! -d "$target" ]; then
+  rm -f "$LIST"
+  echo "fake scp: dest open \"$target\": No such file or directory" >&2
+  exit 1
+fi
+
+head -n $((total - 1)) "$LIST" > "$LIST.src"
+status=0
+while IFS= read -r src; do
+  [ -n "$src" ] || continue
+  cp "$src" "$target" || status=1
+done < "$LIST.src"
+
+rm -f "$LIST" "$LIST.src"
+exit "$status"
