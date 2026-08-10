@@ -89,14 +89,20 @@ Se um pin for desejado um dia, ele tem que ser uma decisão consciente sobre **q
 
 ## Deploy
 
-Rode **na VM**, a partir de um checkout do repo:
+**Não há checkout deste repo na VM** (`find / -name .git` só acha whisper.cpp, `brain` e backups). Então o deploy tem duas etapas: levar os arquivos, depois rodar.
+
+Do Mac, a partir do repo:
 
 ```
-hermes/infra/systemd/install.sh --check    # só verificação estática, não escreve nada
-hermes/infra/systemd/install.sh            # instala, daemon-reload, restart do timer
+rsync -a --delete hermes/infra/systemd/ garime:/tmp/garime-units/
+ssh garime '/tmp/garime-units/install.sh --check'   # só verificação estática, não escreve nada
+ssh garime 'sudo /tmp/garime-units/install.sh'      # instala, daemon-reload, restart do timer
+ssh garime 'rm -rf /tmp/garime-units'
 ```
 
-O script é idempotente: compara cada arquivo com o destino via `cmp` e só faz `daemon-reload`/restart se algo mudou de fato.
+O `--delete` importa: garante que o staging não carregue um drop-in órfão de uma execução anterior — que o guard de `UNITS` rejeitaria, mas melhor não chegar lá.
+
+O script é idempotente: compara cada arquivo com o destino via `cmp` e só faz `daemon-reload`/restart se algo mudou de fato. Rodar 2× seguidas na segunda vez imprime `ja identico` em tudo e `nada mudou; daemon-reload dispensado`.
 
 ### O script nunca faz deploy de código
 
@@ -122,13 +128,12 @@ Smoke funcional sem sujar o vault: `context_scraping.py --dry-run` roda o pipeli
 
 ## Rollback
 
-Só o `.timer` muda. A âncora é o commit `aa7f1b6`:
+Só o `.timer` muda. A âncora é o commit `aa7f1b6`. Do Mac, a partir do repo:
 
 ```
-git show aa7f1b6:hermes/infra/systemd/garime-curator.timer | sudo tee /etc/systemd/system/garime-curator.timer
-sudo systemctl daemon-reload
-sudo systemctl restart garime-curator.timer
-systemctl list-timers garime-curator.timer
+git show aa7f1b6:hermes/infra/systemd/garime-curator.timer | ssh garime 'sudo tee /etc/systemd/system/garime-curator.timer >/dev/null'
+ssh garime 'sudo systemctl daemon-reload && sudo systemctl restart garime-curator.timer'
+ssh garime 'systemctl list-timers garime-curator.timer --no-pager'
 ```
 
 Volta para `06,12,17,21`. Nenhuma limpeza de estado: o watermark é indiferente à cadência, então não há reprocessamento nem gap ao reverter.
