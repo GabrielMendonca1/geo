@@ -158,11 +158,14 @@ func drainSpool() -> Bool {
     guard remoteConfigIsSafe() else { return false }
     for day in spoolDays() {
         let files = spoolFiles(day: day)
-        if files.isEmpty {
+        let strays = files.filter { !isMarkdown($0) }
+        if !strays.isEmpty { adoptSpooledImages(files: strays) }
+        let uploads = files.filter(isMarkdown)
+        if uploads.isEmpty {
             pruneEmptyDay(day)
             continue
         }
-        for batch in files.chunked(into: Remote.batchLimit) where !batch.isEmpty {
+        for batch in uploads.chunked(into: Remote.batchLimit) where !batch.isEmpty {
             guard uploadBatch(day: day, files: batch) else { return false }
         }
         pruneEmptyDay(day)

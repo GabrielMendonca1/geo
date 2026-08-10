@@ -55,23 +55,30 @@ func writeAtomicGuarded(_ data: Data, to url: URL) -> Bool {
     return true
 }
 
-func spoolCapture(originalName: String, data: Data, ocrText: String, capturedAt: Date) -> URL? {
-    let day = dayFolderName(for: capturedAt)
+func dayDirectory(under root: URL, day: String, label: String) -> URL? {
     guard isSafeDayFolder(day) else {
-        logErr("refused spool: computed day folder is not safe (\(day))")
+        logErr("refused \(label): computed day folder is not safe (\(day))")
         return nil
     }
-    let dayDir = spoolDir.appendingPathComponent(day, isDirectory: true)
+    let dayDir = root.appendingPathComponent(day, isDirectory: true)
     guard !isForbiddenPath(dayDir) else {
-        logErr("refused spool: \(dayDir.path) is inside a forbidden vault root")
+        logErr("refused \(label): \(dayDir.path) is inside a forbidden vault root")
         return nil
     }
     do {
         try fm.createDirectory(at: dayDir, withIntermediateDirectories: true)
     } catch {
-        logErr("failed to create spool day dir: \(error.localizedDescription)")
+        logErr("failed to create \(label) day dir \(day): \(error.localizedDescription)")
         return nil
     }
+    return dayDir
+}
+
+func spoolCapture(originalName: String, data: Data, ocrText: String, capturedAt: Date) -> URL? {
+    let day = dayFolderName(for: capturedAt)
+    let archiveDay = dayFolderName(for: nowDate())
+    guard let archiveDayDir = dayDirectory(under: archiveDir, day: archiveDay, label: "archive"),
+          let spoolDayDir = dayDirectory(under: spoolDir, day: day, label: "spool") else { return nil }
 
     let base = spoolBaseName(originalName: originalName, data: data, capturedAt: capturedAt)
     let imageName = "\(base).\(safeImageExtension(originalName))"
@@ -81,8 +88,8 @@ func spoolCapture(originalName: String, data: Data, ocrText: String, capturedAt:
         return nil
     }
 
-    let imageURL = dayDir.appendingPathComponent(imageName, isDirectory: false)
-    let markdownURL = dayDir.appendingPathComponent(markdownName, isDirectory: false)
+    let imageURL = archiveDayDir.appendingPathComponent(imageName, isDirectory: false)
+    let markdownURL = spoolDayDir.appendingPathComponent(markdownName, isDirectory: false)
 
     let frontmatter = """
     ---
@@ -90,23 +97,66 @@ func spoolCapture(originalName: String, data: Data, ocrText: String, capturedAt:
     captured: \(ISO8601DateFormatter().string(from: capturedAt))
     source: "\(yamlEscape(originalName))"
     spooled_as: "\(imageName)"
+    archived: "\(archiveDay)"
     tags: [capture]
     ---
 
     \(ocrText)
     """
-    guard writeAtomicGuarded(Data(frontmatter.utf8), to: markdownURL) else { return nil }
-    guard writeAtomicGuarded(data, to: imageURL) else {
-        try? fm.removeItem(at: markdownURL)
+    guard writeAtomicGuarded(data, to: imageURL) else { return nil }
+    guard syncToDisk(archiveDayDir) else {
+        logErr("refused spool: could not fsync archive/\(archiveDay); original left in place")
         return nil
     }
-    guard syncToDisk(dayDir) else {
+    guard writeAtomicGuarded(Data(frontmatter.utf8), to: markdownURL) else {
+        logErr("refused spool: markdown failed for \(markdownName); archived image kept for the retry, original left in place")
+        return nil
+    }
+    guard syncToDisk(spoolDayDir) else {
         try? fm.removeItem(at: markdownURL)
-        try? fm.removeItem(at: imageURL)
-        logErr("refused spool: could not fsync \(day); original left in place")
+        logErr("refused spool: could not fsync spool/\(day); original left in place")
         return nil
     }
     return imageURL
+}
+
+func archivedCopy(named name: String) -> URL? {
+    for day in archiveDays() {
+        let candidate = archiveDir.appendingPathComponent(day, isDirectory: true)
+            .appendingPathComponent(name, isDirectory: false)
+        if fm.fileExists(atPath: candidate.path) { return candidate }
+    }
+    return nil
+}
+
+func adoptSpooledImages(files: [URL]) {
+    let day = dayFolderName(for: nowDate())
+    guard let dayDir = dayDirectory(under: archiveDir, day: day, label: "archive") else { return }
+    var moved = 0
+    for file in files {
+        let name = file.lastPathComponent
+        let dest = dayDir.appendingPathComponent(name, isDirectory: false)
+        if let existing = archivedCopy(named: name) {
+            let existingDay = existing.deletingLastPathComponent().lastPathComponent
+            let sourceSize = (try? fm.attributesOfItem(atPath: file.path)[.size] as? Int) ?? nil
+            let destSize = (try? fm.attributesOfItem(atPath: existing.path)[.size] as? Int) ?? nil
+            guard let sourceSize, let destSize, sourceSize == destSize else {
+                logErr("archive: \(name) already exists in archive/\(existingDay) with different bytes; leaving the spool copy in place, never uploading it")
+                continue
+            }
+            try? fm.removeItem(at: file)
+            logErr("archive: \(name) was already archived in \(existingDay); dropped the duplicate spool copy")
+            continue
+        }
+        do {
+            try fm.moveItem(at: file, to: dest)
+            moved += 1
+            logErr("archive: adopted legacy spool image \(name) into archive/\(day); it is never uploaded")
+        } catch {
+            logErr("archive: could not move \(name) into archive/\(day): \(error.localizedDescription); left in the spool, never uploaded")
+        }
+    }
+    if moved > 0 { _ = syncToDisk(dayDir) }
 }
 
 func spoolDays() -> [String] {
@@ -146,6 +196,24 @@ func spoolStats() -> (files: Int, oldestAge: Int) {
     }
     guard let oldest else { return (0, 0) }
     return (count, max(0, Int(now.timeIntervalSince(oldest))))
+}
+
+func isMarkdown(_ url: URL) -> Bool {
+    url.pathExtension.lowercased() == "md"
+}
+
+func spoolPending() -> (markdown: Int, images: Int) {
+    var markdown = 0
+    var images = 0
+    for day in spoolDays() {
+        let dayDir = spoolDir.appendingPathComponent(day, isDirectory: true)
+        guard let entries = try? fm.contentsOfDirectory(at: dayDir, includingPropertiesForKeys: [.isRegularFileKey]) else { continue }
+        for entry in entries {
+            guard (try? entry.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true else { continue }
+            if isSpoolArtifact(entry.lastPathComponent), isMarkdown(entry) { markdown += 1 } else { images += 1 }
+        }
+    }
+    return (markdown, images)
 }
 
 func pruneEmptyDay(_ day: String) {

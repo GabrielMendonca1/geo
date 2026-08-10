@@ -52,13 +52,21 @@ let baseDir: URL = {
 }()
 
 let spoolDir = baseDir.appendingPathComponent("spool", isDirectory: true)
+let archiveDir = baseDir.appendingPathComponent("archive", isDirectory: true)
 let statusDir = baseDir.appendingPathComponent("status", isDirectory: true)
 let registryURL = baseDir.appendingPathComponent("registry", isDirectory: true)
     .appendingPathComponent("processed.json", isDirectory: false)
 
 let captureHeartbeat = "capture.heartbeat"
 let uploadHeartbeat = "upload.heartbeat"
+let retentionHeartbeat = "retention.heartbeat"
 let uploadStatusURL = statusDir.appendingPathComponent("upload.status", isDirectory: false)
+let retentionStatusURL = statusDir.appendingPathComponent("retention.status", isDirectory: false)
+
+func nowDate() -> Date {
+    guard let raw = envValue("GARIME_NOW"), let epoch = Double(raw), epoch > 0 else { return Date() }
+    return Date(timeIntervalSince1970: epoch)
+}
 
 func beat(_ name: String) {
     try? fm.createDirectory(at: statusDir, withIntermediateDirectories: true)
