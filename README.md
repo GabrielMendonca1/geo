@@ -1,8 +1,8 @@
-# Geo
+# Garime Spirit
 
 Personal, local-first knowledge system: a plain-Markdown vault (**`~/Vault/`**, edited via Obsidian) plus a set of satellite daemons that capture, index, and mirror everything — all over the native filesystem. No MCP, no HTTP API, no socket between components.
 
-> **Personal, non-commercial project.** Geo is built and run for one person's own use.
+> **Personal, non-commercial project.** Garime Spirit is built and run for one person's own use.
 > It is not a product, it is not for sale, and it is not intended for commercial
 > deployment or distribution. See [Use & license](#use--license).
 

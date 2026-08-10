@@ -259,11 +259,11 @@ final class TermAgentsDecodingTests: XCTestCase {
     func testPlaceIsTheCwdBasenameUnlessItRepeatsTheProject() throws {
         let payload = try decode("""
         {"units":[],"mac_online":true,"agents":[
-          {"host":"mac","agent":"claude","status":"idle","project":"garime","cwd":"/Users/biel/Garime/Geo","pane":"w1:p1"},
+          {"host":"mac","agent":"claude","status":"idle","project":"garime","cwd":"/Users/biel/Garime/spirit","pane":"w1:p1"},
           {"host":"mac","agent":"claude","status":"idle","project":"garime","cwd":"/Users/biel/garime","pane":"w1:p2"},
           {"host":"vm","agent":"pi","status":"running","project":"","cwd":"","pane":""}]}
         """)
-        XCTAssertEqual(payload.agents.map(\.place), ["Geo", "", ""])
+        XCTAssertEqual(payload.agents.map(\.place), ["spirit", "", ""])
     }
 
     func testMarksCapAtFiveWithOverflow() throws {

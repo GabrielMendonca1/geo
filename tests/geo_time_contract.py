@@ -18,13 +18,15 @@ from __future__ import annotations
 import importlib.util
 import os
 import sys
+import tempfile
 import types
 from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 SP = ZoneInfo("America/Sao_Paulo")
-SCRIPTS_DIR = Path(os.environ.get("GEO_SCRIPTS_DIR", "/Users/biel/Garime/Geo/hermes/scripts"))
+_DEFAULT_SCRIPTS = Path(__file__).resolve().parent.parent / "hermes" / "scripts"
+SCRIPTS_DIR = Path(os.environ.get("GEO_SCRIPTS_DIR") or _DEFAULT_SCRIPTS)
 
 
 def z(y, mo, d, h, mi) -> str:
@@ -51,9 +53,25 @@ def _load_extractor(base: Path):
         gc.render_brain_context = lambda *a, **k: ""
         sys.modules["geo_context"] = gc
     sys.path.insert(0, str(base))
-    spec = importlib.util.spec_from_file_location("wa_extractor_ut", base / "context_scraping.py")
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
+    with tempfile.TemporaryDirectory() as tmp:
+        stub = Path(tmp)
+        (stub / "__init__.py").write_text("")
+        (stub / "geo_write.py").write_text("class _GeoError(Exception):\n    pass\n")
+        real_spec_from_file = importlib.util.spec_from_file_location
+
+        def _redirecting(name, location=None, *args, **kwargs):
+            if name == "geo_tools":
+                kwargs["submodule_search_locations"] = [str(stub)]
+                return real_spec_from_file(name, stub / "__init__.py", *args, **kwargs)
+            return real_spec_from_file(name, location, *args, **kwargs)
+
+        importlib.util.spec_from_file_location = _redirecting
+        try:
+            spec = real_spec_from_file("wa_extractor_ut", base / "context_scraping.py")
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+        finally:
+            importlib.util.spec_from_file_location = real_spec_from_file
     return mod
 
 
