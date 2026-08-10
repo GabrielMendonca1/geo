@@ -51,16 +51,17 @@ let baseDir: URL = {
     return resolved
 }()
 
-let spoolDir = baseDir.appendingPathComponent("spool", isDirectory: true)
 let archiveDir = baseDir.appendingPathComponent("archive", isDirectory: true)
 let statusDir = baseDir.appendingPathComponent("status", isDirectory: true)
 let registryURL = baseDir.appendingPathComponent("registry", isDirectory: true)
     .appendingPathComponent("processed.json", isDirectory: false)
+let legacySpoolDir = baseDir.appendingPathComponent("spool", isDirectory: true)
+let failuresURL = registryURL.deletingLastPathComponent()
+    .appendingPathComponent("failures.json", isDirectory: false)
+let strandedURL = statusDir.appendingPathComponent("stranded", isDirectory: false)
 
 let captureHeartbeat = "capture.heartbeat"
-let uploadHeartbeat = "upload.heartbeat"
 let retentionHeartbeat = "retention.heartbeat"
-let uploadStatusURL = statusDir.appendingPathComponent("upload.status", isDirectory: false)
 let retentionStatusURL = statusDir.appendingPathComponent("retention.status", isDirectory: false)
 
 func nowDate() -> Date {
@@ -85,7 +86,6 @@ func sleepBeating(_ total: TimeInterval, heartbeat: String) {
 }
 
 let safeNameScalars = Set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_.-".unicodeScalars)
-let safeHostScalars = safeNameScalars.union("@".unicodeScalars)
 
 func isSafeComponent(_ value: String) -> Bool {
     guard !value.isEmpty, value.count <= 128 else { return false }
@@ -93,26 +93,15 @@ func isSafeComponent(_ value: String) -> Bool {
     return value.unicodeScalars.allSatisfy { safeNameScalars.contains($0) }
 }
 
-func isSpoolArtifact(_ value: String) -> Bool {
+func isArchiveArtifact(_ value: String) -> Bool {
     value.range(
-        of: "^[0-9]{8}-[0-9]{6}-[0-9a-f]{10}\\.(png|jpg|jpeg|heic|heif|md)$",
+        of: "^[0-9]{8}-[0-9]{6}-[0-9a-f]{10}\\.(png|jpg|jpeg|heic|heif)$",
         options: .regularExpression
     ) != nil
 }
 
 func isSafeDayFolder(_ value: String) -> Bool {
     value.range(of: "^[0-9]{4}-[0-9]{2}-[0-9]{2}$", options: .regularExpression) != nil
-}
-
-func isSafeRemoteRoot(_ value: String) -> Bool {
-    guard value.hasPrefix("/"), !value.hasSuffix("/"), value.count <= 256, !value.contains("..") else { return false }
-    let allowed = safeNameScalars.union("/".unicodeScalars)
-    return value.unicodeScalars.allSatisfy { allowed.contains($0) }
-}
-
-func isSafeRemoteHost(_ value: String) -> Bool {
-    guard !value.isEmpty, value.count <= 128, !value.hasPrefix("-") else { return false }
-    return value.unicodeScalars.allSatisfy { safeHostScalars.contains($0) }
 }
 
 func syncToDisk(_ url: URL) -> Bool {
@@ -133,53 +122,4 @@ func shortDigest(_ chunks: [Data]) -> String {
     for chunk in chunks { hasher.update(data: chunk) }
     let hex = hasher.finalize().map { String(format: "%02x", $0) }.joined()
     return String(hex.prefix(10))
-}
-
-extension Array {
-    func chunked(into size: Int) -> [[Element]] {
-        guard size > 0 else { return [self] }
-        return stride(from: 0, to: count, by: size).map { Array(self[$0..<Swift.min($0 + size, count)]) }
-    }
-}
-
-struct RunResult {
-    let status: Int32
-    let timedOut: Bool
-    var ok: Bool { !timedOut && status == 0 }
-}
-
-func runBounded(_ executable: String, _ arguments: [String], timeout: TimeInterval) -> RunResult {
-    guard fm.isExecutableFile(atPath: executable) else {
-        logErr("exec missing or not executable: \(executable)")
-        return RunResult(status: -1, timedOut: false)
-    }
-    let process = Process()
-    process.executableURL = URL(fileURLWithPath: executable)
-    process.arguments = arguments
-    process.standardInput = FileHandle.nullDevice
-    process.standardOutput = FileHandle.standardError
-    process.standardError = FileHandle.standardError
-    do {
-        try process.run()
-    } catch {
-        logErr("exec failed \(executable): \(error.localizedDescription)")
-        return RunResult(status: -1, timedOut: false)
-    }
-
-    let semaphore = DispatchSemaphore(value: 0)
-    DispatchQueue.global(qos: .utility).async {
-        process.waitUntilExit()
-        semaphore.signal()
-    }
-
-    if semaphore.wait(timeout: .now() + timeout) == .timedOut {
-        logErr("timeout after \(Int(timeout))s, killing: \(executable)")
-        process.terminate()
-        if semaphore.wait(timeout: .now() + 5) == .timedOut {
-            kill(process.processIdentifier, SIGKILL)
-            _ = semaphore.wait(timeout: .now() + 5)
-        }
-        return RunResult(status: -1, timedOut: true)
-    }
-    return RunResult(status: process.terminationStatus, timedOut: false)
 }

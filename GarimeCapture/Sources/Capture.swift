@@ -9,10 +9,9 @@ let stabilizeRetries = 10
 let stabilizeDelay: TimeInterval = 0.3
 let readRetries = 10
 let readRetryDelay: TimeInterval = 0.2
-let ocrTimeout: TimeInterval = 30
+let ocrTimeout = envDouble("GARIME_OCR_TIMEOUT", 30)
 let registryRetentionSeconds: TimeInterval = 30 * 86_400
 let registryMaxCount = 500
-let spoolFailureLimit = 5
 
 func screenshotsDirectory() -> URL {
     if let override = envValue("GARIME_WATCH_DIR") {
@@ -126,20 +125,34 @@ func scaleIfNeeded(_ cgImage: CGImage, maxDimension: CGFloat = 3000) -> CGImage 
     return ctx.makeImage() ?? cgImage
 }
 
-func runOCR(on cgImage: CGImage) -> String {
+enum OCROutcome {
+    case text(String)
+    case refused(String)
+    case failed(String)
+    case timedOut
+}
+
+func classifyOCRFailure(domain: String, code: Int, description: String) -> OCROutcome {
+    guard domain == VNErrorDomain, code == VNErrorCode.invalidImage.rawValue else {
+        return .failed("\(domain) \(code): \(description)")
+    }
+    return .refused(description)
+}
+
+func runOCR(on cgImage: CGImage) -> OCROutcome {
     let scaled = scaleIfNeeded(cgImage)
     let semaphore = DispatchSemaphore(value: 0)
     let lock = NSLock()
     var didFinish = false
-    var result = ""
+    var result: OCROutcome = .timedOut
 
-    let deliver: (String) -> Void = { text in
+    let deliver: (OCROutcome) -> Void = { outcome in
         lock.lock()
         let already = didFinish
         didFinish = true
+        if !already { result = outcome }
         lock.unlock()
         if already { return }
-        result = text
         semaphore.signal()
     }
 
@@ -151,10 +164,10 @@ func runOCR(on cgImage: CGImage) -> String {
             let text = (request.results ?? [])
                 .compactMap { $0.topCandidates(1).first?.string }
                 .joined(separator: "\n")
-            deliver(text)
+            deliver(.text(text))
         } catch {
-            logErr("OCR failed: \(error.localizedDescription)")
-            deliver("")
+            let ns = error as NSError
+            deliver(classifyOCRFailure(domain: ns.domain, code: ns.code, description: ns.localizedDescription))
         }
     }
 
@@ -162,12 +175,13 @@ func runOCR(on cgImage: CGImage) -> String {
     lock.lock()
     let timedOut = !didFinish
     didFinish = true
+    let outcome = result
     lock.unlock()
     if timedOut {
-        logErr("OCR timed out after \(Int(ocrTimeout))s")
-        return ""
+        logErr("OCR timed out after \(ocrTimeout)s")
+        return .timedOut
     }
-    return result
+    return outcome
 }
 
 func waitForStableFile(at url: URL) -> Data? {
@@ -204,10 +218,25 @@ func decodeCGImage(from data: Data) -> CGImage? {
     return CGImageSourceCreateImageAtIndex(source, 0, nil)
 }
 
-@discardableResult
-func writeClipboardPayload(imageData: Data, ocrText: String, fileURL: URL?) -> Int {
-    let pasteboard = NSPasteboard.general
-    pasteboard.clearContents()
+let capturePasteboard: NSPasteboard = {
+    guard let name = envValue("GARIME_PASTEBOARD_NAME") else { return .general }
+    return NSPasteboard(name: NSPasteboard.Name(name))
+}()
+
+func clipboardFaultInjected(final: Bool) -> Bool {
+    switch envValue("GARIME_FAIL_CLIPBOARD") {
+    case "all": return true
+    case "final": return final
+    default: return false
+    }
+}
+
+func writeClipboardPayload(imageData: Data, ocrText: String, fileURL: URL?) -> Int? {
+    guard !clipboardFaultInjected(final: fileURL != nil) else {
+        logErr("clipboard: refused by GARIME_FAIL_CLIPBOARD (test seam)")
+        return nil
+    }
+    capturePasteboard.clearContents()
     let item = NSPasteboardItem()
     if let image = NSImage(data: imageData), let tiff = image.tiffRepresentation {
         item.setData(tiff, forType: .tiff)
@@ -222,8 +251,24 @@ func writeClipboardPayload(imageData: Data, ocrText: String, fileURL: URL?) -> I
     if !ocrText.isEmpty {
         item.setString(ocrText, forType: .string)
     }
-    pasteboard.writeObjects([item])
-    return pasteboard.changeCount
+    guard capturePasteboard.writeObjects([item]) else {
+        logErr("clipboard: the pasteboard server refused the write")
+        return nil
+    }
+    return capturePasteboard.changeCount
+}
+
+func dumpClipboard() {
+    for type in capturePasteboard.types ?? [] {
+        print("type=\(type.rawValue)")
+    }
+    if let text = capturePasteboard.string(forType: .string) {
+        print("string=\(text.replacingOccurrences(of: "\n", with: " "))")
+    }
+    if let file = capturePasteboard.string(forType: .fileURL) {
+        print("fileURL=\(file)")
+    }
+    print("imageBytes=\(capturePasteboard.data(forType: .png)?.count ?? 0)")
 }
 
 struct Candidate {
@@ -248,9 +293,9 @@ let bootstrapCutoff: Date = {
 }()
 
 var processing: Set<String> = []
-var spoolFailures: [String: Int] = [:]
 var loggedStale: Set<String> = []
 let processed = ProcessedRegistry(url: registryURL)
+let failures = FailureLedger(url: failuresURL, listURL: strandedURL)
 
 func scan(directory: URL) {
     let cutoff = bootstrapCutoff
@@ -283,7 +328,8 @@ func scan(directory: URL) {
         }
         if processing.contains(key) { continue }
         if processed.contains(key) { continue }
-        if (spoolFailures[key] ?? 0) >= spoolFailureLimit { continue }
+        if failures.isStranded(key) { continue }
+        if failures.isBackingOff(key, now: Date()) { continue }
         candidates.append(Candidate(url: file, key: key, timestamp: ts))
     }
 
@@ -294,47 +340,86 @@ func scan(directory: URL) {
     }
 }
 
-func process(_ candidate: Candidate) {
+func recordFailure(_ candidate: Candidate, _ reason: String) {
+    let attempts = failures.record(
+        key: candidate.key,
+        name: candidate.url.lastPathComponent,
+        reason: reason,
+        now: Date()
+    )
+    logErr("\(reason) for \(candidate.url.lastPathComponent) (attempt \(attempts)); original kept on disk")
+    if attempts >= captureFailureLimit {
+        logErr("giving up on \(candidate.url.lastPathComponent) after \(attempts) failures; it is listed in \(strandedURL.path) so the watchdog stops restarting this daemon over it — a restart will not retry it, fix the cause and delete that entry (or wait \(Int(failureRetentionSeconds / 86_400)) days)")
+    } else {
+        logErr("next attempt for \(candidate.url.lastPathComponent) in \(Int(retryDelay(afterAttempts: attempts)))s")
+    }
+}
+
+@discardableResult
+func process(_ candidate: Candidate) -> Bool {
     defer { processing.remove(candidate.key) }
 
     guard let data = readWithRetry(at: candidate.url) else {
         logErr("skip \(candidate.url.lastPathComponent): file vanished or unreadable")
-        return
+        return false
     }
     guard let cgImage = decodeCGImage(from: data) else {
         logErr("skip \(candidate.url.lastPathComponent): could not decode image")
-        return
+        return false
     }
 
-    let instantChange = writeClipboardPayload(imageData: data, ocrText: "", fileURL: nil)
-    logErr("clipboard primed with \(candidate.url.lastPathComponent) (image only)")
+    let priorAttempts = failures.attempts(candidate.key)
+    let primedChange: Int
+    if priorAttempts > 0 {
+        primedChange = capturePasteboard.changeCount
+        logErr("retrying \(candidate.url.lastPathComponent) (attempt \(priorAttempts + 1)); the clipboard stays untouched until the OCR text is ready")
+    } else {
+        guard let primed = writeClipboardPayload(imageData: data, ocrText: "", fileURL: nil) else {
+            recordFailure(candidate, "clipboard prime failed")
+            return false
+        }
+        primedChange = primed
+        logErr("clipboard primed with \(candidate.url.lastPathComponent) (image only)")
+    }
 
-    let text = runOCR(on: cgImage)
-    guard let spooledURL = spoolCapture(
+    let text: String
+    switch runOCR(on: cgImage) {
+    case .text(let recognized):
+        text = recognized
+    case .refused(let reason):
+        text = ""
+        logErr("OCR refused \(candidate.url.lastPathComponent) (\(reason)); archiving the image with no text rather than stranding it")
+    case .failed(let reason):
+        recordFailure(candidate, "OCR failed (\(reason))")
+        return false
+    case .timedOut:
+        recordFailure(candidate, "OCR timed out")
+        return false
+    }
+
+    guard let archivedURL = archiveCapture(
         originalName: candidate.url.lastPathComponent,
         data: data,
-        ocrText: text,
         capturedAt: candidate.timestamp
     ) else {
-        let attempts = (spoolFailures[candidate.key] ?? 0) + 1
-        spoolFailures[candidate.key] = attempts
-        logErr("spool failed for \(candidate.url.lastPathComponent) (attempt \(attempts)); original kept on disk")
-        if attempts >= spoolFailureLimit {
-            logErr("giving up on \(candidate.url.lastPathComponent) after \(attempts) spool failures")
+        recordFailure(candidate, "archive failed")
+        return false
+    }
+
+    if capturePasteboard.changeCount == primedChange {
+        guard writeClipboardPayload(imageData: data, ocrText: text, fileURL: archivedURL) != nil else {
+            recordFailure(candidate, "clipboard delivery failed")
+            return false
         }
-        return
+    } else {
+        logErr("clipboard changed during OCR; user content wins and the \(text.count) chars of OCR are dropped")
     }
 
     processed.insert(candidate.key)
-    spoolFailures[candidate.key] = nil
+    failures.clear(candidate.key)
     try? fm.removeItem(at: candidate.url)
-
-    if NSPasteboard.general.changeCount == instantChange {
-        writeClipboardPayload(imageData: data, ocrText: text, fileURL: spooledURL)
-    } else {
-        logErr("clipboard changed during OCR; leaving user content untouched")
-    }
-    logErr("spooled \(candidate.url.lastPathComponent) as \(spooledURL.lastPathComponent) (\(text.count) chars OCR)")
+    logErr("archived \(candidate.url.lastPathComponent) as \(archivedURL.lastPathComponent) (\(text.count) chars OCR, clipboard only — never written to disk)")
+    return true
 }
 
 func warmUpOCR() {
@@ -349,32 +434,19 @@ func warmUpOCR() {
     logErr("Vision model warm (\(Int(Date().timeIntervalSince(start)))s)")
 }
 
-func spoolAdd(paths: [String]) -> Bool {
+func captureOnce(paths: [String]) -> Bool {
     guard !paths.isEmpty else {
-        logErr("spool-add: no paths given")
+        logErr("capture-once: no paths given")
         return false
     }
     var ok = true
     for path in paths {
         let url = URL(fileURLWithPath: path).standardizedFileURL
-        guard let data = readWithRetry(at: url) else {
-            logErr("spool-add: unreadable \(path)")
-            ok = false
-            continue
-        }
-        let values = try? url.resourceValues(forKeys: [.creationDateKey, .contentModificationDateKey])
+        let values = try? url.resourceValues(forKeys: [.creationDateKey, .contentModificationDateKey, .fileSizeKey])
         let capturedAt = values?.creationDate ?? values?.contentModificationDate ?? Date()
-        guard let spooled = spoolCapture(
-            originalName: url.lastPathComponent,
-            data: data,
-            ocrText: "",
-            capturedAt: capturedAt
-        ) else {
-            ok = false
-            continue
-        }
-        try? fm.removeItem(at: url)
-        logErr("spool-add: \(url.lastPathComponent) -> \(spooled.lastPathComponent)")
+        let key = "\(url.lastPathComponent)|\(values?.fileSize ?? 0)|\(Int(capturedAt.timeIntervalSince1970))"
+        processing.insert(key)
+        if !process(Candidate(url: url, key: key, timestamp: capturedAt)) { ok = false }
     }
     return ok
 }

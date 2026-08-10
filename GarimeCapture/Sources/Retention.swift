@@ -50,7 +50,7 @@ func purgeArchiveDay(_ dayDir: URL, day: String) -> (files: Int, removedDay: Boo
     var deleted = 0
     for name in entries {
         let entry = dayDir.appendingPathComponent(name, isDirectory: false)
-        guard isRegularFile(entry), isSpoolArtifact(name), isSafeComponent(name) else {
+        guard isRegularFile(entry), isArchiveArtifact(name), isSafeComponent(name) else {
             logErr("retention: keeping archive/\(day)/\(name) — not an artifact this daemon generated")
             continue
         }
@@ -88,8 +88,6 @@ struct RetentionStatus {
     var archiveDays = 0
     var archiveFiles = 0
     var archiveOldestAgeDays = 0
-    var pendingMarkdown = 0
-    var pendingImages = 0
     var purgedDaysTotal = 0
     var purgedFilesTotal = 0
 }
@@ -107,8 +105,6 @@ func loadRetentionStatus() -> RetentionStatus? {
     status.archiveDays = fields["archive_days"] ?? 0
     status.archiveFiles = fields["archive_files"] ?? 0
     status.archiveOldestAgeDays = fields["archive_oldest_age_days"] ?? 0
-    status.pendingMarkdown = fields["pending_md"] ?? 0
-    status.pendingImages = fields["pending_images"] ?? 0
     status.purgedDaysTotal = fields["purged_days_total"] ?? 0
     status.purgedFilesTotal = fields["purged_files_total"] ?? 0
     return status
@@ -120,8 +116,6 @@ func writeRetentionStatus(_ status: RetentionStatus) {
     archive_days=\(status.archiveDays)
     archive_files=\(status.archiveFiles)
     archive_oldest_age_days=\(status.archiveOldestAgeDays)
-    pending_md=\(status.pendingMarkdown)
-    pending_images=\(status.pendingImages)
     purged_days_total=\(status.purgedDaysTotal)
     purged_files_total=\(status.purgedFilesTotal)
     """
@@ -163,18 +157,12 @@ func retentionPass() -> Bool {
         total + archiveFileCount(archiveDir.appendingPathComponent(day, isDirectory: true))
     }
     status.archiveOldestAgeDays = remaining.first.map { archiveDayAgeInDays($0, now: now) } ?? 0
-    let pending = spoolPending()
-    status.pendingMarkdown = pending.markdown
-    status.pendingImages = pending.images
     status.purgedDaysTotal += purgedDays
     status.purgedFilesTotal += purgedFiles
     writeRetentionStatus(status)
 
     if purgedDays > 0 {
         logErr("retention: \(purgedDays) day(s) purged, \(status.archiveDays) day(s) / \(status.archiveFiles) image(s) kept")
-    }
-    if pending.images > 0 {
-        logErr("retention: \(pending.images) file(s) stuck in the spool that are never uploaded — they are not archived either")
     }
     return true
 }
