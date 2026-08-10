@@ -9,7 +9,7 @@ TMP="$(mktemp -d)"
 PASS=0
 FAIL=0
 
-trap 'rm -rf "$TMP"' EXIT
+trap 'rm -rf "$TMP"; [ -n "${SENTINEL:-}" ] && kill "${SENTINEL}" 2>/dev/null' EXIT
 
 ok() { PASS=$((PASS + 1)); echo "  ok   $1"; }
 no() { FAIL=$((FAIL + 1)); echo "  FAIL $1"; }
@@ -62,9 +62,15 @@ echo "== 8. runtime dependencies =="
 [ -x /opt/homebrew/bin/whisper-cli ]; check $? "whisper-cli present"
 [ -r "$HOME/.cache/whisper/ggml-large-v3-turbo.bin" ]; check $? "large-v3-turbo model present"
 
-echo "== 9. app launches and stays alive =="
-pkill -x GarimeWhisper 2>/dev/null
-"$BIN" >"$TMP/out.log" 2>"$TMP/err.log" &
+echo "== 9. app launches and stays alive (isolated work directory) =="
+LIVE_PID="$(pgrep -x GarimeWhisper | head -1)"
+HARNESS_WORKDIR="$TMP/sentinel" "$BIN" >"$TMP/sentinel.log" 2>&1 &
+SENTINEL=$!
+sleep 1
+kill -0 "$SENTINEL" 2>/dev/null
+check $? "sentinel instance is up (canary for stray process kills)"
+
+HARNESS_WORKDIR="$TMP/work9" "$BIN" >"$TMP/out.log" 2>"$TMP/err.log" &
 APP_PID=$!
 SURVIVED=1
 for _ in 1 2 3 4 5 6; do
@@ -80,10 +86,10 @@ kill "$APP_PID" 2>/dev/null
 wait "$APP_PID" 2>/dev/null
 
 echo "== 10. second instance refuses to run =="
-"$BIN" >"$TMP/a.log" 2>&1 &
+HARNESS_WORKDIR="$TMP/work10" "$BIN" >"$TMP/a.log" 2>&1 &
 FIRST=$!
 sleep 1.5
-"$BIN" >"$TMP/b.log" 2>&1 &
+HARNESS_WORKDIR="$TMP/work10" "$BIN" >"$TMP/b.log" 2>&1 &
 DUPE=$!
 DUPE_EXITED=1
 for _ in 1 2 3 4 5 6; do
@@ -97,6 +103,29 @@ kill "$FIRST" 2>/dev/null
 wait "$FIRST" 2>/dev/null
 [ "$DUPE_EXITED" -eq 0 ] && [ "$ALIVE" -eq 0 ]
 check $? "duplicate launch exits, original survives"
+
+echo "== 10b. smoke never touches instances it did not start =="
+kill -0 "$SENTINEL" 2>/dev/null
+check $? "sentinel survived the launch tests"
+kill "$SENTINEL" 2>/dev/null
+wait "$SENTINEL" 2>/dev/null
+SENTINEL=""
+if [ -n "$LIVE_PID" ]; then
+  kill -0 "$LIVE_PID" 2>/dev/null
+  check $? "installed instance still alive (pid $LIVE_PID)"
+else
+  ok "no installed instance was running before the smoke"
+fi
+KILL_A="p"
+KILL_B="kill"
+grep -nE "(^|[;&|(]|&&)[[:space:]]*($KILL_A$KILL_B|${KILL_B}all)" "$ROOT/smoke.sh" >"$TMP/pk.txt"
+[ ! -s "$TMP/pk.txt" ]
+check $? "smoke.sh kills nothing by process name ($(wc -l <"$TMP/pk.txt" | tr -d ' ') hits)"
+grep -nE '(^|[;&|(]|&&)[[:space:]]*"\$BIN"' "$ROOT/smoke.sh" >"$TMP/bare.txt"
+[ ! -s "$TMP/bare.txt" ]
+check $? "every app launch overrides the work directory ($(wc -l <"$TMP/bare.txt" | tr -d ' ') bare launches)"
+[ -e "$TMP/sentinel/instance.lock" ] && [ -e "$TMP/work10/instance.lock" ]
+check $? "test instances locked their own work directories, not the shared one"
 
 echo "== 11. transcription pipeline end to end =="
 PHRASE="Testando a transcricao de voz em portugues neste computador."

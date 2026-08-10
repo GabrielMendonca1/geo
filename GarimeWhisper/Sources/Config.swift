@@ -9,7 +9,11 @@ enum Config {
     static let minRecordingSeconds: TimeInterval = 0.4
     static let transcribeTimeout: TimeInterval = 180
     static let pasteRestoreDelay: TimeInterval = 0.8
-    static let workDirectory = NSTemporaryDirectory() + "ai.garime.whisper"
+    static let workDirectory: String = {
+        let override = ProcessInfo.processInfo.environment["HARNESS_WORKDIR"] ?? ""
+        if !override.isEmpty { return override }
+        return NSTemporaryDirectory() + "ai.garime.whisper"
+    }()
 
     static let streamingEnabled = true
     static let streamSampleRate: Double = 16000
