@@ -2,7 +2,7 @@
 Description=garime curador de contexto timer
 
 [Timer]
-OnCalendar=*-*-* 06,12,17,21:00:00 America/Sao_Paulo
+OnCalendar=*-*-* 00,03,06,09,12,15,18,21:00:00 America/Sao_Paulo
 Persistent=true
 
 [Install]
