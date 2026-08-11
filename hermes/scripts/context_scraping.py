@@ -4,10 +4,17 @@ context_scraping.py — self-contained context scraper, fully on Gabriel's
 Claude Code account (Claude Max OAuth), like the brain-vault Haiku ingest.
 
 Pipeline (no gateway, no agent phase):
-  1. read the last 6h from /mnt/garime/Vault/Inbox/wa_ingest.jsonl, bucket by chat
-  2. CLASSIFY each bucket in parallel with Haiku (model.nano) → proposals
+  1. scan /mnt/garime/Vault/Inbox/wa_ingest.jsonl ONCE per run, bucket by chat.
+     The same pass yields the new-message window (past the watermark), a bounded
+     72h context tail per chat (HERMES_WA_CONTEXT_LOOKBACK_HOURS) and the
+     bootstrap tail for chats with new messages. CONTEXT_MAX_CHARS=6000
+     measures rendered prompt size, including timestamps and media enrichment.
+  2. CLASSIFY each bucket in parallel with Haiku (model.nano) → proposals. Each
+     WhatsApp bucket is shown CONTEXTO (the 72h tail + the previous live summary,
+     read-only, for interpretation) and MENSAGENS NOVAS — only the latter may
+     produce proposals. Emails get no replay.
   3. DECIDE via one stateless `prime-agent -p` subprocess — openai-codex /
-     gpt-5.6-sol / thinking high by default (HERMES_WA_DECIDE_PROVIDER,
+     gpt-5.6-luna / thinking high by default (HERMES_WA_DECIDE_PROVIDER,
      HERMES_WA_DECIDE_MODEL, HERMES_WA_DECIDE_EFFORT). No session, no tools,
      no skills/extensions/prompt-templates/context-files: the prompt is the
      only input. Runs only when CLASSIFY kept at least one proposal, and
@@ -36,6 +43,7 @@ import subprocess
 import sys
 import unicodedata
 import uuid
+from collections import deque
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -104,7 +112,7 @@ def _decide_provider() -> str:
 
 
 def _decide_model() -> str:
-    return os.environ.get("HERMES_WA_DECIDE_MODEL") or "gpt-5.6-sol"
+    return os.environ.get("HERMES_WA_DECIDE_MODEL") or "gpt-5.6-luna"
 
 
 def _decide_effort() -> str:
@@ -112,9 +120,14 @@ def _decide_effort() -> str:
 
 
 # Persisted watermark (STATE_PATH, key last_processed_ts) is the real anti-overlap
-# mechanism: read_window() only returns messages newer than it. WINDOW_HOURS is just
+# mechanism: only records past it are "new". WINDOW_HOURS is just
 # the bootstrap lookback the very first time a chat/state file is seen.
 WINDOW_HOURS = int(os.environ.get("HERMES_WA_WINDOW_HOURS", "2"))
+# Read-only replay handed to CLASSIFY so it can interpret the new messages.
+# Never a proposal source: only messages past the watermark can produce those.
+CONTEXT_LOOKBACK_HOURS = int(os.environ.get("HERMES_WA_CONTEXT_LOOKBACK_HOURS", "72"))
+CONTEXT_MAX_MSGS = int(os.environ.get("HERMES_WA_CONTEXT_MAX_MSGS", "120"))
+CONTEXT_MAX_CHARS = int(os.environ.get("HERMES_WA_CONTEXT_MAX_CHARS", "6000"))
 EMAIL_WINDOW_HOURS = int(os.environ.get("HERMES_EMAIL_WINDOW_HOURS", "24"))
 EMAIL_TEXT_CAP = 1200
 MAX_PROPOSALS_PER_RUN = int(os.environ.get("HERMES_MAX_PROPOSALS_PER_RUN", "3"))
@@ -168,11 +181,22 @@ def _headers_oauth(token: str) -> dict:
 HAIKU_PROMPT_TEMPLATE = """Você é classificador. NÃO resume, NÃO escreve, NÃO cria nada. Sua única tarefa: olhar essa conversa e propor (em JSON) o que pode valer a pena guardar no cérebro do Gabriel. Outro agente mais inteligente vai decidir o que de fato fazer com sua proposta — você só sugere.
 
 ORIGEM: {source_note}
-Chat: {label} (group={is_group}, jid={chat_id})
-Mensagens (cronológicas, últimas {window}h):
+Chat: {label} (group={is_group_lit}, jid={chat_id})
+
+===== CONTEXTO — SOMENTE PARA INTERPRETAR, NUNCA PARA PROPOR =====
+Nada daqui pode virar proposta. Serve só para você entender do que as MENSAGENS NOVAS estão falando (pronomes, "isso", "aquilo combinado", quem é quem, o que já foi resolvido). Se algo interessante aparece só aqui, IGNORE: já foi visto num ciclo anterior.
+
+RESUMO VIVO ANTERIOR DESTA CONVERSA:
+{prev_summary}
+
+MENSAGENS ANTERIORES (cronológicas, últimas {context_hours}h, já processadas):
+{context_messages}
+
+===== MENSAGENS NOVAS — A ÚNICA FONTE DE PROPOSTAS =====
+Toda proposta que você retornar tem que sair DAQUI:
 {messages}
 
-Procure SOMENTE por:
+Procure SOMENTE por (sempre nas MENSAGENS NOVAS):
 - FATO sobre pessoa/projeto/decisão/preferência — algo que ainda vai ser verdade mês que vem — inclui decisão tomada na conversa.
 - TAREFA: o Gabriel se comprometeu (explícita ou implicitamente) a fazer algo
 - LEMBRETE temporal: data específica importa
@@ -182,6 +206,8 @@ Procure SOMENTE por:
 - CLIMA (no máx 1, bias forte a VAZIO): só se o Gabriel EXPRESSOU explicitamente como está o dia dele. Uma linha situacional. NUNCA clínico, NUNCA inferido de tom, NUNCA sobre terceiros.
 
 NÃO sugira: conversa fiada, piadas, reações, notícias, encaminhamentos, combinados vagos. Dúvida = não sugere.
+
+NÃO sugira nada que só aparece no CONTEXTO. Se a mesma coisa aparece no CONTEXTO e nas MENSAGENS NOVAS, ela já foi processada — só proponha se a mensagem nova acrescenta algo (mudou o prazo, foi concluída, virou outra coisa).
 
 Retorne JSON estrito (sem markdown, sem prefácio, sem ```):
 {{
@@ -401,6 +427,33 @@ def _is_one_way_chat(chat: str) -> bool:
     return chat.endswith("@newsletter") or chat.endswith("@broadcast")
 
 
+def _msg_key(rec: dict) -> str:
+    """Stable identity for a message. msg_id when present; otherwise a hash of the
+    immutable fields, so a record without an id still dedups against itself across
+    the two views (new window vs context replay) of the same JSONL line."""
+    mid = _as_text(rec.get("msg_id")).strip()
+    if mid:
+        return f"id:{mid}"
+    basis = "\x1f".join(
+        _as_text(rec.get(k)) for k in ("ts", "chat", "sender", "push_name", "type", "text")
+    )
+    basis += "\x1f" + ("1" if rec.get("from_me") else "0")
+    return "h:" + hashlib.sha1(basis.encode("utf-8")).hexdigest()
+
+
+def _is_group_chat(rec: dict) -> bool:
+    if rec.get("is_group"):
+        return True
+    return _as_text(rec.get("chat")).endswith("@g.us")
+
+
+def _parse_utc_ts(value) -> datetime:
+    parsed = datetime.fromisoformat(_as_text(value).replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
 def load_state() -> dict:
     try:
         return json.loads(STATE_PATH.read_text(encoding="utf-8"))
@@ -435,7 +488,26 @@ def _advance_watermark_keyed(state: dict, records: list[dict], ts_key: str, ids_
 
 
 def _advance_watermark(state: dict, records: list[dict]) -> None:
-    _advance_watermark_keyed(state, records, "last_processed_ts", "boundary_msg_ids")
+    ts_values = [r.get("ts") for r in records if r.get("ts")]
+    if not ts_values:
+        return
+    new_ts = max(ts_values)
+    last_ts = state.get("last_processed_ts") or ""
+    new_ids = [
+        (_as_text(r.get("msg_id")).strip() or _msg_key(r))
+        for r in records
+        if r.get("ts") == new_ts
+    ]
+    if new_ts > last_ts:
+        state["last_processed_ts"] = new_ts
+        state["boundary_msg_ids"] = new_ids
+    elif new_ts == last_ts:
+        existing = list(state.get("boundary_msg_ids") or [])
+        state["boundary_msg_ids"] = existing + [i for i in new_ids if i not in existing]
+    else:
+        return
+    state["last_run_at"] = _now_z()
+    save_state(state)
 
 
 def _email_uid(msg_id) -> int | None:
@@ -471,62 +543,121 @@ def _advance_email_watermark(state: dict, records: list[dict]) -> None:
     save_state(state)
 
 
-def read_window(watermark: str | None, boundary_msg_ids: list[str] | None = None) -> list[dict]:
+def scan_wa_jsonl(
+    watermark: str | None,
+    boundary_msg_ids: list[str] | None = None,
+    known_chat_ids: set[str] | frozenset[str] = frozenset(),
+) -> dict:
+    """Single pass over wa_ingest.jsonl per run.
+
+    Returns {"new": [...], "context": {chat: metadata}, "bootstrap": {chat: [...]}}:
+      new       — past the watermark; the ONLY records allowed to yield proposals
+      context   — last CONTEXT_LOOKBACK_HOURS per chat, new records excluded by
+                  key, tail-bounded; read-only replay for CLASSIFY
+      bootstrap — latest 1500 records only for chats with new messages this run
+    """
+    empty = {"new": [], "context": {}, "bootstrap": {}}
     if not JSONL_PATH.exists():
-        return []
+        return empty
     wm_dt = None
     if watermark:
         try:
-            wm_dt = datetime.fromisoformat(watermark.replace("Z", "+00:00"))
+            wm_dt = _parse_utc_ts(watermark)
         except Exception:
             wm_dt = None
     boundary_ids = set(boundary_msg_ids or [])
-    fallback_cutoff = datetime.now(timezone.utc) - timedelta(hours=WINDOW_HOURS)
+    now = datetime.now(timezone.utc)
+    fallback_cutoff = now - timedelta(hours=WINDOW_HOURS)
+    context_cutoff = now - timedelta(hours=CONTEXT_LOOKBACK_HOURS)
     end_dt = None
     end_raw = os.environ.get("HERMES_WA_WINDOW_END")
     if end_raw:
         try:
-            end_dt = datetime.fromisoformat(end_raw.replace("Z", "+00:00"))
+            end_dt = _parse_utc_ts(end_raw)
         except Exception:
             end_dt = None
-    out: list[dict] = []
+    if end_dt is not None:
+        context_cutoff = end_dt - timedelta(hours=CONTEXT_LOOKBACK_HOURS)
+    records: list[dict] = []
     dropped_empty = 0
     dropped_oneway = 0
-    with JSONL_PATH.open("r", encoding="utf-8", errors="replace") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                rec = json.loads(line)
-                ts_raw = rec.get("ts", "")
-                ts = datetime.fromisoformat(ts_raw.replace("Z", "+00:00"))
-            except Exception:
-                continue
-            if end_dt is not None and ts > end_dt:
-                continue
-            if wm_dt is not None:
-                if ts < wm_dt:
+    dropped_malformed = 0
+    try:
+        with JSONL_PATH.open("r", encoding="utf-8", errors="replace") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
                     continue
-                if ts == wm_dt and rec.get("msg_id") in boundary_ids:
+                try:
+                    rec = json.loads(line)
+                    ts_raw = rec.get("timestamp") or rec.get("ts", "")
+                    ts = _parse_utc_ts(ts_raw)
+                except Exception:
+                    dropped_malformed += 1
                     continue
-            elif ts < fallback_cutoff:
-                continue
-            if _is_empty_record(rec):
-                dropped_empty += 1
-                continue
-            if _is_one_way_chat(rec.get("chat") or ""):
-                dropped_oneway += 1
-                continue
+                if end_dt is not None and ts > end_dt:
+                    continue
+                if _is_empty_record(rec):
+                    dropped_empty += 1
+                    continue
+                chat = rec.get("chat") or ""
+                if _is_one_way_chat(chat):
+                    dropped_oneway += 1
+                    continue
+                records.append(rec)
+    except OSError as e:
+        log(f"whatsapp scan failed: {type(e).__name__}")
+        return empty
+    if dropped_empty or dropped_oneway or dropped_malformed:
+        log(f"dropped: malformed={dropped_malformed} empty={dropped_empty} one_way={dropped_oneway}")
+    records.sort(key=lambda r: _parse_utc_ts(r.get("timestamp") or r.get("ts")))
+    out: list[dict] = []
+    for rec in records:
+        ts = _parse_utc_ts(rec.get("timestamp") or rec.get("ts"))
+        key = _msg_key(rec)
+        is_new = True
+        if wm_dt is not None:
+            if ts < wm_dt:
+                is_new = False
+            elif ts == wm_dt and (rec.get("msg_id") in boundary_ids or key in boundary_ids):
+                is_new = False
+        elif ts < fallback_cutoff:
+            is_new = False
+        if is_new:
             out.append(rec)
-    if dropped_empty or dropped_oneway:
-        log(f"dropped: empty/decrypt-fail={dropped_empty} one-way-channels={dropped_oneway}")
-    return out
+    new_keys = {_msg_key(r) for r in out}
+    context: dict[str, dict[str, dict]] = {}
+    for rec in records:
+        chat = rec.get("chat") or ""
+        ts = _parse_utc_ts(rec.get("timestamp") or rec.get("ts"))
+        key = _msg_key(rec)
+        if chat and ts >= context_cutoff and key not in new_keys:
+            context.setdefault(chat, {})[key] = rec
+    ctx_out: dict[str, dict] = {}
+    for chat, messages_by_key in context.items():
+        context_list = sorted(
+            messages_by_key.values(),
+            key=lambda r: _parse_utc_ts(r.get("timestamp") or r.get("ts")),
+        )
+        context_list, was_truncated = _trim_context(context_list)
+        ctx_out[chat] = {
+            "context": context_list,
+            "context_truncated": was_truncated,
+        }
+    new_ids = {r.get("chat") or "" for r in out} - {""}
+    bootstrap = {chat: deque(maxlen=BOOTSTRAP_MAX_MSGS) for chat in new_ids}
+    for rec in records:
+        chat = rec.get("chat") or ""
+        if chat in bootstrap:
+            bootstrap[chat].append(rec)
+    boot_out = {chat: list(messages) for chat, messages in bootstrap.items()}
+    return {"new": out, "context": ctx_out, "bootstrap": boot_out}
 
 
-def read_email_window(uids: dict | None = None) -> list[dict]:
+def scan_email_jsonl(uids: dict | None = None) -> dict:
+    empty = {"new": []}
     if not EMAIL_JSONL_PATH.exists():
-        return []
+        return empty
     seen_uids = uids if isinstance(uids, dict) else {}
     fallback_cutoff = datetime.now(timezone.utc) - timedelta(hours=EMAIL_WINDOW_HOURS)
     dropped_noid = 0
@@ -552,7 +683,7 @@ def read_email_window(uids: dict | None = None) -> list[dict]:
                         continue
                 else:
                     try:
-                        ts = datetime.fromisoformat((rec.get("ts") or "").replace("Z", "+00:00"))
+                        ts = _parse_utc_ts(rec.get("ts"))
                     except Exception:
                         ts = None
                     if ts is not None and ts < fallback_cutoff:
@@ -572,39 +703,40 @@ def read_email_window(uids: dict | None = None) -> list[dict]:
                     "is_group": False,
                     "type": "email",
                     "source": "email",
+                    "subject": subject,
                     "text": f"assunto: {subject} | {body[:EMAIL_TEXT_CAP]}",
                 })
     except Exception as e:
         log(f"email window read failed: {e}")
-        return []
+        return empty
     if dropped_noid:
         log(f"email dropped: sem uid no msg_id={dropped_noid}")
-    return out
+    out.sort(key=lambda r: r.get("ts", ""))
+    return {"new": out}
 
 
 def bucket_by_account(records: list[dict]) -> list[dict]:
-    by_account: dict[str, dict] = {}
+    out: list[dict] = []
     for r in records:
         acct = r.get("account") or "?"
-        bucket = by_account.get(acct)
-        if bucket is None:
-            bucket = {
-                "chat_id": f"email:{acct}",
-                "is_group": False,
-                "source": "email",
-                "label": f"Email — {acct}",
-                "messages": [],
-            }
-            by_account[acct] = bucket
-        bucket["messages"].append(r)
-    out: list[dict] = []
-    for bucket in by_account.values():
-        bucket["messages"].sort(key=lambda r: r.get("ts", ""))
-        out.append(bucket)
+        sender = _as_text(r.get("sender")).strip() or "?"
+        subject = _as_text(r.get("subject")).strip()
+        if not subject:
+            text = _as_text(r.get("text"))
+            subject = text.partition("assunto: ")[2].partition(" |")[0].strip() or "?"
+        out.append({
+            "chat_id": f"email:{acct}:{_msg_key(r)}",
+            "is_group": False,
+            "source": "email",
+            "label": f"email {acct}: {sender}/{subject}",
+            "messages": [r],
+            "context": [],
+            "context_truncated": False,
+        })
     return out
 
 
-def bucket_by_chat(records: list[dict]) -> list[dict]:
+def bucket_by_chat(records: list[dict], context: dict[str, dict] | None = None) -> list[dict]:
     by_chat: dict[str, dict] = {}
     for r in records:
         chat = r.get("chat") or ""
@@ -614,17 +746,21 @@ def bucket_by_chat(records: list[dict]) -> list[dict]:
         if bucket is None:
             bucket = {
                 "chat_id": chat,
-                "is_group": bool(r.get("is_group")),
+                "is_group": False,
                 "source": "whatsapp",
                 "messages": [],
+                "context": [],
+                "context_truncated": False,
                 "_name_counts": {},
             }
             by_chat[chat] = bucket
+        bucket["is_group"] = bucket["is_group"] or _is_group_chat(r)
         bucket["messages"].append(r)
         name = r.get("push_name")
         if name and not r.get("from_me"):
             bucket["_name_counts"][name] = bucket["_name_counts"].get(name, 0) + 1
     out: list[dict] = []
+    ctx = context or {}
     for chat_id, bucket in by_chat.items():
         names = bucket["_name_counts"]
         if names:
@@ -633,6 +769,13 @@ def bucket_by_chat(records: list[dict]) -> list[dict]:
             bucket["label"] = chat_id
         bucket["messages"].sort(key=lambda r: r.get("ts", ""))
         del bucket["_name_counts"]
+        msg_meta = ctx.get(chat_id) or {}
+        if isinstance(msg_meta, list):
+            msg_meta = {"context": msg_meta, "context_truncated": False}
+        bucket["context"] = list(msg_meta.get("context") or [])
+        bucket["context_truncated"] = bool(msg_meta.get("context_truncated", False))
+        for r in bucket["context"]:
+            bucket["is_group"] = bucket["is_group"] or _is_group_chat(r)
         out.append(bucket)
     return out
 
@@ -763,25 +906,50 @@ async def enrich_window_media(records: list[dict], http, headers: dict) -> None:
     await asyncio.gather(*(one(r) for r in media_recs))
 
 
+def _format_message_line(m: dict) -> str:
+    if m.get("from_me"):
+        sender = "eu (Gabriel)"
+    else:
+        sender = m.get("push_name") or (m.get("sender") or "?")
+    ts = (m.get("timestamp") or m.get("ts") or "")[:19].replace("T", " ")
+    text = (m.get("text") or "").strip().replace("\n", " ")
+    mtype = m.get("type") or ""
+    enriched = m.get("_media_text")
+    if enriched is None:
+        media_path = _as_text((m.get("media") or {}).get("path"))
+        enriched = _media_memo.get(media_path) if media_path else None
+    if enriched:
+        text = f"{enriched} {text}".strip() if text else enriched
+    elif mtype not in ("text", ""):
+        text = f"[{mtype}] {text}".strip()
+    if not text:
+        text = f"[{mtype or 'sem conteúdo'}]"
+    return f"{ts} {sender}: {text}"
+
+
 def format_messages(messages: list[dict]) -> str:
-    lines: list[str] = []
-    for m in messages:
-        if m.get("from_me"):
-            sender = "eu (Gabriel)"
-        else:
-            sender = m.get("push_name") or (m.get("sender") or "?")
-        ts = (m.get("ts") or "")[:19].replace("T", " ")
-        text = (m.get("text") or "").strip().replace("\n", " ")
-        mtype = m.get("type") or ""
-        enriched = m.get("_media_text")
-        if enriched:
-            text = f"{enriched} {text}".strip() if text else enriched
-        elif mtype not in ("text", ""):
-            text = f"[{mtype}] {text}".strip()
-        if not text:
-            text = f"[{mtype or 'sem conteúdo'}]"
-        lines.append(f"{ts} {sender}: {text}")
-    return "\n".join(lines)
+    return "\n".join(_format_message_line(m) for m in messages)
+
+
+def _measure_formatted_size(messages: list[dict]) -> int:
+    if not messages:
+        return 0
+    return sum(len(_format_message_line(message)) for message in messages) + len(messages) - 1
+
+
+def _trim_context(messages: list[dict], max_msgs: int | None = None,
+                  max_chars: int | None = None) -> tuple[list[dict], bool]:
+    """Keep the most recent messages that fit both rendered-output caps."""
+    cap_msgs = CONTEXT_MAX_MSGS if max_msgs is None else max_msgs
+    cap_chars = CONTEXT_MAX_CHARS if max_chars is None else max_chars
+    kept = list(messages[-max(0, cap_msgs):]) if cap_msgs > 0 else []
+    truncated = len(kept) != len(messages)
+    while kept and _measure_formatted_size(kept) > max(0, cap_chars):
+        kept.pop(0)
+        truncated = True
+    if not kept and messages:
+        truncated = True
+    return kept, truncated
 
 
 def parse_json_response(raw: str) -> dict | None:
@@ -874,38 +1042,46 @@ async def _call_model(
     return None
 
 
-async def classify_bucket(http: httpx.AsyncClient, headers: dict, bucket: dict) -> dict:
+def format_prompt(bucket: dict, prev_summary: str = "") -> str:
     is_email = bucket.get("source") == "email"
     source_note = (
         "EMAIL — cada 'mensagem' é um email recebido pelo Gabriel (remetente + assunto no texto). "
         "Ele é o destinatário, não o autor. Newsletter/marketing/notificação automática é ruído: ignore."
         if is_email else "WhatsApp — conversa real, o Gabriel é um dos interlocutores."
     )
-    prompt = HAIKU_PROMPT_TEMPLATE.format(
+    if is_email:
+        context_block = "(email não tem replay de contexto)"
+        summary_block = "(email não tem resumo vivo)"
+    else:
+        ctx_msgs = bucket.get("context") or []
+        context_block = format_messages(ctx_msgs) if ctx_msgs else "(sem mensagens anteriores no periodo)"
+        if bucket.get("context_truncated"):
+            context_block = "[...contexto truncado a 6000 chars (120 mensagens)]\n" + context_block
+        summary_block = _as_text(prev_summary).strip() or "(sem resumo anterior)"
+    return HAIKU_PROMPT_TEMPLATE.format(
         source_note=source_note,
         label=bucket["label"],
         chat_id=bucket["chat_id"],
         is_group=bucket["is_group"],
         is_group_lit="true" if bucket["is_group"] else "false",
         window=WINDOW_HOURS,
+        context_hours=CONTEXT_LOOKBACK_HOURS,
+        context_messages=context_block,
+        prev_summary=summary_block,
         messages=format_messages(bucket["messages"]),
     )
+
+
+async def classify_bucket(http: httpx.AsyncClient, headers: dict, bucket: dict,
+                          prev_summary: str = "") -> dict:
+    prompt = format_prompt(bucket, prev_summary)
     empty_proposals = {"facts": [], "tasks": [], "reminders": [], "urgent": [], "people": [], "social": [], "mood": []}
-    fallback = {
-        "chat": bucket["label"],
-        "chat_id": bucket["chat_id"],
-        "is_group": bucket["is_group"],
-        "source": bucket.get("source") or "whatsapp",
-        "proposals": empty_proposals,
-    }
     raw = await _call_model(http, headers, HAIKU_MODEL, prompt, MAX_TOKENS_OUT, PER_CALL_TIMEOUT_S)
     if raw is None:
-        fallback["error"] = "model call failed"
-        return fallback
+        raise PiLaneError(f"CLASSIFY falhou para {bucket['chat_id']}")
     parsed = parse_json_response(raw)
     if not isinstance(parsed, dict):
-        fallback["error"] = "unparseable response"
-        return fallback
+        raise PiLaneError(f"CLASSIFY devolveu JSON invalido para {bucket['chat_id']}")
     if not isinstance(parsed.get("proposals"), dict):
         parsed["proposals"] = empty_proposals
     for k in ("facts", "tasks", "reminders", "urgent", "people", "social", "mood"):
@@ -916,6 +1092,23 @@ async def classify_bucket(http: httpx.AsyncClient, headers: dict, bucket: dict) 
     parsed.setdefault("is_group", bucket["is_group"])
     parsed["source"] = bucket.get("source") or "whatsapp"
     return parsed
+
+
+def _auth_error_from_response(exc: BaseException) -> bool:
+    current: BaseException | None = exc
+    seen: set[int] = set()
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        response = getattr(current, "response", None)
+        status_code = getattr(response, "status_code", None)
+        if status_code is None:
+            status_code = getattr(current, "status_code", None)
+        if status_code in (401, 403):
+            return True
+        if re.search(r"(?:HTTP\s*)?(?:401|403)\b", str(current), re.IGNORECASE):
+            return True
+        current = current.__cause__ or current.__context__
+    return False
 
 
 def has_proposals(bucket_result: dict) -> bool:
@@ -949,29 +1142,10 @@ def save_chats(store: dict) -> None:
         log(f"chats save failed: {e}")
 
 
-def read_full_history(chat_ids: set[str]) -> dict[str, list[dict]]:
-    out: dict[str, list[dict]] = {c: [] for c in chat_ids}
-    if not JSONL_PATH.exists() or not chat_ids:
-        return out
-    with JSONL_PATH.open("r", encoding="utf-8", errors="replace") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                rec = json.loads(line)
-            except Exception:
-                continue
-            chat = rec.get("chat") or ""
-            if chat not in out:
-                continue
-            if _is_empty_record(rec) or _is_one_way_chat(chat):
-                continue
-            out[chat].append(rec)
-    for c in out:
-        out[c].sort(key=lambda r: r.get("ts", ""))
-        out[c] = out[c][-BOOTSTRAP_MAX_MSGS:]
-    return out
+def select_full_history(chat_ids: set[str], bootstrap: dict[str, list[dict]]) -> dict[str, list[dict]]:
+    """Bootstrap tails for never-seen chats, taken from the single run scan —
+    no second pass over the JSONL."""
+    return {c: (bootstrap.get(c) or [])[-BOOTSTRAP_MAX_MSGS:] for c in chat_ids}
 
 
 async def bootstrap_summary(http: httpx.AsyncClient, headers: dict, sem: asyncio.Semaphore, label: str, chat_id: str, is_group: bool, msgs: list[dict]) -> str | None:
@@ -1008,11 +1182,11 @@ async def bootstrap_summary(http: httpx.AsyncClient, headers: dict, sem: asyncio
     return s[:SUMMARY_CHAR_CAP] if s else "\n".join(partials)[:SUMMARY_CHAR_CAP]
 
 
-async def update_chat_summaries(http: httpx.AsyncClient, headers: dict, sem: asyncio.Semaphore, buckets: list[dict], store: dict) -> tuple[str, bool]:
+async def update_chat_summaries(http: httpx.AsyncClient, headers: dict, sem: asyncio.Semaphore, buckets: list[dict], store: dict, bootstrap: dict[str, list[dict]] | None = None) -> tuple[str, bool]:
     chats = store.setdefault("chats", {})
     ok = True
     new_ids = {b["chat_id"] for b in buckets if b["chat_id"] not in chats}
-    hist = read_full_history(new_ids) if new_ids else {}
+    hist = select_full_history(new_ids, bootstrap or {}) if new_ids else {}
 
     async def handle(b: dict) -> None:
         nonlocal ok
@@ -1958,13 +2132,22 @@ async def run_whatsapp() -> int:
     state = load_state()
     store = load_chats()
     watermark = state.get("last_processed_ts")
-    records = read_window(watermark, state.get("boundary_msg_ids"))
+    known_chat_ids = set((store.get("chats") or {}).keys())
+    scan = scan_wa_jsonl(watermark, state.get("boundary_msg_ids"), known_chat_ids)
+    records = scan["new"]
+    context_by_chat = scan["context"]
+    bootstrap_by_chat = scan["bootstrap"]
     email_uids = _email_uids(state)
-    email_records = read_email_window(email_uids)
-    buckets = bucket_by_chat(records) + bucket_by_account(email_records)
-    log(f"window={WINDOW_HOURS}h watermark={watermark or 'none'} records={len(records)} "
-        f"email_window={EMAIL_WINDOW_HOURS}h email_uids={email_uids or 'none'} "
-        f"email_records={len(email_records)} buckets={len(buckets)} dry_run={dry}")
+    email_scan = scan_email_jsonl(email_uids)
+    email_records = email_scan["new"]
+    buckets = bucket_by_chat(records, context_by_chat) + bucket_by_account(email_records)
+    log(f"window_hours={WINDOW_HOURS} watermark_set={int(bool(watermark))} wa_new={len(records)} "
+        f"email_window_hours={EMAIL_WINDOW_HOURS} email_accounts={len(email_uids)} "
+        f"email_new={len(email_records)} buckets={len(buckets)} dry_run={int(dry)}")
+    ctx_buckets = [b for b in buckets if b.get("source") != "email"]
+    log(f"context: lookback={CONTEXT_LOOKBACK_HOURS}h caps={CONTEXT_MAX_MSGS}msgs/{CONTEXT_MAX_CHARS}chars "
+        f"chats_with_context={sum(1 for b in ctx_buckets if b.get('context'))} "
+        f"msgs={sum(len(b.get('context') or []) for b in ctx_buckets)}")
     if not buckets:
         print("[context-scraping] no messages in window")
         if records and not dry:
@@ -1979,28 +2162,72 @@ async def run_whatsapp() -> int:
     async with httpx.AsyncClient() as http:
         await enrich_window_media(records, http, headers)
 
-        async def gated(bucket: dict) -> dict:
+        prior_summaries = {
+            cid: (entry or {}).get("summary") or ""
+            for cid, entry in (store.get("chats") or {}).items()
+        }
+
+        errored: list[tuple[str, Exception]] = []
+
+        async def gated(bucket: dict) -> dict | None:
             async with sem:
-                return await classify_bucket(http, headers, bucket)
+                try:
+                    return await classify_bucket(
+                        http, headers, bucket, prior_summaries.get(bucket["chat_id"], "")
+                    )
+                except Exception as exc:
+                    errored.append((bucket["chat_id"], exc))
+                    log(f"CLASSIFY failed for {bucket['chat_id']}: {exc}")
+                    return None
 
         results = await asyncio.gather(*(gated(b) for b in buckets))
-        keep = [r for r in results if has_proposals(r)]
-        errored = [r for r in results if r.get("error")]
+        keep = [r for r in results if isinstance(r, dict) and has_proposals(r)]
         log(f"classify: with_proposals={len(keep)} errored={len(errored)}")
-        advance_ok = not errored
-        chat_buckets = [b for b in buckets if b.get("source") != "email"]
-        ctx, summary_ok = await update_chat_summaries(http, headers, sem, chat_buckets, store)
-        advance_ok = advance_ok and summary_ok
+        auth_failed = bool(_auth_error_calls) or any(_auth_error_from_response(exc) for _, exc in errored)
+        if auth_failed:
+            log("HINT: Check OAuth credentials")
+        if results and len(errored) == len(results):
+            log(f"all {len(results)} buckets errored — no classification happened")
+            return 1
+        failed_ids = {chat_id for chat_id, _ in errored}
+        failed_wa_ids = {
+            bucket["chat_id"] for bucket in buckets
+            if bucket["chat_id"] in failed_ids and bucket.get("source") != "email"
+        }
+        failed_email_ids = {
+            bucket["chat_id"] for bucket in buckets
+            if bucket["chat_id"] in failed_ids and bucket.get("source") == "email"
+        }
+        successful_wa_ids = {
+            bucket["chat_id"] for bucket, result in zip(buckets, results)
+            if isinstance(result, dict) and bucket.get("source") != "email"
+        }
+        watermark_records = [r for r in records if (r.get("chat") or "") in successful_wa_ids]
+        if failed_wa_ids:
+            failed_records = [r for r in records if (r.get("chat") or "") in failed_wa_ids]
+            if failed_records:
+                failed_ts = min(
+                    _parse_utc_ts(r.get("timestamp") or r.get("ts"))
+                    for r in failed_records
+                )
+                watermark_records = [
+                    r for r in watermark_records
+                    if _parse_utc_ts(r.get("timestamp") or r.get("ts")) <= failed_ts
+                ]
+            else:
+                watermark_records = []
+        chat_buckets = [
+            b for b in buckets
+            if b.get("source") != "email" and b["chat_id"] in successful_wa_ids
+        ]
+        ctx, summary_ok = await update_chat_summaries(http, headers, sem, chat_buckets, store, bootstrap_by_chat)
+        advance_ok = summary_ok
         if not keep:
-            if results and len(errored) == len(results):
-                if _auth_error_calls:
-                    log(f"todas as chamadas falharam com auth (401/403) — semear {AUTH_PATH.name}")
-                log(f"all {len(results)} buckets errored — no classification happened")
-                return 1
             print("[context-scraping] classifier surfaced nothing")
             if advance_ok and not dry:
-                _advance_watermark(state, records)
-                _advance_email_watermark(state, email_records)
+                _advance_watermark(state, watermark_records)
+                if not failed_wa_ids and not failed_email_ids:
+                    _advance_email_watermark(state, email_records)
                 save_chats(store)
             if not dry:
                 _materialize_if_due(store, state)
@@ -2027,8 +2254,9 @@ async def run_whatsapp() -> int:
     stats = await persist(decided, state)
     ne = len(expire_stale_tasks(dry=False))
     if advance_ok and decide_ok:
-        _advance_watermark(state, records)
-        _advance_email_watermark(state, email_records)
+        _advance_watermark(state, watermark_records)
+        if not failed_wa_ids and not failed_email_ids:
+            _advance_email_watermark(state, email_records)
         save_chats(store)
     else:
         log("watermark/chats not advanced (classify/summary/decide error) — overlapping retry next cycle")
