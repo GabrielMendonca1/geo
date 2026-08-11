@@ -5,7 +5,7 @@ Encodes the TARGET contract:
   - The lane is a single stateless `prime-agent -p` subprocess: no session, no
     tools, no skills/extensions/prompt-templates/context-files. The prompt is
     the only input, so two runs of the same window cannot influence each other.
-  - Provider/model/effort default to openai-codex / gpt-5.6-sol / high and are
+  - Provider/model/effort default to openai-codex / gpt-5.6-luna / high and are
     each overridable (HERMES_WA_DECIDE_PROVIDER, _MODEL, _EFFORT).
   - The lane runs at most once per cycle, and only when CLASSIFY kept at least
     one proposal.
@@ -21,8 +21,11 @@ from __future__ import annotations
 
 import ast
 import asyncio
+import json
 import os
 import sys
+import tempfile
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -104,6 +107,9 @@ def _expect_raises(fn, exc):
 def case_argv_default(wa) -> None:
     print("\n-- argv: hermetic + stateless by default --")
     _clear_env()
+    check("default model is Luna", wa._decide_model(), "gpt-5.6-luna")
+    check("default provider", wa._decide_provider(), "openai-codex")
+    check("default effort", wa._decide_effort(), "high")
     argv = wa._pi_argv("PROMPT")
     check(
         "argv exact contract",
@@ -118,7 +124,7 @@ def case_argv_default(wa) -> None:
             "--no-extensions",
             "--no-prompt-templates",
             "--provider", "openai-codex",
-            "--model", "gpt-5.6-sol",
+            "--model", "gpt-5.6-luna",
             "--thinking", "high",
             "--", "PROMPT",
         ],
@@ -142,11 +148,11 @@ def case_argv_overrides(wa) -> None:
     check("effort override", argv[argv.index("--thinking") + 1], "medium")
 
     _clear_env()
-    os.environ["HERMES_WA_DECIDE_MODEL"] = "gpt-5.6-luna"
+    os.environ["HERMES_WA_DECIDE_MODEL"] = "gpt-5.6-sol"
     argv = wa._pi_argv("P")
     check("model alone overrides, provider keeps default",
           (argv[argv.index("--model") + 1], argv[argv.index("--provider") + 1]),
-          ("gpt-5.6-luna", "openai-codex"))
+          ("gpt-5.6-sol", "openai-codex"))
 
     for flag in ("--no-session", "--no-tools", "--no-skills",
                  "--no-context-files", "--no-extensions", "--no-prompt-templates"):
@@ -237,6 +243,304 @@ def case_nano_pin(wa) -> None:
     ok("HAIKU_MODEL = _nano_model()", len(bound) == 1, f"{len(bound)} binding(s)")
 
 
+def _rec(ts: str, msg_id: str | None, chat: str = "5511@c.us", text: str = "x", **extra) -> dict:
+    rec = {
+        "ts": ts,
+        "msg_id": msg_id,
+        "chat": chat,
+        "sender": "5511",
+        "push_name": "Pessoa",
+        "type": "text",
+        "text": text,
+        "from_me": False,
+    }
+    rec.update(extra)
+    return rec
+
+
+def _scan_records(wa, records: list[dict], watermark: str, boundary=None) -> dict:
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "wa.jsonl"
+        path.write_text("\n".join(json.dumps(r) for r in records) + "\n", encoding="utf-8")
+        old_path = wa.JSONL_PATH
+        old_end = os.environ.get("HERMES_WA_WINDOW_END")
+        wa.JSONL_PATH = path
+        os.environ["HERMES_WA_WINDOW_END"] = "2026-08-11T12:00:00Z"
+        try:
+            return wa.scan_wa_jsonl(watermark, boundary or [], set())
+        finally:
+            wa.JSONL_PATH = old_path
+            if old_end is None:
+                os.environ.pop("HERMES_WA_WINDOW_END", None)
+            else:
+                os.environ["HERMES_WA_WINDOW_END"] = old_end
+
+
+def case_context_boundary_caps_dedup(wa) -> None:
+    print("\n-- bounded WhatsApp context --")
+    cutoff = "2026-08-08T12:00:00Z"
+    scan = _scan_records(wa, [
+        _rec(cutoff, "edge"),
+        _rec("2026-08-08T11:59:59.999000Z", "too-old"),
+        _rec("2026-08-08T12:00:00.001000Z", "new"),
+    ], cutoff, ["edge"])
+    context = scan["context"]["5511@c.us"]["context"]
+    check("72h boundary is inclusive", [r["msg_id"] for r in context], ["edge"])
+    check("untrimmed context reports no truncation", scan["context"]["5511@c.us"]["context_truncated"], False)
+    check("1ms before 72h boundary is excluded", [r["msg_id"] for r in scan["new"]], ["new"])
+    check("scan exposes exactly three views", set(scan), {"new", "context", "bootstrap"})
+
+    base = datetime(2026, 8, 10, 8, tzinfo=timezone.utc)
+    records = [_rec((base + timedelta(minutes=i)).isoformat().replace("+00:00", "Z"), str(i)) for i in range(121)]
+    capped = _scan_records(wa, records, "2026-08-11T12:00:00Z")
+    kept = capped["context"]["5511@c.us"]["context"]
+    check("121 context messages keep 120", len(kept), 120)
+    check("message cap drops oldest", kept[0]["msg_id"], "1")
+    check("message cap preserves newest", kept[-1]["msg_id"], "120")
+    check("message cap reports truncation", capped["context"]["5511@c.us"]["context_truncated"], True)
+    exact = _scan_records(wa, records[1:], "2026-08-11T12:00:00Z")["context"]["5511@c.us"]["context"]
+    check("120 context messages keep 120", len(exact), 120)
+
+    chars = [_rec(f"2026-08-10T0{i}:00:00Z", str(i), text="a" * 2970) for i in range(3)]
+    check("character measurement matches rendered prompt", wa._measure_formatted_size(chars), len(wa.format_messages(chars)))
+    trimmed, truncated = wa._trim_context(chars, 120, 6000)
+    check("character cap drops oldest first", [r["msg_id"] for r in trimmed], ["1", "2"])
+    ok("character cap reports truncation", truncated)
+    scanned = _scan_records(wa, chars, "2026-08-11T12:00:00Z")
+    scanned_chars = scanned["context"]["5511@c.us"]["context"]
+    scanned_truncated = scanned["context"]["5511@c.us"]["context_truncated"]
+    check("scan enforces character cap", [r["msg_id"] for r in scanned_chars], ["1", "2"])
+    check("character cap metadata reports truncation", scanned_truncated, True)
+    banner_bucket = wa.bucket_by_chat(
+        [_rec("2026-08-11T11:00:00Z", "fresh")],
+        {"5511@c.us": {"context": scanned_chars, "context_truncated": scanned_truncated}},
+    )[0]
+    ok("truncation banner follows context_truncated", "[...contexto truncado" in wa.format_prompt(banner_bucket))
+
+    enriched = _rec("2026-08-10T09:00:00Z", "media", type="audio", text="legenda", _media_text="transcrição")
+    rendered = wa.format_messages([enriched])
+    ok("rendered prompt includes timestamp", rendered.startswith("2026-08-10 09:00:00"))
+    ok("rendered prompt includes media enrichment", "transcrição legenda" in rendered)
+    check("media measurement uses rendered prompt", wa._measure_formatted_size([enriched]), len(rendered))
+
+    duplicate = _scan_records(wa, [
+        _rec("2026-08-10T10:00:00Z", "same", text="old"),
+        _rec("2026-08-10T11:00:00Z", "same", text="new"),
+    ], "2026-08-10T10:30:00Z")
+    check("new msg_id removes historical duplicate", duplicate["context"], {})
+    no_id = _rec("2026-08-10T10:00:00Z", None, text="stable")
+    same = dict(no_id)
+    same["_media_text"] = "cached enrichment"
+    check("hash fallback is stable across cache mutation", wa._msg_key(no_id), wa._msg_key(same))
+    ok("hash fallback has sha1 prefix", wa._msg_key(no_id).startswith("h:"))
+    check("msg_id key wins", wa._msg_key(no_id | {"msg_id": "abc"}), "id:abc")
+    state: dict = {}
+    real_save = wa.save_state
+    wa.save_state = lambda value: None
+    try:
+        wa._advance_watermark(state, [no_id])
+    finally:
+        wa.save_state = real_save
+    check("watermark stores fallback key", state["boundary_msg_ids"], [wa._msg_key(no_id)])
+    replay = _scan_records(wa, [no_id], no_id["ts"], state["boundary_msg_ids"])
+    check("fallback boundary prevents replay", replay["new"], [])
+
+
+def case_group_email_prompt_media(wa) -> None:
+    print("\n-- group, email, prompt, and media isolation --")
+    ok("explicit is_group is detected", wa._is_group_chat(_rec("2026-08-11T10:00:00Z", "1", is_group=True)))
+    ok("@g.us suffix is detected", wa._is_group_chat(_rec("2026-08-11T10:00:00Z", "2", chat="123@g.us")))
+    ok("@c.us stays direct", not wa._is_group_chat(_rec("2026-08-11T10:00:00Z", "3")))
+    ok("suffixless chat stays direct", not wa._is_group_chat(_rec("2026-08-11T10:00:00Z", "4", chat="plain")))
+    grouped = wa.bucket_by_chat([_rec("2026-08-11T10:00:00Z", "5", chat="123@g.us")])
+    check("bucket applies group detection", grouped[0]["is_group"], True)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "email.jsonl"
+        path.write_text(json.dumps({
+            "ts": "2026-08-11T10:00:00Z", "msg_id": "42@mail", "account": "work",
+            "sender": "ana@example.com", "subject": "Contrato", "text": "Pode revisar?",
+        }) + "\n", encoding="utf-8")
+        old_path = wa.EMAIL_JSONL_PATH
+        wa.EMAIL_JSONL_PATH = path
+        try:
+            email_scan = wa.scan_email_jsonl({"work": 41})
+        finally:
+            wa.EMAIL_JSONL_PATH = old_path
+    check("email scan has new-only view", set(email_scan), {"new"})
+    email_bucket = wa.bucket_by_account(email_scan["new"])[0]
+    check("email is atomic", len(email_bucket["messages"]), 1)
+    check("email has no context", email_bucket["context"], [])
+    check("email origin label", email_bucket["label"], "email work: ana@example.com/Contrato")
+
+    captured: list[str] = []
+    async def fake_call(http, headers, model, prompt, max_tokens, timeout_s, **kwargs):
+        captured.append(prompt)
+        return '{"proposals": {}}'
+    real_call = wa._call_model
+    wa._call_model = fake_call
+    try:
+        _run(wa.classify_bucket(None, {}, grouped[0], "resumo vivo"))
+        email_bucket["context"] = [_rec("2026-08-10T10:00:00Z", "old", text="SEGREDO")]
+        _run(wa.classify_bucket(None, {}, email_bucket, "RESUMO EMAIL ANTIGO"))
+    finally:
+        wa._call_model = real_call
+    ok("prompt separates CONTEXTO", "===== CONTEXTO —" in captured[0])
+    ok("prompt separates MENSAGENS NOVAS", "===== MENSAGENS NOVAS —" in captured[0])
+    ok("prompt forbids context-only proposals", "NÃO sugira nada que só aparece no CONTEXTO" in captured[0])
+    ok("prompt keeps context_messages distinct", "{context_messages}" in wa.HAIKU_PROMPT_TEMPLATE)
+    ok("prompt keeps messages distinct", "{messages}" in wa.HAIKU_PROMPT_TEMPLATE)
+    ok("group prompt uses JSON boolean", "group=true" in captured[0])
+    ok("email prompt excludes old messages", "SEGREDO" not in captured[1])
+    ok("email prompt excludes previous summary", "RESUMO EMAIL ANTIGO" not in captured[1])
+
+    historical = _rec("2026-08-10T10:00:00Z", "media", type="audio", text="", media={"path": "/tmp/a"})
+    wa._media_memo["/tmp/a"] = "[áudio transcrito] memo"
+    ok("historical formatting may reuse memo", "memo" in wa.format_messages([historical]))
+
+
+def case_scan_and_classify_failures(wa) -> None:
+    print("\n-- bounded failures --")
+    with tempfile.TemporaryDirectory() as tmp:
+        old_path = wa.JSONL_PATH
+        wa.JSONL_PATH = Path(tmp)
+        try:
+            failed = wa.scan_wa_jsonl(None)
+        finally:
+            wa.JSONL_PATH = old_path
+    check("scan I/O failure is bounded", failed, {"new": [], "context": {}, "bootstrap": {}})
+
+    async def failed_call(*args, **kwargs):
+        return None
+    bucket = wa.bucket_by_chat([_rec("2026-08-11T10:00:00Z", "x")])[0]
+    real_call = wa._call_model
+    wa._call_model = failed_call
+    try:
+        err = _expect_raises(lambda: wa.classify_bucket(None, {}, bucket), wa.PiLaneError)
+    finally:
+        wa._call_model = real_call
+    ok("CLASSIFY failure propagates as PiLaneError", isinstance(err, wa.PiLaneError), repr(err))
+
+    fn = _run_whatsapp_ast()
+    calls = [n for n in ast.walk(fn) if isinstance(n, ast.Call)]
+    check("WhatsApp JSONL scan called once per run", sum(isinstance(n.func, ast.Name) and n.func.id == "scan_wa_jsonl" for n in calls), 1)
+    check("email JSONL scan called once per run", sum(isinstance(n.func, ast.Name) and n.func.id == "scan_email_jsonl" for n in calls), 1)
+    enrich = [n for n in calls if isinstance(n.func, ast.Name) and n.func.id == "enrich_window_media"]
+    ok("media enrichment receives only new records", len(enrich) == 1 and isinstance(enrich[0].args[0], ast.Name) and enrich[0].args[0].id == "records")
+
+
+def case_classify_failures_no_watermark_leak(wa) -> None:
+    print("\n-- CLASSIFY failures do not leak watermark state --")
+    records = [
+        _rec("2026-08-11T10:00:00Z", "1", chat="chat-1", text="mensagem-1", push_name="Pessoa 1"),
+        _rec("2026-08-11T10:01:00Z", "2", chat="chat-2", text="mensagem-2", push_name="Pessoa 2"),
+        _rec("2026-08-11T10:02:00Z", "3", chat="chat-3", text="mensagem-3", push_name="Pessoa 3"),
+    ]
+    state: dict = {}
+    classified: list[str] = []
+    prompts: list[str] = []
+    decided_chat_ids: list[str] = []
+    fail_chat = True
+
+    class FakeHttp:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    async def fake_enrich(*args, **kwargs):
+        return None
+
+    async def fake_call(http, headers, model, prompt, max_tokens, timeout_s, **kwargs):
+        prompts.append(prompt)
+        for index in range(1, 4):
+            chat_id = f"chat-{index}"
+            if f'"chat_id": "{chat_id}"' not in prompt:
+                continue
+            if fail_chat and chat_id == "chat-3":
+                return None
+            classified.append(chat_id)
+            return json.dumps({"proposals": {"facts": [{"content": f"fato-{index}"}]}})
+        return None
+
+    async def fake_summaries(*args, **kwargs):
+        return "resumos", True
+
+    async def fake_decide(http, headers, kept, brain_context, chat_summaries, tasks_context):
+        decided_chat_ids.extend(result["chat_id"] for result in kept)
+        return {"blocks": [], "tasks": [], "urgent": [], "people": [], "digest": {}, "task_updates": []}, True
+
+    async def fake_persist(*args, **kwargs):
+        return {
+            "blocks_created": 0,
+            "blocks_appended": 0,
+            "blocks_capped": 0,
+            "dedup_skips": 0,
+            "tasks_created": 0,
+            "tasks_proposed": 0,
+            "tasks_capped": 0,
+            "urgent": 0,
+            "task_mutations": 0,
+        }
+
+    replacements = {
+        "load_oauth_token": lambda: "token",
+        "load_state": lambda: state,
+        "load_chats": lambda: {"chats": {}},
+        "scan_wa_jsonl": lambda *args: {"new": records, "context": {}, "bootstrap": {}},
+        "scan_email_jsonl": lambda *args: {"new": []},
+        "enrich_window_media": fake_enrich,
+        "_call_model": fake_call,
+        "update_chat_summaries": fake_summaries,
+        "render_brain_context": lambda: "cérebro",
+        "_recent_tasks_context": lambda: "tarefas",
+        "decide": fake_decide,
+        "persist": fake_persist,
+        "expire_stale_tasks": lambda **kwargs: [],
+        "_materialize_if_due": lambda *args: None,
+        "save_chats": lambda *args: None,
+        "save_state": lambda *args: None,
+    }
+    originals = {name: getattr(wa, name) for name in replacements}
+    had_client = hasattr(wa.httpx, "AsyncClient")
+    original_client = getattr(wa.httpx, "AsyncClient", None)
+    original_argv = sys.argv
+    try:
+        for name, value in replacements.items():
+            setattr(wa, name, value)
+        wa.httpx.AsyncClient = FakeHttp
+        sys.argv = [sys.argv[0]]
+        check("one failed CLASSIFY does not stop the cycle", _run(wa.run_whatsapp()), 0)
+        check("isolated CLASSIFY failure still advances the watermark", state.get("last_processed_ts"), records[-1]["ts"])
+        check("successful chats before failure remain classified", classified, ["chat-1", "chat-2"])
+        check("failed chat is excluded from the decision window", decided_chat_ids, ["chat-1", "chat-2"])
+        ok("first successful message is in its decision window", any("mensagem-1" in prompt for prompt in prompts))
+        ok("second successful message is in its decision window", any("mensagem-2" in prompt for prompt in prompts))
+
+        fail_chat = False
+        classified.clear()
+        prompts.clear()
+        decided_chat_ids.clear()
+        check("next complete cycle succeeds", _run(wa.run_whatsapp()), 0)
+        check("complete window includes all chats", decided_chat_ids, ["chat-1", "chat-2", "chat-3"])
+        check("global watermark advances after DECIDE success", state.get("last_processed_ts"), records[-1]["ts"])
+        check("watermark boundary belongs only to the newest chat", state.get("boundary_msg_ids"), ["3"])
+
+        wa.scan_wa_jsonl = lambda *args: {"new": [], "context": {}, "bootstrap": {}}
+        snapshot = dict(state)
+        check("no chats processed returns exit code 0", _run(wa.run_whatsapp()), 0)
+        check("empty window does not mutate watermark", state, snapshot)
+    finally:
+        sys.argv = original_argv
+        if had_client:
+            wa.httpx.AsyncClient = original_client
+        else:
+            del wa.httpx.AsyncClient
+        for name, value in originals.items():
+            setattr(wa, name, value)
+
+
 def _run_whatsapp_ast() -> ast.FunctionDef:
     tree = ast.parse(SOURCE.read_text())
     for node in ast.walk(tree):
@@ -245,7 +549,7 @@ def _run_whatsapp_ast() -> ast.FunctionDef:
     raise AssertionError("run_whatsapp not found")
 
 
-def case_gate_and_watermark() -> None:
+def case_decide_structural_gates() -> None:
     """Structural guard: these are reachability facts about run_whatsapp, which
     is a monolith (disk state + httpx + OAuth) and too costly to drive E2E.
     This is a regression rail against a refactor moving decide above the gate,
@@ -284,20 +588,39 @@ def case_gate_and_watermark() -> None:
             continue
         if not all(isinstance(v, ast.Name) for v in test.values):
             continue
-        if {v.id for v in test.values} != {"advance_ok", "decide_ok"}:
+        if len(test.values) != 2 or {v.id for v in test.values} != {"advance_ok", "decide_ok"}:
             continue
         gate_node = node
         break
     ok("post-decide gate is `and` over exactly advance_ok/decide_ok (an `or` is data loss)",
        gate_node is not None,
        ast.dump(gate_node.test) if gate_node is not None else "no qualifying `if` found")
-    guarded = [] if gate_node is None else [
-        c.func.id for c in ast.walk(gate_node)
+    guarded_calls = [] if gate_node is None else [
+        c
+        for statement in gate_node.body
+        for c in ast.walk(statement)
         if isinstance(c, ast.Call) and isinstance(c.func, ast.Name)
         and c.func.id.startswith("_advance_")
     ]
+    guarded = [c.func.id for c in guarded_calls]
     ok("post-decide watermark advance is gated on advance_ok and decide_ok",
        set(guarded) == {"_advance_watermark", "_advance_email_watermark"}, str(sorted(guarded)))
+    all_advances = [
+        n for n in ast.walk(fn)
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+        and n.func.id in {"_advance_watermark", "_advance_email_watermark"}
+    ]
+    empty_gate_calls = [
+        n for n in ast.walk(gate)
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+        and n.func.id in {"_advance_watermark", "_advance_email_watermark"}
+    ]
+    check("empty-proposal gate advances both watermarks",
+          {n.func.id for n in empty_gate_calls},
+          {"_advance_watermark", "_advance_email_watermark"})
+    check("all watermark advances are inside a success gate",
+          {(n.func.id, n.lineno) for n in all_advances},
+          {(n.func.id, n.lineno) for n in guarded_calls + empty_gate_calls})
 
     if decide_calls:
         line = decide_calls[0].lineno
@@ -308,6 +631,39 @@ def case_gate_and_watermark() -> None:
             for n in ast.walk(fn)
         )
         ok("decide is not wrapped in try/except (PiLaneError must propagate)", not wrapped)
+
+    result_assigns = [
+        n for n in ast.walk(fn)
+        if isinstance(n, ast.Assign)
+        and any(isinstance(t, ast.Name) and t.id == "results" for t in n.targets)
+    ]
+    ok("CLASSIFY gather exists", len(result_assigns) == 1)
+    if result_assigns:
+        gather_await = result_assigns[0].value
+        gather_call = gather_await.value if isinstance(gather_await, ast.Await) else None
+        return_exceptions = [
+            kw.value for kw in gather_call.keywords
+            if kw.arg == "return_exceptions"
+        ] if isinstance(gather_call, ast.Call) else []
+        ok("CLASSIFY gather isolates exceptions",
+           len(return_exceptions) == 1 and isinstance(return_exceptions[0], ast.Constant)
+           and return_exceptions[0].value is True)
+        line = result_assigns[0].lineno
+        wrapped = any(
+            isinstance(n, ast.Try) and n.handlers
+            and min(c.lineno for c in ast.walk(n) if hasattr(c, "lineno")) <= line
+            <= max(c.lineno for c in ast.walk(n) if hasattr(c, "lineno"))
+            for n in ast.walk(fn)
+        )
+        ok("CLASSIFY is not wrapped in try/except (PiLaneError must propagate)", not wrapped)
+        check("classified path has both success-gated watermark pairs", sum(n.lineno > line for n in all_advances), 4)
+
+    or_gates = [
+        n for n in ast.walk(fn)
+        if isinstance(n, ast.BoolOp) and isinstance(n.op, ast.Or)
+        and {v.id for v in n.values if isinstance(v, ast.Name)} & {"advance_ok", "decide_ok"}
+    ]
+    check("watermark flags are never joined by OR", or_gates, [])
 
 
 def main() -> int:
@@ -324,7 +680,11 @@ def main() -> int:
         case_single_execution(wa)
         case_failures(wa)
         case_nano_pin(wa)
-        case_gate_and_watermark()
+        case_context_boundary_caps_dedup(wa)
+        case_group_email_prompt_media(wa)
+        case_scan_and_classify_failures(wa)
+        case_classify_failures_no_watermark_leak(wa)
+        case_decide_structural_gates()
     finally:
         _clear_env()
         for k, v in saved.items():

@@ -24,11 +24,23 @@ Cada execução do serviço roda um pipeline de dois estágios com um portão en
    Se `keep` estiver vazio, o run imprime `classifier surfaced nothing`, avança watermark e **retorna sem nunca instanciar o estágio 2**.
 3. **Decisão cara — `prime-agent` sem estado**
    Uma única chamada, recebendo todos os buckets aprovados + `brain_context` + `chat_summaries` + `tasks_context`.
-   Desde 10/08 a lane é hermética: `-p --no-session --no-tools --no-skills --no-context-files --no-extensions --no-prompt-templates --provider openai-codex --model gpt-5.6-sol --thinking high -- <prompt>`. O prompt é a única entrada.
+   Desde 10/08 a lane é hermética: `-p --no-session --no-tools --no-skills --no-context-files --no-extensions --no-prompt-templates --provider openai-codex --model gpt-5.6-luna --thinking high -- <prompt>`. O prompt é a única entrada.
 
 O portão e a hermeticidade da lane são travados por `tests/pi_lane_contract.py` (`python3 tests/pi_lane_contract.py`).
 
 O portão não é teórico: nos 12 runs entre 07/08 e 10/08, **3 imprimiram `classifier surfaced nothing`** e nunca chegaram ao estágio 2.
+
+## Ingest bounded e idempotência
+
+Cada execução abre `wa_ingest.jsonl` uma única vez. `scan_wa_jsonl()` deriva nessa passagem três visões: `new`, com tudo depois do watermark; `context`, com o histórico read-only das últimas 72h por chat ativo; e `bootstrap`, com a cauda longa usada somente para criar o primeiro resumo vivo de um chat ainda desconhecido. O arquivo de e-mail também é lido uma vez, mas só produz `new`: cada e-mail é atômico e nunca recebe replay de conversa ou resumo anterior.
+
+Somente `new` pode originar proposals. O prompt do CLASSIFY separa explicitamente `CONTEXTO` de `MENSAGENS NOVAS`; o resumo vivo e o histórico de 72h existem apenas para resolver referências e entender o estado da conversa. O DECIDE recebe os resumos vivos dos chats de WhatsApp ativos naquele ciclo. E-mail contribui apenas com a mensagem recém-chegada e usa origem no formato `email <conta>: <remetente>/<assunto>`.
+
+O corte de contexto é inclusivo na borda de 72h. Antes de entregar o histórico ao CLASSIFY, mensagens presentes em `new` são excluídas pela identidade estável: `id:<msg_id>` quando há ID; sem ID, `h:<sha1>` sobre timestamp, chat, remetente, push name, tipo, texto e `from_me`. Isso impede que a mesma linha seja simultaneamente contexto e fonte nova. Na borda do watermark, `boundary_msg_ids` guarda o ID normal ou essa chave hash fallback, preservando idempotência mesmo para registros sem `msg_id`.
+
+O contexto mantém primeiro as 120 mensagens mais recentes e depois remove as mais antigas até que o texto agregado caiba em 6000 caracteres. Os defaults podem ser ajustados com `HERMES_WA_CONTEXT_LOOKBACK_HOURS`, `HERMES_WA_CONTEXT_MAX_MSGS` e `HERMES_WA_CONTEXT_MAX_CHARS`. Aumentá-los eleva diretamente o input do CLASSIFY; para operação conservadora, ajuste uma dimensão por vez e observe apenas as contagens de chats e mensagens no journal.
+
+Enriquecimento de áudio, imagem e documento só começa para registros de `new`. O histórico não relê arquivo, não chama Vision e não retranscreve Whisper. Se uma mídia já estiver no memo em memória durante o run, o contexto pode reutilizar esse texto sem novo processamento.
 
 ## Custo: o que o log mede e o que ele não mede
 
@@ -60,7 +72,7 @@ Baseline de 7d antes × 7d depois nas **duas** medidas. Alarme se o Haiku/dia pa
 
 `OnCalendar=*-*-* 00,03,06,09,12,15,18,21:00:00 America/Sao_Paulo`, `Persistent=true`.
 
-- **Cadência não afeta completude.** O anti-gap real é o watermark persistido (`STATE_PATH`, `last_processed_ts`): `read_window()` só devolve mensagens mais novas que ele, e o watermark só avança quando `advance_ok and decide_ok`. Falha no meio → watermark parado → o próximo ciclo reprocessa a mesma janela. Semântica at-least-once; duplicatas são absorvidas por `dedup_skips` no persist. Mudar 4 → 8 slots muda **latência**, nunca cobertura.
+- **Cadência não afeta completude.** O anti-gap real é o watermark persistido (`STATE_PATH`, `last_processed_ts`): somente a visão `new` de `scan_wa_jsonl()` pode gerar proposals, e o watermark só avança quando CLASSIFY, atualização dos resumos e DECIDE terminam com sucesso. Falha no meio → watermark parado → o próximo ciclo reprocessa a mesma janela. `boundary_msg_ids` resolve empates de timestamp; duplicatas posteriores são absorvidas por `dedup_skips` no persist. Mudar 4 → 8 slots muda **latência**, nunca cobertura.
 - **Overlap não acontece.** `Type=oneshot` sem `RemainAfterExit`: enquanto o `ExecStart` roda a unit fica em `activating`, e um elapse do timer nesse intervalo **funde** com o job em execução — systemd não cria segunda instância. Runs históricos duram 2–13s contra 3h de espaçamento.
 - **DST:** America/Sao_Paulo não observa horário de verão desde 2019; com timezone explícita não há hora pulada ou duplicada.
 
@@ -80,12 +92,12 @@ Em 10/08 o pin virou **decisão consciente no código**, que é a condição que
 | var | default | resolvido por |
 |---|---|---|
 | `HERMES_WA_DECIDE_PROVIDER` | `openai-codex` | `_decide_provider()` |
-| `HERMES_WA_DECIDE_MODEL` | `gpt-5.6-sol` | `_decide_model()` |
+| `HERMES_WA_DECIDE_MODEL` | `gpt-5.6-luna` | `_decide_model()` |
 | `HERMES_WA_DECIDE_EFFORT` | `high` | `_decide_effort()` |
 
 Os três são **incondicionais** no argv — não existe mais o ramo `if model:`, então não existe mais a divergência entre "o que o env diz" e "o que o `prime-agent` resolve". `_decide_model()` deixou de ser código morto: era ele o call site que faltava. Cada var é independente; setar uma sozinha usa o default das outras.
 
-Par validado contra a VM antes do pin (`prime-agent model list` lista `openai-codex gpt-5.6-sol`). **O `Environment` do service segue sem nenhuma `HERMES_WA_DECIDE_*`** — o default do código é quem manda, e é de propósito: o pin fica versionado no repo, não espalhado num drop-in.
+O par configurado no código é `openai-codex gpt-5.6-luna`. **O `Environment` do service segue sem nenhuma `HERMES_WA_DECIDE_*`** — o default do código é quem manda, e é de propósito: o pin fica versionado no repo, não espalhado num drop-in.
 
 Continua valendo: nenhum drop-in novo entra sem estar em `UNITS`.
 
