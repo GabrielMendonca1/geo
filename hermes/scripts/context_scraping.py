@@ -2170,20 +2170,71 @@ async def run_whatsapp() -> int:
                 )
 
         results = await asyncio.gather(*(gated(b) for b in buckets), return_exceptions=True)
-        keep = [r for r in results if isinstance(r, dict) and has_proposals(r)]
-        log(f"classify: with_proposals={len(keep)}")
-        watermark_records = records
-        chat_buckets = [
-            b for b in buckets
-            if b.get("source") != "email"
+        successful = [
+            (bucket, result)
+            for bucket, result in zip(buckets, results)
+            if isinstance(result, dict)
         ]
-        ctx, summary_ok = await update_chat_summaries(http, headers, sem, chat_buckets, store, bootstrap_by_chat)
+        failed = [
+            (bucket, result)
+            for bucket, result in zip(buckets, results)
+            if isinstance(result, BaseException)
+        ]
+        for bucket, exc in failed:
+            log(f"CLASSIFY failed [{bucket['chat_id']}]: {type(exc).__name__}: {exc}")
+        if failed and any(_auth_error_from_response(exc) for _, exc in failed):
+            log("HINT: Check OAuth credentials")
+        if results and not successful:
+            log(f"all {len(results)} buckets errored — no classification happened")
+            return 1
+
+        keep = [result for _, result in successful if has_proposals(result)]
+        log(f"classify: with_proposals={len(keep)} errored={len(failed)}")
+
+        successful_wa_ids = {
+            bucket["chat_id"] for bucket, _ in successful
+            if bucket.get("source") != "email"
+        }
+        failed_wa_ids = {
+            bucket["chat_id"] for bucket, _ in failed
+            if bucket.get("source") != "email"
+        }
+        failed_email = any(bucket.get("source") == "email" for bucket, _ in failed)
+        watermark_records = [
+            record for record in records
+            if (record.get("chat") or "") in successful_wa_ids
+        ]
+        if failed_wa_ids:
+            failed_records = [
+                record for record in records
+                if (record.get("chat") or "") in failed_wa_ids
+            ]
+            if failed_records:
+                first_failed_ts = min(
+                    _parse_utc_ts(record.get("timestamp") or record.get("ts"))
+                    for record in failed_records
+                )
+                watermark_records = [
+                    record for record in watermark_records
+                    if _parse_utc_ts(record.get("timestamp") or record.get("ts")) <= first_failed_ts
+                ]
+            else:
+                watermark_records = []
+
+        chat_buckets = [
+            bucket for bucket, _ in successful
+            if bucket.get("source") != "email"
+        ]
+        ctx, summary_ok = await update_chat_summaries(
+            http, headers, sem, chat_buckets, store, bootstrap_by_chat
+        )
         advance_ok = summary_ok
         if not keep:
             print("[context-scraping] classifier surfaced nothing")
             if not dry:
                 _advance_watermark(state, watermark_records)
-                _advance_email_watermark(state, email_records)
+                if not failed_email:
+                    _advance_email_watermark(state, email_records)
                 save_chats(store)
                 _materialize_if_due(store, state)
             return 0
@@ -2210,7 +2261,8 @@ async def run_whatsapp() -> int:
     ne = len(expire_stale_tasks(dry=False))
     if advance_ok and decide_ok:
         _advance_watermark(state, watermark_records)
-        _advance_email_watermark(state, email_records)
+        if not failed_email:
+            _advance_email_watermark(state, email_records)
         save_chats(store)
     else:
         log("watermark/chats not advanced (classify/summary/decide error) — overlapping retry next cycle")

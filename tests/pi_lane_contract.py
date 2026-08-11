@@ -436,7 +436,10 @@ def case_classify_failures_no_watermark_leak(wa) -> None:
         _rec("2026-08-11T10:01:00Z", "2", chat="chat-2", text="mensagem-2", push_name="Pessoa 2"),
         _rec("2026-08-11T10:02:00Z", "3", chat="chat-3", text="mensagem-3", push_name="Pessoa 3"),
     ]
-    state: dict = {}
+    state: dict = {
+        "last_processed_ts": "2026-08-11T09:59:00Z",
+        "boundary_msg_ids": [],
+    }
     classified: list[str] = []
     prompts: list[str] = []
     decided_chat_ids: list[str] = []
@@ -488,7 +491,18 @@ def case_classify_failures_no_watermark_leak(wa) -> None:
         "load_oauth_token": lambda: "token",
         "load_state": lambda: state,
         "load_chats": lambda: {"chats": {}},
-        "scan_wa_jsonl": lambda *args: {"new": records, "context": {}, "bootstrap": {}},
+        "scan_wa_jsonl": lambda watermark, boundary, *args: {
+            "new": [
+                record for record in records
+                if record["ts"] > (watermark or "")
+                or (
+                    record["ts"] == (watermark or "")
+                    and record["msg_id"] not in set(boundary or [])
+                )
+            ],
+            "context": {},
+            "bootstrap": {},
+        },
         "scan_email_jsonl": lambda *args: {"new": []},
         "enrich_window_media": fake_enrich,
         "_call_model": fake_call,
@@ -512,7 +526,8 @@ def case_classify_failures_no_watermark_leak(wa) -> None:
         wa.httpx.AsyncClient = FakeHttp
         sys.argv = [sys.argv[0]]
         check("one failed CLASSIFY does not stop the cycle", _run(wa.run_whatsapp()), 0)
-        check("isolated CLASSIFY failure still advances the watermark", state.get("last_processed_ts"), records[-1]["ts"])
+        check("partial failure advances only before the failed chat", state.get("last_processed_ts"), records[1]["ts"])
+        check("safe partial boundary belongs to last successful chat", state.get("boundary_msg_ids"), ["2"])
         check("successful chats before failure remain classified", classified, ["chat-1", "chat-2"])
         check("failed chat is excluded from the decision window", decided_chat_ids, ["chat-1", "chat-2"])
         ok("first successful message is in its decision window", any("mensagem-1" in prompt for prompt in prompts))
@@ -522,9 +537,10 @@ def case_classify_failures_no_watermark_leak(wa) -> None:
         classified.clear()
         prompts.clear()
         decided_chat_ids.clear()
-        check("next complete cycle succeeds", _run(wa.run_whatsapp()), 0)
-        check("complete window includes all chats", decided_chat_ids, ["chat-1", "chat-2", "chat-3"])
-        check("global watermark advances after DECIDE success", state.get("last_processed_ts"), records[-1]["ts"])
+        check("next cycle retries the failed chat", _run(wa.run_whatsapp()), 0)
+        check("retry window contains only the previously failed chat", decided_chat_ids, ["chat-3"])
+        check("failed chat is classified successfully on retry", classified, ["chat-3"])
+        check("global watermark advances after retry success", state.get("last_processed_ts"), records[-1]["ts"])
         check("watermark boundary belongs only to the newest chat", state.get("boundary_msg_ids"), ["3"])
 
         wa.scan_wa_jsonl = lambda *args: {"new": [], "context": {}, "bootstrap": {}}
