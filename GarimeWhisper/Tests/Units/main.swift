@@ -846,6 +846,77 @@ let thirdDir = MeetingArchive.directory(root: meetingsRoot, date: meetingDate, l
 equal(thirdDir.lastPathComponent, firstDir.lastPathComponent + "-3", "the suffix keeps counting")
 try? FileManager.default.removeItem(atPath: meetingsRoot)
 
+print("== capture probe reads the daemon status files ==")
+let captureRoot = NSTemporaryDirectory() + "harness-capture-" + UUID().uuidString
+let captureNow = Date()
+func touch(_ relative: String, at date: Date, contents: String = "") {
+    let path = captureRoot + "/" + relative
+    try? FileManager.default.createDirectory(
+        atPath: (path as NSString).deletingLastPathComponent,
+        withIntermediateDirectories: true
+    )
+    FileManager.default.createFile(atPath: path, contents: Data(contents.utf8))
+    try? FileManager.default.setAttributes([.modificationDate: date], ofItemAtPath: path)
+}
+
+equal(CaptureProbe.read(root: captureRoot).exists, false, "a missing install reads as absent")
+equal(
+    CaptureProbe.condition(CaptureProbe.read(root: captureRoot), now: captureNow),
+    .absent,
+    "absent install raises no alarm"
+)
+check(CaptureProbe.line(for: .absent) == nil, "absent renders no menu line")
+
+touch("status/capture.heartbeat", at: captureNow.addingTimeInterval(-30))
+var captureSnap = CaptureProbe.read(root: captureRoot)
+equal(captureSnap.exists, true, "a status dir makes the install visible")
+equal(CaptureProbe.condition(captureSnap, now: captureNow), .healthy, "a fresh heartbeat is healthy")
+check(CaptureProbe.line(for: .healthy) == nil, "healthy renders no menu line")
+
+touch("status/capture.heartbeat", at: captureNow.addingTimeInterval(-900))
+captureSnap = CaptureProbe.read(root: captureRoot)
+guard case .silent(let silentAge) = CaptureProbe.condition(captureSnap, now: captureNow) else {
+    check(false, "a stale heartbeat reads as silent")
+    exit(1)
+}
+check(abs(silentAge - 900) < 5, "silent carries the heartbeat age [\(Int(silentAge))s]")
+check(
+    CaptureProbe.line(for: .silent(900)) == "Prints: daemon parado há 15 min",
+    "silent renders the age in minutes"
+)
+
+touch("status/stranded", at: captureNow, contents: "a.png\n\nb.png\n")
+captureSnap = CaptureProbe.read(root: captureRoot)
+equal(captureSnap.strandedCount, 2, "blank lines in stranded are ignored")
+equal(
+    CaptureProbe.condition(captureSnap, now: captureNow),
+    .stranded(2),
+    "stranded outranks the heartbeat"
+)
+check(CaptureProbe.line(for: .stranded(1)) == "Prints: 1 preso", "singular stranded line")
+check(CaptureProbe.line(for: .stranded(2)) == "Prints: 2 presos", "plural stranded line")
+
+print("== capture watcher flashes on processed prints ==")
+touch("status/stranded", at: captureNow, contents: "")
+touch("status/capture.heartbeat", at: captureNow)
+touch("registry/processed.json", at: captureNow.addingTimeInterval(-60), contents: "{}")
+let watcher = CaptureWatcher(root: captureRoot)
+var flashes = 0
+var conditions: [CaptureCondition] = []
+watcher.onProcessed = { flashes += 1 }
+watcher.onCondition = { conditions.append($0) }
+watcher.poll(now: captureNow)
+equal(flashes, 0, "the first poll never flashes")
+equal(conditions.last, .healthy, "the first poll reports the condition")
+watcher.poll(now: captureNow)
+equal(flashes, 0, "an unchanged registry does not flash")
+touch("registry/processed.json", at: captureNow.addingTimeInterval(60), contents: "{}")
+watcher.poll(now: captureNow)
+equal(flashes, 1, "a new processed stamp flashes once")
+watcher.poll(now: captureNow)
+equal(flashes, 1, "the flash does not repeat without a new stamp")
+try? FileManager.default.removeItem(atPath: captureRoot)
+
 func ownSleepAssertions() -> Int {
     var raw: Unmanaged<CFDictionary>?
     guard IOPMCopyAssertionsByProcess(&raw) == kIOReturnSuccess,

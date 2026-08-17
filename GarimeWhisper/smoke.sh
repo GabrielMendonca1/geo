@@ -299,6 +299,8 @@ check "$([ $? -ne 0 ] && echo 0 || echo 1)" "no caffeinate subprocess anywhere"
 RELEASES="$(grep -c 'IOPMAssertionRelease' "$ROOT/Sources/InsomniaController.swift")"
 [ "$RELEASES" -ge 2 ]
 check $? "assertion is released on deactivate and deinit"
+grep -q 'createFile\|setAttributes\|removeItem\|write(' "$ROOT/Sources/CaptureWatcher.swift"
+check "$([ $? -ne 0 ] && echo 0 || echo 1)" "capture watcher is strictly read-only"
 
 echo "== 15. pure unit suite (stabilizer, chunker, meter, icon, session) =="
 swiftc -O -target "$(uname -m)-apple-macos14.0" -sdk "$(xcrun --show-sdk-path --sdk macosx)" \
@@ -313,6 +315,7 @@ swiftc -O -target "$(uname -m)-apple-macos14.0" -sdk "$(xcrun --show-sdk-path --
   "$ROOT/Sources/ProcessRunner.swift" \
   "$ROOT/Sources/Transcriber.swift" \
   "$ROOT/Sources/MeetingArchive.swift" \
+  "$ROOT/Sources/CaptureWatcher.swift" \
   "$ROOT/Tests/Units/main.swift" 2>"$TMP/units.log"
 check $? "unit harness compiles against the real sources"
 if [ -x "$TMP/units" ]; then

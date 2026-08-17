@@ -21,6 +21,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let insomnia = InsomniaController()
     private let meeting = MeetingController()
     private var meetingDirectory: URL?
+    private let capture = CaptureWatcher()
+    private var captureLine: String?
 
     private var phase: Phase = .idle
     private var generation = 0
@@ -46,6 +48,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let insomniaItem = NSMenuItem(title: "Manter acordado", action: nil, keyEquivalent: "")
     private let meetingToggleItem = NSMenuItem(title: "Gravar reunião", action: nil, keyEquivalent: "")
     private let meetingStatusItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let captureItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         icon = StatusIcon()
@@ -68,6 +71,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         meeting.onChange = { [weak self] in self?.meetingChanged() }
 
+        capture.onProcessed = { [weak self] in self?.icon.flash("camera.fill") }
+        capture.onCondition = { [weak self] condition in self?.captureChanged(condition) }
+        capture.start()
+
         Hotkey.shared.onTrigger = { [weak self] in self?.toggle() }
         if !Hotkey.shared.register() {
             blockingError = "⌥Space já está em uso — use o menu para ditar"
@@ -85,6 +92,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         insomnia.deactivate()
         meeting.abort()
+        capture.stop()
         session?.cancel()
         decoder?.cancel()
         recorder.abort()
@@ -210,6 +218,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             restoreIdleIconAfterMeeting()
         }
         refreshMenu()
+    }
+
+    private func captureChanged(_ condition: CaptureCondition) {
+        let line = CaptureProbe.line(for: condition)
+        icon.setOverlay(.alert, enabled: line != nil)
+        guard line != captureLine else { return }
+        captureLine = line
+        if let line {
+            captureItem.title = line
+            menuController.set(.capture, items: [captureItem])
+        } else {
+            menuController.set(.capture, items: [])
+        }
     }
 
     private func restoreIdleIconAfterMeeting() {

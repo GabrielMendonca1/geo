@@ -68,6 +68,10 @@ enum Config {
     static let meetingConvertTimeout: TimeInterval = 900
     static let meetingTranscribeTimeout: TimeInterval = 3600
     static let meetingElapsedRefresh: TimeInterval = 60
+
+    static let captureRoot = NSHomeDirectory() + "/Library/Application Support/Garime/GarimeCapture"
+    static let capturePollInterval: TimeInterval = 5
+    static let captureHeartbeatMaxAge: TimeInterval = 300
 }
 
 enum Preflight {
