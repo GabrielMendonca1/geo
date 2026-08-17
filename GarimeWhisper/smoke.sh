@@ -301,6 +301,10 @@ RELEASES="$(grep -c 'IOPMAssertionRelease' "$ROOT/Sources/InsomniaController.swi
 check $? "assertion is released on deactivate and deinit"
 grep -q 'createFile\|setAttributes\|removeItem\|write(' "$ROOT/Sources/CaptureWatcher.swift"
 check "$([ $? -ne 0 ] && echo 0 || echo 1)" "capture watcher is strictly read-only"
+grep -q 'BatchMode=yes' "$ROOT/Sources/TasksController.swift"
+check $? "tasks fetch never prompts for credentials"
+grep -q '"cat " + Config.tasksRemoteGlob' "$ROOT/Sources/TasksController.swift"
+check $? "the remote tasks command is exactly a cat of the glob"
 
 echo "== 15. pure unit suite (stabilizer, chunker, meter, icon, session) =="
 swiftc -O -target "$(uname -m)-apple-macos14.0" -sdk "$(xcrun --show-sdk-path --sdk macosx)" \
@@ -316,6 +320,7 @@ swiftc -O -target "$(uname -m)-apple-macos14.0" -sdk "$(xcrun --show-sdk-path --
   "$ROOT/Sources/Transcriber.swift" \
   "$ROOT/Sources/MeetingArchive.swift" \
   "$ROOT/Sources/CaptureWatcher.swift" \
+  "$ROOT/Sources/VaultTasks.swift" \
   "$ROOT/Tests/Units/main.swift" 2>"$TMP/units.log"
 check $? "unit harness compiles against the real sources"
 if [ -x "$TMP/units" ]; then

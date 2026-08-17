@@ -72,6 +72,15 @@ enum Config {
     static let captureRoot = NSHomeDirectory() + "/Library/Application Support/Garime/GarimeCapture"
     static let capturePollInterval: TimeInterval = 5
     static let captureHeartbeatMaxAge: TimeInterval = 300
+
+    static let hubDirectory = NSHomeDirectory() + "/Library/Application Support/Garime/Hub"
+    static let sshBinary = "/usr/bin/ssh"
+    static let tasksHost = "garime"
+    static let tasksRemoteGlob = "/mnt/garime/Vault/Tasks/" + "*.json"
+    static let tasksFetchTimeout: TimeInterval = 20
+    static let tasksRefreshInterval: TimeInterval = 300
+    static let tasksStaleAfter: TimeInterval = 120
+    static let tasksMenuLimit = 15
 }
 
 enum Preflight {

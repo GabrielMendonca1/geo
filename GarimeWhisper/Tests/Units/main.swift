@@ -846,6 +846,57 @@ let thirdDir = MeetingArchive.directory(root: meetingsRoot, date: meetingDate, l
 equal(thirdDir.lastPathComponent, firstDir.lastPathComponent + "-3", "the suffix keeps counting")
 try? FileManager.default.removeItem(atPath: meetingsRoot)
 
+print("== vault tasks: concatenated json splits on brace depth ==")
+let concatenated = """
+{
+  "title" : "Pagar boleto { com chave }",
+  "status" : "pending",
+  "priority" : "high",
+  "id" : "A",
+  "reminders" : [ 1, 2 ],
+  "body" : {
+    "kind" : "task",
+    "due" : "2026-08-20T12:00:00Z"
+  }
+}{
+  "title" : "Tarefa concluída",
+  "status" : "completed",
+  "id" : "B"
+}{
+  "title" : "Sem due \\"aspas}\\" dentro",
+  "status" : "pending",
+  "priority" : "unset",
+  "id" : "C",
+  "reminders" : [ ]
+}
+"""
+let parsed = VaultTasks.parse(Data(concatenated.utf8))
+equal(parsed.count, 3, "three concatenated objects parse")
+equal(parsed[0].title, "Pagar boleto { com chave }", "braces inside strings do not break the splitter")
+equal(parsed[2].title, "Sem due \"aspas}\" dentro", "escaped quotes and braces survive")
+equal(parsed[0].reminders, 2, "reminders count decodes")
+check(parsed[0].due != nil, "iso8601 due decodes")
+check(parsed[2].due == nil, "a task without due has no date")
+
+print("== vault tasks: open filter and ordering ==")
+let openTasks = VaultTasks.open(parsed)
+equal(openTasks.count, 2, "completed tasks are dropped")
+equal(openTasks[0].id, "A", "a dated task outranks an undated one")
+let unsorted = [
+    VaultTask(id: "1", title: "b", status: "pending", priority: "unset", due: nil, reminders: 0),
+    VaultTask(id: "2", title: "a", status: "pending", priority: "high", due: nil, reminders: 0),
+    VaultTask(id: "3", title: "c", status: "pending", priority: "unset", due: Date(timeIntervalSince1970: 2_000_000_000), reminders: 0),
+    VaultTask(id: "4", title: "d", status: "pending", priority: "unset", due: Date(timeIntervalSince1970: 1_000_000_000), reminders: 0),
+]
+equal(VaultTasks.open(unsorted).map(\.id), ["4", "3", "2", "1"], "due asc, then priority, then title")
+
+print("== vault tasks: age labels ==")
+let origin = Date(timeIntervalSince1970: 1_000_000)
+equal(VaultTasks.age(from: origin, to: origin.addingTimeInterval(30)), "agora", "fresh is agora")
+equal(VaultTasks.age(from: origin, to: origin.addingTimeInterval(600)), "há 10 min", "minutes label")
+equal(VaultTasks.age(from: origin, to: origin.addingTimeInterval(7200)), "há 2 h", "hours label")
+equal(VaultTasks.age(from: origin, to: origin.addingTimeInterval(259_200)), "há 3 d", "days label")
+
 print("== capture probe reads the daemon status files ==")
 let captureRoot = NSTemporaryDirectory() + "harness-capture-" + UUID().uuidString
 let captureNow = Date()

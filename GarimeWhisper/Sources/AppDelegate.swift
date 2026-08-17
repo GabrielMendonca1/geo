@@ -10,7 +10,7 @@ enum Phase {
     case failed(String)
 }
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var icon: StatusIcon!
     private var menuController: MenuController!
     private let recorder = Recorder()
@@ -23,6 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var meetingDirectory: URL?
     private let capture = CaptureWatcher()
     private var captureLine: String?
+    private let tasksController = TasksController()
 
     private var phase: Phase = .idle
     private var generation = 0
@@ -49,6 +50,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let meetingToggleItem = NSMenuItem(title: "Gravar reunião", action: nil, keyEquivalent: "")
     private let meetingStatusItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let captureItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let tasksItem = NSMenuItem(title: "Tarefas", action: nil, keyEquivalent: "")
+    private let tasksMenu = NSMenu()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         icon = StatusIcon()
@@ -75,6 +78,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         capture.onCondition = { [weak self] condition in self?.captureChanged(condition) }
         capture.start()
 
+        tasksController.onChange = { [weak self] in self?.tasksChanged() }
+        tasksController.start()
+
         Hotkey.shared.onTrigger = { [weak self] in self?.toggle() }
         if !Hotkey.shared.register() {
             blockingError = "⌥Space já está em uso — use o menu para ditar"
@@ -93,6 +99,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         insomnia.deactivate()
         meeting.abort()
         capture.stop()
+        tasksController.stop()
         session?.cancel()
         decoder?.cancel()
         recorder.abort()
@@ -118,6 +125,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         meetingToggleItem.action = #selector(menuMeeting)
         meetingStatusItem.isHidden = true
 
+        tasksItem.submenu = tasksMenu
+        icon.menu.delegate = self
+
         let quit = NSMenuItem(title: "Sair", action: #selector(menuQuit), keyEquivalent: "q")
         quit.target = self
 
@@ -125,6 +135,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menuController.set(.dictation, items: [toggleItem, accessibilityItem])
         menuController.set(.meeting, items: [meetingToggleItem, meetingStatusItem])
         menuController.set(.insomnia, items: [insomniaItem])
+        menuController.set(.personalTasks, items: [tasksItem])
         menuController.set(.app, items: [quit])
     }
 
@@ -218,6 +229,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             restoreIdleIconAfterMeeting()
         }
         refreshMenu()
+    }
+
+    func menuWillOpen(_ menu: NSMenu) {
+        guard menu === icon.menu else { return }
+        tasksController.refreshIfStale()
+    }
+
+    private func tasksChanged() {
+        let open = VaultTasks.open(tasksController.tasks)
+        tasksItem.title = open.isEmpty ? "Tarefas" : "Tarefas (\(open.count))"
+        tasksMenu.removeAllItems()
+        for task in open.prefix(Config.tasksMenuLimit) {
+            let title: String
+            if let due = VaultTasks.dueLabel(task.due) {
+                title = "\(task.title) · \(due)"
+            } else {
+                title = task.title
+            }
+            tasksMenu.addItem(NSMenuItem(title: title, action: nil, keyEquivalent: ""))
+        }
+        if open.count > Config.tasksMenuLimit {
+            tasksMenu.addItem(NSMenuItem(
+                title: "… e mais \(open.count - Config.tasksMenuLimit)",
+                action: nil,
+                keyEquivalent: ""
+            ))
+        }
+        if open.isEmpty {
+            tasksMenu.addItem(NSMenuItem(title: "Nenhuma tarefa aberta", action: nil, keyEquivalent: ""))
+        }
+        tasksMenu.addItem(.separator())
+        let footer: String
+        if let fetchedAt = tasksController.fetchedAt {
+            let age = VaultTasks.age(from: fetchedAt, to: Date())
+            footer = tasksController.offline
+                ? "offline — cache de \(age)"
+                : "atualizado \(age)"
+        } else {
+            footer = tasksController.offline ? "offline — sem cache" : "carregando…"
+        }
+        tasksMenu.addItem(NSMenuItem(title: footer, action: nil, keyEquivalent: ""))
     }
 
     private func captureChanged(_ condition: CaptureCondition) {
