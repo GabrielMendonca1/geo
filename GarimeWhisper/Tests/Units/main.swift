@@ -1,4 +1,5 @@
 import Foundation
+import IOKit.pwr_mgt
 
 var passes = 0
 var failures = 0
@@ -822,6 +823,35 @@ do {
 equal(DictationSession.remainder(full: "um dois tres", typed: "um dois"), "tres", "remainder drops the typed prefix")
 equal(DictationSession.remainder(full: "um dois", typed: ""), "um dois", "remainder is everything when nothing was typed")
 equal(DictationSession.remainder(full: "um dois", typed: "um dois"), "", "remainder is empty when all was typed")
+
+func ownSleepAssertions() -> Int {
+    var raw: Unmanaged<CFDictionary>?
+    guard IOPMCopyAssertionsByProcess(&raw) == kIOReturnSuccess,
+          let dict = raw?.takeRetainedValue() as? [NSNumber: [[String: Any]]]
+    else { return -1 }
+    let mine = dict[NSNumber(value: getpid())] ?? []
+    return mine.filter { ($0["AssertType"] as? String) == kIOPMAssertionTypePreventSystemSleep }.count
+}
+
+print("== insomnia controller holds a real power assertion ==")
+let insomnia = InsomniaController()
+equal(ownSleepAssertions(), 0, "no sleep assertion before activation")
+check(insomnia.toggle(), "toggle reports active")
+check(insomnia.isActive, "controller tracks the active state")
+equal(ownSleepAssertions(), 1, "exactly one PreventSystemSleep assertion is held")
+insomnia.activate()
+equal(ownSleepAssertions(), 1, "a second activate does not stack assertions")
+check(!insomnia.toggle(), "toggle reports inactive")
+check(!insomnia.isActive, "controller tracks the inactive state")
+equal(ownSleepAssertions(), 0, "the assertion is released on deactivate")
+insomnia.deactivate()
+equal(ownSleepAssertions(), 0, "a second deactivate is a no-op")
+do {
+    let scoped = InsomniaController()
+    scoped.activate()
+    equal(ownSleepAssertions(), 1, "a scoped controller holds its assertion")
+}
+equal(ownSleepAssertions(), 0, "deinit releases a forgotten assertion")
 
 print("")
 print("units passed: \(passes)   failed: \(failures)")

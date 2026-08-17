@@ -275,6 +275,13 @@ grep -q 'IsSecureEventInputEnabled' "$ROOT/Sources/FocusAnchor.swift"
 check $? "secure input is checked before every injection"
 grep -q 'Config.whisperBinary\|Config.ffmpegBinary' "$ROOT/Sources/Transcriber.swift"
 check $? "batch whisper-cli fallback path is still present"
+grep -q 'IOPMAssertionCreateWithName' "$ROOT/Sources/InsomniaController.swift"
+check $? "insomnia holds a native IOPM assertion"
+grep -rq 'caffeinate' "$ROOT/Sources" --include='*.swift'
+check "$([ $? -ne 0 ] && echo 0 || echo 1)" "no caffeinate subprocess anywhere"
+RELEASES="$(grep -c 'IOPMAssertionRelease' "$ROOT/Sources/InsomniaController.swift")"
+[ "$RELEASES" -ge 2 ]
+check $? "assertion is released on deactivate and deinit"
 
 echo "== 15. pure unit suite (stabilizer, chunker, meter, icon, session) =="
 swiftc -O -target "$(uname -m)-apple-macos14.0" -sdk "$(xcrun --show-sdk-path --sdk macosx)" \
@@ -285,6 +292,7 @@ swiftc -O -target "$(uname -m)-apple-macos14.0" -sdk "$(xcrun --show-sdk-path --
   "$ROOT/Sources/LevelMeter.swift" \
   "$ROOT/Sources/IconAnimation.swift" \
   "$ROOT/Sources/DictationSession.swift" \
+  "$ROOT/Sources/InsomniaController.swift" \
   "$ROOT/Tests/Units/main.swift" 2>"$TMP/units.log"
 check $? "unit harness compiles against the real sources"
 if [ -x "$TMP/units" ]; then

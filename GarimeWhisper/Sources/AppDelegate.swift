@@ -18,6 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let paster = Paster()
     private let typist = Typist()
     private let focusGate = SystemFocusGate()
+    private let insomnia = InsomniaController()
 
     private var phase: Phase = .idle
     private var generation = 0
@@ -40,6 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let statusItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let toggleItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let accessibilityItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let insomniaItem = NSMenuItem(title: "Manter acordado", action: nil, keyEquivalent: "")
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         icon = StatusIcon()
@@ -75,6 +77,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        insomnia.deactivate()
         session?.cancel()
         decoder?.cancel()
         recorder.abort()
@@ -93,11 +96,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         accessibilityItem.action = #selector(menuAccessibility)
         accessibilityItem.title = "Ativar colagem automática…"
 
+        insomniaItem.target = self
+        insomniaItem.action = #selector(menuInsomnia)
+
         let quit = NSMenuItem(title: "Sair", action: #selector(menuQuit), keyEquivalent: "q")
         quit.target = self
 
         menuController.set(.status, items: [statusItem])
         menuController.set(.dictation, items: [toggleItem, accessibilityItem])
+        menuController.set(.insomnia, items: [insomniaItem])
         menuController.set(.app, items: [quit])
     }
 
@@ -132,6 +139,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func menuToggle() { toggle() }
+
+    @objc private func menuInsomnia() {
+        insomnia.toggle()
+        insomniaItem.state = insomnia.isActive ? .on : .off
+        icon.setOverlay(.moon, enabled: insomnia.isActive)
+    }
 
     @objc private func menuAccessibility() {
         paster.requestAccessibilityOnce()
