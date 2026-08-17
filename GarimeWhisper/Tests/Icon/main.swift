@@ -104,6 +104,63 @@ check(icon.renderedImage != nil, "interrupting every transition never wedges the
 icon.apply(.idle)
 check(!icon.isAnimating, "after a storm of transitions idle still has no timer")
 
+print("== status icon: overlays compose over the base state ==")
+icon.apply(.idle)
+let bare = icon.renderedImage
+icon.setOverlay(.alert, enabled: true)
+let badged = icon.renderedImage
+check(badged != nil, "alert overlay renders")
+check(badged !== bare, "alert overlay changes the rendered image")
+check(badged?.isTemplate == true, "overlaid image stays a template")
+icon.setOverlay(.moon, enabled: true)
+let mooned = icon.renderedImage
+check(mooned != nil, "moon overlay renders")
+check(mooned !== badged, "moon overlay changes the rendered image")
+check(icon.activeOverlays == [.alert, .moon], "both overlays are tracked")
+icon.apply(.transcribing)
+check(icon.activeOverlays == [.alert, .moon], "overlays survive a state change")
+icon.apply(.idle)
+icon.setOverlay(.alert, enabled: false)
+icon.setOverlay(.moon, enabled: false)
+check(icon.activeOverlays.isEmpty, "overlays clear")
+check(icon.renderedImage === bare, "without overlays the cached base image returns")
+
+print("== status icon: flash is transient ==")
+icon.apply(.idle)
+let preFlash = icon.renderedImage
+icon.flash("camera.fill")
+check(icon.isFlashing, "flash engages")
+check(icon.renderedImage !== preFlash, "flash swaps the rendered image")
+let flashDeadline = Date().addingTimeInterval(Config.iconFlashSeconds + 1.0)
+while icon.isFlashing, Date() < flashDeadline {
+    RunLoop.main.run(mode: .default, before: Date().addingTimeInterval(0.05))
+}
+check(!icon.isFlashing, "flash expires on its own")
+check(icon.renderedImage === preFlash, "the base image returns after the flash")
+
+print("== menu controller: sections keep order and separators ==")
+let controller = MenuController(menu: icon.menu)
+let first = NSMenuItem(title: "Pronto", action: nil, keyEquivalent: "")
+let second = NSMenuItem(title: "Ditar", action: nil, keyEquivalent: "")
+let last = NSMenuItem(title: "Sair", action: nil, keyEquivalent: "")
+controller.set(.status, items: [first])
+controller.set(.app, items: [last])
+check(icon.menu.items.map(\.title) == ["Pronto", "", "Sair"], "two sections render with one separator")
+controller.set(.dictation, items: [second])
+check(
+    icon.menu.items.map(\.title) == ["Pronto", "", "Ditar", "", "Sair"],
+    "a section added later lands in declaration order"
+)
+controller.set(.dictation, items: [])
+check(icon.menu.items.map(\.title) == ["Pronto", "", "Sair"], "an emptied section disappears with its separator")
+let replacement = NSMenuItem(title: "Gravar", action: nil, keyEquivalent: "")
+controller.set(.meeting, items: [replacement])
+check(
+    icon.menu.items.map(\.title) == ["Pronto", "", "Gravar", "", "Sair"],
+    "a later section slots between its neighbours"
+)
+check(controller.items(in: .meeting) == [replacement], "section contents are queryable")
+
 print("")
 print("icon passed: \(passes)   failed: \(failures)")
 exit(failures == 0 ? 0 : 1)

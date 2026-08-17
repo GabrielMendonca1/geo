@@ -12,6 +12,11 @@ enum IconState: Equatable {
     case cancelled
 }
 
+enum IconOverlay: Hashable {
+    case alert
+    case moon
+}
+
 enum IconRender: Equatable {
     case symbol(String)
     case bars

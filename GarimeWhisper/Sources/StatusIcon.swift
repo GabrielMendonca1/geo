@@ -8,6 +8,9 @@ final class StatusIcon {
     private var symbolCache: [String: NSImage] = [:]
 
     private var state: IconState = .idle
+    private var overlays: Set<IconOverlay> = []
+    private var flashSymbol: String?
+    private var flashReset: DispatchWorkItem?
     private var plan: IconPlan
     private var frameIndex = 0
     private var level: Float = 0
@@ -30,6 +33,7 @@ final class StatusIcon {
     deinit {
         timer?.invalidate()
         followUp?.cancel()
+        flashReset?.cancel()
         if let motionObserver {
             NSWorkspace.shared.notificationCenter.removeObserver(motionObserver)
         }
@@ -42,6 +46,10 @@ final class StatusIcon {
     var renderedImage: NSImage? { item.button?.image }
 
     var isAnimating: Bool { timer != nil }
+
+    var isFlashing: Bool { flashSymbol != nil }
+
+    var activeOverlays: Set<IconOverlay> { overlays }
 
     func apply(_ next: IconState) {
         timer?.invalidate()
@@ -61,6 +69,28 @@ final class StatusIcon {
         render()
         scheduleTicker()
         scheduleFollowUp()
+    }
+
+    func setOverlay(_ overlay: IconOverlay, enabled: Bool) {
+        let changed = enabled
+            ? overlays.insert(overlay).inserted
+            : overlays.remove(overlay) != nil
+        guard changed else { return }
+        render()
+    }
+
+    func flash(_ symbolName: String) {
+        flashSymbol = symbolName
+        flashReset?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.flashSymbol = nil
+            self.flashReset = nil
+            self.render()
+        }
+        flashReset = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + Config.iconFlashSeconds, execute: work)
+        render()
     }
 
     func updateLevel(_ value: Float, peak peakValue: Float) {
@@ -98,20 +128,24 @@ final class StatusIcon {
 
     private func render() {
         guard let button = item.button else { return }
-        let image: NSImage?
-        switch plan.render {
-        case .symbol(let name):
-            image = symbol(name)
-        case .bars:
-            image = drawBars()
-        case .pulse:
-            image = drawPulse()
-        case .spinner:
-            image = drawSpinner()
-        case .blocked:
-            image = drawBlocked()
+        let base: NSImage?
+        if let flashSymbol {
+            base = symbol(flashSymbol)
+        } else {
+            switch plan.render {
+            case .symbol(let name):
+                base = symbol(name)
+            case .bars:
+                base = drawBars()
+            case .pulse:
+                base = drawPulse()
+            case .spinner:
+                base = drawSpinner()
+            case .blocked:
+                base = drawBlocked()
+            }
         }
-        if let image {
+        if let image = composed(base) {
             button.image = image
             button.title = ""
         } else {
@@ -139,6 +173,40 @@ final class StatusIcon {
         image.isTemplate = true
         symbolCache[name] = image
         return image
+    }
+
+    private func composed(_ base: NSImage?) -> NSImage? {
+        guard let base else { return nil }
+        guard !overlays.isEmpty else { return base }
+        let active = overlays
+        let moon = active.contains(.moon) ? symbol("moon.fill") : nil
+        let size = NSSize(width: StatusIcon.side, height: StatusIcon.side)
+        let image = NSImage(size: size, flipped: false) { rect in
+            NSColor.black.setFill()
+            base.draw(in: rect)
+            if let moon {
+                let corner = NSRect(x: rect.maxX - 8, y: rect.minY, width: 8, height: 8)
+                StatusIcon.punch(corner)
+                moon.draw(in: corner)
+            }
+            if active.contains(.alert) {
+                let corner = NSRect(x: rect.maxX - 6.5, y: rect.maxY - 6.5, width: 6.5, height: 6.5)
+                StatusIcon.punch(corner)
+                NSBezierPath(ovalIn: corner).fill()
+            }
+            return true
+        }
+        image.isTemplate = true
+        image.accessibilityDescription = "garime whisper"
+        return image
+    }
+
+    private static func punch(_ rect: NSRect) {
+        guard let context = NSGraphicsContext.current else { return }
+        let previous = context.compositingOperation
+        context.compositingOperation = .destinationOut
+        NSBezierPath(ovalIn: rect.insetBy(dx: -1.3, dy: -1.3)).fill()
+        context.compositingOperation = previous
     }
 
     private func canvas(_ handler: @escaping (NSRect) -> Void) -> NSImage {

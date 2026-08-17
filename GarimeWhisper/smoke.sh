@@ -350,6 +350,7 @@ swiftc -O -target "$(uname -m)-apple-macos14.0" -sdk "$(xcrun --show-sdk-path --
   "$ROOT/Sources/Config.swift" \
   "$ROOT/Sources/IconAnimation.swift" \
   "$ROOT/Sources/StatusIcon.swift" \
+  "$ROOT/Sources/MenuController.swift" \
   "$ROOT/Tests/Icon/main.swift" 2>"$TMP/icon.log"
 check $? "icon harness compiles against the real StatusIcon.swift"
 if [ -x "$TMP/icon" ]; then

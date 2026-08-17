@@ -60,6 +60,7 @@ enum Config {
     static let iconLevelInterval: TimeInterval = 0.06
     static let iconReducedLevelInterval: TimeInterval = 0.33
     static let iconReducedBlinkInterval: TimeInterval = 1.0
+    static let iconFlashSeconds: TimeInterval = 0.6
 }
 
 enum Preflight {

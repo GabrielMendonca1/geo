@@ -12,6 +12,7 @@ enum Phase {
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var icon: StatusIcon!
+    private var menuController: MenuController!
     private let recorder = Recorder()
     private let transcriber = Transcriber()
     private let paster = Paster()
@@ -81,23 +82,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func buildMenu() {
+        menuController = MenuController(menu: icon.menu)
+
         statusItem.isEnabled = false
-        icon.menu.addItem(statusItem)
-        icon.menu.addItem(.separator())
 
         toggleItem.target = self
         toggleItem.action = #selector(menuToggle)
-        icon.menu.addItem(toggleItem)
 
         accessibilityItem.target = self
         accessibilityItem.action = #selector(menuAccessibility)
         accessibilityItem.title = "Ativar colagem automática…"
-        icon.menu.addItem(accessibilityItem)
 
-        icon.menu.addItem(.separator())
         let quit = NSMenuItem(title: "Sair", action: #selector(menuQuit), keyEquivalent: "q")
         quit.target = self
-        icon.menu.addItem(quit)
+
+        menuController.set(.status, items: [statusItem])
+        menuController.set(.dictation, items: [toggleItem, accessibilityItem])
+        menuController.set(.app, items: [quit])
     }
 
     private func refreshMenu() {
