@@ -61,6 +61,13 @@ enum Config {
     static let iconReducedLevelInterval: TimeInterval = 0.33
     static let iconReducedBlinkInterval: TimeInterval = 1.0
     static let iconFlashSeconds: TimeInterval = 0.6
+
+    static let meetingsDirectory = NSHomeDirectory() + "/Recordings"
+    static let meetingLabel = "reuniao"
+    static let meetingMinSeconds: TimeInterval = 1.0
+    static let meetingConvertTimeout: TimeInterval = 900
+    static let meetingTranscribeTimeout: TimeInterval = 3600
+    static let meetingElapsedRefresh: TimeInterval = 60
 }
 
 enum Preflight {

@@ -159,6 +159,7 @@ final class StatusIcon {
         case .idle: return "○"
         case .starting, .listening, .recording: return "●"
         case .transcribing, .flushing: return "◐"
+        case .meeting: return "◉"
         case .success: return "✓"
         case .error: return "!"
         case .cancelled: return "×"

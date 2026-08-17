@@ -19,6 +19,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let typist = Typist()
     private let focusGate = SystemFocusGate()
     private let insomnia = InsomniaController()
+    private let meeting = MeetingController()
+    private var meetingDirectory: URL?
 
     private var phase: Phase = .idle
     private var generation = 0
@@ -42,6 +44,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let toggleItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let accessibilityItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let insomniaItem = NSMenuItem(title: "Manter acordado", action: nil, keyEquivalent: "")
+    private let meetingToggleItem = NSMenuItem(title: "Gravar reunião", action: nil, keyEquivalent: "")
+    private let meetingStatusItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         icon = StatusIcon()
@@ -62,6 +66,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.icon.updateLevel(self.meter.level, peak: self.meter.peak)
         }
 
+        meeting.onChange = { [weak self] in self?.meetingChanged() }
+
         Hotkey.shared.onTrigger = { [weak self] in self?.toggle() }
         if !Hotkey.shared.register() {
             blockingError = "⌥Space já está em uso — use o menu para ditar"
@@ -78,6 +84,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         insomnia.deactivate()
+        meeting.abort()
         session?.cancel()
         decoder?.cancel()
         recorder.abort()
@@ -99,11 +106,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         insomniaItem.target = self
         insomniaItem.action = #selector(menuInsomnia)
 
+        meetingToggleItem.target = self
+        meetingToggleItem.action = #selector(menuMeeting)
+        meetingStatusItem.isHidden = true
+
         let quit = NSMenuItem(title: "Sair", action: #selector(menuQuit), keyEquivalent: "q")
         quit.target = self
 
         menuController.set(.status, items: [statusItem])
         menuController.set(.dictation, items: [toggleItem, accessibilityItem])
+        menuController.set(.meeting, items: [meetingToggleItem, meetingStatusItem])
         menuController.set(.insomnia, items: [insomniaItem])
         menuController.set(.app, items: [quit])
     }
@@ -140,6 +152,72 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func menuToggle() { toggle() }
 
+    @objc private func menuMeeting() {
+        if meeting.isRecording {
+            meeting.stop()
+            return
+        }
+        switch phase {
+        case .idle, .done, .failed:
+            break
+        default:
+            icon.flash("mic.slash.fill")
+            return
+        }
+        guard !recorder.isRecording, !awaitingMicrophone else { return }
+        meeting.begin()
+    }
+
+    @objc private func menuOpenMeeting() {
+        guard let meetingDirectory else { return }
+        NSWorkspace.shared.open(meetingDirectory)
+    }
+
+    private func meetingChanged() {
+        switch meeting.state {
+        case .idle:
+            meetingToggleItem.title = "Gravar reunião"
+            meetingStatusItem.isHidden = true
+            meetingStatusItem.action = nil
+            restoreIdleIconAfterMeeting()
+        case .recording:
+            let minutes = meeting.elapsedMinutes()
+            meetingToggleItem.title = minutes > 0
+                ? "Parar reunião (\(minutes) min)"
+                : "Parar reunião"
+            meetingStatusItem.isHidden = true
+            meetingStatusItem.action = nil
+            icon.apply(.meeting)
+        case .transcribing:
+            meetingToggleItem.title = "Gravar reunião"
+            meetingStatusItem.isHidden = false
+            meetingStatusItem.action = nil
+            meetingStatusItem.title = "Transcrevendo reunião…"
+            restoreIdleIconAfterMeeting()
+        case .done(let directory):
+            meetingDirectory = directory
+            meetingToggleItem.title = "Gravar reunião"
+            meetingStatusItem.isHidden = false
+            meetingStatusItem.target = self
+            meetingStatusItem.action = #selector(menuOpenMeeting)
+            meetingStatusItem.title = "Reunião pronta — abrir pasta"
+            icon.flash("checkmark.circle.fill")
+        case .failed(let message):
+            meetingToggleItem.title = "Gravar reunião"
+            meetingStatusItem.isHidden = false
+            meetingStatusItem.action = nil
+            meetingStatusItem.title = "Erro na reunião: \(message)"
+            restoreIdleIconAfterMeeting()
+        }
+        refreshMenu()
+    }
+
+    private func restoreIdleIconAfterMeeting() {
+        if case .idle = phase {
+            icon.apply(.idle)
+        }
+    }
+
     @objc private func menuInsomnia() {
         insomnia.toggle()
         insomniaItem.state = insomnia.isActive ? .on : .off
@@ -154,6 +232,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func menuQuit() { NSApp.terminate(nil) }
 
     private func toggle() {
+        if meeting.isRecording {
+            icon.flash("mic.slash.fill")
+            return
+        }
         if let missing = Preflight.missingDependency() {
             blockingError = missing
             fail(missing)

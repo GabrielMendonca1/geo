@@ -183,6 +183,7 @@ chmod +x "$TMP/ffmpeg-stub" "$TMP/whisper-hang" "$TMP/whisper-ok"
 
 swiftc -O -target "$(uname -m)-apple-macos14.0" -sdk "$(xcrun --show-sdk-path --sdk macosx)" \
   -o "$TMP/harness" "$ROOT/Sources/Transcriber.swift" "$ROOT/Sources/ProcessRunner.swift" \
+  "$ROOT/Sources/MeetingArchive.swift" \
   "$ROOT/Tests/main.swift" 2>"$TMP/harness.log"
 check $? "harness compiles against the real Transcriber.swift"
 
@@ -213,6 +214,22 @@ if [ -x "$TMP/harness" ]; then
   ELAPSED="${RESULT##* }"
   awk -v e="$ELAPSED" 'BEGIN { exit !(e > 0 && e < 5) }'
   check $? "cancel returns promptly ($ELAPSED s)"
+
+  RESULT="$(HARNESS_FFMPEG="$TMP/ffmpeg-stub" HARNESS_WHISPER="$TMP/whisper-ok" \
+    HARNESS_TIMEOUT=10 "$TMP/harness" meeting)"
+  case "$RESULT" in
+    meeting-ok\ wav=true\ rawGone=true\ originalGone=true\ transcript=ola\ do\ stub*) \
+      check 0 "meeting archive writes wav+transcript and consumes the capture -> $RESULT" ;;
+    *) check 1 "meeting archive writes wav+transcript and consumes the capture -> $RESULT" ;;
+  esac
+
+  RESULT="$(HARNESS_FFMPEG="$TMP/ffmpeg-stub" HARNESS_WHISPER="$TMP/whisper-hang" \
+    HARNESS_TIMEOUT=2 "$TMP/harness" meeting)"
+  case "$RESULT" in
+    meeting-fail\ wav=true\ originalGone=true\ error=timedOut*) \
+      check 0 "a wedged meeting whisper times out but the audio survives -> $RESULT" ;;
+    *) check 1 "a wedged meeting whisper times out but the audio survives -> $RESULT" ;;
+  esac
 else
   no "harness binary missing, process-control checks skipped"
 fi
@@ -293,6 +310,9 @@ swiftc -O -target "$(uname -m)-apple-macos14.0" -sdk "$(xcrun --show-sdk-path --
   "$ROOT/Sources/IconAnimation.swift" \
   "$ROOT/Sources/DictationSession.swift" \
   "$ROOT/Sources/InsomniaController.swift" \
+  "$ROOT/Sources/ProcessRunner.swift" \
+  "$ROOT/Sources/Transcriber.swift" \
+  "$ROOT/Sources/MeetingArchive.swift" \
   "$ROOT/Tests/Units/main.swift" 2>"$TMP/units.log"
 check $? "unit harness compiles against the real sources"
 if [ -x "$TMP/units" ]; then

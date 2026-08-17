@@ -7,6 +7,7 @@ enum IconState: Equatable {
     case recording
     case transcribing
     case flushing
+    case meeting
     case success
     case error
     case cancelled
@@ -43,6 +44,8 @@ enum IconAnimation {
         switch state {
         case .idle:
             return still(.symbol("mic"))
+        case .meeting:
+            return still(.symbol("record.circle"))
         case .success:
             return still(.symbol("checkmark.circle"))
         case .error:

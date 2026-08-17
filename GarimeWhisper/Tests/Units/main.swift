@@ -824,6 +824,28 @@ equal(DictationSession.remainder(full: "um dois tres", typed: "um dois"), "tres"
 equal(DictationSession.remainder(full: "um dois", typed: ""), "um dois", "remainder is everything when nothing was typed")
 equal(DictationSession.remainder(full: "um dois", typed: "um dois"), "", "remainder is empty when all was typed")
 
+print("== meeting archive naming ==")
+equal(MeetingArchive.slugify("Reunião do Board"), "reunio-do-board", "slug lowercases, maps spaces, drops accents")
+equal(MeetingArchive.slugify("!!!"), "reuniao", "an unusable label falls back to reuniao")
+equal(MeetingArchive.slugify(String(repeating: "a", count: 60)).count, 40, "slug caps at 40 chars")
+let meetingsRoot = NSTemporaryDirectory() + "harness-meetings-" + UUID().uuidString
+let meetingDate = Date(timeIntervalSince1970: 1_790_000_000)
+let firstDir = MeetingArchive.directory(root: meetingsRoot, date: meetingDate, label: "reuniao")
+check(
+    firstDir.lastPathComponent.range(
+        of: "^[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{4}-reuniao$",
+        options: .regularExpression
+    ) != nil,
+    "directory is stamp-slug [\(firstDir.lastPathComponent)]"
+)
+try? FileManager.default.createDirectory(at: firstDir, withIntermediateDirectories: true)
+let secondDir = MeetingArchive.directory(root: meetingsRoot, date: meetingDate, label: "reuniao")
+equal(secondDir.lastPathComponent, firstDir.lastPathComponent + "-2", "a colliding minute appends -2")
+try? FileManager.default.createDirectory(at: secondDir, withIntermediateDirectories: true)
+let thirdDir = MeetingArchive.directory(root: meetingsRoot, date: meetingDate, label: "reuniao")
+equal(thirdDir.lastPathComponent, firstDir.lastPathComponent + "-3", "the suffix keeps counting")
+try? FileManager.default.removeItem(atPath: meetingsRoot)
+
 func ownSleepAssertions() -> Int {
     var raw: Unmanaged<CFDictionary>?
     guard IOPMCopyAssertionsByProcess(&raw) == kIOReturnSuccess,

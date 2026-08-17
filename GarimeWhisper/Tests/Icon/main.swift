@@ -25,6 +25,7 @@ let states: [(IconState, String)] = [
     (.recording, "recording"),
     (.transcribing, "transcribing"),
     (.flushing, "flushing"),
+    (.meeting, "meeting"),
     (.success, "success"),
     (.error, "error"),
     (.cancelled, "cancelled"),
