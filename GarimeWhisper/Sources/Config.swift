@@ -81,6 +81,15 @@ enum Config {
     static let tasksRefreshInterval: TimeInterval = 300
     static let tasksStaleAfter: TimeInterval = 120
     static let tasksMenuLimit = 15
+
+    static let projectRoots = [
+        NSHomeDirectory() + "/Garime",
+        NSHomeDirectory() + "/Omni",
+        NSHomeDirectory() + "/ARCA",
+        NSHomeDirectory() + "/Lab",
+        NSHomeDirectory() + "/.claude",
+    ]
+    static let projectTodoLimit = 10
 }
 
 enum Preflight {

@@ -897,6 +897,55 @@ equal(VaultTasks.age(from: origin, to: origin.addingTimeInterval(600)), "há 10 
 equal(VaultTasks.age(from: origin, to: origin.addingTimeInterval(7200)), "há 2 h", "hours label")
 equal(VaultTasks.age(from: origin, to: origin.addingTimeInterval(259_200)), "há 3 d", "days label")
 
+print("== project status: canonical template parses ==")
+let canonical = """
+# STATUS — brain
+
+> atualizado: 2026-08-17
+
+## Todo
+- [ ] endurecer o sandbox da lane pi
+- [ ] fechar o pane do herdr
+
+## Feito
+- [x] executor omni nativo (2026-08-13)
+- [ ] um aberto perdido na seção errada
+"""
+let brain = ProjectStatusScanner.parse(markdown: canonical, fallbackName: "dir", path: "/x/STATUS.md")
+equal(brain.name, "brain", "name comes from the heading")
+equal(brain.updated, "2026-08-17", "updated stamp parses")
+equal(brain.todos.count, 2, "only unchecked boxes under Todo count")
+equal(brain.todos.first, "endurecer o sandbox da lane pi", "todo text is clean")
+
+let offTemplate = ProjectStatusScanner.parse(
+    markdown: "# STATUS\n\nprosa livre sem checkbox\n",
+    fallbackName: "legado",
+    path: "/y/STATUS.md"
+)
+equal(offTemplate.name, "legado", "a bare heading falls back to the dir name")
+equal(offTemplate.todos.count, 0, "free prose yields no todos")
+check(offTemplate.updated == nil, "no stamp reads as nil")
+
+print("== project status: scan finds root and depth-1 files ==")
+let scanRoot = NSTemporaryDirectory() + "harness-projects-" + UUID().uuidString
+func plant(_ relative: String, _ contents: String) {
+    let path = scanRoot + "/" + relative
+    try? FileManager.default.createDirectory(
+        atPath: (path as NSString).deletingLastPathComponent,
+        withIntermediateDirectories: true
+    )
+    FileManager.default.createFile(atPath: path, contents: Data(contents.utf8))
+}
+plant("STATUS.md", "# STATUS — raiz\n\n## Todo\n- [ ] a\n")
+plant("alpha/STATUS.md", "# STATUS — alpha\n\n## Todo\n- [ ] b\n- [ ] c\n")
+plant("beta/STATUS.md", "# STATUS — beta\n\n## Todo\n\n## Feito\n- [x] tudo (2026-01-01)\n")
+plant("gamma/deep/STATUS.md", "# STATUS — fundo\n\n## Todo\n- [ ] d\n")
+plant(".hidden/STATUS.md", "# STATUS — oculto\n\n## Todo\n- [ ] e\n")
+let scanned = ProjectStatusScanner.scan(roots: [scanRoot])
+equal(scanned.map(\.name), ["raiz", "alpha"], "root and depth-1 with todos, nothing hidden or deeper")
+equal(scanned[1].todos.count, 2, "todos ride along")
+try? FileManager.default.removeItem(atPath: scanRoot)
+
 print("== capture probe reads the daemon status files ==")
 let captureRoot = NSTemporaryDirectory() + "harness-capture-" + UUID().uuidString
 let captureNow = Date()

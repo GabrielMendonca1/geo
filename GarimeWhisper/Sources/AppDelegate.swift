@@ -52,6 +52,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let captureItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let tasksItem = NSMenuItem(title: "Tarefas", action: nil, keyEquivalent: "")
     private let tasksMenu = NSMenu()
+    private let projectsItem = NSMenuItem(title: "Projetos", action: nil, keyEquivalent: "")
+    private let projectsMenu = NSMenu()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         icon = StatusIcon()
@@ -126,6 +128,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         meetingStatusItem.isHidden = true
 
         tasksItem.submenu = tasksMenu
+        projectsItem.submenu = projectsMenu
         icon.menu.delegate = self
 
         let quit = NSMenuItem(title: "Sair", action: #selector(menuQuit), keyEquivalent: "q")
@@ -136,7 +139,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menuController.set(.meeting, items: [meetingToggleItem, meetingStatusItem])
         menuController.set(.insomnia, items: [insomniaItem])
         menuController.set(.personalTasks, items: [tasksItem])
+        menuController.set(.projects, items: [projectsItem])
         menuController.set(.app, items: [quit])
+        rebuildProjects()
     }
 
     private func refreshMenu() {
@@ -234,6 +239,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func menuWillOpen(_ menu: NSMenu) {
         guard menu === icon.menu else { return }
         tasksController.refreshIfStale()
+        rebuildProjects()
+    }
+
+    private func rebuildProjects() {
+        let projects = ProjectStatusScanner.scan(roots: Config.projectRoots)
+        projectsItem.title = projects.isEmpty ? "Projetos" : "Projetos (\(projects.count))"
+        projectsMenu.removeAllItems()
+        if projects.isEmpty {
+            projectsMenu.addItem(NSMenuItem(title: "Nenhum STATUS.md com todos", action: nil, keyEquivalent: ""))
+            return
+        }
+        for project in projects {
+            let item = NSMenuItem(
+                title: "\(project.name) (\(project.todos.count))",
+                action: nil,
+                keyEquivalent: ""
+            )
+            let submenu = NSMenu()
+            for todo in project.todos.prefix(Config.projectTodoLimit) {
+                submenu.addItem(NSMenuItem(title: todo, action: nil, keyEquivalent: ""))
+            }
+            if project.todos.count > Config.projectTodoLimit {
+                submenu.addItem(NSMenuItem(
+                    title: "… e mais \(project.todos.count - Config.projectTodoLimit)",
+                    action: nil,
+                    keyEquivalent: ""
+                ))
+            }
+            if let updated = project.updated {
+                submenu.addItem(.separator())
+                submenu.addItem(NSMenuItem(title: "atualizado: \(updated)", action: nil, keyEquivalent: ""))
+            }
+            item.submenu = submenu
+            projectsMenu.addItem(item)
+        }
     }
 
     private func tasksChanged() {
