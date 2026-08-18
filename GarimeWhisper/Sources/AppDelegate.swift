@@ -54,8 +54,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let captureItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let callToggleItem = NSMenuItem(title: "Gravar call", action: nil, keyEquivalent: "")
     private let callStatusItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-    private let projectsItem = NSMenuItem(title: "Projetos", action: nil, keyEquivalent: "")
-    private let projectsMenu = NSMenu()
+    private let hubPanel = HubPanel()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         icon = StatusIcon()
@@ -137,8 +136,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         callToggleItem.action = #selector(menuCall)
         callStatusItem.isHidden = true
 
-        projectsItem.submenu = projectsMenu
         icon.menu.delegate = self
+        icon.onPrimaryClick = { [weak self] in self?.togglePanel() }
 
         let quit = NSMenuItem(title: "Sair", action: #selector(menuQuit), keyEquivalent: "q")
         quit.target = self
@@ -147,10 +146,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menuController.set(.dictation, items: [toggleItem, accessibilityItem])
         menuController.set(.meeting, items: [meetingToggleItem, meetingStatusItem, callToggleItem, callStatusItem])
         menuController.set(.insomnia, items: [insomniaItem])
-        tasksChanged()
-        menuController.set(.projects, items: [projectsItem])
         menuController.set(.app, items: [quit])
-        rebuildProjects()
     }
 
     private func refreshMenu() {
@@ -312,50 +308,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func menuWillOpen(_ menu: NSMenu) {
         guard menu === icon.menu else { return }
         tasksController.refreshIfStale()
-        rebuildProjects()
     }
 
-    private func rebuildProjects() {
-        let projects = ProjectStatusScanner.scan(roots: Config.projectRoots)
-        projectsItem.title = projects.isEmpty ? "Projetos" : "Projetos (\(projects.count))"
-        projectsMenu.removeAllItems()
-        if projects.isEmpty {
-            projectsMenu.addItem(NSMenuItem(title: "Nenhum STATUS.md com todos", action: nil, keyEquivalent: ""))
+    @objc private func panelActions() {
+        hubPanel.close()
+        icon.popUpActions()
+    }
+
+    private func togglePanel() {
+        if hubPanel.isOpen {
+            hubPanel.close()
             return
         }
-        for project in projects {
-            let item = NSMenuItem(
-                title: "\(project.name) (\(project.todos.count))",
-                action: nil,
-                keyEquivalent: ""
-            )
-            let submenu = NSMenu()
-            for todo in project.todos.prefix(Config.projectTodoLimit) {
-                submenu.addItem(NSMenuItem(title: todo, action: nil, keyEquivalent: ""))
-            }
-            if project.todos.count > Config.projectTodoLimit {
-                submenu.addItem(NSMenuItem(
-                    title: "… e mais \(project.todos.count - Config.projectTodoLimit)",
-                    action: nil,
-                    keyEquivalent: ""
-                ))
-            }
-            if let updated = project.updated {
-                submenu.addItem(.separator())
-                submenu.addItem(NSMenuItem(title: "atualizado: \(updated)", action: nil, keyEquivalent: ""))
-            }
-            item.submenu = submenu
-            projectsMenu.addItem(item)
-        }
+        tasksController.refreshIfStale()
+        hubPanel.show(content: panelContent(), below: icon.button)
     }
 
-    private func tasksChanged() {
+    private func panelContent() -> NSView {
         let open = VaultTasks.open(tasksController.tasks)
-        let (rows, overflow) = TasksPanel.rows(
-            open,
-            limit: Config.tasksMenuLimit,
-            titleLimit: Config.taskTitleLimit
-        )
+        let projects = ProjectStatusScanner.scan(roots: Config.projectRoots)
         let footer: String
         if let fetchedAt = tasksController.fetchedAt {
             let age = VaultTasks.age(from: fetchedAt, to: Date())
@@ -365,14 +336,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         } else {
             footer = tasksController.offline ? "offline — sem cache" : "carregando…"
         }
-        let item = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-        item.view = TasksPanel.view(
-            rows: rows,
-            overflow: overflow,
-            headerCount: open.count,
-            footer: footer
+        return HubPanelView.build(
+            header: HubModel.dateHeader(Date(), locale: Locale(identifier: "pt_BR")),
+            sections: [
+                HubModel.tasksSection(
+                    open,
+                    limit: Config.tasksMenuLimit,
+                    titleLimit: Config.taskTitleLimit
+                ),
+                HubModel.projectsSection(
+                    projects,
+                    limit: Config.panelProjectLimit,
+                    titleLimit: Config.taskTitleLimit
+                ),
+            ],
+            notice: captureLine,
+            footer: footer,
+            actionTarget: self,
+            actionSelector: #selector(panelActions)
         )
-        menuController.set(.personalTasks, items: [item])
+    }
+
+    private func tasksChanged() {
+        guard hubPanel.isOpen else { return }
+        hubPanel.show(content: panelContent(), below: icon.button)
     }
 
     private func captureChanged(_ condition: CaptureCondition) {

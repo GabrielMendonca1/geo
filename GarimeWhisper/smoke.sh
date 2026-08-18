@@ -247,8 +247,12 @@ grep -q 'accessibilityDisplayShouldReduceMotion' "$ROOT/Sources/StatusIcon.swift
 check $? "Reduce Motion is read from the system"
 grep -q 'accessibilityDisplayOptionsDidChangeNotification' "$ROOT/Sources/StatusIcon.swift"
 check $? "Reduce Motion changes are observed live"
-grep -q 'item.menu = menu' "$ROOT/Sources/StatusIcon.swift"
-check $? "status item keeps its menu (click reliability preserved)"
+grep -q 'menu.popUp(' "$ROOT/Sources/StatusIcon.swift"
+check $? "right-click still pops the actions menu"
+grep -q 'onPrimaryClick' "$ROOT/Sources/StatusIcon.swift"
+check $? "left-click drives the hub panel"
+grep -q 'nonactivatingPanel' "$ROOT/Sources/HubPanel.swift"
+check $? "the hub panel never steals focus from the paste target"
 grep -q 'button.image' "$ROOT/Sources/StatusIcon.swift"
 check $? "status item still renders through button.image, not a custom view"
 grep -q 'isTemplate = true' "$ROOT/Sources/StatusIcon.swift"
@@ -331,7 +335,7 @@ swiftc -O -target "$(uname -m)-apple-macos14.0" -sdk "$(xcrun --show-sdk-path --
   "$ROOT/Sources/VaultTasks.swift" \
   "$ROOT/Sources/ProjectStatus.swift" \
   "$ROOT/Sources/CallController.swift" \
-  "$ROOT/Sources/TasksPanel.swift" \
+  "$ROOT/Sources/HubPanel.swift" \
   "$ROOT/Tests/Units/main.swift" 2>"$TMP/units.log"
 check $? "unit harness compiles against the real sources"
 if [ -x "$TMP/units" ]; then

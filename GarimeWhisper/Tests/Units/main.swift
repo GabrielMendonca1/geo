@@ -947,28 +947,49 @@ equal(scanned[1].todos.count, 2, "todos ride along")
 try? FileManager.default.removeItem(atPath: scanRoot)
 
 print("== icon identity: mic only while capturing ==")
-equal(IconAnimation.plan(for: .idle, reduceMotion: false).render, IconRender.symbol("diamond"), "the idle hub icon is the diamond, never a mic")
+equal(IconAnimation.plan(for: .idle, reduceMotion: false).render, IconRender.triangle, "the idle hub icon is the triangle, never a mic")
 for calmState in [IconState.idle, .transcribing, .flushing, .success, .error] {
     let render = IconAnimation.plan(for: calmState, reduceMotion: false).render
     check(render != .symbol("mic") && render != .symbol("mic.fill"), "no mic glyph outside capture for \(calmState)")
 }
 
-print("== tasks panel model ==")
-equal(TasksPanel.truncate("curta", limit: 58), "curta", "short titles pass through")
+print("== hub panel model ==")
+equal(HubModel.truncate("curta", limit: 58), "curta", "short titles pass through")
 let long = "revisar o contrato da ponte com o time de infra antes do deploy de sexta"
-let cut = TasksPanel.truncate(long, limit: 40)
+let cut = HubModel.truncate(long, limit: 40)
 check(cut.hasSuffix("…"), "long titles gain an ellipsis")
 check(cut.count <= 42, "truncation respects the limit")
 check(!cut.contains("  "), "truncation cuts on a word boundary")
+
 let panelTasks = (1...5).map {
     VaultTask(id: "\($0)", title: "tarefa \($0)", status: "pending", priority: "unset", due: nil, reminders: 0)
 }
-let (panelRows, panelOverflow) = TasksPanel.rows(panelTasks, limit: 3, titleLimit: 58)
-equal(panelRows.count, 3, "rows respect the display limit")
-equal(panelOverflow, 2, "overflow counts the hidden tasks")
-equal(TasksPanel.headerParts(count: 0).1, "tarefas", "zero header reads naturally")
-equal(TasksPanel.headerParts(count: 1).1, "1 tarefa", "singular header")
-equal(TasksPanel.headerParts(count: 7).1, "7 tarefas", "plural header carries the count")
+let taskSection = HubModel.tasksSection(panelTasks, limit: 3, titleLimit: 58)
+equal(taskSection.strong, "5 tarefas", "the header carries the full count")
+equal(taskSection.rows.count, 4, "three rows plus the overflow line")
+equal(taskSection.rows.last?.title, "e mais 2", "overflow names how many are hidden")
+equal(taskSection.rows.first?.symbol, "circle", "tasks use the open circle glyph")
+equal(HubModel.tasksSection([], limit: 3, titleLimit: 58).strong, "nenhuma tarefa", "empty state reads naturally")
+equal(
+    HubModel.tasksSection([panelTasks[0]], limit: 3, titleLimit: 58).post,
+    " aberta",
+    "singular agrees with the count"
+)
+
+let panelProjects = [
+    ProjectStatus(name: "pequeno", updated: nil, todos: ["a"], path: "/p"),
+    ProjectStatus(name: "grande", updated: nil, todos: ["a", "b", "c"], path: "/g"),
+]
+let projectSection = HubModel.projectsSection(panelProjects, limit: 5, titleLimit: 58)
+equal(projectSection.rows.first?.title, "grande", "projects sort by pending count")
+equal(projectSection.rows.first?.trailing, "3", "the trailing badge is the todo count")
+
+let header = HubModel.dateHeader(
+    Date(timeIntervalSince1970: 1_755_500_000),
+    locale: Locale(identifier: "pt_BR")
+)
+check(header.0.first?.isUppercase == true, "the weekday is capitalised")
+check(header.1.contains("de"), "the date reads in full portuguese")
 
 print("== rec.state probe ==")
 let liveState = RecProbe.parse("/Users/x/Recordings/2026-08-18-1010-reuniao\n123\n\n") { _ in true }

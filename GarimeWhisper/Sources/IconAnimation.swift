@@ -20,6 +20,7 @@ enum IconOverlay: Hashable {
 
 enum IconRender: Equatable {
     case symbol(String)
+    case triangle
     case bars
     case pulse
     case spinner
@@ -43,7 +44,7 @@ enum IconAnimation {
     static func plan(for state: IconState, reduceMotion: Bool) -> IconPlan {
         switch state {
         case .idle:
-            return still(.symbol("diamond"))
+            return still(.triangle)
         case .meeting:
             return still(.symbol("record.circle"))
         case .success:

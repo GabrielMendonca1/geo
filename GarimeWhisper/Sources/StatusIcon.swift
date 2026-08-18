@@ -1,6 +1,6 @@
 import AppKit
 
-final class StatusIcon {
+final class StatusIcon: NSObject {
     private let item: NSStatusItem
     private var timer: Timer?
     private var followUp: DispatchWorkItem?
@@ -21,13 +21,37 @@ final class StatusIcon {
 
     private static let side: CGFloat = 18
 
-    init() {
+    var onPrimaryClick: (() -> Void)?
+
+    var button: NSStatusBarButton? { item.button }
+
+    override init() {
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        item.button?.imagePosition = .imageOnly
-        item.menu = menu
         plan = IconAnimation.plan(for: .idle, reduceMotion: false)
+        super.init()
+        item.button?.imagePosition = .imageOnly
+        item.button?.target = self
+        item.button?.action = #selector(handleClick)
+        item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
         observeMotion()
         apply(.idle)
+    }
+
+    @objc private func handleClick() {
+        if NSApp.currentEvent?.type == .rightMouseUp {
+            popUpActions()
+            return
+        }
+        onPrimaryClick?()
+    }
+
+    func popUpActions() {
+        guard let button = item.button else { return }
+        menu.popUp(
+            positioning: nil,
+            at: NSPoint(x: 0, y: button.bounds.height + 4),
+            in: button
+        )
     }
 
     deinit {
@@ -135,6 +159,8 @@ final class StatusIcon {
             switch plan.render {
             case .symbol(let name):
                 base = symbol(name)
+            case .triangle:
+                base = drawTriangle()
             case .bars:
                 base = drawBars()
             case .pulse:
@@ -221,6 +247,49 @@ final class StatusIcon {
         image.isTemplate = true
         image.accessibilityDescription = "garime whisper"
         return image
+    }
+
+    private func drawTriangle() -> NSImage {
+        if let cached = symbolCache["__triangle"] { return cached }
+        let image = renderTriangle()
+        symbolCache["__triangle"] = image
+        return image
+    }
+
+    private func renderTriangle() -> NSImage {
+        canvas { rect in
+            let side = min(rect.width, rect.height) - 3
+            let height = side * 0.86
+            let centerX = rect.midX
+            let bottom = rect.midY - height / 2
+            let path = NSBezierPath()
+            path.move(to: NSPoint(x: centerX, y: bottom + height))
+            path.line(to: NSPoint(x: centerX + side / 2, y: bottom))
+            path.line(to: NSPoint(x: centerX - side / 2, y: bottom))
+            path.close()
+            path.lineJoinStyle = .round
+            path.lineWidth = 1.5
+
+            NSGraphicsContext.saveGraphicsState()
+            path.addClip()
+            let glass = NSGradient(colors: [
+                NSColor.black.withAlphaComponent(0.55),
+                NSColor.black.withAlphaComponent(0.05),
+            ])
+            glass?.draw(in: rect, angle: 72)
+            NSGraphicsContext.restoreGraphicsState()
+
+            let beam = NSBezierPath()
+            beam.move(to: NSPoint(x: centerX - side * 0.17, y: bottom + height * 0.42))
+            beam.line(to: NSPoint(x: centerX + side * 0.3, y: bottom + height * 0.42))
+            beam.lineWidth = 1.2
+            beam.lineCapStyle = .round
+            NSColor.black.withAlphaComponent(0.75).setStroke()
+            beam.stroke()
+
+            NSColor.black.setStroke()
+            path.stroke()
+        }
     }
 
     private func drawBars() -> NSImage {
