@@ -365,14 +365,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         } else {
             footer = tasksController.offline ? "offline — sem cache" : "carregando…"
         }
-        let attributed = TasksPanel.attributed(
+        let item = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+        item.view = TasksPanel.view(
             rows: rows,
             overflow: overflow,
             headerCount: open.count,
             footer: footer
         )
-        let item = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-        item.view = TasksPanel.view(attributed)
         menuController.set(.personalTasks, items: [item])
     }
 

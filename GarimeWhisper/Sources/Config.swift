@@ -82,9 +82,10 @@ enum Config {
     static let tasksStaleAfter: TimeInterval = 120
     static let tasksMenuLimit = 15
     static let taskTitleLimit = 58
-    static let panelWidth: CGFloat = 340
-    static let panelInset: CGFloat = 14
-    static let panelVerticalPad: CGFloat = 8
+    static let panelWidth: CGFloat = 360
+    static let panelInset: CGFloat = 16
+    static let panelVerticalPad: CGFloat = 10
+    static let panelRowHeight: CGFloat = 30
 
     static let projectRoots = [
         NSHomeDirectory() + "/Garime",
