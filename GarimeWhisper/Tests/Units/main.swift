@@ -946,6 +946,20 @@ equal(scanned.map(\.name), ["raiz", "alpha"], "root and depth-1 with todos, noth
 equal(scanned[1].todos.count, 2, "todos ride along")
 try? FileManager.default.removeItem(atPath: scanRoot)
 
+print("== rec.state probe ==")
+let liveState = RecProbe.parse("/Users/x/Recordings/2026-08-18-1010-reuniao\n123\n\n") { _ in true }
+check(liveState == RecState(
+    directory: "/Users/x/Recordings/2026-08-18-1010-reuniao",
+    pid: 123,
+    active: true
+), "a live pid reads as an active recording")
+let deadState = RecProbe.parse("/Users/x/Recordings/dir\n123\nSpeakers\n") { _ in false }
+equal(deadState?.active, false, "a dead pid reads as inactive")
+check(RecProbe.parse("\n123\n") { _ in true } == nil, "an empty directory line is rejected")
+check(RecProbe.parse("/tmp/dir\nabc\n") { _ in true } == nil, "a non-numeric pid is rejected")
+check(RecProbe.parse("/tmp/dir") { _ in true } == nil, "a truncated state file is rejected")
+check(RecProbe.read(path: "/nonexistent/rec.state") == nil, "a missing state file reads as nil")
+
 print("== capture probe reads the daemon status files ==")
 let captureRoot = NSTemporaryDirectory() + "harness-capture-" + UUID().uuidString
 let captureNow = Date()

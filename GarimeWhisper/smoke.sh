@@ -307,6 +307,12 @@ grep -q '"cat " + Config.tasksRemoteGlob' "$ROOT/Sources/TasksController.swift"
 check $? "the remote tasks command is exactly a cat of the glob"
 grep -q 'createFile\|write(to\|removeItem' "$ROOT/Sources/ProjectStatus.swift"
 check "$([ $? -ne 0 ] && echo 0 || echo 1)" "the STATUS.md scanner is strictly read-only"
+grep -q 'Config.recScript' "$ROOT/Sources/CallController.swift"
+check $? "call recording drives the /record skill script"
+grep -q '"PATH=" + Config.recPath' "$ROOT/Sources/CallController.swift"
+check $? "rec.sh gets a PATH with homebrew under launchd"
+[ -x "$HOME/Garime/brain/skills/record/scripts/rec.sh" ]
+check $? "rec.sh exists and is executable"
 
 echo "== 15. pure unit suite (stabilizer, chunker, meter, icon, session) =="
 swiftc -O -target "$(uname -m)-apple-macos14.0" -sdk "$(xcrun --show-sdk-path --sdk macosx)" \
@@ -324,6 +330,7 @@ swiftc -O -target "$(uname -m)-apple-macos14.0" -sdk "$(xcrun --show-sdk-path --
   "$ROOT/Sources/CaptureWatcher.swift" \
   "$ROOT/Sources/VaultTasks.swift" \
   "$ROOT/Sources/ProjectStatus.swift" \
+  "$ROOT/Sources/CallController.swift" \
   "$ROOT/Tests/Units/main.swift" 2>"$TMP/units.log"
 check $? "unit harness compiles against the real sources"
 if [ -x "$TMP/units" ]; then

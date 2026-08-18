@@ -90,6 +90,13 @@ enum Config {
         NSHomeDirectory() + "/.claude",
     ]
     static let projectTodoLimit = 10
+
+    static let recScript = NSHomeDirectory() + "/Garime/brain/skills/record/scripts/rec.sh"
+    static let recStatePath = NSHomeDirectory() + "/.cache/whisper/rec.state"
+    static let recPath = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+    static let callPollInterval: TimeInterval = 5
+    static let callStartTimeout: TimeInterval = 30
+    static let callStopTimeout: TimeInterval = 3600
 }
 
 enum Preflight {

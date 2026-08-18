@@ -21,6 +21,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let insomnia = InsomniaController()
     private let meeting = MeetingController()
     private var meetingDirectory: URL?
+    private let call = CallController()
+    private var callDirectory: String?
     private let capture = CaptureWatcher()
     private var captureLine: String?
     private let tasksController = TasksController()
@@ -50,6 +52,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let meetingToggleItem = NSMenuItem(title: "Gravar reunião", action: nil, keyEquivalent: "")
     private let meetingStatusItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let captureItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let callToggleItem = NSMenuItem(title: "Gravar call", action: nil, keyEquivalent: "")
+    private let callStatusItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let tasksItem = NSMenuItem(title: "Tarefas", action: nil, keyEquivalent: "")
     private let tasksMenu = NSMenu()
     private let projectsItem = NSMenuItem(title: "Projetos", action: nil, keyEquivalent: "")
@@ -76,6 +80,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         meeting.onChange = { [weak self] in self?.meetingChanged() }
 
+        call.onChange = { [weak self] in self?.callChanged() }
+        call.start()
+
         capture.onProcessed = { [weak self] in self?.icon.flash("camera.fill") }
         capture.onCondition = { [weak self] condition in self?.captureChanged(condition) }
         capture.start()
@@ -100,6 +107,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         insomnia.deactivate()
         meeting.abort()
+        call.stop()
         capture.stop()
         tasksController.stop()
         session?.cancel()
@@ -127,6 +135,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         meetingToggleItem.action = #selector(menuMeeting)
         meetingStatusItem.isHidden = true
 
+        callToggleItem.target = self
+        callToggleItem.action = #selector(menuCall)
+        callStatusItem.isHidden = true
+
         tasksItem.submenu = tasksMenu
         projectsItem.submenu = projectsMenu
         icon.menu.delegate = self
@@ -136,7 +148,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         menuController.set(.status, items: [statusItem])
         menuController.set(.dictation, items: [toggleItem, accessibilityItem])
-        menuController.set(.meeting, items: [meetingToggleItem, meetingStatusItem])
+        menuController.set(.meeting, items: [meetingToggleItem, meetingStatusItem, callToggleItem, callStatusItem])
         menuController.set(.insomnia, items: [insomniaItem])
         menuController.set(.personalTasks, items: [tasksItem])
         menuController.set(.projects, items: [projectsItem])
@@ -176,9 +188,73 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func menuToggle() { toggle() }
 
+    @objc private func menuCall() {
+        if call.isRecording {
+            call.finish()
+            return
+        }
+        if meeting.isRecording {
+            icon.flash("mic.slash.fill")
+            return
+        }
+        switch phase {
+        case .idle, .done, .failed:
+            break
+        default:
+            icon.flash("mic.slash.fill")
+            return
+        }
+        call.begin()
+    }
+
+    @objc private func menuOpenCall() {
+        guard let callDirectory else { return }
+        NSWorkspace.shared.open(URL(fileURLWithPath: callDirectory))
+    }
+
+    private func callChanged() {
+        switch call.state {
+        case .idle:
+            callToggleItem.title = "Gravar call"
+            callStatusItem.isHidden = true
+            callStatusItem.action = nil
+            restoreIdleIconAfterMeeting()
+        case .recording:
+            callToggleItem.title = "Parar call"
+            callStatusItem.isHidden = true
+            callStatusItem.action = nil
+            icon.apply(.meeting)
+        case .stopping:
+            callToggleItem.title = "Parando…"
+            callStatusItem.isHidden = false
+            callStatusItem.action = nil
+            callStatusItem.title = "Transcrevendo call…"
+            restoreIdleIconAfterMeeting()
+        case .done(let directory):
+            callDirectory = directory
+            callToggleItem.title = "Gravar call"
+            callStatusItem.isHidden = false
+            callStatusItem.target = self
+            callStatusItem.action = #selector(menuOpenCall)
+            callStatusItem.title = "Call pronta — abrir pasta"
+            icon.flash("checkmark.circle.fill")
+        case .failed(let message):
+            callToggleItem.title = "Gravar call"
+            callStatusItem.isHidden = false
+            callStatusItem.action = nil
+            callStatusItem.title = "Erro na call: \(message)"
+            restoreIdleIconAfterMeeting()
+        }
+        refreshMenu()
+    }
+
     @objc private func menuMeeting() {
         if meeting.isRecording {
             meeting.stop()
+            return
+        }
+        if call.isRecording {
+            icon.flash("mic.slash.fill")
             return
         }
         switch phase {
@@ -326,6 +402,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func restoreIdleIconAfterMeeting() {
+        guard !meeting.isRecording, !call.isRecording else { return }
         if case .idle = phase {
             icon.apply(.idle)
         }
@@ -345,7 +422,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func menuQuit() { NSApp.terminate(nil) }
 
     private func toggle() {
-        if meeting.isRecording {
+        if meeting.isRecording || call.isRecording {
             icon.flash("mic.slash.fill")
             return
         }
