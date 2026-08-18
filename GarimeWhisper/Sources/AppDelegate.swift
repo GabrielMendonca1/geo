@@ -54,8 +54,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let captureItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let callToggleItem = NSMenuItem(title: "Gravar call", action: nil, keyEquivalent: "")
     private let callStatusItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-    private let tasksItem = NSMenuItem(title: "Tarefas", action: nil, keyEquivalent: "")
-    private let tasksMenu = NSMenu()
     private let projectsItem = NSMenuItem(title: "Projetos", action: nil, keyEquivalent: "")
     private let projectsMenu = NSMenu()
 
@@ -139,7 +137,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         callToggleItem.action = #selector(menuCall)
         callStatusItem.isHidden = true
 
-        tasksItem.submenu = tasksMenu
         projectsItem.submenu = projectsMenu
         icon.menu.delegate = self
 
@@ -150,7 +147,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menuController.set(.dictation, items: [toggleItem, accessibilityItem])
         menuController.set(.meeting, items: [meetingToggleItem, meetingStatusItem, callToggleItem, callStatusItem])
         menuController.set(.insomnia, items: [insomniaItem])
-        menuController.set(.personalTasks, items: [tasksItem])
+        tasksChanged()
         menuController.set(.projects, items: [projectsItem])
         menuController.set(.app, items: [quit])
         rebuildProjects()
@@ -354,28 +351,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func tasksChanged() {
         let open = VaultTasks.open(tasksController.tasks)
-        tasksItem.title = open.isEmpty ? "Tarefas" : "Tarefas (\(open.count))"
-        tasksMenu.removeAllItems()
-        for task in open.prefix(Config.tasksMenuLimit) {
-            let title: String
-            if let due = VaultTasks.dueLabel(task.due) {
-                title = "\(task.title) · \(due)"
-            } else {
-                title = task.title
-            }
-            tasksMenu.addItem(NSMenuItem(title: title, action: nil, keyEquivalent: ""))
-        }
-        if open.count > Config.tasksMenuLimit {
-            tasksMenu.addItem(NSMenuItem(
-                title: "… e mais \(open.count - Config.tasksMenuLimit)",
-                action: nil,
-                keyEquivalent: ""
-            ))
-        }
-        if open.isEmpty {
-            tasksMenu.addItem(NSMenuItem(title: "Nenhuma tarefa aberta", action: nil, keyEquivalent: ""))
-        }
-        tasksMenu.addItem(.separator())
+        let (rows, overflow) = TasksPanel.rows(
+            open,
+            limit: Config.tasksMenuLimit,
+            titleLimit: Config.taskTitleLimit
+        )
         let footer: String
         if let fetchedAt = tasksController.fetchedAt {
             let age = VaultTasks.age(from: fetchedAt, to: Date())
@@ -385,7 +365,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         } else {
             footer = tasksController.offline ? "offline — sem cache" : "carregando…"
         }
-        tasksMenu.addItem(NSMenuItem(title: footer, action: nil, keyEquivalent: ""))
+        let attributed = TasksPanel.attributed(
+            rows: rows,
+            overflow: overflow,
+            headerCount: open.count,
+            footer: footer
+        )
+        let item = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+        item.view = TasksPanel.view(attributed)
+        menuController.set(.personalTasks, items: [item])
     }
 
     private func captureChanged(_ condition: CaptureCondition) {

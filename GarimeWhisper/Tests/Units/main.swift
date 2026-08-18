@@ -946,6 +946,23 @@ equal(scanned.map(\.name), ["raiz", "alpha"], "root and depth-1 with todos, noth
 equal(scanned[1].todos.count, 2, "todos ride along")
 try? FileManager.default.removeItem(atPath: scanRoot)
 
+print("== tasks panel model ==")
+equal(TasksPanel.truncate("curta", limit: 58), "curta", "short titles pass through")
+let long = "revisar o contrato da ponte com o time de infra antes do deploy de sexta"
+let cut = TasksPanel.truncate(long, limit: 40)
+check(cut.hasSuffix("…"), "long titles gain an ellipsis")
+check(cut.count <= 42, "truncation respects the limit")
+check(!cut.contains("  "), "truncation cuts on a word boundary")
+let panelTasks = (1...5).map {
+    VaultTask(id: "\($0)", title: "tarefa \($0)", status: "pending", priority: "unset", due: nil, reminders: 0)
+}
+let (panelRows, panelOverflow) = TasksPanel.rows(panelTasks, limit: 3, titleLimit: 58)
+equal(panelRows.count, 3, "rows respect the display limit")
+equal(panelOverflow, 2, "overflow counts the hidden tasks")
+equal(TasksPanel.headerParts(count: 0).1, "tarefas", "zero header reads naturally")
+equal(TasksPanel.headerParts(count: 1).1, "1 tarefa", "singular header")
+equal(TasksPanel.headerParts(count: 7).1, "7 tarefas", "plural header carries the count")
+
 print("== rec.state probe ==")
 let liveState = RecProbe.parse("/Users/x/Recordings/2026-08-18-1010-reuniao\n123\n\n") { _ in true }
 check(liveState == RecState(

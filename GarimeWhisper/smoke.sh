@@ -331,6 +331,7 @@ swiftc -O -target "$(uname -m)-apple-macos14.0" -sdk "$(xcrun --show-sdk-path --
   "$ROOT/Sources/VaultTasks.swift" \
   "$ROOT/Sources/ProjectStatus.swift" \
   "$ROOT/Sources/CallController.swift" \
+  "$ROOT/Sources/TasksPanel.swift" \
   "$ROOT/Tests/Units/main.swift" 2>"$TMP/units.log"
 check $? "unit harness compiles against the real sources"
 if [ -x "$TMP/units" ]; then
