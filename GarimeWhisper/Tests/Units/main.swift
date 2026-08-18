@@ -946,6 +946,13 @@ equal(scanned.map(\.name), ["raiz", "alpha"], "root and depth-1 with todos, noth
 equal(scanned[1].todos.count, 2, "todos ride along")
 try? FileManager.default.removeItem(atPath: scanRoot)
 
+print("== icon identity: mic only while capturing ==")
+equal(IconAnimation.plan(for: .idle, reduceMotion: false).render, IconRender.symbol("diamond"), "the idle hub icon is the diamond, never a mic")
+for calmState in [IconState.idle, .transcribing, .flushing, .success, .error] {
+    let render = IconAnimation.plan(for: calmState, reduceMotion: false).render
+    check(render != .symbol("mic") && render != .symbol("mic.fill"), "no mic glyph outside capture for \(calmState)")
+}
+
 print("== tasks panel model ==")
 equal(TasksPanel.truncate("curta", limit: 58), "curta", "short titles pass through")
 let long = "revisar o contrato da ponte com o time de infra antes do deploy de sexta"

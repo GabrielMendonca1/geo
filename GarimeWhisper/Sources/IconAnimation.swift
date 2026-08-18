@@ -43,7 +43,7 @@ enum IconAnimation {
     static func plan(for state: IconState, reduceMotion: Bool) -> IconPlan {
         switch state {
         case .idle:
-            return still(.symbol("mic"))
+            return still(.symbol("diamond"))
         case .meeting:
             return still(.symbol("record.circle"))
         case .success:
