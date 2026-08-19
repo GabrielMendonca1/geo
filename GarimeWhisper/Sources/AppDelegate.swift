@@ -19,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let typist = Typist()
     private let focusGate = SystemFocusGate()
     private let insomnia = InsomniaController()
+    private var caps: CapsWatcher?
     private let meeting = MeetingController()
     private var meetingDirectory: URL?
     private let call = CallController()
@@ -98,6 +99,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             blockingError = missing
         }
 
+        let watcher = CapsWatcher { [weak self] _ in
+            self?.refreshMenu()
+        }
+        watcher.start()
+        caps = watcher
+
         if blockingError != nil {
             icon.apply(.error)
         }
@@ -105,6 +112,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        caps?.stop()
         insomnia.deactivate()
         meeting.abort()
         call.stop()
@@ -467,6 +475,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func syncInsomniaHolds() {
+        insomnia.hold("caps", on: caps?.isOn ?? false)
         insomnia.hold("reuniao", on: meeting.isRecording)
         insomnia.hold("call", on: call.isRecording)
         if case .recording = phase {
@@ -475,10 +484,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             insomnia.hold("ditado", on: false)
         }
         insomniaItem.state = insomnia.isActive ? .on : .off
-        insomniaItem.title = insomnia.isAutomatic
-            ? "Acordado enquanto grava"
-            : "Manter acordado"
+        insomniaItem.title = insomniaTitle()
         icon.setOverlay(.awake, enabled: insomnia.isActive)
+    }
+
+    private func insomniaTitle() -> String {
+        if caps?.isOn == true { return "Acordado — Caps Lock ligado" }
+        if insomnia.isAutomatic { return "Acordado enquanto grava" }
+        return "Manter acordado"
     }
 
     @objc private func menuInsomnia() {

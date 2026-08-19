@@ -100,6 +100,7 @@ enum Config {
     static let panelSlideRise: CGFloat = 10
     static let panelTodoLimit = 12
     static let panelListLimit = 200
+    static let capsPollSeconds: TimeInterval = 1.0
     static let panelMaxBodyHeight: CGFloat = 420
     static let vaultDirectory = NSHomeDirectory() + "/Vault"
     static let panelGap: CGFloat = 8

@@ -8,7 +8,7 @@ of the dictation app and now concentrates everything the menu bar needs to say:
 | Ditado | **⌥Space**, speak, **⌥Space** — transcribed locally, typed/pasted into the focused input | native (`whisper-cli` streaming + batch) |
 | Reunião | start/stop from the menu → `~/Recordings/<stamp>-reuniao/` with `audio.wav` + `transcript.txt` | native `Recorder` + `whisper-cli` |
 | Call | start/stop the `/record` skill's `rec.sh` (BlackHole mix); recordings started from the terminal show up too, mirrored from `~/.cache/whisper/rec.state` | subprocess, `env` with a homebrew PATH |
-| Manter acordado | keep the Mac awake lid-closed (capsomnia replacement) | native `IOPMAssertion`, no `caffeinate` |
+| Manter acordado | **Caps Lock on = the Mac never sleeps** (the capsomnia contract), plus an automatic hold while any recording runs; the menu toggle is only for holding it by hand | native `IOPMAssertion` stacked over named holds, no `caffeinate` |
 | Prints | observes GarimeCapture's status files, **read-only**: icon flash per processed print, alert badge + menu line when stranded or heartbeat is stale | 5 s stat poll |
 | Tarefas | open Vault tasks, read-only, refreshed over `ssh garime`, offline cache with an age stamp | `ssh` BatchMode + cache in `~/Library/Application Support/Garime/Hub/` |
 | Projetos | unchecked `- [ ]` items from every canonical `STATUS.md` under `~/Garime ~/Omni ~/ARCA ~/Lab ~/.claude` (root + 1 level) | local parse on menu open |

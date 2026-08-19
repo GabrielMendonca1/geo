@@ -305,6 +305,10 @@ grep -q 'Config.whisperBinary\|Config.ffmpegBinary' "$ROOT/Sources/Transcriber.s
 check $? "batch whisper-cli fallback path is still present"
 grep -q 'IOPMAssertionCreateWithName' "$ROOT/Sources/InsomniaController.swift"
 check $? "insomnia holds a native IOPM assertion"
+grep -q 'maskAlphaShift' "$ROOT/Sources/CapsWatcher.swift"
+check $? "caps lock drives the assertion, capsomnia style"
+grep -q 'insomnia.hold("caps"' "$ROOT/Sources/AppDelegate.swift"
+check $? "caps lock is wired into the sleep hold"
 grep -rq 'caffeinate' "$ROOT/Sources" --include='*.swift'
 check "$([ $? -ne 0 ] && echo 0 || echo 1)" "no caffeinate subprocess anywhere"
 RELEASES="$(grep -c 'IOPMAssertionRelease' "$ROOT/Sources/InsomniaController.swift")"
@@ -335,6 +339,7 @@ swiftc -O -target "$(uname -m)-apple-macos14.0" -sdk "$(xcrun --show-sdk-path --
   "$ROOT/Sources/IconAnimation.swift" \
   "$ROOT/Sources/DictationSession.swift" \
   "$ROOT/Sources/InsomniaController.swift" \
+  "$ROOT/Sources/CapsWatcher.swift" \
   "$ROOT/Sources/ProcessRunner.swift" \
   "$ROOT/Sources/Transcriber.swift" \
   "$ROOT/Sources/MeetingArchive.swift" \
