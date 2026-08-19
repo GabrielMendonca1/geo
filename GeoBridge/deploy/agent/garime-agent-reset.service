@@ -1,0 +1,11 @@
+[Unit]
+Description=garime agente: reset diario do contexto
+After=garime-agent.service
+Wants=garime-agent.service
+
+[Service]
+Type=oneshot
+User=biel
+Environment=HOME=/home/biel
+Environment=GARIME_AGENT_ENV=/opt/garime/agent/agent.env
+ExecStart=/opt/garime/agent/garime-agent-reset.sh
