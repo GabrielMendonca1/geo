@@ -159,6 +159,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func refreshMenu() {
+        syncInsomniaHolds()
         statusItem.title = statusText()
         switch phase {
         case .recording: toggleItem.title = "Parar e transcrever (⌥Space)"
@@ -465,10 +466,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    private func syncInsomniaHolds() {
+        insomnia.hold("reuniao", on: meeting.isRecording)
+        insomnia.hold("call", on: call.isRecording)
+        if case .recording = phase {
+            insomnia.hold("ditado", on: true)
+        } else {
+            insomnia.hold("ditado", on: false)
+        }
+        insomniaItem.state = insomnia.isActive ? .on : .off
+        insomniaItem.title = insomnia.isAutomatic
+            ? "Acordado enquanto grava"
+            : "Manter acordado"
+        icon.setOverlay(.awake, enabled: insomnia.isActive)
+    }
+
     @objc private func menuInsomnia() {
         insomnia.toggle()
-        insomniaItem.state = insomnia.isActive ? .on : .off
-        icon.setOverlay(.awake, enabled: insomnia.isActive)
+        syncInsomniaHolds()
     }
 
     @objc private func menuAccessibility() {
