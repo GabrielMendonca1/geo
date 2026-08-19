@@ -93,6 +93,70 @@ final class FlippedView: NSView {
     override var isFlipped: Bool { true }
 }
 
+enum HubInk {
+    static let title = NSColor(calibratedWhite: 0.96, alpha: 1)
+    static let strong = NSColor(calibratedWhite: 0.95, alpha: 1)
+    static let muted = NSColor(calibratedWhite: 1, alpha: 0.48)
+    static let body = NSColor(calibratedWhite: 1, alpha: 0.72)
+    static let glyph = NSColor(calibratedWhite: 1, alpha: 0.42)
+    static let rail = NSColor(calibratedWhite: 1, alpha: 0.16)
+    static let faint = NSColor(calibratedWhite: 1, alpha: 0.28)
+}
+
+final class HubCardView: NSView {
+    override var isFlipped: Bool { true }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let radius = Config.panelCornerRadius
+        let card = NSBezierPath(roundedRect: bounds, xRadius: radius, yRadius: radius)
+        NSColor(calibratedWhite: 0.055, alpha: 0.985).setFill()
+        card.fill()
+
+        NSGraphicsContext.saveGraphicsState()
+        card.addClip()
+        let sheen = NSGradient(colors: [
+            NSColor(calibratedWhite: 1, alpha: 0.05),
+            NSColor(calibratedWhite: 1, alpha: 0),
+        ])
+        sheen?.draw(in: NSRect(x: 0, y: 0, width: bounds.width, height: bounds.height * 0.6), angle: 270)
+        NSGraphicsContext.current?.compositingOperation = .plusLighter
+        NSColor(patternImage: HubCardView.noiseTile).withAlphaComponent(0.04).setFill()
+        bounds.fill()
+        NSGraphicsContext.restoreGraphicsState()
+
+        let hairline = NSBezierPath(
+            roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5),
+            xRadius: radius,
+            yRadius: radius
+        )
+        hairline.lineWidth = 1
+        NSColor(calibratedWhite: 1, alpha: 0.09).setStroke()
+        hairline.stroke()
+    }
+
+    static let noiseTile: NSImage = makeNoiseTile()
+
+    private static func makeNoiseTile() -> NSImage {
+        let size = NSSize(width: 64, height: 64)
+        return NSImage(size: size, flipped: false) { rect in
+            var seed: UInt64 = 0x9E3779B97F4A7C15
+            var y: CGFloat = 0
+            while y < rect.height {
+                var x: CGFloat = 0
+                while x < rect.width {
+                    seed = seed &* 6364136223846793005 &+ 1442695040888963407
+                    let value = CGFloat((seed >> 33) % 1000) / 1000
+                    NSColor(calibratedWhite: value, alpha: 0.5).setFill()
+                    NSRect(x: x, y: y, width: 1, height: 1).fill()
+                    x += 1
+                }
+                y += 1
+            }
+            return true
+        }
+    }
+}
+
 enum HubPanelView {
     static func build(
         header: (String, String),
@@ -105,8 +169,8 @@ enum HubPanelView {
         let width = Config.panelWidth
         let inset = Config.panelInset
         let rowHeight = Config.panelRowHeight
-        var height = Config.panelTopPad + 22 + Config.panelSectionGap
-        if notice != nil { height += 20 }
+        var height = Config.panelTopPad + 22 + Config.panelHeaderGap
+        if notice != nil { height += 24 }
         for section in sections {
             height += 20 + 8
             height += CGFloat(max(section.rows.count, section.empty == nil ? 0 : 1)) * rowHeight
@@ -120,11 +184,11 @@ enum HubPanelView {
         let title = NSMutableAttributedString()
         title.append(NSAttributedString(string: header.0 + " ", attributes: [
             .font: NSFont.systemFont(ofSize: 15, weight: .bold),
-            .foregroundColor: NSColor.labelColor,
+            .foregroundColor: HubInk.title,
         ]))
         title.append(NSAttributedString(string: header.1, attributes: [
             .font: NSFont.systemFont(ofSize: 15, weight: .regular),
-            .foregroundColor: NSColor.labelColor,
+            .foregroundColor: HubInk.title,
         ]))
         let titleLabel = NSTextField(labelWithAttributedString: title)
         titleLabel.frame = NSRect(x: inset, y: y, width: width - inset * 2 - 40, height: 22)
@@ -134,16 +198,16 @@ enum HubPanelView {
         more.bezelStyle = .circular
         more.isBordered = false
         more.wantsLayer = true
-        more.layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(0.9).cgColor
+        more.layer?.backgroundColor = NSColor(calibratedWhite: 0.96, alpha: 1).cgColor
         more.layer?.cornerRadius = 13
         more.image = NSImage(systemSymbolName: "ellipsis", accessibilityDescription: "Ações")?
             .withSymbolConfiguration(.init(pointSize: 12, weight: .bold))
-        more.contentTintColor = .windowBackgroundColor
+        more.contentTintColor = NSColor(calibratedWhite: 0.08, alpha: 1)
         more.imagePosition = .imageOnly
         more.target = actionTarget
         more.action = actionSelector
         container.addSubview(more)
-        y += 22 + Config.panelSectionGap
+        y += 22 + Config.panelHeaderGap
 
         if let notice {
             let label = NSTextField(labelWithString: notice)
@@ -151,22 +215,22 @@ enum HubPanelView {
             label.textColor = .systemOrange
             label.frame = NSRect(x: inset, y: y, width: width - inset * 2, height: 16)
             container.addSubview(label)
-            y += 20
+            y += 24
         }
 
         for section in sections {
             let head = NSMutableAttributedString()
             head.append(NSAttributedString(string: section.pre, attributes: [
                 .font: NSFont.systemFont(ofSize: 14),
-                .foregroundColor: NSColor.secondaryLabelColor,
+                .foregroundColor: HubInk.muted,
             ]))
             head.append(NSAttributedString(string: section.strong, attributes: [
                 .font: NSFont.systemFont(ofSize: 14, weight: .bold),
-                .foregroundColor: NSColor.labelColor,
+                .foregroundColor: HubInk.strong,
             ]))
             head.append(NSAttributedString(string: section.post, attributes: [
                 .font: NSFont.systemFont(ofSize: 14),
-                .foregroundColor: NSColor.secondaryLabelColor,
+                .foregroundColor: HubInk.muted,
             ]))
             let headLabel = NSTextField(labelWithAttributedString: head)
             headLabel.frame = NSRect(x: inset, y: y, width: width - inset * 2, height: 20)
@@ -176,43 +240,43 @@ enum HubPanelView {
             if section.rows.isEmpty, let empty = section.empty {
                 let label = NSTextField(labelWithString: empty)
                 label.font = NSFont.systemFont(ofSize: 13)
-                label.textColor = .tertiaryLabelColor
-                label.frame = NSRect(x: inset + 38, y: y + 6, width: width - inset - 38, height: 18)
+                label.textColor = HubInk.faint
+                label.frame = NSRect(x: Config.panelTextX, y: y + 8, width: width - Config.panelTextX - inset, height: 18)
                 container.addSubview(label)
                 y += rowHeight
             }
 
             for row in section.rows {
-                container.addSubview(dash(y: y, rowHeight: rowHeight, x: inset + 4))
+                container.addSubview(dash(y: y, rowHeight: rowHeight, x: inset))
                 let glyph = NSImageView(frame: NSRect(
-                    x: inset + 18,
-                    y: y + (rowHeight - 16) / 2,
-                    width: 16,
-                    height: 16
+                    x: Config.panelGlyphX,
+                    y: y + (rowHeight - 18) / 2,
+                    width: 18,
+                    height: 18
                 ))
                 glyph.image = NSImage(systemSymbolName: row.symbol, accessibilityDescription: nil)?
-                    .withSymbolConfiguration(.init(pointSize: 13, weight: .regular))
-                glyph.contentTintColor = .tertiaryLabelColor
+                    .withSymbolConfiguration(.init(pointSize: 14, weight: .light))
+                glyph.contentTintColor = HubInk.glyph
                 container.addSubview(glyph)
 
                 let text = NSMutableAttributedString()
                 text.append(NSAttributedString(string: row.title, attributes: [
                     .font: NSFont.systemFont(ofSize: 14),
-                    .foregroundColor: NSColor.secondaryLabelColor,
+                    .foregroundColor: HubInk.body,
                 ]))
                 if let trailing = row.trailing {
                     text.append(NSAttributedString(string: "  " + trailing, attributes: [
                         .font: NSFont.systemFont(ofSize: 14, weight: .semibold),
-                        .foregroundColor: NSColor.labelColor,
+                        .foregroundColor: HubInk.strong,
                     ]))
                 }
                 let label = NSTextField(labelWithAttributedString: text)
                 label.lineBreakMode = .byTruncatingTail
                 label.maximumNumberOfLines = 1
                 label.frame = NSRect(
-                    x: inset + 42,
+                    x: Config.panelTextX,
                     y: y + (rowHeight - 18) / 2,
-                    width: width - inset - 42 - 12,
+                    width: width - Config.panelTextX - inset + 12,
                     height: 18
                 )
                 container.addSubview(label)
@@ -223,7 +287,7 @@ enum HubPanelView {
 
         let stamp = NSTextField(labelWithString: footer)
         stamp.font = NSFont.systemFont(ofSize: 11)
-        stamp.textColor = .tertiaryLabelColor
+        stamp.textColor = HubInk.faint
         stamp.frame = NSRect(x: inset, y: y, width: width - inset * 2, height: 16)
         container.addSubview(stamp)
 
@@ -231,11 +295,11 @@ enum HubPanelView {
     }
 
     private static func dash(y: CGFloat, rowHeight: CGFloat, x: CGFloat) -> NSView {
-        let height = rowHeight - 10
-        let mark = NSView(frame: NSRect(x: x, y: y + 5, width: 1.5, height: height))
+        let height = rowHeight - 14
+        let mark = NSView(frame: NSRect(x: x, y: y + 7, width: 2, height: height))
         mark.wantsLayer = true
-        mark.layer?.backgroundColor = NSColor.quaternaryLabelColor.cgColor
-        mark.layer?.cornerRadius = 0.75
+        mark.layer?.backgroundColor = HubInk.rail.cgColor
+        mark.layer?.cornerRadius = 1
         return mark
     }
 }
@@ -249,13 +313,8 @@ final class HubPanel {
     func show(content: NSView, below button: NSStatusBarButton?) {
         close()
         let size = content.frame.size
-        let host = NSVisualEffectView(frame: NSRect(origin: .zero, size: size))
-        host.material = .hudWindow
-        host.blendingMode = .behindWindow
-        host.state = .active
+        let host = HubCardView(frame: NSRect(origin: .zero, size: size))
         host.wantsLayer = true
-        host.layer?.cornerRadius = Config.panelCornerRadius
-        host.layer?.masksToBounds = true
         host.addSubview(content)
 
         let window = NSPanel(
