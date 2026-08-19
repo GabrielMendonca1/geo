@@ -80,6 +80,35 @@ struct Stabilizer {
         return append(remainder)
     }
 
+    mutating func forceCommit(
+        words: [SpokenWord],
+        windowStart: Double,
+        cut: Double
+    ) -> String {
+        let fresh = Stabilizer.trimmingLeadingFragment(
+            words.filter { !$0.text.isEmpty },
+            windowStart: windowStart,
+            commitTime: commitTime
+        )
+        recordBoundaries(fresh)
+        var committable: [SpokenWord] = []
+        for word in fresh {
+            guard word.end <= cut else { break }
+            committable.append(word)
+        }
+        guard let last = committable.last else { return "" }
+        let addition = committable.map(\.text).joined(separator: " ")
+        let remainder = Stabilizer.strippingOverlap(
+            committed: committedText,
+            tail: addition,
+            maxWords: overlapWords
+        )
+        let following = fresh.count > committable.count ? fresh[committable.count].start : last.end
+        commitTime = max(commitTime, (last.end + max(following, last.end)) / 2)
+        history.removeAll(keepingCapacity: true)
+        return append(remainder)
+    }
+
     mutating func commitFinal(_ tail: String) -> String {
         let remainder = Stabilizer.strippingOverlap(
             committed: committedText,

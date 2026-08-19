@@ -23,6 +23,7 @@ enum Config {
     static let commitMarginSeconds: Double = 0.5
     static let uncommittedGiveUpSeconds: Double = 30.0
     static let agreementSteps = 2
+    static let maxWindowSeconds: Double = 12.0
     static let maxStepFailures = 2
     static let stepTimeout: TimeInterval = 25
     static let flushTimeout: TimeInterval = 60

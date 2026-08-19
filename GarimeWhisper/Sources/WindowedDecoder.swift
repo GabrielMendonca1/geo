@@ -29,6 +29,7 @@ final class WindowedDecoder {
         var margin: Double
         var agreementSteps: Int
         var overlapWords: Int
+        var maxWindowSeconds: Double
         var maxStepFailures: Int
         var giveUpSeconds: Double
         var promptTailCharacters: Int
@@ -42,6 +43,7 @@ final class WindowedDecoder {
             margin: Config.commitMarginSeconds,
             agreementSteps: Config.agreementSteps,
             overlapWords: Config.overlapDedupWords,
+            maxWindowSeconds: Config.maxWindowSeconds,
             maxStepFailures: Config.maxStepFailures,
             giveUpSeconds: Config.uncommittedGiveUpSeconds,
             promptTailCharacters: Config.promptTailCharacters,
@@ -87,6 +89,12 @@ final class WindowedDecoder {
         lock.lock()
         defer { lock.unlock() }
         return stepCountStorage
+    }
+
+    var committedSeconds: Double {
+        lock.lock()
+        defer { lock.unlock() }
+        return stabilizer.commitTime
     }
 
     func start() {
@@ -173,12 +181,22 @@ final class WindowedDecoder {
                 tail: words.map(\.text).joined(separator: " "),
                 windowSeconds: now - windowStart
             ) != nil
+            let overgrown = now - windowStart >= tuning.maxWindowSeconds
             lock.lock()
             failures = 0
             stepCountStorage += 1
-            let delta = degenerate
-                ? ""
-                : stabilizer.step(words: words, windowStart: windowStart, windowEnd: now)
+            let delta: String
+            if degenerate {
+                delta = ""
+            } else if overgrown {
+                delta = stabilizer.forceCommit(
+                    words: words,
+                    windowStart: windowStart,
+                    cut: now - tuning.margin - tuning.stepSeconds
+                )
+            } else {
+                delta = stabilizer.step(words: words, windowStart: windowStart, windowEnd: now)
+            }
             lock.unlock()
             if !delta.isEmpty { emit(delta) }
         } catch {

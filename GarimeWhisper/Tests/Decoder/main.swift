@@ -121,6 +121,7 @@ func makeTuning() -> WindowedDecoder.Tuning {
         margin: 0.7,
         agreementSteps: 2,
         overlapWords: 10,
+        maxWindowSeconds: 12,
         maxStepFailures: 2,
         giveUpSeconds: 30,
         promptTailCharacters: 200,
@@ -614,6 +615,101 @@ do {
     let tail = buffer.samples(from: 76.8, to: 96.0)
     check(tail.allSatisfy { $0 == 0.25 }, "concurrent appends and reads never corrupt the buffer")
     equal(tail.count, 600 * 512, "every concurrent append landed exactly once")
+}
+
+print("== decoder: a window that never agrees still commits ==")
+do {
+    final class DriftingBackend: DecodeBackend {
+        private let lock = NSLock()
+        private var index = 0
+        private(set) var windows: [Double] = []
+
+        func decode(
+            samples: [Float],
+            windowStart: Double,
+            prompt: String,
+            timeout: TimeInterval,
+            temperatureFallback: Bool
+        ) throws -> [SpokenWord] {
+            let span = Double(samples.count) / 16000
+            lock.lock()
+            index += 1
+            let round = index
+            windows.append(span)
+            lock.unlock()
+            var words: [SpokenWord] = []
+            var cursor = 0.0
+            while cursor + 0.5 <= span {
+                words.append(SpokenWord(
+                    text: "p\(round)x\(words.count)",
+                    start: windowStart + cursor,
+                    end: windowStart + cursor + 0.5
+                ))
+                cursor += 0.5
+            }
+            return words
+        }
+
+        func abort() {}
+    }
+
+    final class GrowingSource: WindowSource {
+        private let lock = NSLock()
+        private let started = Date()
+        private let pace: Double
+
+        init(pace: Double) {
+            self.pace = pace
+        }
+
+        var duration: Double {
+            lock.lock()
+            defer { lock.unlock() }
+            return min(20, Date().timeIntervalSince(started) * pace)
+        }
+
+        func samples(from start: Double, to end: Double) -> [Float] {
+            [Float](repeating: 0.02, count: max(0, Int((end - start) * 16000)))
+        }
+    }
+
+    var tuning = makeTuning()
+    tuning.maxWindowSeconds = 3
+    tuning.margin = 0.2
+    tuning.stepSeconds = 0.05
+    let source = GrowingSource(pace: 12)
+    let backend = DriftingBackend()
+    let decoder = WindowedDecoder(source: source, backend: backend, tuning: tuning)
+    var deltas: [String] = []
+    decoder.onDelta = { deltas.append($0) }
+    decoder.start()
+    pump(1.2)
+    decoder.cancel()
+    check(!deltas.isEmpty, "the cap forces a commit even when no two decodes agree")
+    let steady = backend.windows.suffix(5)
+    let worst = steady.max() ?? 0
+    check(
+        worst <= tuning.maxWindowSeconds + 1.5,
+        "the window settles at the cap instead of growing [worst of last 5: \(String(format: "%.1f", worst))s]"
+    )
+}
+
+print("== stabilizer: forced commit respects the cut ==")
+do {
+    var stabilizer = Stabilizer(agreementSteps: 2, margin: 0.5, overlapWords: 6)
+    let words = [
+        SpokenWord(text: "um", start: 0.0, end: 0.5),
+        SpokenWord(text: "dois", start: 0.5, end: 1.0),
+        SpokenWord(text: "tres", start: 1.0, end: 4.0),
+    ]
+    let delta = stabilizer.forceCommit(words: words, windowStart: 0, cut: 2.0)
+    equal(delta, "um dois", "only words that end before the cut are committed")
+    check(stabilizer.commitTime >= 1.0, "the commit clock moves with the forced commit")
+    equal(
+        stabilizer.forceCommit(words: words, windowStart: 0, cut: 0.2),
+        "",
+        "nothing is committed when the cut lands before the first word"
+    )
 }
 
 print("")
