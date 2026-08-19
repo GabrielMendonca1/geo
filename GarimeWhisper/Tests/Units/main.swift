@@ -950,6 +950,20 @@ let beats = (0..<24).map { IconAnimation.beatScale(frame: $0, frameCount: 24) }
 check(beats.allSatisfy { $0 >= 0.8 && $0 <= 1.01 }, "the beat stays inside a calm range")
 check(beats.max()! - beats.min()! > 0.1, "the beat is actually visible")
 
+print("== hub actions: one button per verb, icon follows state ==")
+let calmActions = HubModel.actionSpecs(dictating: false, meeting: false, call: false, awake: false)
+equal(calmActions.map(\.action), [.dictate, .meeting, .call, .insomnia, .notes, .refresh], "the button row is the six verbs, in order")
+check(calmActions.allSatisfy { !$0.on }, "nothing is lit when nothing is running")
+check(calmActions.allSatisfy { !$0.tooltip.isEmpty }, "every button says what it does")
+check(Set(calmActions.map(\.symbol)).count == calmActions.count, "no two buttons share a glyph")
+let busyActions = HubModel.actionSpecs(dictating: true, meeting: true, call: true, awake: true)
+equal(busyActions[0].symbol, "mic.fill", "dictation fills its mic while live")
+equal(busyActions[1].symbol, "stop.fill", "a running meeting offers stop")
+equal(busyActions[2].symbol, "phone.down.fill", "a running call offers hang up")
+equal(busyActions[3].symbol, "cup.and.saucer.fill", "staying awake fills the cup")
+check(busyActions.prefix(4).allSatisfy(\.on), "live verbs light up")
+check(busyActions.map(\.tooltip) != calmActions.map(\.tooltip), "tooltips flip with the state")
+
 print("== status.md write-back ==")
 let board = """
 # STATUS — demo

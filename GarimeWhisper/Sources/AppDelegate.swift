@@ -54,6 +54,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let captureItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let callToggleItem = NSMenuItem(title: "Gravar call", action: nil, keyEquivalent: "")
     private let callStatusItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let notesItem = NSMenuItem(title: "Abrir o Vault", action: nil, keyEquivalent: "")
+    private let refreshItem = NSMenuItem(title: "Atualizar tarefas", action: nil, keyEquivalent: "")
     private let hubPanel = HubPanel()
     private var openProject: String?
 
@@ -137,6 +139,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         callToggleItem.action = #selector(menuCall)
         callStatusItem.isHidden = true
 
+        notesItem.target = self
+        notesItem.action = #selector(menuNotes)
+        refreshItem.target = self
+        refreshItem.action = #selector(menuRefresh)
+
         icon.menu.delegate = self
         icon.onPrimaryClick = { [weak self] in self?.togglePanel() }
 
@@ -147,6 +154,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menuController.set(.dictation, items: [toggleItem, accessibilityItem])
         menuController.set(.meeting, items: [meetingToggleItem, meetingStatusItem, callToggleItem, callStatusItem])
         menuController.set(.insomnia, items: [insomniaItem])
+        menuController.set(.personalTasks, items: [notesItem, refreshItem])
         menuController.set(.app, items: [quit])
     }
 
@@ -341,38 +349,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func panelActionSpecs() -> [HubActionSpec] {
-        [
-            HubActionSpec(
-                action: .dictate,
-                symbol: phase == .recording ? "mic.fill" : "mic",
-                tooltip: "Ditar (⌥Space)",
-                on: phase == .recording
-            ),
-            HubActionSpec(
-                action: .meeting,
-                symbol: "record.circle",
-                tooltip: meeting.isRecording ? "Parar reunião" : "Gravar reunião",
-                on: meeting.isRecording
-            ),
-            HubActionSpec(
-                action: .call,
-                symbol: "phone",
-                tooltip: call.isRecording ? "Parar call" : "Gravar call",
-                on: call.isRecording
-            ),
-            HubActionSpec(
-                action: .insomnia,
-                symbol: "moon",
-                tooltip: "Manter acordado",
-                on: insomnia.isActive
-            ),
-            HubActionSpec(
-                action: .notes,
-                symbol: "book.closed",
-                tooltip: "Abrir o Vault",
-                on: false
-            ),
-        ]
+        HubModel.actionSpecs(
+            dictating: phase == .recording,
+            meeting: meeting.isRecording,
+            call: call.isRecording,
+            awake: insomnia.isActive
+        )
     }
 
     private func panelContent() -> NSView {
@@ -458,6 +440,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .notes:
             hubPanel.close()
             NSWorkspace.shared.open(URL(fileURLWithPath: Config.vaultDirectory))
+        case .refresh:
+            tasksController.refresh()
+            presentPanel()
         case .quit:
             menuQuit()
         }
@@ -491,13 +476,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func menuInsomnia() {
         insomnia.toggle()
         insomniaItem.state = insomnia.isActive ? .on : .off
-        icon.setOverlay(.moon, enabled: insomnia.isActive)
+        icon.setOverlay(.awake, enabled: insomnia.isActive)
     }
 
     @objc private func menuAccessibility() {
         paster.requestAccessibilityOnce()
         paster.openAccessibilitySettings()
     }
+
+    @objc private func menuNotes() { panelRun(.notes) }
+
+    @objc private func menuRefresh() { tasksController.refresh() }
 
     @objc private func menuQuit() { NSApp.terminate(nil) }
 

@@ -6,6 +6,7 @@ enum HubAction: Equatable {
     case call
     case insomnia
     case notes
+    case refresh
     case quit
 }
 
@@ -125,6 +126,52 @@ enum HubModel {
             rows: rows,
             empty: ordered.isEmpty ? "nenhum STATUS.md com todos" : nil
         )
+    }
+
+    static func actionSpecs(
+        dictating: Bool,
+        meeting: Bool,
+        call: Bool,
+        awake: Bool
+    ) -> [HubActionSpec] {
+        [
+            HubActionSpec(
+                action: .dictate,
+                symbol: dictating ? "mic.fill" : "mic",
+                tooltip: dictating ? "Parar e transcrever (⌥Space)" : "Ditar (⌥Space)",
+                on: dictating
+            ),
+            HubActionSpec(
+                action: .meeting,
+                symbol: meeting ? "stop.fill" : "recordingtape",
+                tooltip: meeting ? "Parar reunião" : "Gravar reunião",
+                on: meeting
+            ),
+            HubActionSpec(
+                action: .call,
+                symbol: call ? "phone.down.fill" : "phone",
+                tooltip: call ? "Parar call" : "Gravar call (com o áudio do outro lado)",
+                on: call
+            ),
+            HubActionSpec(
+                action: .insomnia,
+                symbol: awake ? "cup.and.saucer.fill" : "cup.and.saucer",
+                tooltip: awake ? "Deixar dormir de novo" : "Manter acordado",
+                on: awake
+            ),
+            HubActionSpec(
+                action: .notes,
+                symbol: "note.text",
+                tooltip: "Abrir o Vault",
+                on: false
+            ),
+            HubActionSpec(
+                action: .refresh,
+                symbol: "arrow.clockwise",
+                tooltip: "Atualizar tarefas agora",
+                on: false
+            ),
+        ]
     }
 
     static func todosSection(_ project: ProjectStatus, titleLimit: Int) -> HubSection {

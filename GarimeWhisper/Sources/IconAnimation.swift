@@ -15,7 +15,7 @@ enum IconState: Equatable {
 
 enum IconOverlay: Hashable {
     case alert
-    case moon
+    case awake
 }
 
 enum IconTint: Equatable {

@@ -210,7 +210,7 @@ final class StatusIcon: NSObject {
         guard let base else { return nil }
         guard !overlays.isEmpty else { return base }
         let active = overlays
-        let moon = active.contains(.moon) ? symbol("moon.fill") : nil
+        let moon = active.contains(.awake) ? symbol("cup.and.saucer.fill") : nil
         let size = NSSize(width: StatusIcon.side, height: StatusIcon.side)
         let image = NSImage(size: size, flipped: false) { rect in
             NSColor.black.setFill()
@@ -278,7 +278,7 @@ final class StatusIcon: NSObject {
     }
 
     private static func trianglePath(in rect: NSRect, scale: Double) -> NSBezierPath {
-        let side = (min(rect.width, rect.height) - 2) * CGFloat(scale)
+        let side = (min(rect.width, rect.height) - Config.iconTriangleInset) * CGFloat(scale)
         let height = side * 0.9
         let centerX = rect.midX
         let bottom = rect.midY - height / 2
