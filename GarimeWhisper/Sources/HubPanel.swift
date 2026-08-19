@@ -423,20 +423,23 @@ enum HubPanelView {
         onRow: @escaping (String) -> Void,
         onCheck: @escaping (String) -> Void,
         onBack: @escaping () -> Void,
-        onAction: @escaping (HubAction) -> Void,
-        onMore: @escaping () -> Void
+        onAction: @escaping (HubAction) -> Void
     ) -> NSView {
         let width = Config.panelWidth
         let inset = Config.panelInset
         let rowHeight = Config.panelRowHeight
 
+        var bodyHeight: CGFloat = 0
+        for section in content.sections {
+            if !section.strong.isEmpty { bodyHeight += 20 + 8 }
+            bodyHeight += CGFloat(max(section.rows.count, section.empty == nil ? 0 : 1)) * rowHeight
+            bodyHeight += Config.panelSectionGap
+        }
+        let visibleBody = min(bodyHeight, Config.panelMaxBodyHeight)
+
         var height = Config.panelTopPad + 22 + Config.panelHeaderGap
         if content.notice != nil { height += 24 }
-        for section in content.sections {
-            if !section.strong.isEmpty { height += 20 + 8 }
-            height += CGFloat(max(section.rows.count, section.empty == nil ? 0 : 1)) * rowHeight
-            height += Config.panelSectionGap
-        }
+        height += visibleBody
         if !content.actions.isEmpty { height += Config.panelActionSize + 14 }
         height += 18 + Config.panelBottomPad
 
@@ -472,25 +475,8 @@ enum HubPanelView {
         let titleLabel = NSTextField(labelWithAttributedString: title)
         titleLabel.lineBreakMode = .byTruncatingTail
         titleLabel.maximumNumberOfLines = 1
-        titleLabel.frame = NSRect(x: titleX, y: y, width: width - titleX - inset - 34, height: 22)
+        titleLabel.frame = NSRect(x: titleX, y: y, width: width - titleX - inset, height: 22)
         container.addSubview(titleLabel)
-
-        let more = ClosureButton(
-            frame: NSRect(x: width - inset - 26, y: y - 2, width: 26, height: 26),
-            handler: onMore
-        )
-        more.isBordered = false
-        more.wantsLayer = true
-        more.layer?.cornerRadius = 13
-        more.trackHover(
-            resting: NSColor(calibratedWhite: 0.96, alpha: 1),
-            hover: NSColor(calibratedWhite: 1, alpha: 1)
-        )
-        more.image = NSImage(systemSymbolName: "ellipsis", accessibilityDescription: "Ações")?
-            .withSymbolConfiguration(.init(pointSize: 12, weight: .bold))
-        more.contentTintColor = NSColor(calibratedWhite: 0.06, alpha: 1)
-        more.imagePosition = .imageOnly
-        container.addSubview(more)
         y += 22 + Config.panelHeaderGap
 
         if let notice = content.notice {
@@ -501,6 +487,10 @@ enum HubPanelView {
             container.addSubview(label)
             y += 24
         }
+
+        let body = FlippedView(frame: NSRect(x: 0, y: 0, width: width, height: bodyHeight))
+        let bodyTop = y
+        y = 0
 
         for section in content.sections {
             if !section.strong.isEmpty {
@@ -519,7 +509,7 @@ enum HubPanelView {
                 ]))
                 let headLabel = NSTextField(labelWithAttributedString: head)
                 headLabel.frame = NSRect(x: inset, y: y, width: width - inset * 2, height: 20)
-                container.addSubview(headLabel)
+                body.addSubview(headLabel)
                 y += 20 + 8
             }
 
@@ -533,7 +523,7 @@ enum HubPanelView {
                     width: width - Config.panelTextX - inset,
                     height: 18
                 )
-                container.addSubview(label)
+                body.addSubview(label)
                 y += rowHeight
             }
 
@@ -543,7 +533,7 @@ enum HubPanelView {
                     frame: NSRect(x: inset - 8, y: y, width: width - inset * 2 + 16, height: rowHeight),
                     handler: clickable ? { onRow(row.id) } : nil
                 )
-                container.addSubview(holder)
+                body.addSubview(holder)
 
                 let rail = NSView(frame: NSRect(x: 8, y: 7, width: 2, height: rowHeight - 14))
                 rail.wantsLayer = true
@@ -625,6 +615,27 @@ enum HubPanelView {
             }
             y += Config.panelSectionGap
         }
+
+        if bodyHeight > visibleBody {
+            let scroller = NSScrollView(frame: NSRect(
+                x: 0,
+                y: bodyTop,
+                width: width,
+                height: visibleBody
+            ))
+            scroller.drawsBackground = false
+            scroller.hasVerticalScroller = true
+            scroller.scrollerStyle = .overlay
+            scroller.autohidesScrollers = true
+            scroller.horizontalScrollElasticity = .none
+            scroller.verticalScroller?.knobStyle = .light
+            scroller.documentView = body
+            container.addSubview(scroller)
+        } else {
+            body.setFrameOrigin(NSPoint(x: 0, y: bodyTop))
+            container.addSubview(body)
+        }
+        y = bodyTop + visibleBody
 
         if !content.actions.isEmpty {
             var x = inset

@@ -319,11 +319,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         tasksController.refreshIfStale()
     }
 
-    @objc private func panelActions() {
-        hubPanel.close()
-        icon.popUpActions()
-    }
-
     private func togglePanel() {
         if hubPanel.isOpen {
             hubPanel.close()
@@ -379,12 +374,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 sections: [
                     HubModel.tasksSection(
                         VaultTasks.open(tasksController.tasks),
-                        limit: Config.tasksMenuLimit,
+                        limit: Config.panelListLimit,
                         titleLimit: Config.taskTitleLimit
                     ),
                     HubModel.projectsSection(
                         projects,
-                        limit: Config.panelProjectLimit,
+                        limit: Config.panelListLimit,
                         titleLimit: Config.taskTitleLimit
                     ),
                 ],
@@ -401,8 +396,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 self?.openProject = nil
                 self?.presentPanel()
             },
-            onAction: { [weak self] action in self?.panelRun(action) },
-            onMore: { [weak self] in self?.panelActions() }
+            onAction: { [weak self] action in self?.panelRun(action) }
         )
     }
 

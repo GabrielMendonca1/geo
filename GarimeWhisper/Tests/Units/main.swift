@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import IOKit.pwr_mgt
 
@@ -1044,6 +1045,36 @@ equal(
     HubModel.tasksSection([panelTasks[0]], limit: 3, titleLimit: 58).post,
     " aberta",
     "singular agrees with the count"
+)
+
+let manyProjects = (1...40).map {
+    ProjectStatus(name: "p\($0)", updated: nil, todos: ["a"], path: "/p\($0)")
+}
+let bigSection = HubModel.projectsSection(manyProjects, limit: Config.panelListLimit, titleLimit: 58)
+equal(bigSection.rows.count, 40, "the panel lists every project instead of hiding them")
+check(!bigSection.rows.contains { $0.id.hasSuffix(":more") }, "no overflow line when the list scrolls")
+let bigCard = HubPanelView.build(
+    content: HubContent(
+        headerStrong: "Hoje",
+        headerRest: "",
+        back: false,
+        sections: [bigSection],
+        notice: nil,
+        footer: "agora",
+        actions: HubModel.actionSpecs(dictating: false, meeting: false, call: false, awake: false)
+    ),
+    onRow: { _ in },
+    onCheck: { _ in },
+    onBack: {},
+    onAction: { _ in }
+)
+check(
+    bigCard.frame.height < Config.panelMaxBodyHeight + 200,
+    "a long list stays inside the card instead of growing it forever"
+)
+check(
+    bigCard.subviews.contains { $0 is NSScrollView },
+    "the overflowing body becomes a scroll view"
 )
 
 let tipTask = VaultTask(
