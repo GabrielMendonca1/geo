@@ -1,9 +1,28 @@
 import AppKit
 
+enum HubAction: Equatable {
+    case dictate
+    case meeting
+    case call
+    case insomnia
+    case notes
+    case quit
+}
+
+struct HubActionSpec: Equatable {
+    let action: HubAction
+    let symbol: String
+    let tooltip: String
+    let on: Bool
+}
+
 struct HubRow: Equatable {
+    let id: String
     let symbol: String
     let title: String
     let trailing: String?
+    let chevron: Bool
+    let checkable: Bool
 }
 
 struct HubSection: Equatable {
@@ -36,14 +55,24 @@ enum HubModel {
     static func tasksSection(_ tasks: [VaultTask], limit: Int, titleLimit: Int) -> HubSection {
         var rows = tasks.prefix(limit).map { task in
             HubRow(
+                id: "task:" + task.id,
                 symbol: "circle",
                 title: truncate(task.title, limit: titleLimit),
-                trailing: VaultTasks.dueLabel(task.due)
+                trailing: VaultTasks.dueLabel(task.due),
+                chevron: false,
+                checkable: false
             )
         }
         let hidden = tasks.count - rows.count
         if hidden > 0 {
-            rows.append(HubRow(symbol: "ellipsis", title: "e mais \(hidden)", trailing: nil))
+            rows.append(HubRow(
+                id: "task:more",
+                symbol: "ellipsis",
+                title: "e mais \(hidden)",
+                trailing: nil,
+                chevron: false,
+                checkable: false
+            ))
         }
         let strong: String
         switch tasks.count {
@@ -64,14 +93,24 @@ enum HubModel {
         let ordered = projects.sorted { $0.todos.count > $1.todos.count }
         var rows = ordered.prefix(limit).map { project in
             HubRow(
+                id: "project:" + project.path,
                 symbol: "circle.dotted",
                 title: truncate(project.name, limit: titleLimit),
-                trailing: "\(project.todos.count)"
+                trailing: "\(project.todos.count)",
+                chevron: true,
+                checkable: false
             )
         }
         let hidden = ordered.count - rows.count
         if hidden > 0 {
-            rows.append(HubRow(symbol: "ellipsis", title: "e mais \(hidden)", trailing: nil))
+            rows.append(HubRow(
+                id: "project:more",
+                symbol: "ellipsis",
+                title: "e mais \(hidden)",
+                trailing: nil,
+                chevron: false,
+                checkable: false
+            ))
         }
         let strong: String
         switch ordered.count {
@@ -82,34 +121,126 @@ enum HubModel {
         return HubSection(
             pre: "Você tem ",
             strong: strong,
-            post: ordered.count == 1 ? " com pendências" : " com pendências",
+            post: " com pendências",
             rows: rows,
             empty: ordered.isEmpty ? "nenhum STATUS.md com todos" : nil
         )
     }
-}
 
-final class FlippedView: NSView {
-    override var isFlipped: Bool { true }
+    static func todosSection(_ project: ProjectStatus, titleLimit: Int) -> HubSection {
+        let rows = project.todos.map { todo in
+            HubRow(
+                id: "todo:" + todo,
+                symbol: "circle",
+                title: truncate(todo, limit: titleLimit),
+                trailing: nil,
+                chevron: false,
+                checkable: true
+            )
+        }
+        let strong: String
+        switch rows.count {
+        case 0: strong = "nenhum todo"
+        case 1: strong = "1 todo"
+        default: strong = "\(rows.count) todos"
+        }
+        return HubSection(
+            pre: "",
+            strong: strong,
+            post: rows.count == 1 ? " em aberto" : " em aberto",
+            rows: rows,
+            empty: rows.isEmpty ? "nada pendente" : nil
+        )
+    }
 }
 
 enum HubInk {
-    static let title = NSColor(calibratedWhite: 0.96, alpha: 1)
+    static let title = NSColor(calibratedWhite: 0.97, alpha: 1)
     static let strong = NSColor(calibratedWhite: 0.95, alpha: 1)
     static let muted = NSColor(calibratedWhite: 1, alpha: 0.48)
     static let body = NSColor(calibratedWhite: 1, alpha: 0.72)
     static let glyph = NSColor(calibratedWhite: 1, alpha: 0.42)
     static let rail = NSColor(calibratedWhite: 1, alpha: 0.16)
     static let faint = NSColor(calibratedWhite: 1, alpha: 0.28)
+    static let hover = NSColor(calibratedWhite: 1, alpha: 0.07)
+    static let card = NSColor(calibratedWhite: 0.05, alpha: 1)
+}
+
+final class FlippedView: NSView {
+    override var isFlipped: Bool { true }
+}
+
+final class ClosureButton: NSButton {
+    private var handler: (() -> Void)?
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    convenience init(frame: NSRect, handler: @escaping () -> Void) {
+        self.init(frame: frame)
+        self.handler = handler
+        target = self
+        action = #selector(fire)
+    }
+
+    @objc private func fire() {
+        handler?()
+    }
+}
+
+final class HubRowView: NSView {
+    private var handler: (() -> Void)?
+    private var tracking: NSTrackingArea?
+    private var hot = false
+
+    override var isFlipped: Bool { true }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    convenience init(frame: NSRect, handler: (() -> Void)?) {
+        self.init(frame: frame)
+        self.handler = handler
+        wantsLayer = true
+        layer?.cornerRadius = 8
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let tracking { removeTrackingArea(tracking) }
+        guard handler != nil else { return }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeAlways],
+            owner: self
+        )
+        addTrackingArea(area)
+        tracking = area
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        hot = true
+        layer?.backgroundColor = HubInk.hover.cgColor
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        hot = false
+        layer?.backgroundColor = NSColor.clear.cgColor
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        guard hot else { return }
+        handler?()
+    }
 }
 
 final class HubCardView: NSView {
     override var isFlipped: Bool { true }
 
+    static let noiseTile: NSImage = makeNoiseTile()
+
     override func draw(_ dirtyRect: NSRect) {
         let radius = Config.panelCornerRadius
         let card = NSBezierPath(roundedRect: bounds, xRadius: radius, yRadius: radius)
-        NSColor(calibratedWhite: 0.055, alpha: 0.985).setFill()
+        HubInk.card.setFill()
         card.fill()
 
         NSGraphicsContext.saveGraphicsState()
@@ -134,17 +265,15 @@ final class HubCardView: NSView {
         hairline.stroke()
     }
 
-    static let noiseTile: NSImage = makeNoiseTile()
-
     private static func makeNoiseTile() -> NSImage {
         let size = NSSize(width: 64, height: 64)
         return NSImage(size: size, flipped: false) { rect in
-            var seed: UInt64 = 0x9E3779B97F4A7C15
+            var seed: UInt64 = 0x9E37_79B9_7F4A_7C15
             var y: CGFloat = 0
             while y < rect.height {
                 var x: CGFloat = 0
                 while x < rect.width {
-                    seed = seed &* 6364136223846793005 &+ 1442695040888963407
+                    seed = seed &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
                     let value = CGFloat((seed >> 33) % 1000) / 1000
                     NSColor(calibratedWhite: value, alpha: 0.5).setFill()
                     NSRect(x: x, y: y, width: 1, height: 1).fill()
@@ -157,107 +286,172 @@ final class HubCardView: NSView {
     }
 }
 
+struct HubContent {
+    let headerStrong: String
+    let headerRest: String
+    let back: Bool
+    let sections: [HubSection]
+    let notice: String?
+    let footer: String
+    let actions: [HubActionSpec]
+}
+
 enum HubPanelView {
     static func build(
-        header: (String, String),
-        sections: [HubSection],
-        notice: String?,
-        footer: String,
-        actionTarget: AnyObject,
-        actionSelector: Selector
+        content: HubContent,
+        onRow: @escaping (String) -> Void,
+        onCheck: @escaping (String) -> Void,
+        onBack: @escaping () -> Void,
+        onAction: @escaping (HubAction) -> Void,
+        onMore: @escaping () -> Void
     ) -> NSView {
         let width = Config.panelWidth
         let inset = Config.panelInset
         let rowHeight = Config.panelRowHeight
+
         var height = Config.panelTopPad + 22 + Config.panelHeaderGap
-        if notice != nil { height += 24 }
-        for section in sections {
-            height += 20 + 8
+        if content.notice != nil { height += 24 }
+        for section in content.sections {
+            if !section.strong.isEmpty { height += 20 + 8 }
             height += CGFloat(max(section.rows.count, section.empty == nil ? 0 : 1)) * rowHeight
             height += Config.panelSectionGap
         }
+        if !content.actions.isEmpty { height += Config.panelActionSize + 14 }
         height += 18 + Config.panelBottomPad
 
         let container = FlippedView(frame: NSRect(x: 0, y: 0, width: width, height: height))
         var y = Config.panelTopPad
+        var titleX = inset
+
+        if content.back {
+            let back = ClosureButton(
+                frame: NSRect(x: inset - 6, y: y - 3, width: 26, height: 26),
+                handler: onBack
+            )
+            back.isBordered = false
+            back.image = NSImage(systemSymbolName: "chevron.left", accessibilityDescription: "Voltar")?
+                .withSymbolConfiguration(.init(pointSize: 13, weight: .semibold))
+            back.contentTintColor = HubInk.body
+            back.imagePosition = .imageOnly
+            container.addSubview(back)
+            titleX = inset + 24
+        }
 
         let title = NSMutableAttributedString()
-        title.append(NSAttributedString(string: header.0 + " ", attributes: [
+        title.append(NSAttributedString(string: content.headerStrong + " ", attributes: [
             .font: NSFont.systemFont(ofSize: 15, weight: .bold),
             .foregroundColor: HubInk.title,
         ]))
-        title.append(NSAttributedString(string: header.1, attributes: [
+        title.append(NSAttributedString(string: content.headerRest, attributes: [
             .font: NSFont.systemFont(ofSize: 15, weight: .regular),
             .foregroundColor: HubInk.title,
         ]))
         let titleLabel = NSTextField(labelWithAttributedString: title)
-        titleLabel.frame = NSRect(x: inset, y: y, width: width - inset * 2 - 40, height: 22)
+        titleLabel.lineBreakMode = .byTruncatingTail
+        titleLabel.maximumNumberOfLines = 1
+        titleLabel.frame = NSRect(x: titleX, y: y, width: width - titleX - inset - 34, height: 22)
         container.addSubview(titleLabel)
 
-        let more = NSButton(frame: NSRect(x: width - inset - 26, y: y - 2, width: 26, height: 26))
-        more.bezelStyle = .circular
+        let more = ClosureButton(
+            frame: NSRect(x: width - inset - 26, y: y - 2, width: 26, height: 26),
+            handler: onMore
+        )
         more.isBordered = false
         more.wantsLayer = true
         more.layer?.backgroundColor = NSColor(calibratedWhite: 0.96, alpha: 1).cgColor
         more.layer?.cornerRadius = 13
         more.image = NSImage(systemSymbolName: "ellipsis", accessibilityDescription: "Ações")?
             .withSymbolConfiguration(.init(pointSize: 12, weight: .bold))
-        more.contentTintColor = NSColor(calibratedWhite: 0.08, alpha: 1)
+        more.contentTintColor = NSColor(calibratedWhite: 0.06, alpha: 1)
         more.imagePosition = .imageOnly
-        more.target = actionTarget
-        more.action = actionSelector
         container.addSubview(more)
         y += 22 + Config.panelHeaderGap
 
-        if let notice {
+        if let notice = content.notice {
             let label = NSTextField(labelWithString: notice)
             label.font = NSFont.systemFont(ofSize: 12, weight: .medium)
-            label.textColor = .systemOrange
+            label.textColor = HubInk.body
             label.frame = NSRect(x: inset, y: y, width: width - inset * 2, height: 16)
             container.addSubview(label)
             y += 24
         }
 
-        for section in sections {
-            let head = NSMutableAttributedString()
-            head.append(NSAttributedString(string: section.pre, attributes: [
-                .font: NSFont.systemFont(ofSize: 14),
-                .foregroundColor: HubInk.muted,
-            ]))
-            head.append(NSAttributedString(string: section.strong, attributes: [
-                .font: NSFont.systemFont(ofSize: 14, weight: .bold),
-                .foregroundColor: HubInk.strong,
-            ]))
-            head.append(NSAttributedString(string: section.post, attributes: [
-                .font: NSFont.systemFont(ofSize: 14),
-                .foregroundColor: HubInk.muted,
-            ]))
-            let headLabel = NSTextField(labelWithAttributedString: head)
-            headLabel.frame = NSRect(x: inset, y: y, width: width - inset * 2, height: 20)
-            container.addSubview(headLabel)
-            y += 20 + 8
+        for section in content.sections {
+            if !section.strong.isEmpty {
+                let head = NSMutableAttributedString()
+                head.append(NSAttributedString(string: section.pre, attributes: [
+                    .font: NSFont.systemFont(ofSize: 14),
+                    .foregroundColor: HubInk.muted,
+                ]))
+                head.append(NSAttributedString(string: section.strong, attributes: [
+                    .font: NSFont.systemFont(ofSize: 14, weight: .bold),
+                    .foregroundColor: HubInk.strong,
+                ]))
+                head.append(NSAttributedString(string: section.post, attributes: [
+                    .font: NSFont.systemFont(ofSize: 14),
+                    .foregroundColor: HubInk.muted,
+                ]))
+                let headLabel = NSTextField(labelWithAttributedString: head)
+                headLabel.frame = NSRect(x: inset, y: y, width: width - inset * 2, height: 20)
+                container.addSubview(headLabel)
+                y += 20 + 8
+            }
 
             if section.rows.isEmpty, let empty = section.empty {
                 let label = NSTextField(labelWithString: empty)
                 label.font = NSFont.systemFont(ofSize: 13)
                 label.textColor = HubInk.faint
-                label.frame = NSRect(x: Config.panelTextX, y: y + 8, width: width - Config.panelTextX - inset, height: 18)
+                label.frame = NSRect(
+                    x: Config.panelTextX,
+                    y: y + 8,
+                    width: width - Config.panelTextX - inset,
+                    height: 18
+                )
                 container.addSubview(label)
                 y += rowHeight
             }
 
             for row in section.rows {
-                container.addSubview(dash(y: y, rowHeight: rowHeight, x: inset))
-                let glyph = NSImageView(frame: NSRect(
-                    x: Config.panelGlyphX,
-                    y: y + (rowHeight - 18) / 2,
+                let clickable = row.chevron
+                let holder = HubRowView(
+                    frame: NSRect(x: inset - 8, y: y, width: width - inset * 2 + 16, height: rowHeight),
+                    handler: clickable ? { onRow(row.id) } : nil
+                )
+                container.addSubview(holder)
+
+                let rail = NSView(frame: NSRect(x: 8, y: 7, width: 2, height: rowHeight - 14))
+                rail.wantsLayer = true
+                rail.layer?.backgroundColor = HubInk.rail.cgColor
+                rail.layer?.cornerRadius = 1
+                holder.addSubview(rail)
+
+                let glyphFrame = NSRect(
+                    x: Config.panelGlyphX - inset + 8,
+                    y: (rowHeight - 18) / 2,
                     width: 18,
                     height: 18
-                ))
-                glyph.image = NSImage(systemSymbolName: row.symbol, accessibilityDescription: nil)?
-                    .withSymbolConfiguration(.init(pointSize: 14, weight: .light))
-                glyph.contentTintColor = HubInk.glyph
-                container.addSubview(glyph)
+                )
+                if row.checkable {
+                    let check = ClosureButton(frame: glyphFrame) { onCheck(row.id) }
+                    check.isBordered = false
+                    check.image = NSImage(systemSymbolName: "circle", accessibilityDescription: "Concluir")?
+                        .withSymbolConfiguration(.init(pointSize: 14, weight: .light))
+                    check.alternateImage = NSImage(
+                        systemSymbolName: "checkmark.circle.fill",
+                        accessibilityDescription: nil
+                    )?.withSymbolConfiguration(.init(pointSize: 14, weight: .regular))
+                    check.setButtonType(.momentaryChange)
+                    check.contentTintColor = HubInk.glyph
+                    check.imagePosition = .imageOnly
+                    check.toolTip = "Marcar como feito"
+                    holder.addSubview(check)
+                } else {
+                    let glyph = NSImageView(frame: glyphFrame)
+                    glyph.image = NSImage(systemSymbolName: row.symbol, accessibilityDescription: nil)?
+                        .withSymbolConfiguration(.init(pointSize: 14, weight: .light))
+                    glyph.contentTintColor = HubInk.glyph
+                    holder.addSubview(glyph)
+                }
 
                 let text = NSMutableAttributedString()
                 text.append(NSAttributedString(string: row.title, attributes: [
@@ -273,34 +467,66 @@ enum HubPanelView {
                 let label = NSTextField(labelWithAttributedString: text)
                 label.lineBreakMode = .byTruncatingTail
                 label.maximumNumberOfLines = 1
+                let textX = Config.panelTextX - inset + 8
                 label.frame = NSRect(
-                    x: Config.panelTextX,
-                    y: y + (rowHeight - 18) / 2,
-                    width: width - Config.panelTextX - inset + 12,
+                    x: textX,
+                    y: (rowHeight - 18) / 2,
+                    width: holder.bounds.width - textX - (row.chevron ? 26 : 10),
                     height: 18
                 )
-                container.addSubview(label)
+                holder.addSubview(label)
+
+                if row.chevron {
+                    let arrow = NSImageView(frame: NSRect(
+                        x: holder.bounds.width - 24,
+                        y: (rowHeight - 14) / 2,
+                        width: 14,
+                        height: 14
+                    ))
+                    arrow.image = NSImage(systemSymbolName: "chevron.right", accessibilityDescription: nil)?
+                        .withSymbolConfiguration(.init(pointSize: 11, weight: .semibold))
+                    arrow.contentTintColor = HubInk.faint
+                    holder.addSubview(arrow)
+                }
+
                 y += rowHeight
             }
             y += Config.panelSectionGap
         }
 
-        let stamp = NSTextField(labelWithString: footer)
+        if !content.actions.isEmpty {
+            var x = inset
+            for spec in content.actions {
+                let button = ClosureButton(
+                    frame: NSRect(x: x, y: y, width: Config.panelActionSize, height: Config.panelActionSize),
+                    handler: { onAction(spec.action) }
+                )
+                button.isBordered = false
+                button.wantsLayer = true
+                button.layer?.cornerRadius = Config.panelActionSize / 2
+                button.layer?.backgroundColor = spec.on
+                    ? NSColor(calibratedWhite: 0.95, alpha: 1).cgColor
+                    : NSColor(calibratedWhite: 1, alpha: 0.09).cgColor
+                button.image = NSImage(systemSymbolName: spec.symbol, accessibilityDescription: spec.tooltip)?
+                    .withSymbolConfiguration(.init(pointSize: 14, weight: .medium))
+                button.contentTintColor = spec.on
+                    ? NSColor(calibratedWhite: 0.06, alpha: 1)
+                    : HubInk.body
+                button.imagePosition = .imageOnly
+                button.toolTip = spec.tooltip
+                container.addSubview(button)
+                x += Config.panelActionSize + 10
+            }
+            y += Config.panelActionSize + 14
+        }
+
+        let stamp = NSTextField(labelWithString: content.footer)
         stamp.font = NSFont.systemFont(ofSize: 11)
         stamp.textColor = HubInk.faint
         stamp.frame = NSRect(x: inset, y: y, width: width - inset * 2, height: 16)
         container.addSubview(stamp)
 
         return container
-    }
-
-    private static func dash(y: CGFloat, rowHeight: CGFloat, x: CGFloat) -> NSView {
-        let height = rowHeight - 14
-        let mark = NSView(frame: NSRect(x: x, y: y + 7, width: 2, height: height))
-        mark.wantsLayer = true
-        mark.layer?.backgroundColor = HubInk.rail.cgColor
-        mark.layer?.cornerRadius = 1
-        return mark
     }
 }
 
@@ -311,11 +537,17 @@ final class HubPanel {
     var isOpen: Bool { panel?.isVisible ?? false }
 
     func show(content: NSView, below button: NSStatusBarButton?) {
-        close()
         let size = content.frame.size
         let host = HubCardView(frame: NSRect(origin: .zero, size: size))
         host.wantsLayer = true
         host.addSubview(content)
+
+        if let panel {
+            panel.setContentSize(size)
+            panel.contentView = host
+            panel.setFrameOrigin(origin(for: size, below: button))
+            return
+        }
 
         let window = NSPanel(
             contentRect: NSRect(origin: .zero, size: size),
@@ -327,12 +559,20 @@ final class HubPanel {
         window.isOpaque = false
         window.backgroundColor = .clear
         window.hasShadow = true
+        window.isFloatingPanel = true
+        window.becomesKeyOnlyIfNeeded = true
         window.level = .popUpMenu
         window.appearance = NSAppearance(named: .darkAqua)
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
         window.setFrameOrigin(origin(for: size, below: button))
+        window.alphaValue = 0
         window.orderFrontRegardless()
         panel = window
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = Config.panelFadeSeconds
+            window.animator().alphaValue = 1
+        }
 
         monitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) {
             [weak self] _ in

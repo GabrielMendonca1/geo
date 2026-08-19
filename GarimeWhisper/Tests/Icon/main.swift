@@ -37,7 +37,12 @@ for (state, name) in states {
     let image = icon.renderedImage
     check(image != nil, "\(name) produces an image")
     if let image {
-        check(image.isTemplate, "\(name) image is a template (auto-tints)")
+        let tint = IconAnimation.plan(for: state, reduceMotion: icon.reduceMotion).tint
+        if tint == .neutral {
+            check(image.isTemplate, "\(name) stays a template (auto-tints with the bar)")
+        } else {
+            check(!image.isTemplate, "\(name) carries its own colour")
+        }
         check(image.size.width > 0 && image.size.height > 0, "\(name) image has a real size")
     }
 }

@@ -652,25 +652,6 @@ check(
     "idle stays static under reduce motion"
 )
 
-print("== icon animation: bars ==")
-do {
-    let low = IconAnimation.barHeights(level: 0.1, peak: 1, count: 5)
-    let high = IconAnimation.barHeights(level: 0.9, peak: 1, count: 5)
-    equal(low.count, 5, "bar count is respected")
-    check(zip(low, high).allSatisfy { $0 <= $1 }, "bars grow with level")
-    check(low.allSatisfy { $0 > 0 && $0 <= 1 }, "bars stay inside the drawable range")
-    check(
-        IconAnimation.barHeights(level: 2, peak: 3, count: 5).allSatisfy { $0 <= 1 },
-        "levels above one are clamped"
-    )
-    check(
-        IconAnimation.barHeights(level: -1, peak: -1, count: 5).allSatisfy { $0 > 0 },
-        "negative levels never produce a zero-height bar"
-    )
-    let silent = IconAnimation.barHeights(level: 0, peak: 0, count: 5)
-    check(silent.allSatisfy { $0 < 0.2 }, "silence draws a near-flat meter")
-}
-
 print("== dictation session ==")
 
 final class FakeSink: TextSink {
@@ -946,12 +927,73 @@ equal(scanned.map(\.name), ["raiz", "alpha"], "root and depth-1 with todos, noth
 equal(scanned[1].todos.count, 2, "todos ride along")
 try? FileManager.default.removeItem(atPath: scanRoot)
 
-print("== icon identity: mic only while capturing ==")
-equal(IconAnimation.plan(for: .idle, reduceMotion: false).render, IconRender.triangle, "the idle hub icon is the triangle, never a mic")
+print("== icon identity: triangle everywhere, colour by situation ==")
+equal(IconAnimation.plan(for: .idle, reduceMotion: false).render, IconRender.triangle, "idle is the plain triangle")
+equal(IconAnimation.plan(for: .idle, reduceMotion: false).tint, IconTint.neutral, "idle stays monochrome so it adapts to the bar")
+equal(IconAnimation.plan(for: .recording, reduceMotion: false).tint, IconTint.live, "capture burns red")
+equal(IconAnimation.plan(for: .meeting, reduceMotion: false).tint, IconTint.live, "a meeting burns red too")
+equal(IconAnimation.plan(for: .transcribing, reduceMotion: false).tint, IconTint.work, "transcription is amber")
+equal(IconAnimation.plan(for: .success, reduceMotion: false).tint, IconTint.good, "success is green")
 for calmState in [IconState.idle, .transcribing, .flushing, .success, .error] {
     let render = IconAnimation.plan(for: calmState, reduceMotion: false).render
     check(render != .symbol("mic") && render != .symbol("mic.fill"), "no mic glyph outside capture for \(calmState)")
 }
+equal(IconAnimation.plan(for: .recording, reduceMotion: false).render, IconRender.triangleLevel, "dictation drives the triangle with the level")
+check(IconAnimation.plan(for: .meeting, reduceMotion: false).repeats, "the meeting triangle beats forever")
+check(!IconAnimation.plan(for: .meeting, reduceMotion: true).isAnimated, "Reduce Motion stills the beat")
+
+print("== icon: level and beat scaling ==")
+check(IconAnimation.triangleScale(level: 0, peak: 0) < IconAnimation.triangleScale(level: 1, peak: 1), "louder means bigger")
+check(IconAnimation.triangleScale(level: 5, peak: 5) <= 1, "scale never exceeds the icon box")
+check(IconAnimation.triangleScale(level: -3, peak: -3) > 0.5, "silence still draws a visible triangle")
+let beats = (0..<24).map { IconAnimation.beatScale(frame: $0, frameCount: 24) }
+check(beats.allSatisfy { $0 >= 0.8 && $0 <= 1.01 }, "the beat stays inside a calm range")
+check(beats.max()! - beats.min()! > 0.1, "the beat is actually visible")
+
+print("== status.md write-back ==")
+let board = """
+# STATUS — demo
+
+> atualizado: 2026-08-18
+
+## Todo
+- [ ] primeira coisa
+- [ ] segunda coisa
+
+## Feito
+- [x] coisa antiga (2026-01-01)
+"""
+let marked = StatusTodoWriter.complete(markdown: board, todo: "primeira coisa", on: "2026-08-18")
+check(marked != nil, "a known todo is found")
+check(!marked!.contains("- [ ] primeira coisa"), "the todo leaves the Todo section")
+check(marked!.contains("- [x] primeira coisa (2026-08-18)"), "it lands in Feito with the date")
+check(marked!.contains("- [ ] segunda coisa"), "the other todos survive untouched")
+check(marked!.contains("> atualizado: 2026-08-18"), "the rest of the file is preserved")
+let doneIndex = marked!.range(of: "## Feito")!.lowerBound
+let entryIndex = marked!.range(of: "- [x] primeira coisa")!.lowerBound
+check(doneIndex < entryIndex, "the entry goes under the Feito heading")
+check(StatusTodoWriter.complete(markdown: board, todo: "nao existe", on: "2026-08-18") == nil, "an unknown todo changes nothing")
+check(
+    StatusTodoWriter.complete(markdown: board, todo: "coisa antiga", on: "2026-08-18") == nil,
+    "already-done lines are never re-marked"
+)
+let noSection = StatusTodoWriter.complete(
+    markdown: "# STATUS — x\n\n## Todo\n- [ ] só isso\n",
+    todo: "só isso",
+    on: "2026-08-18"
+)
+check(noSection!.contains("## Feito"), "a missing Feito section is created")
+
+print("== status.md write-back touches the real file atomically ==")
+let boardPath = NSTemporaryDirectory() + "harness-status-" + UUID().uuidString + ".md"
+FileManager.default.createFile(atPath: boardPath, contents: Data(board.utf8))
+check(StatusTodoWriter.complete(path: boardPath, todo: "segunda coisa"), "the write reports success")
+let reread = try! String(contentsOfFile: boardPath, encoding: .utf8)
+check(reread.contains("- [x] segunda coisa ("), "the file on disk carries the completion")
+check(reread.contains("- [ ] primeira coisa"), "the untouched todo is still there")
+check(!FileManager.default.fileExists(atPath: boardPath + ".garime-tmp"), "no temp file is left behind")
+check(!StatusTodoWriter.complete(path: "/nonexistent/STATUS.md", todo: "x"), "a missing file fails quietly")
+try? FileManager.default.removeItem(atPath: boardPath)
 
 print("== hub panel model ==")
 equal(HubModel.truncate("curta", limit: 58), "curta", "short titles pass through")
@@ -964,6 +1006,20 @@ check(!cut.contains("  "), "truncation cuts on a word boundary")
 let panelTasks = (1...5).map {
     VaultTask(id: "\($0)", title: "tarefa \($0)", status: "pending", priority: "unset", due: nil, reminders: 0)
 }
+let todosProject = ProjectStatus(
+    name: "demo",
+    updated: "2026-08-18",
+    todos: ["alfa", "beta"],
+    path: "/demo/STATUS.md"
+)
+let todos = HubModel.todosSection(todosProject, titleLimit: 58)
+equal(todos.rows.count, 2, "every todo of the project shows up")
+check(todos.rows.allSatisfy(\.checkable), "project todos can be checked off")
+equal(todos.rows.first?.id, "todo:alfa", "the row id carries the exact todo text")
+equal(HubModel.projectsSection([todosProject], limit: 5, titleLimit: 58).rows.first?.id, "project:/demo/STATUS.md", "project rows address the file")
+check(HubModel.projectsSection([todosProject], limit: 5, titleLimit: 58).rows.first!.chevron, "projects are navigable")
+check(!HubModel.tasksSection(panelTasks, limit: 3, titleLimit: 58).rows.contains { $0.checkable }, "vault tasks stay read-only in the panel")
+
 let taskSection = HubModel.tasksSection(panelTasks, limit: 3, titleLimit: 58)
 equal(taskSection.strong, "5 tarefas", "the header carries the full count")
 equal(taskSection.rows.count, 4, "three rows plus the overflow line")

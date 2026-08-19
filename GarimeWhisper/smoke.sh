@@ -253,13 +253,20 @@ grep -q 'onPrimaryClick' "$ROOT/Sources/StatusIcon.swift"
 check $? "left-click drives the hub panel"
 grep -q 'nonactivatingPanel' "$ROOT/Sources/HubPanel.swift"
 check $? "the hub panel never steals focus from the paste target"
+grep -q 'Vault' "$ROOT/Sources/StatusTodoWriter.swift"
+check "$([ $? -ne 0 ] && echo 0 || echo 1)" "checking a todo never writes anywhere near the Vault"
+grep -q 'replaceItemAt' "$ROOT/Sources/StatusTodoWriter.swift"
+check $? "STATUS.md is rewritten atomically"
+grep -q 'checkable: false' "$ROOT/Sources/HubPanel.swift"
+check $? "vault tasks stay read-only in the panel"
 grep -q 'button.image' "$ROOT/Sources/StatusIcon.swift"
 check $? "status item still renders through button.image, not a custom view"
-grep -q 'isTemplate = true' "$ROOT/Sources/StatusIcon.swift"
-check $? "drawn frames stay template images (auto-tinting preserved)"
-
-grep -rq 'NSColor.systemBlue\|NSColor.systemRed\|NSColor(red:' "$ROOT/Sources" --include='*.swift'
-check "$([ $? -ne 0 ] && echo 0 || echo 1)" "no hardcoded accent colors in the icon"
+grep -q 'image.isTemplate = paint == nil' "$ROOT/Sources/StatusIcon.swift"
+check $? "neutral frames stay template images (auto-tinting preserved)"
+grep -q 'case .neutral: return nil' "$ROOT/Sources/StatusIcon.swift"
+check $? "the idle icon never hardcodes a colour"
+grep -q 'image.isTemplate = base.isTemplate' "$ROOT/Sources/StatusIcon.swift"
+check $? "overlays never flatten a coloured frame back into a template"
 
 IDLE_ANIMATED="$(grep -c 'case .idle' "$ROOT/Sources/IconAnimation.swift")"
 [ "$IDLE_ANIMATED" -ge 1 ]; check $? "idle has an explicit still plan (no idle timer)"
@@ -335,6 +342,7 @@ swiftc -O -target "$(uname -m)-apple-macos14.0" -sdk "$(xcrun --show-sdk-path --
   "$ROOT/Sources/VaultTasks.swift" \
   "$ROOT/Sources/ProjectStatus.swift" \
   "$ROOT/Sources/CallController.swift" \
+  "$ROOT/Sources/StatusTodoWriter.swift" \
   "$ROOT/Sources/HubPanel.swift" \
   "$ROOT/Tests/Units/main.swift" 2>"$TMP/units.log"
 check $? "unit harness compiles against the real sources"

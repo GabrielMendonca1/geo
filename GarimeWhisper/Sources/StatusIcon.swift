@@ -158,13 +158,17 @@ final class StatusIcon: NSObject {
         } else {
             switch plan.render {
             case .symbol(let name):
-                base = symbol(name)
+                base = tinted(symbol(name))
             case .triangle:
                 base = drawTriangle()
-            case .bars:
-                base = drawBars()
-            case .pulse:
-                base = drawPulse()
+            case .triangleLevel:
+                base = drawTriangle(scale: IconAnimation.triangleScale(level: level, peak: peak))
+            case .triangleBeat:
+                base = drawTriangle(
+                    scale: IconAnimation.beatScale(frame: frameIndex, frameCount: plan.frameCount)
+                )
+            case .triangleSweep:
+                base = drawTriangleSweep()
             case .spinner:
                 base = drawSpinner()
             case .blocked:
@@ -223,7 +227,7 @@ final class StatusIcon: NSObject {
             }
             return true
         }
-        image.isTemplate = true
+        image.isTemplate = base.isTemplate
         image.accessibilityDescription = "garime whisper"
         return image
     }
@@ -236,109 +240,96 @@ final class StatusIcon: NSObject {
         context.compositingOperation = previous
     }
 
-    private func canvas(_ handler: @escaping (NSRect) -> Void) -> NSImage {
+    private func canvas(tint: IconTint = .neutral, _ handler: @escaping (NSRect) -> Void) -> NSImage {
         let size = NSSize(width: StatusIcon.side, height: StatusIcon.side)
+        let paint = StatusIcon.color(for: tint)
         let image = NSImage(size: size, flipped: false) { rect in
-            NSColor.black.setFill()
-            NSColor.black.setStroke()
+            (paint ?? NSColor.black).setFill()
+            (paint ?? NSColor.black).setStroke()
             handler(rect)
             return true
         }
-        image.isTemplate = true
+        image.isTemplate = paint == nil
         image.accessibilityDescription = "garime whisper"
         return image
     }
 
-    private func drawTriangle() -> NSImage {
-        if let cached = symbolCache["__triangle"] { return cached }
-        let image = renderTriangle()
-        symbolCache["__triangle"] = image
+    static func color(for tint: IconTint) -> NSColor? {
+        switch tint {
+        case .neutral: return nil
+        case .live: return NSColor.systemRed
+        case .work: return NSColor.systemOrange
+        case .good: return NSColor.systemGreen
+        case .warn: return NSColor.systemYellow
+        }
+    }
+
+    private func tinted(_ image: NSImage?) -> NSImage? {
+        guard let image, let color = StatusIcon.color(for: plan.tint) else { return image }
+        let painted = NSImage(size: image.size, flipped: false) { rect in
+            image.draw(in: rect)
+            color.set()
+            rect.fill(using: .sourceAtop)
+            return true
+        }
+        painted.isTemplate = false
+        painted.accessibilityDescription = "garime whisper"
+        return painted
+    }
+
+    private static func trianglePath(in rect: NSRect, scale: Double) -> NSBezierPath {
+        let side = (min(rect.width, rect.height) - 2) * CGFloat(scale)
+        let height = side * 0.9
+        let centerX = rect.midX
+        let bottom = rect.midY - height / 2
+        let path = NSBezierPath()
+        path.move(to: NSPoint(x: centerX, y: bottom + height))
+        path.line(to: NSPoint(x: centerX + side / 2, y: bottom))
+        path.line(to: NSPoint(x: centerX - side / 2, y: bottom))
+        path.close()
+        path.lineJoinStyle = .round
+        return path
+    }
+
+    private func drawTriangle(scale: Double = 1) -> NSImage {
+        let cacheable = plan.tint == .neutral && scale == 1
+        if cacheable, let cached = symbolCache["__triangle"] { return cached }
+        let image = canvas(tint: plan.tint) { rect in
+            let path = StatusIcon.trianglePath(in: rect, scale: scale)
+            path.fill()
+            path.lineWidth = 1.4
+            path.stroke()
+        }
+        if cacheable { symbolCache["__triangle"] = image }
         return image
     }
 
-    private func renderTriangle() -> NSImage {
-        canvas { rect in
-            let side = min(rect.width, rect.height) - 3
-            let height = side * 0.86
-            let centerX = rect.midX
-            let bottom = rect.midY - height / 2
-            let path = NSBezierPath()
-            path.move(to: NSPoint(x: centerX, y: bottom + height))
-            path.line(to: NSPoint(x: centerX + side / 2, y: bottom))
-            path.line(to: NSPoint(x: centerX - side / 2, y: bottom))
-            path.close()
-            path.lineJoinStyle = .round
-            path.lineWidth = 1.5
-
+    private func drawTriangleSweep() -> NSImage {
+        let count = max(1, plan.frameCount)
+        let progress = Double(frameIndex % count) / Double(count)
+        return canvas(tint: plan.tint) { rect in
+            let path = StatusIcon.trianglePath(in: rect, scale: 1)
             NSGraphicsContext.saveGraphicsState()
+            let base = StatusIcon.color(for: .work) ?? NSColor.black
+            base.withAlphaComponent(0.3).setFill()
+            path.fill()
             path.addClip()
-            let glass = NSGradient(colors: [
-                NSColor.black.withAlphaComponent(0.55),
-                NSColor.black.withAlphaComponent(0.05),
-            ])
-            glass?.draw(in: rect, angle: 72)
-            NSGraphicsContext.restoreGraphicsState()
-
-            let beam = NSBezierPath()
-            beam.move(to: NSPoint(x: centerX - side * 0.17, y: bottom + height * 0.42))
-            beam.line(to: NSPoint(x: centerX + side * 0.3, y: bottom + height * 0.42))
-            beam.lineWidth = 1.2
-            beam.lineCapStyle = .round
-            NSColor.black.withAlphaComponent(0.75).setStroke()
-            beam.stroke()
-
-            NSColor.black.setStroke()
-            path.stroke()
-        }
-    }
-
-    private func drawBars() -> NSImage {
-        let heights = IconAnimation.barHeights(
-            level: level,
-            peak: peak,
-            count: Config.meterBarCount
-        )
-        return canvas { rect in
-            let count = CGFloat(heights.count)
-            let barWidth: CGFloat = 2
-            let gap: CGFloat = 1.6
-            let total = count * barWidth + (count - 1) * gap
-            var x = rect.midX - total / 2
-            let maxHeight = rect.height - 3
-            for value in heights {
-                let height = max(2, maxHeight * CGFloat(value))
-                let bar = NSRect(
-                    x: x,
-                    y: rect.midY - height / 2,
-                    width: barWidth,
-                    height: height
-                )
-                NSBezierPath(roundedRect: bar, xRadius: 1, yRadius: 1).fill()
-                x += barWidth + gap
-            }
-        }
-    }
-
-    private func drawPulse() -> NSImage {
-        let span = max(1, plan.frameCount - 1)
-        let progress = CGFloat(min(frameIndex, span)) / CGFloat(span)
-        return canvas { rect in
+            let degrees = progress * 360
             let center = NSPoint(x: rect.midX, y: rect.midY)
-            let dot = NSRect(x: center.x - 2.5, y: center.y - 2.5, width: 5, height: 5)
-            NSBezierPath(ovalIn: dot).fill()
-
-            let radius = 3.5 + progress * 4.5
-            let ring = NSBezierPath(
-                ovalIn: NSRect(
-                    x: center.x - radius,
-                    y: center.y - radius,
-                    width: radius * 2,
-                    height: radius * 2
-                )
+            let wedge = NSBezierPath()
+            wedge.move(to: center)
+            wedge.appendArc(
+                withCenter: center,
+                radius: rect.width,
+                startAngle: CGFloat(degrees),
+                endAngle: CGFloat(degrees + 110)
             )
-            ring.lineWidth = 1.4
-            NSColor.black.withAlphaComponent(max(0, 0.85 * (1 - progress))).setStroke()
-            ring.stroke()
+            wedge.close()
+            base.setFill()
+            wedge.fill()
+            NSGraphicsContext.restoreGraphicsState()
+            path.lineWidth = 1.4
+            path.stroke()
         }
     }
 

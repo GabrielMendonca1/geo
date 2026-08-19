@@ -1,6 +1,6 @@
 import AppKit
 
-enum Phase {
+enum Phase: Equatable {
     case idle
     case starting
     case recording
@@ -55,6 +55,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let callToggleItem = NSMenuItem(title: "Gravar call", action: nil, keyEquivalent: "")
     private let callStatusItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let hubPanel = HubPanel()
+    private var openProject: String?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         icon = StatusIcon()
@@ -320,41 +321,146 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             hubPanel.close()
             return
         }
+        openProject = nil
         tasksController.refreshIfStale()
+        presentPanel()
+    }
+
+    private func presentPanel() {
         hubPanel.show(content: panelContent(), below: icon.button)
     }
 
-    private func panelContent() -> NSView {
-        let open = VaultTasks.open(tasksController.tasks)
-        let projects = ProjectStatusScanner.scan(roots: Config.projectRoots)
-        let footer: String
+    private func panelFooter() -> String {
         if let fetchedAt = tasksController.fetchedAt {
             let age = VaultTasks.age(from: fetchedAt, to: Date())
-            footer = tasksController.offline
+            return tasksController.offline
                 ? "offline — cache de \(age)"
                 : "atualizado \(age)"
+        }
+        return tasksController.offline ? "offline — sem cache" : "carregando…"
+    }
+
+    private func panelActionSpecs() -> [HubActionSpec] {
+        [
+            HubActionSpec(
+                action: .dictate,
+                symbol: phase == .recording ? "mic.fill" : "mic",
+                tooltip: "Ditar (⌥Space)",
+                on: phase == .recording
+            ),
+            HubActionSpec(
+                action: .meeting,
+                symbol: "record.circle",
+                tooltip: meeting.isRecording ? "Parar reunião" : "Gravar reunião",
+                on: meeting.isRecording
+            ),
+            HubActionSpec(
+                action: .call,
+                symbol: "phone",
+                tooltip: call.isRecording ? "Parar call" : "Gravar call",
+                on: call.isRecording
+            ),
+            HubActionSpec(
+                action: .insomnia,
+                symbol: "moon",
+                tooltip: "Manter acordado",
+                on: insomnia.isActive
+            ),
+            HubActionSpec(
+                action: .notes,
+                symbol: "book.closed",
+                tooltip: "Abrir o Vault",
+                on: false
+            ),
+        ]
+    }
+
+    private func panelContent() -> NSView {
+        let projects = ProjectStatusScanner.scan(roots: Config.projectRoots)
+        let content: HubContent
+        if let openProject, let project = projects.first(where: { $0.path == openProject }) {
+            content = HubContent(
+                headerStrong: project.name,
+                headerRest: "",
+                back: true,
+                sections: [HubModel.todosSection(project, titleLimit: Config.taskTitleLimit)],
+                notice: nil,
+                footer: project.updated.map { "atualizado: \($0)" } ?? "sem carimbo de data",
+                actions: panelActionSpecs()
+            )
         } else {
-            footer = tasksController.offline ? "offline — sem cache" : "carregando…"
+            let header = HubModel.dateHeader(Date(), locale: Locale(identifier: "pt_BR"))
+            content = HubContent(
+                headerStrong: header.0,
+                headerRest: header.1,
+                back: false,
+                sections: [
+                    HubModel.tasksSection(
+                        VaultTasks.open(tasksController.tasks),
+                        limit: Config.tasksMenuLimit,
+                        titleLimit: Config.taskTitleLimit
+                    ),
+                    HubModel.projectsSection(
+                        projects,
+                        limit: Config.panelProjectLimit,
+                        titleLimit: Config.taskTitleLimit
+                    ),
+                ],
+                notice: captureLine,
+                footer: panelFooter(),
+                actions: panelActionSpecs()
+            )
         }
         return HubPanelView.build(
-            header: HubModel.dateHeader(Date(), locale: Locale(identifier: "pt_BR")),
-            sections: [
-                HubModel.tasksSection(
-                    open,
-                    limit: Config.tasksMenuLimit,
-                    titleLimit: Config.taskTitleLimit
-                ),
-                HubModel.projectsSection(
-                    projects,
-                    limit: Config.panelProjectLimit,
-                    titleLimit: Config.taskTitleLimit
-                ),
-            ],
-            notice: captureLine,
-            footer: footer,
-            actionTarget: self,
-            actionSelector: #selector(panelActions)
+            content: content,
+            onRow: { [weak self] id in self?.panelOpenRow(id) },
+            onCheck: { [weak self] id in self?.panelCheck(id) },
+            onBack: { [weak self] in
+                self?.openProject = nil
+                self?.presentPanel()
+            },
+            onAction: { [weak self] action in self?.panelRun(action) },
+            onMore: { [weak self] in self?.panelActions() }
         )
+    }
+
+    private func panelOpenRow(_ id: String) {
+        guard id.hasPrefix("project:") else { return }
+        let path = String(id.dropFirst("project:".count))
+        guard path != "more" else { return }
+        openProject = path
+        presentPanel()
+    }
+
+    private func panelCheck(_ id: String) {
+        guard id.hasPrefix("todo:"), let path = openProject else { return }
+        let todo = String(id.dropFirst("todo:".count))
+        if StatusTodoWriter.complete(path: path, todo: todo) {
+            icon.flash("checkmark.circle.fill")
+        }
+        presentPanel()
+    }
+
+    private func panelRun(_ action: HubAction) {
+        switch action {
+        case .dictate:
+            hubPanel.close()
+            menuToggle()
+        case .meeting:
+            hubPanel.close()
+            menuMeeting()
+        case .call:
+            hubPanel.close()
+            menuCall()
+        case .insomnia:
+            menuInsomnia()
+            presentPanel()
+        case .notes:
+            hubPanel.close()
+            NSWorkspace.shared.open(URL(fileURLWithPath: Config.vaultDirectory))
+        case .quit:
+            menuQuit()
+        }
     }
 
     private func tasksChanged() {

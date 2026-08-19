@@ -61,6 +61,8 @@ enum Config {
     static let iconReducedLevelInterval: TimeInterval = 0.33
     static let iconReducedBlinkInterval: TimeInterval = 1.0
     static let iconFlashSeconds: TimeInterval = 0.6
+    static let iconBeatFrames = 24
+    static let iconBeatInterval: TimeInterval = 0.07
 
     static let meetingsDirectory = NSHomeDirectory() + "/Recordings"
     static let meetingLabel = "reuniao"
@@ -92,6 +94,10 @@ enum Config {
     static let panelGlyphX: CGFloat = 44
     static let panelTextX: CGFloat = 72
     static let panelCornerRadius: CGFloat = 22
+    static let panelActionSize: CGFloat = 34
+    static let panelFadeSeconds: TimeInterval = 0.12
+    static let panelTodoLimit = 12
+    static let vaultDirectory = NSHomeDirectory() + "/Vault"
     static let panelGap: CGFloat = 8
     static let panelProjectLimit = 6
 

@@ -18,17 +18,27 @@ enum IconOverlay: Hashable {
     case moon
 }
 
+enum IconTint: Equatable {
+    case neutral
+    case live
+    case work
+    case good
+    case warn
+}
+
 enum IconRender: Equatable {
     case symbol(String)
     case triangle
-    case bars
-    case pulse
+    case triangleLevel
+    case triangleBeat
+    case triangleSweep
     case spinner
     case blocked
 }
 
 struct IconPlan: Equatable {
     let render: IconRender
+    let tint: IconTint
     let frameCount: Int
     let interval: TimeInterval
     let repeats: Bool
@@ -44,16 +54,15 @@ enum IconAnimation {
     static func plan(for state: IconState, reduceMotion: Bool) -> IconPlan {
         switch state {
         case .idle:
-            return still(.triangle)
-        case .meeting:
-            return still(.symbol("record.circle"))
+            return still(.triangle, tint: .neutral)
         case .success:
-            return still(.symbol("checkmark.circle"))
+            return still(.triangle, tint: .good)
         case .error:
-            return still(.symbol("exclamationmark.triangle"))
+            return still(.symbol("exclamationmark.triangle.fill"), tint: .warn)
         case .cancelled:
             return IconPlan(
                 render: .blocked,
+                tint: .neutral,
                 frameCount: 1,
                 interval: 0,
                 repeats: false,
@@ -63,9 +72,10 @@ enum IconAnimation {
                 followUpDelay: Config.iconCancelledSeconds
             )
         case .starting:
-            guard !reduceMotion else { return still(.symbol("mic.fill")) }
+            guard !reduceMotion else { return still(.triangle, tint: .live) }
             return IconPlan(
-                render: .pulse,
+                render: .triangleBeat,
+                tint: .live,
                 frameCount: Config.iconPulseFrames,
                 interval: Config.iconPulseInterval,
                 repeats: false,
@@ -76,7 +86,8 @@ enum IconAnimation {
             )
         case .listening, .recording:
             return IconPlan(
-                render: .bars,
+                render: .triangleLevel,
+                tint: .live,
                 frameCount: 1,
                 interval: 0,
                 repeats: false,
@@ -87,10 +98,24 @@ enum IconAnimation {
                 followUp: nil,
                 followUpDelay: 0
             )
+        case .meeting:
+            guard !reduceMotion else { return still(.triangle, tint: .live) }
+            return IconPlan(
+                render: .triangleBeat,
+                tint: .live,
+                frameCount: Config.iconBeatFrames,
+                interval: Config.iconBeatInterval,
+                repeats: true,
+                levelDriven: false,
+                minimumRedrawInterval: 0,
+                followUp: nil,
+                followUpDelay: 0
+            )
         case .transcribing, .flushing:
             guard !reduceMotion else {
                 return IconPlan(
                     render: .spinner,
+                    tint: .work,
                     frameCount: 2,
                     interval: Config.iconReducedBlinkInterval,
                     repeats: true,
@@ -101,7 +126,8 @@ enum IconAnimation {
                 )
             }
             return IconPlan(
-                render: .spinner,
+                render: .triangleSweep,
+                tint: .work,
                 frameCount: Config.iconSpinnerFrames,
                 interval: Config.iconSpinnerInterval,
                 repeats: true,
@@ -113,29 +139,25 @@ enum IconAnimation {
         }
     }
 
-    static func barHeights(level: Float, peak: Float, count: Int) -> [Double] {
-        guard count > 0 else { return [] }
-        let clampedLevel = Double(min(max(level, 0), 1))
-        let clampedPeak = Double(min(max(max(peak, level), 0), 1))
-        let floor = 0.14
-        return (0..<count).map { index in
-            let weight = profile(index: index, count: count)
-            let value = floor + (1 - floor) * clampedLevel * weight
-            let ceiling = floor + (1 - floor) * clampedPeak
-            return min(max(value, floor), max(ceiling, floor))
-        }
+    static func triangleScale(level: Float, peak: Float) -> Double {
+        let clamped = Double(min(max(level, 0), 1))
+        let ceiling = Double(min(max(max(peak, level), 0), 1))
+        let floor = 0.74
+        let value = floor + (1 - floor) * clamped
+        return min(max(value, floor), max(floor + (1 - floor) * ceiling, floor))
     }
 
-    static func profile(index: Int, count: Int) -> Double {
-        guard count > 1 else { return 1 }
-        let center = Double(count - 1) / 2
-        let distance = abs(Double(index) - center) / center
-        return 1 - 0.45 * distance
+    static func beatScale(frame: Int, frameCount: Int) -> Double {
+        guard frameCount > 1 else { return 1 }
+        let phase = Double(frame % frameCount) / Double(frameCount)
+        let wave = (1 - cos(phase * 2 * Double.pi)) / 2
+        return 0.82 + 0.18 * wave
     }
 
-    private static func still(_ render: IconRender) -> IconPlan {
+    private static func still(_ render: IconRender, tint: IconTint) -> IconPlan {
         IconPlan(
             render: render,
+            tint: tint,
             frameCount: 1,
             interval: 0,
             repeats: false,
