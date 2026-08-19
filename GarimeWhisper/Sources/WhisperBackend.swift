@@ -11,7 +11,6 @@ final class WhisperBackend: DecodeBackend {
     func decode(
         samples: [Float],
         windowStart: Double,
-        prompt: String,
         timeout: TimeInterval,
         temperatureFallback: Bool
     ) throws -> [SpokenWord] {
@@ -39,9 +38,6 @@ final class WhisperBackend: DecodeBackend {
         ]
         if !temperatureFallback {
             arguments.append("-nf")
-        }
-        if !prompt.isEmpty {
-            arguments.append(contentsOf: ["--prompt", prompt])
         }
 
         runner.reset()

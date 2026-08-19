@@ -86,7 +86,6 @@ final class ScriptedBackend: DecodeBackend {
     func decode(
         samples: [Float],
         windowStart: Double,
-        prompt: String,
         timeout: TimeInterval,
         temperatureFallback: Bool
     ) throws -> [SpokenWord] {
@@ -124,7 +123,6 @@ func makeTuning() -> WindowedDecoder.Tuning {
         maxWindowSeconds: 12,
         maxStepFailures: 2,
         giveUpSeconds: 30,
-        promptTailCharacters: 200,
         stepTimeout: 5,
         flushTimeout: 5
     )
@@ -627,7 +625,6 @@ do {
         func decode(
             samples: [Float],
             windowStart: Double,
-            prompt: String,
             timeout: TimeInterval,
             temperatureFallback: Bool
         ) throws -> [SpokenWord] {

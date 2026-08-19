@@ -27,7 +27,6 @@ enum Config {
     static let maxStepFailures = 2
     static let stepTimeout: TimeInterval = 25
     static let flushTimeout: TimeInterval = 60
-    static let promptTailCharacters = 200
     static let overlapDedupWords = 6
     static let typistChunkUTF16 = 20
 

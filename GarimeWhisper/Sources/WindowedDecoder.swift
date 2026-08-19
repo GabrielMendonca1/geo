@@ -4,7 +4,6 @@ protocol DecodeBackend: AnyObject {
     func decode(
         samples: [Float],
         windowStart: Double,
-        prompt: String,
         timeout: TimeInterval,
         temperatureFallback: Bool
     ) throws -> [SpokenWord]
@@ -32,7 +31,6 @@ final class WindowedDecoder {
         var maxWindowSeconds: Double
         var maxStepFailures: Int
         var giveUpSeconds: Double
-        var promptTailCharacters: Int
         var stepTimeout: TimeInterval
         var flushTimeout: TimeInterval
 
@@ -46,7 +44,6 @@ final class WindowedDecoder {
             maxWindowSeconds: Config.maxWindowSeconds,
             maxStepFailures: Config.maxStepFailures,
             giveUpSeconds: Config.uncommittedGiveUpSeconds,
-            promptTailCharacters: Config.promptTailCharacters,
             stepTimeout: Config.stepTimeout,
             flushTimeout: Config.flushTimeout
         )
@@ -172,7 +169,6 @@ final class WindowedDecoder {
             let words = try backend.decode(
                 samples: samples,
                 windowStart: windowStart,
-                prompt: promptTail(),
                 timeout: tuning.stepTimeout,
                 temperatureFallback: false
             )
@@ -236,7 +232,6 @@ final class WindowedDecoder {
             let words = try backend.decode(
                 samples: samples,
                 windowStart: windowStart,
-                prompt: promptTail(),
                 timeout: tuning.flushTimeout,
                 temperatureFallback: true
             )
@@ -271,14 +266,6 @@ final class WindowedDecoder {
         lock.lock()
         defer { lock.unlock() }
         return stabilizer.anchoredWindowStart(backoff: tuning.backoffSeconds)
-    }
-
-    private func promptTail() -> String {
-        lock.lock()
-        let text = stabilizer.committedText
-        lock.unlock()
-        guard text.count > tuning.promptTailCharacters else { return text }
-        return String(text.suffix(tuning.promptTailCharacters))
     }
 
     private func emit(_ delta: String) {

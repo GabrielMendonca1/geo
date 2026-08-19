@@ -38,10 +38,15 @@ swiftc -O -target "$(uname -m)-apple-macos14.0" -sdk "$(xcrun --show-sdk-path --
   "$ROOT/Sources/ProcessRunner.swift" \
   "$ROOT/Tests/Bench/main.swift"
 
-echo "== referência em lote (whisper -mc 0) =="
 REF="$TMP/ref.txt"
-/opt/homebrew/bin/whisper-cli -m "$HOME/.cache/whisper/ggml-large-v3-turbo.bin" \
-  -f "$WAV" -l pt -mc 0 -np 2>/dev/null | sed 's/\[[^]]*\]//g' > "$REF"
+if [ -n "${BENCH_TRUTH:-}" ]; then
+  echo "== referência: texto-verdade $BENCH_TRUTH =="
+  cp "$BENCH_TRUTH" "$REF"
+else
+  echo "== referência em lote (whisper -mc 0) =="
+  /opt/homebrew/bin/whisper-cli -m "$HOME/.cache/whisper/ggml-large-v3-turbo.bin" \
+    -f "$WAV" -l pt -mc 0 -np 2>/dev/null | sed 's/\[[^]]*\]//g' > "$REF"
+fi
 echo "palavras na referência: $(wc -w < "$REF")"
 
 echo "== replay em tempo real =="

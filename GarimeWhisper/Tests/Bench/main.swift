@@ -38,7 +38,6 @@ final class TimingBackend: DecodeBackend {
     func decode(
         samples: [Float],
         windowStart: Double,
-        prompt: String,
         timeout: TimeInterval,
         temperatureFallback: Bool
     ) throws -> [SpokenWord] {
@@ -53,7 +52,6 @@ final class TimingBackend: DecodeBackend {
         return try inner.decode(
             samples: samples,
             windowStart: windowStart,
-            prompt: prompt,
             timeout: timeout,
             temperatureFallback: temperatureFallback
         )
