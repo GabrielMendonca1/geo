@@ -1046,6 +1046,30 @@ equal(
     "singular agrees with the count"
 )
 
+let tipTask = VaultTask(
+    id: "t1",
+    title: "revisar contrato",
+    status: "pending",
+    priority: "high",
+    due: Date(timeIntervalSince1970: 1_755_500_000),
+    reminders: 2
+)
+let tip = HubModel.taskTip(tipTask)
+check(tip.hasPrefix("revisar contrato"), "the tooltip opens with the full title")
+check(tip.contains("prioridade alta"), "the tooltip spells out the priority")
+check(tip.contains("2 lembretes"), "the tooltip counts the reminders")
+equal(
+    HubModel.taskTip(panelTasks[0]),
+    "tarefa 1",
+    "a bare task tooltip is just its title"
+)
+equal(
+    HubModel.tasksSection([tipTask], limit: 3, titleLimit: 58).rows.first?.tip,
+    tip,
+    "task rows carry the tooltip"
+)
+equal(todos.rows.first?.tip, "alfa", "todo rows keep the untruncated text as tooltip")
+
 let panelProjects = [
     ProjectStatus(name: "pequeno", updated: nil, todos: ["a"], path: "/p"),
     ProjectStatus(name: "grande", updated: nil, todos: ["a", "b", "c"], path: "/g"),

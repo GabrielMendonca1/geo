@@ -96,7 +96,8 @@ enum Config {
     static let panelTextX: CGFloat = 72
     static let panelCornerRadius: CGFloat = 22
     static let panelActionSize: CGFloat = 34
-    static let panelFadeSeconds: TimeInterval = 0.12
+    static let panelFadeSeconds: TimeInterval = 0.16
+    static let panelSlideRise: CGFloat = 10
     static let panelTodoLimit = 12
     static let vaultDirectory = NSHomeDirectory() + "/Vault"
     static let panelGap: CGFloat = 8

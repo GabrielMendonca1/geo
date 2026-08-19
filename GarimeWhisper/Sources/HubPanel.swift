@@ -24,6 +24,25 @@ struct HubRow: Equatable {
     let trailing: String?
     let chevron: Bool
     let checkable: Bool
+    let tip: String?
+
+    init(
+        id: String,
+        symbol: String,
+        title: String,
+        trailing: String?,
+        chevron: Bool,
+        checkable: Bool,
+        tip: String? = nil
+    ) {
+        self.id = id
+        self.symbol = symbol
+        self.title = title
+        self.trailing = trailing
+        self.chevron = chevron
+        self.checkable = checkable
+        self.tip = tip
+    }
 }
 
 struct HubSection: Equatable {
@@ -53,6 +72,27 @@ enum HubModel {
         return (name.prefix(1).uppercased() + name.dropFirst(), rest.string(from: date))
     }
 
+    static func priorityLabel(_ priority: String) -> String? {
+        switch VaultTasks.priorityRank(priority) {
+        case 0: return "prioridade alta"
+        case 1: return "prioridade média"
+        case 2: return "prioridade baixa"
+        default: return nil
+        }
+    }
+
+    static func taskTip(_ task: VaultTask) -> String {
+        var parts: [String] = [task.title]
+        if let priority = priorityLabel(task.priority) { parts.append(priority) }
+        if let due = VaultTasks.dueLabel(task.due) { parts.append("vence " + due) }
+        switch task.reminders {
+        case 0: break
+        case 1: parts.append("1 lembrete")
+        default: parts.append("\(task.reminders) lembretes")
+        }
+        return parts.joined(separator: " · ")
+    }
+
     static func tasksSection(_ tasks: [VaultTask], limit: Int, titleLimit: Int) -> HubSection {
         var rows = tasks.prefix(limit).map { task in
             HubRow(
@@ -61,7 +101,8 @@ enum HubModel {
                 title: truncate(task.title, limit: titleLimit),
                 trailing: VaultTasks.dueLabel(task.due),
                 chevron: false,
-                checkable: false
+                checkable: false,
+                tip: taskTip(task)
             )
         }
         let hidden = tasks.count - rows.count
@@ -182,7 +223,8 @@ enum HubModel {
                 title: truncate(todo, limit: titleLimit),
                 trailing: nil,
                 chevron: false,
-                checkable: true
+                checkable: true,
+                tip: todo
             )
         }
         let strong: String
@@ -219,6 +261,9 @@ final class FlippedView: NSView {
 
 final class ClosureButton: NSButton {
     private var handler: (() -> Void)?
+    private var tracking: NSTrackingArea?
+    private var restingFill: CGColor?
+    private var hoverFill: CGColor?
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
@@ -227,6 +272,35 @@ final class ClosureButton: NSButton {
         self.handler = handler
         target = self
         action = #selector(fire)
+    }
+
+    func trackHover(resting: NSColor, hover: NSColor) {
+        wantsLayer = true
+        restingFill = resting.cgColor
+        hoverFill = hover.cgColor
+        layer?.backgroundColor = restingFill
+        updateTrackingAreas()
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let tracking { removeTrackingArea(tracking) }
+        guard hoverFill != nil else { return }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeAlways],
+            owner: self
+        )
+        addTrackingArea(area)
+        tracking = area
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        layer?.backgroundColor = hoverFill
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        layer?.backgroundColor = restingFill
     }
 
     @objc private func fire() {
@@ -380,6 +454,8 @@ enum HubPanelView {
                 .withSymbolConfiguration(.init(pointSize: 13, weight: .semibold))
             back.contentTintColor = HubInk.body
             back.imagePosition = .imageOnly
+            back.layer?.cornerRadius = 13
+            back.trackHover(resting: .clear, hover: NSColor(calibratedWhite: 1, alpha: 0.12))
             container.addSubview(back)
             titleX = inset + 24
         }
@@ -405,8 +481,11 @@ enum HubPanelView {
         )
         more.isBordered = false
         more.wantsLayer = true
-        more.layer?.backgroundColor = NSColor(calibratedWhite: 0.96, alpha: 1).cgColor
         more.layer?.cornerRadius = 13
+        more.trackHover(
+            resting: NSColor(calibratedWhite: 0.96, alpha: 1),
+            hover: NSColor(calibratedWhite: 1, alpha: 1)
+        )
         more.image = NSImage(systemSymbolName: "ellipsis", accessibilityDescription: "Ações")?
             .withSymbolConfiguration(.init(pointSize: 12, weight: .bold))
         more.contentTintColor = NSColor(calibratedWhite: 0.06, alpha: 1)
@@ -490,7 +569,12 @@ enum HubPanelView {
                     check.setButtonType(.momentaryChange)
                     check.contentTintColor = HubInk.glyph
                     check.imagePosition = .imageOnly
-                    check.toolTip = "Marcar como feito"
+                    check.toolTip = row.tip.map { $0 + " — clique para marcar como feito" }
+                        ?? "Marcar como feito"
+                    check.trackHover(
+                        resting: .clear,
+                        hover: NSColor(calibratedWhite: 1, alpha: 0.12)
+                    )
                     holder.addSubview(check)
                 } else {
                     let glyph = NSImageView(frame: glyphFrame)
@@ -522,6 +606,7 @@ enum HubPanelView {
                     height: 18
                 )
                 holder.addSubview(label)
+                if let tip = row.tip { holder.toolTip = tip }
 
                 if row.chevron {
                     let arrow = NSImageView(frame: NSRect(
@@ -551,9 +636,14 @@ enum HubPanelView {
                 button.isBordered = false
                 button.wantsLayer = true
                 button.layer?.cornerRadius = Config.panelActionSize / 2
-                button.layer?.backgroundColor = spec.on
-                    ? NSColor(calibratedWhite: 0.95, alpha: 1).cgColor
-                    : NSColor(calibratedWhite: 1, alpha: 0.09).cgColor
+                button.trackHover(
+                    resting: spec.on
+                        ? NSColor(calibratedWhite: 0.95, alpha: 1)
+                        : NSColor(calibratedWhite: 1, alpha: 0.09),
+                    hover: spec.on
+                        ? NSColor(calibratedWhite: 1, alpha: 1)
+                        : NSColor(calibratedWhite: 1, alpha: 0.2)
+                )
                 button.image = NSImage(systemSymbolName: spec.symbol, accessibilityDescription: spec.tooltip)?
                     .withSymbolConfiguration(.init(pointSize: 14, weight: .medium))
                 button.contentTintColor = spec.on
@@ -611,14 +701,18 @@ final class HubPanel {
         window.level = .popUpMenu
         window.appearance = NSAppearance(named: .darkAqua)
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
-        window.setFrameOrigin(origin(for: size, below: button))
+        let target = origin(for: size, below: button)
+        window.setFrameOrigin(NSPoint(x: target.x, y: target.y + Config.panelSlideRise))
         window.alphaValue = 0
         window.orderFrontRegardless()
         panel = window
 
         NSAnimationContext.runAnimationGroup { context in
             context.duration = Config.panelFadeSeconds
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            context.allowsImplicitAnimation = true
             window.animator().alphaValue = 1
+            window.animator().setFrameOrigin(target)
         }
 
         monitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) {
