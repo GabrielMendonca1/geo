@@ -42,6 +42,9 @@ GEO_TERM_PROFILE_MAC = os.environ.get("GEO_TERM_PROFILE_MAC", "")
 TERM_SHELL = os.environ.get("GEO_TERM_SHELL", "")
 TERM_SESSION = os.environ.get("GEO_TERM_SESSION", "mobile")
 TERM_SESSION_RE = re.compile(r"\A[A-Za-z0-9_-]{1,32}\Z")
+AGENT_SESSION = os.environ.get("GEO_AGENT_SESSION", "garime-agent")
+if not TERM_SESSION_RE.match(AGENT_SESSION):
+    AGENT_SESSION = "garime-agent"
 TERM_TOKEN_FILE = os.path.expanduser(os.environ.get("GEO_BRIDGE_TERM_TOKEN_FILE", "~/.hermes/geobridge.term.token"))
 TERM_IDLE_SECONDS = 600
 TERM_REPLAY_BYTES = int(os.environ.get("GEO_TERM_REPLAY_BYTES", "262144"))
@@ -642,6 +645,15 @@ def status_vm_agents():
             "session": sessions.get(pid, ""),
         })
     return agents
+
+
+def agent_session_state():
+    try:
+        found = vm_session_agent(AGENT_SESSION)
+    except Exception:
+        found = None
+    agent = found[0] if found else ""
+    return {"session": AGENT_SESSION, "running": bool(agent), "agent": agent}
 
 
 def status_scan_full():
@@ -1945,6 +1957,27 @@ class Handler(BaseHTTPRequestHandler):
         text = proc.stdout.decode("utf-8", "replace")
         self._json(200, json.dumps({"text": text}).encode())
 
+    def _term_health(self):
+        if not self._term_gate():
+            return
+        body = {
+            "ok": True,
+            "mac_online": status_mac_online(),
+            "agent": agent_session_state(),
+        }
+        self._json(200, json.dumps(body).encode())
+
+    def _term_agent_ensure(self):
+        if not self._term_gate():
+            return
+        self.close_connection = True
+        try:
+            self._term_session(AGENT_SESSION)
+        except Exception:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        self._json(200, json.dumps({"ok": True, "agent": agent_session_state()}).encode())
+
     def _term_agents(self):
         if not self._term_gate():
             return
@@ -2790,6 +2823,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._term_preview()
             elif path == "/term/agents":
                 self._term_agents()
+            elif path == "/term/health":
+                self._term_health()
             elif path == "/term/panes":
                 self._term_panes()
             elif path == "/term/agent-chat":
@@ -2867,6 +2902,9 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if path == "/term/agent-start":
                 self._term_agent_start()
+                return
+            if path == "/term/agent-ensure":
+                self._term_agent_ensure()
                 return
             if not self._authed():
                 self._json(401, b'{"error":"unauthorized"}')
