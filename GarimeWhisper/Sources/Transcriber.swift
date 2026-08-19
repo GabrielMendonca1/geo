@@ -76,7 +76,7 @@ final class Transcriber {
                     "-m", Config.modelPath,
                     "-f", wav.path,
                     "-l", Config.language,
-                    "-nt",
+                    "-mc", "0",
                     "-np",
                 ],
                 timeout: Config.transcribeTimeout
@@ -98,10 +98,17 @@ final class Transcriber {
         }
     }
 
+    static func stripTimestamp(_ line: String) -> String {
+        guard line.hasPrefix("["), let close = line.firstIndex(of: "]") else { return line }
+        let head = line[line.index(after: line.startIndex)..<close]
+        guard head.contains("-->") else { return line }
+        return String(line[line.index(after: close)...]).trimmingCharacters(in: .whitespaces)
+    }
+
     static func clean(_ raw: String) -> String {
         let lines = raw
             .split(whereSeparator: \.isNewline)
-            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .map { Transcriber.stripTimestamp($0.trimmingCharacters(in: .whitespaces)) }
             .filter { line in
                 guard !line.isEmpty else { return false }
                 if line.hasPrefix("[") && line.hasSuffix("]") { return false }

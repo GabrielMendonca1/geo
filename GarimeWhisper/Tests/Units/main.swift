@@ -966,6 +966,32 @@ equal(busyActions[1].symbol, "stop.fill", "a running meeting offers stop")
 check(busyActions.prefix(2).allSatisfy(\.on), "live verbs light up")
 check(busyActions.map(\.tooltip) != calmActions.map(\.tooltip), "tooltips flip with the state")
 
+print("== batch transcript cleanup keeps every segment ==")
+let rawBatch = """
+[00:00:00.000 --> 00:00:04.000]   Abra uma obra aí, bota aí.
+[00:00:04.000 --> 00:00:08.000]   Qual? Falei.
+[BLANK_AUDIO]
+(música)
+
+[00:00:08.000 --> 00:00:12.000]   Bota aí outro Barcelona.
+"""
+let cleaned = Transcriber.clean(rawBatch)
+equal(
+    cleaned,
+    "Abra uma obra aí, bota aí. Qual? Falei. Bota aí outro Barcelona.",
+    "timestamps are stripped, noise markers dropped, no segment lost"
+)
+equal(
+    Transcriber.stripTimestamp("[00:01:02.000 --> 00:01:03.000]   oi"),
+    "oi",
+    "a leading timestamp is peeled off"
+)
+equal(
+    Transcriber.stripTimestamp("[risos] valeu"),
+    "[risos] valeu",
+    "a bracket that is not a timestamp survives"
+)
+
 print("== status.md write-back ==")
 let board = """
 # STATUS — demo
