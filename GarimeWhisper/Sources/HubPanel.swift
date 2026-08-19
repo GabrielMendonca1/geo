@@ -171,9 +171,7 @@ enum HubModel {
 
     static func actionSpecs(
         dictating: Bool,
-        meeting: Bool,
-        call: Bool,
-        awake: Bool
+        meeting: Bool
     ) -> [HubActionSpec] {
         [
             HubActionSpec(
@@ -184,25 +182,13 @@ enum HubModel {
             ),
             HubActionSpec(
                 action: .meeting,
-                symbol: meeting ? "stop.fill" : "recordingtape",
+                symbol: meeting ? "stop.fill" : "record.circle",
                 tooltip: meeting ? "Parar reunião" : "Gravar reunião",
                 on: meeting
             ),
             HubActionSpec(
-                action: .call,
-                symbol: call ? "phone.down.fill" : "phone",
-                tooltip: call ? "Parar call" : "Gravar call (com o áudio do outro lado)",
-                on: call
-            ),
-            HubActionSpec(
-                action: .insomnia,
-                symbol: awake ? "cup.and.saucer.fill" : "cup.and.saucer",
-                tooltip: awake ? "Deixar dormir de novo" : "Manter acordado",
-                on: awake
-            ),
-            HubActionSpec(
                 action: .notes,
-                symbol: "note.text",
+                symbol: "lock.square",
                 tooltip: "Abrir o Vault",
                 on: false
             ),
@@ -288,7 +274,7 @@ final class ClosureButton: NSButton {
         guard hoverFill != nil else { return }
         let area = NSTrackingArea(
             rect: bounds,
-            options: [.mouseEnteredAndExited, .activeAlways],
+            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
             owner: self
         )
         addTrackingArea(area)
@@ -296,11 +282,18 @@ final class ClosureButton: NSButton {
     }
 
     override func mouseEntered(with event: NSEvent) {
-        layer?.backgroundColor = hoverFill
+        syncHover(windowPoint: event.locationInWindow, visible: nil)
     }
 
     override func mouseExited(with event: NSEvent) {
         layer?.backgroundColor = restingFill
+    }
+
+    func syncHover(windowPoint: NSPoint, visible: NSRect?) {
+        guard let hoverFill else { return }
+        var inside = bounds.contains(convert(windowPoint, from: nil))
+        if let visible { inside = inside && visible.contains(windowPoint) }
+        layer?.backgroundColor = inside ? hoverFill : restingFill
     }
 
     @objc private func fire() {
@@ -330,7 +323,7 @@ final class HubRowView: NSView {
         guard handler != nil else { return }
         let area = NSTrackingArea(
             rect: bounds,
-            options: [.mouseEnteredAndExited, .activeAlways],
+            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
             owner: self
         )
         addTrackingArea(area)
@@ -338,8 +331,7 @@ final class HubRowView: NSView {
     }
 
     override func mouseEntered(with event: NSEvent) {
-        hot = true
-        layer?.backgroundColor = HubInk.hover.cgColor
+        syncHover(windowPoint: event.locationInWindow, visible: nil)
     }
 
     override func mouseExited(with event: NSEvent) {
@@ -347,9 +339,41 @@ final class HubRowView: NSView {
         layer?.backgroundColor = NSColor.clear.cgColor
     }
 
+    func syncHover(windowPoint: NSPoint, visible: NSRect?) {
+        guard handler != nil else { return }
+        var inside = bounds.contains(convert(windowPoint, from: nil))
+        if let visible { inside = inside && visible.contains(windowPoint) }
+        hot = inside
+        layer?.backgroundColor = inside ? HubInk.hover.cgColor : NSColor.clear.cgColor
+    }
+
     override func mouseUp(with event: NSEvent) {
         guard hot else { return }
         handler?()
+    }
+}
+
+final class HubScrollView: NSScrollView {
+    override func scrollWheel(with event: NSEvent) {
+        super.scrollWheel(with: event)
+        syncHover()
+    }
+
+    func syncHover() {
+        guard let document = documentView, let window else { return }
+        let point = window.mouseLocationOutsideOfEventStream
+        let visible = contentView.convert(contentView.bounds, to: nil)
+        HubScrollView.walk(document) { view in
+            (view as? HubRowView)?.syncHover(windowPoint: point, visible: visible)
+            (view as? ClosureButton)?.syncHover(windowPoint: point, visible: visible)
+        }
+    }
+
+    private static func walk(_ view: NSView, _ body: (NSView) -> Void) {
+        for child in view.subviews {
+            body(child)
+            walk(child, body)
+        }
     }
 }
 
@@ -617,7 +641,7 @@ enum HubPanelView {
         }
 
         if bodyHeight > visibleBody {
-            let scroller = NSScrollView(frame: NSRect(
+            let scroller = HubScrollView(frame: NSRect(
                 x: 0,
                 y: bodyTop,
                 width: width,
@@ -630,6 +654,14 @@ enum HubPanelView {
             scroller.horizontalScrollElasticity = .none
             scroller.verticalScroller?.knobStyle = .light
             scroller.documentView = body
+            scroller.contentView.postsBoundsChangedNotifications = true
+            NotificationCenter.default.addObserver(
+                forName: NSView.boundsDidChangeNotification,
+                object: scroller.contentView,
+                queue: .main
+            ) { [weak scroller] _ in
+                scroller?.syncHover()
+            }
             container.addSubview(scroller)
         } else {
             body.setFrameOrigin(NSPoint(x: 0, y: bodyTop))

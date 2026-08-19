@@ -346,9 +346,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func panelActionSpecs() -> [HubActionSpec] {
         HubModel.actionSpecs(
             dictating: phase == .recording,
-            meeting: meeting.isRecording,
-            call: call.isRecording,
-            awake: insomnia.isActive
+            meeting: meeting.isRecording
         )
     }
 
