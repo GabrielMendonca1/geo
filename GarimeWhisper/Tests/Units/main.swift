@@ -992,6 +992,14 @@ equal(
     "a bracket that is not a timestamp survives"
 )
 
+print("== lid-close blocker: exact commands, never a wildcard ==")
+equal(SleepBlocker.arguments(on: true), ["-n", "/usr/bin/pmset", "-a", "disablesleep", "1"], "blocking asks pmset for exactly this")
+equal(SleepBlocker.arguments(on: false), ["-n", "/usr/bin/pmset", "-a", "disablesleep", "0"], "releasing is the mirror command")
+check(SleepBlocker.arguments(on: true).contains("-n"), "sudo never waits on a password prompt")
+check(SleepBlocker.arguments(on: true).allSatisfy { !$0.contains("*") }, "no wildcard ever reaches sudo")
+check(SleepBlocker.arguments(on: true).first(where: { $0.hasPrefix("/") }) == "/usr/bin/pmset", "the binary is absolute, never PATH-resolved")
+equal(SleepBlocker.arguments(on: true).count, SleepBlocker.arguments(on: false).count, "on and off share one shape")
+
 print("== status.md write-back ==")
 let board = """
 # STATUS — demo

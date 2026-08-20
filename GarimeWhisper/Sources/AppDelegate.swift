@@ -99,6 +99,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             blockingError = missing
         }
 
+        insomnia.reconcileOnLaunch()
         let watcher = CapsWatcher { [weak self] _ in
             self?.refreshMenu()
         }
@@ -489,9 +490,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func insomniaTitle() -> String {
-        if caps?.isOn == true { return "Acordado (tampa aberta) — Caps Lock ligado" }
-        if insomnia.isAutomatic { return "Acordado (tampa aberta) enquanto grava" }
-        if insomnia.isActive { return "Acordado — só com a tampa aberta" }
+        let lid = insomnia.coversClosedLid ? "" : " (tampa aberta)"
+        if caps?.isOn == true { return "Acordado\(lid) — Caps Lock ligado" }
+        if insomnia.isAutomatic { return "Acordado\(lid) enquanto grava" }
+        if insomnia.isActive { return "Acordado\(lid)" }
         return "Manter acordado"
     }
 

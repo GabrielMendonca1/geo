@@ -257,6 +257,19 @@ grep -q 'Vault' "$ROOT/Sources/StatusTodoWriter.swift"
 check "$([ $? -ne 0 ] && echo 0 || echo 1)" "checking a todo never writes anywhere near the Vault"
 grep -q 'replaceItemAt' "$ROOT/Sources/StatusTodoWriter.swift"
 check $? "STATUS.md is rewritten atomically"
+
+grep -q 'disablesleep' "$ROOT/Sources/SleepBlocker.swift"
+check $? "the lid-close blocker drives pmset disablesleep"
+grep -rq 'sudoers' "$ROOT/install-sleep.sh"
+check $? "the privileged rule has its own opt-in installer"
+grep -q 'visudo -c' "$ROOT/install-sleep.sh"
+check $? "the sudoers rule is validated before it goes live"
+grep -q 'ALL=(root) NOPASSWD: /usr/bin/pmset -a disablesleep 1, /usr/bin/pmset -a disablesleep 0' "$ROOT/install-sleep.sh"
+check $? "the rule pins two exact commands and no wildcard"
+grep -q 'blocker.apply(false)' "$ROOT/Sources/InsomniaController.swift"
+check $? "sleep is always handed back when the hold ends"
+grep -q 'reconcileOnLaunch' "$ROOT/Sources/AppDelegate.swift"
+check $? "a crash never leaves the Mac awake forever (reconciled on launch)"
 grep -q 'checkable: false' "$ROOT/Sources/HubPanel.swift"
 check $? "vault tasks stay read-only in the panel"
 grep -q 'button.image' "$ROOT/Sources/StatusIcon.swift"
@@ -352,6 +365,7 @@ swiftc -O -target "$(uname -m)-apple-macos14.0" -sdk "$(xcrun --show-sdk-path --
   "$ROOT/Sources/ProjectStatus.swift" \
   "$ROOT/Sources/CallController.swift" \
   "$ROOT/Sources/StatusTodoWriter.swift" \
+  "$ROOT/Sources/SleepBlocker.swift" \
   "$ROOT/Sources/HubPanel.swift" \
   "$ROOT/Tests/Units/main.swift" 2>"$TMP/units.log"
 check $? "unit harness compiles against the real sources"

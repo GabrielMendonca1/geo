@@ -5,7 +5,15 @@ final class InsomniaController {
     private var assertion = IOPMAssertionID(0)
     private var manual = false
     private var holds: Set<String> = []
+    private let blocker = SleepBlocker()
     private(set) var isActive = false
+
+    var coversClosedLid: Bool { blocker.isBlocking }
+    var canCoverClosedLid: Bool { blocker.isAvailable }
+
+    func reconcileOnLaunch() {
+        blocker.reconcile(wanted: false)
+    }
 
     var wanted: Bool { manual || !holds.isEmpty }
     var isAutomatic: Bool { !holds.isEmpty && !manual }
@@ -51,11 +59,13 @@ final class InsomniaController {
             guard status == kIOReturnSuccess else { return }
             assertion = id
             isActive = true
+            blocker.apply(true)
         } else {
             guard isActive else { return }
             IOPMAssertionRelease(assertion)
             assertion = IOPMAssertionID(0)
             isActive = false
+            blocker.apply(false)
         }
     }
 
@@ -63,5 +73,6 @@ final class InsomniaController {
         if isActive {
             IOPMAssertionRelease(assertion)
         }
+        blocker.apply(false)
     }
 }
