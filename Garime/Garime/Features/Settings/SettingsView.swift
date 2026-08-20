@@ -12,6 +12,8 @@ struct SettingsView: View {
     @StateObject private var viewModel = SettingsViewModel()
     @StateObject private var status = ServiceStatusViewModel()
     @AppStorage(AppearancePreference.storageKey) private var appearance = AppearancePreference.system.rawValue
+    @AppStorage(GarimeAgent.advancedKey) private var advanced = false
+    @AppStorage(GarimeAgent.sessionKey) private var agentSession = GarimeAgent.fallbackSession
     @State private var tab: Tab
 
     init(initialSection: String? = nil) {
@@ -29,6 +31,7 @@ struct SettingsView: View {
                     hubSection
                     bridgeSection
                     connectionSection
+                    advancedSection
                     footerSection
                 case .status:
                     statusSection
@@ -152,9 +155,36 @@ struct SettingsView: View {
     private var hubSection: some View {
         Section {
             infoRow("URL base", viewModel.activeBaseURL)
-            infoRow("terminal padrão", viewModel.defaultTerminalOrigin)
+            infoRow("agente", GarimeAgent.session(agentSession))
         } header: {
             sectionHeader("hub")
+        }
+    }
+
+    private var advancedSection: some View {
+        Section {
+            Toggle(isOn: $advanced) {
+                Text("modo avançado")
+                    .font(.body)
+                    .foregroundStyle(.primary)
+            }
+            .frame(minHeight: 44)
+
+            if advanced {
+                infoRow("terminal padrão", viewModel.defaultTerminalOrigin)
+
+                fieldRow("sessão do agente") {
+                    TextField(GarimeAgent.fallbackSession, text: $agentSession)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                }
+            }
+        } header: {
+            sectionHeader("avançado")
+        } footer: {
+            Text("o modo avançado libera as sessões de terminal na aba do agente")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
         }
     }
 

@@ -43,10 +43,10 @@ struct RootView: View {
                 }
                 .tag("health")
 
-            SessionsHomeView()
+            AgentHomeView()
                 .tabItem {
                     Image(systemName: "terminal")
-                        .accessibilityLabel("Terminal")
+                        .accessibilityLabel("Agente")
                 }
                 .tag("terminal")
         }
