@@ -20,6 +20,7 @@ final class StatusIcon: NSObject {
     let menu = NSMenu()
 
     private static let side: CGFloat = 18
+    private static let dots = DotMatrix.triangle()
 
     var onPrimaryClick: (() -> Void)?
 
@@ -162,10 +163,10 @@ final class StatusIcon: NSObject {
             case .triangle:
                 base = drawTriangle()
             case .triangleLevel:
-                base = drawTriangle(scale: IconAnimation.triangleScale(level: level, peak: peak))
+                base = drawMatrix(DotMatrix.level(StatusIcon.dots, level: level, peak: peak))
             case .triangleBeat:
-                base = drawTriangle(
-                    scale: IconAnimation.beatScale(frame: frameIndex, frameCount: plan.frameCount)
+                base = drawMatrix(
+                    DotMatrix.wave(StatusIcon.dots, frame: frameIndex, frameCount: plan.frameCount)
                 )
             case .triangleSweep:
                 base = drawTriangleSweep()
@@ -277,60 +278,43 @@ final class StatusIcon: NSObject {
         return painted
     }
 
-    private static func trianglePath(in rect: NSRect, scale: Double) -> NSBezierPath {
-        let side = (min(rect.width, rect.height) - Config.iconTriangleInset) * CGFloat(scale)
-        let height = side * 0.9
-        let centerX = rect.midX
-        let bottom = rect.midY - height / 2
-        let path = NSBezierPath()
-        path.move(to: NSPoint(x: centerX, y: bottom + height))
-        path.line(to: NSPoint(x: centerX + side / 2, y: bottom))
-        path.line(to: NSPoint(x: centerX - side / 2, y: bottom))
-        path.close()
-        path.lineJoinStyle = .round
-        return path
+    private static func dotRect(_ dot: MatrixDot, in rect: NSRect, radius: CGFloat) -> NSRect {
+        let inset = Config.iconTriangleInset
+        let box = NSRect(
+            x: rect.minX + inset / 2 + radius,
+            y: rect.minY + inset / 2 + radius,
+            width: rect.width - inset - radius * 2,
+            height: rect.height - inset - radius * 2
+        )
+        let x = box.minX + CGFloat(dot.x) * box.width
+        let y = box.maxY - CGFloat(dot.y) * box.height
+        return NSRect(x: x - radius, y: y - radius, width: radius * 2, height: radius * 2)
+    }
+
+    private func drawMatrix(_ brightness: [Double], scale: Double = 1) -> NSImage {
+        let dots = StatusIcon.dots
+        let paint = StatusIcon.color(for: plan.tint) ?? NSColor.black
+        return canvas(tint: plan.tint) { rect in
+            let radius = Config.iconDotRadius * CGFloat(scale)
+            for (index, dot) in dots.enumerated() {
+                let value = index < brightness.count ? brightness[index] : 1
+                guard value > 0.02 else { continue }
+                paint.withAlphaComponent(CGFloat(min(1, max(0, value)))).setFill()
+                NSBezierPath(ovalIn: StatusIcon.dotRect(dot, in: rect, radius: radius)).fill()
+            }
+        }
     }
 
     private func drawTriangle(scale: Double = 1) -> NSImage {
         let cacheable = plan.tint == .neutral && scale == 1
         if cacheable, let cached = symbolCache["__triangle"] { return cached }
-        let image = canvas(tint: plan.tint) { rect in
-            let path = StatusIcon.trianglePath(in: rect, scale: scale)
-            path.fill()
-            path.lineWidth = 1.4
-            path.stroke()
-        }
+        let image = drawMatrix(DotMatrix.steady(StatusIcon.dots), scale: scale)
         if cacheable { symbolCache["__triangle"] = image }
         return image
     }
 
     private func drawTriangleSweep() -> NSImage {
-        let count = max(1, plan.frameCount)
-        let progress = Double(frameIndex % count) / Double(count)
-        return canvas(tint: plan.tint) { rect in
-            let path = StatusIcon.trianglePath(in: rect, scale: 1)
-            NSGraphicsContext.saveGraphicsState()
-            let base = StatusIcon.color(for: .work) ?? NSColor.black
-            base.withAlphaComponent(0.3).setFill()
-            path.fill()
-            path.addClip()
-            let degrees = progress * 360
-            let center = NSPoint(x: rect.midX, y: rect.midY)
-            let wedge = NSBezierPath()
-            wedge.move(to: center)
-            wedge.appendArc(
-                withCenter: center,
-                radius: rect.width,
-                startAngle: CGFloat(degrees),
-                endAngle: CGFloat(degrees + 110)
-            )
-            wedge.close()
-            base.setFill()
-            wedge.fill()
-            NSGraphicsContext.restoreGraphicsState()
-            path.lineWidth = 1.4
-            path.stroke()
-        }
+        drawMatrix(DotMatrix.chase(StatusIcon.dots, frame: frameIndex, frameCount: plan.frameCount))
     }
 
     private func drawSpinner() -> NSImage {

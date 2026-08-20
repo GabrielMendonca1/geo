@@ -992,6 +992,40 @@ equal(
     "a bracket that is not a timestamp survives"
 )
 
+print("== dot matrix: the triangle is a grid of LEDs ==")
+let matrix = DotMatrix.triangle(rows: 5)
+equal(matrix.count, 15, "five rows stack into fifteen dots")
+equal(matrix.filter { $0.row == 0 }.count, 1, "the apex is a single dot")
+equal(matrix.filter { $0.row == 4 }.count, 5, "the base is the widest row")
+check(matrix.allSatisfy { $0.x >= 0 && $0.x <= 1 && $0.y >= 0 && $0.y <= 1 }, "every dot stays inside the unit box")
+check(abs(matrix[0].x - 0.5) < 0.001, "the apex sits on the centre line")
+let base = matrix.filter { $0.row == 4 }
+check(abs(base.first!.x - 0) < 0.001 && abs(base.last!.x - 1) < 0.001, "the base spans the full width")
+let spacing = base[1].x - base[0].x
+check(base.dropFirst().enumerated().allSatisfy { abs(($0.element.x - base[$0.offset].x) - spacing) < 0.001 }, "dots are evenly spaced")
+check(Set(matrix.map { "\($0.x),\($0.y)" }).count == matrix.count, "no two dots overlap")
+
+print("== dot matrix: brightness follows the state ==")
+equal(DotMatrix.steady(matrix).count, matrix.count, "steady lights every dot")
+check(DotMatrix.steady(matrix).allSatisfy { $0 == 1 }, "idle burns the whole triangle evenly")
+let quiet = DotMatrix.level(matrix, level: 0, peak: 0)
+let loud = DotMatrix.level(matrix, level: 1, peak: 1)
+check(loud.allSatisfy { $0 >= 0.99 }, "a loud voice lights the whole matrix")
+check(quiet.allSatisfy { $0 < 0.4 }, "silence dims it without going dark")
+check(quiet.allSatisfy { $0 > 0 }, "the shape is always readable, even in silence")
+let half = DotMatrix.level(matrix, level: 0.5, peak: 0.5)
+let bottomHalf = zip(matrix, half).filter { $0.0.row == 4 }.map(\.1)
+let topHalf = zip(matrix, half).filter { $0.0.row == 0 }.map(\.1)
+check(bottomHalf.allSatisfy { top in topHalf.allSatisfy { $0 <= top } }, "the level fills from the base up")
+for frame in 0..<12 {
+    let wave = DotMatrix.wave(matrix, frame: frame, frameCount: 12)
+    check(wave.allSatisfy { $0 >= 0 && $0 <= 1 }, "wave frame \(frame) stays in range")
+    check(wave.contains { $0 > 0.5 }, "wave frame \(frame) always shows a lit crest")
+}
+let chaseFrames = (0..<12).map { DotMatrix.chase(matrix, frame: $0, frameCount: 12) }
+check(chaseFrames.allSatisfy { $0.allSatisfy { $0 >= 0 && $0 <= 1 } }, "the chase stays in range")
+check(Set(chaseFrames.map { $0.map { Int($0 * 100) } }).count > 6, "the chase actually moves frame to frame")
+
 print("== lid-close blocker: exact commands, never a wildcard ==")
 equal(SleepBlocker.arguments(on: true), ["-n", "/usr/bin/pmset", "-a", "disablesleep", "1"], "blocking asks pmset for exactly this")
 equal(SleepBlocker.arguments(on: false), ["-n", "/usr/bin/pmset", "-a", "disablesleep", "0"], "releasing is the mirror command")

@@ -258,6 +258,11 @@ check "$([ $? -ne 0 ] && echo 0 || echo 1)" "checking a todo never writes anywhe
 grep -q 'replaceItemAt' "$ROOT/Sources/StatusTodoWriter.swift"
 check $? "STATUS.md is rewritten atomically"
 
+grep -q 'DotMatrix.triangle' "$ROOT/Sources/StatusIcon.swift"
+check $? "the menu bar icon is drawn as a dot matrix"
+grep -q 'symbolCache\["__triangle"\]' "$ROOT/Sources/StatusIcon.swift"
+check $? "the idle matrix is cached (no redraw per tick)"
+
 grep -q 'disablesleep' "$ROOT/Sources/SleepBlocker.swift"
 check $? "the lid-close blocker drives pmset disablesleep"
 grep -rq 'sudoers' "$ROOT/install-sleep.sh"
@@ -366,6 +371,7 @@ swiftc -O -target "$(uname -m)-apple-macos14.0" -sdk "$(xcrun --show-sdk-path --
   "$ROOT/Sources/CallController.swift" \
   "$ROOT/Sources/StatusTodoWriter.swift" \
   "$ROOT/Sources/SleepBlocker.swift" \
+  "$ROOT/Sources/DotMatrix.swift" \
   "$ROOT/Sources/HubPanel.swift" \
   "$ROOT/Tests/Units/main.swift" 2>"$TMP/units.log"
 check $? "unit harness compiles against the real sources"
@@ -431,6 +437,7 @@ swiftc -O -target "$(uname -m)-apple-macos14.0" -sdk "$(xcrun --show-sdk-path --
   -o "$TMP/icon" \
   "$ROOT/Sources/Config.swift" \
   "$ROOT/Sources/IconAnimation.swift" \
+  "$ROOT/Sources/DotMatrix.swift" \
   "$ROOT/Sources/StatusIcon.swift" \
   "$ROOT/Sources/MenuController.swift" \
   "$ROOT/Tests/Icon/main.swift" 2>"$TMP/icon.log"
