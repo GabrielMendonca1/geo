@@ -713,7 +713,8 @@ def agent_project_dir(cwd):
 
 def agent_pi_dir(cwd):
     project = agent_project_dir(cwd)
-    return ("-" + project + "-") if project else ""
+    # convenção do pi: /mnt/garime/Vault → --mnt-garime-Vault-- (traço duplo nas duas pontas)
+    return ("-" + project + "--") if project else ""
 
 
 def vm_agent_session(agent):
