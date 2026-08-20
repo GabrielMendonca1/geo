@@ -377,54 +377,6 @@ final class HubScrollView: NSScrollView {
     }
 }
 
-final class HubCardView: NSView {
-    override var isFlipped: Bool { true }
-
-    private var glass: NSView?
-    private var fallback: NSVisualEffectView?
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        wantsLayer = true
-        if #available(macOS 26.0, *) {
-            let liquid = NSGlassEffectView(frame: bounds)
-            liquid.autoresizingMask = [.width, .height]
-            liquid.cornerRadius = Config.panelCornerRadius
-            liquid.style = .regular
-            if #available(macOS 27.0, *) {
-                liquid.effectIsInteractive = true
-            }
-            addSubview(liquid)
-            glass = liquid
-        } else {
-            let frosted = NSVisualEffectView(frame: bounds)
-            frosted.autoresizingMask = [.width, .height]
-            frosted.material = .popover
-            frosted.blendingMode = .behindWindow
-            frosted.state = .active
-            frosted.wantsLayer = true
-            frosted.layer?.cornerRadius = Config.panelCornerRadius
-            frosted.layer?.cornerCurve = .continuous
-            frosted.layer?.masksToBounds = true
-            addSubview(frosted)
-            fallback = frosted
-        }
-    }
-
-    required init?(coder: NSCoder) { nil }
-
-    override func addSubview(_ view: NSView) {
-        if #available(macOS 26.0, *), let liquid = glass as? NSGlassEffectView, view !== liquid {
-            let holder = liquid.contentView ?? FlippedView(frame: liquid.bounds)
-            holder.autoresizingMask = [.width, .height]
-            holder.addSubview(view)
-            liquid.contentView = holder
-            return
-        }
-        super.addSubview(view)
-    }
-}
-
 struct HubContent {
     let headerStrong: String
     let headerRest: String
@@ -705,10 +657,17 @@ enum HubPanelView {
 }
 
 final class HubPanel {
-    private var panel: NSPanel?
-    private var monitor: Any?
+    private let popover = NSPopover()
+    private let host = NSViewController()
 
-    var isOpen: Bool { panel?.isVisible ?? false }
+    var isOpen: Bool { popover.isShown }
+
+    init() {
+        host.view = FlippedView(frame: NSRect(x: 0, y: 0, width: Config.panelWidth, height: 10))
+        popover.contentViewController = host
+        popover.behavior = .transient
+        popover.animates = true
+    }
 
     static func availableHeight(anchorBottom: CGFloat, screenBottom: CGFloat) -> CGFloat {
         max(120, anchorBottom - screenBottom - Config.panelGap - 8)
@@ -734,74 +693,22 @@ final class HubPanel {
     func show(content raw: NSView, below button: NSStatusBarButton?) {
         let content = fit(raw, below: button)
         let size = content.frame.size
-        let host = HubCardView(frame: NSRect(origin: .zero, size: size))
-        host.wantsLayer = true
-        host.addSubview(content)
-
-        if let panel {
-            panel.setContentSize(size)
-            panel.contentView = host
-            panel.setFrameOrigin(origin(for: size, below: button))
-            panel.displayIfNeeded()
+        let stage = FlippedView(frame: NSRect(origin: .zero, size: size))
+        content.frame.origin = .zero
+        content.autoresizingMask = [.width, .height]
+        stage.addSubview(content)
+        host.view = stage
+        popover.contentSize = size
+        guard let button else { return }
+        if popover.isShown {
+            popover.contentViewController?.view.needsLayout = true
             return
         }
-
-        let window = NSPanel(
-            contentRect: NSRect(origin: .zero, size: size),
-            styleMask: [.borderless, .nonactivatingPanel],
-            backing: .buffered,
-            defer: false
-        )
-        window.isOpaque = false
-        window.backgroundColor = .clear
-        window.hasShadow = true
-        window.isFloatingPanel = true
-        window.becomesKeyOnlyIfNeeded = true
-        window.level = .popUpMenu
-        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
-        window.contentView = host
-        let target = origin(for: size, below: button)
-        window.setFrame(NSRect(origin: target, size: size), display: false)
-        window.setFrameOrigin(NSPoint(x: target.x, y: target.y - Config.panelSlideRise))
-        window.alphaValue = 0
-        window.displayIfNeeded()
-        window.orderFrontRegardless()
-        panel = window
-
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = Config.panelFadeSeconds
-            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            context.allowsImplicitAnimation = true
-            window.animator().alphaValue = 1
-            window.animator().setFrameOrigin(target)
-        }
-
-        monitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) {
-            [weak self] _ in
-            self?.close()
-        }
+        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .maxY)
     }
 
     func close() {
-        if let monitor {
-            NSEvent.removeMonitor(monitor)
-            self.monitor = nil
-        }
-        panel?.orderOut(nil)
-        panel = nil
-    }
-
-    private func origin(for size: NSSize, below button: NSStatusBarButton?) -> NSPoint {
-        guard let button, let window = button.window else {
-            let visible = NSScreen.main?.visibleFrame ?? .zero
-            return NSPoint(x: visible.maxX - size.width - 12, y: visible.maxY - size.height - 12)
-        }
-        let anchor = window.convertToScreen(button.convert(button.bounds, to: nil))
-        let screen = window.screen ?? NSScreen.main
-        let visible = screen?.visibleFrame ?? anchor
-        var x = anchor.midX - size.width / 2
-        x = min(max(x, visible.minX + 8), visible.maxX - size.width - 8)
-        let y = anchor.minY - size.height - Config.panelGap
-        return NSPoint(x: x, y: max(y, visible.minY + 8))
+        guard popover.isShown else { return }
+        popover.performClose(nil)
     }
 }

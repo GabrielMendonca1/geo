@@ -514,6 +514,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func menuQuit() { NSApp.terminate(nil) }
 
     private func toggle() {
+        if hubPanel.isOpen {
+            hubPanel.close()
+            NSApp.hide(nil)
+            DispatchQueue.main.asyncAfter(deadline: .now() + Config.panelYieldSeconds) { [weak self] in
+                self?.toggle()
+            }
+            return
+        }
         if meeting.isRecording || call.isRecording {
             icon.flash("mic.slash.fill")
             return

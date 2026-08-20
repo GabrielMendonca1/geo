@@ -103,6 +103,7 @@ enum Config {
     static let panelActionSize: CGFloat = 34
     static let panelFadeSeconds: TimeInterval = 0.16
     static let panelSlideRise: CGFloat = 10
+    static let panelYieldSeconds: TimeInterval = 0.18
     static let panelTodoLimit = 12
     static let panelListLimit = 200
     static let capsPollSeconds: TimeInterval = 1.0
