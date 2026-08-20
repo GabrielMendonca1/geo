@@ -35,17 +35,27 @@ enum DotMatrix {
         (dots.map(\.row).max() ?? 0) + 1
     }
 
-    static func level(_ dots: [MatrixDot], level: Float, peak: Float) -> [Double] {
+    static func level(
+        _ dots: [MatrixDot],
+        level: Float,
+        peak: Float,
+        frame: Int = 0,
+        frameCount: Int = 1
+    ) -> [Double] {
         let rows = rowCount(dots)
-        let clamped = Double(max(0, min(1, level)))
+        let loudness = Double(max(0, min(1, level)))
         let ceiling = Double(max(0, min(1, peak)))
-        let lit = clamped * Double(rows)
+        let count = max(1, frameCount)
+        let phase = Double(frame % count) / Double(count) * 2 * Double.pi
         return dots.map { dot in
+            let swell = sin(phase + dot.x * 2.6 * Double.pi)
+            let column = loudness * (1 + 0.42 * swell * loudness)
+            let height = max(0, column) * Double(rows)
             let depth = Double(rows - dot.row)
-            if depth <= lit { return 1 }
-            if depth - 1 < lit { return 0.35 + 0.65 * (lit - (depth - 1)) }
-            let isPeakRow = Double(rows - dot.row) - 1 < ceiling * Double(rows)
-            return isPeakRow ? 0.3 : 0.16
+            if depth <= height { return 1 }
+            if depth - 1 < height { return 0.26 + 0.74 * (height - (depth - 1)) }
+            if depth - 1 < ceiling * Double(rows) { return 0.38 }
+            return 0.13
         }
     }
 
@@ -61,12 +71,23 @@ enum DotMatrix {
         }
     }
 
-    static func breathe(_ dots: [MatrixDot], frame: Int, frameCount: Int) -> [Double] {
+    static func columnCount(_ dots: [MatrixDot]) -> Int {
+        (dots.map(\.column).max() ?? 0) + 1
+    }
+
+    static func rain(_ dots: [MatrixDot], frame: Int, frameCount: Int) -> [Double] {
+        let rows = rowCount(dots)
         let count = max(1, frameCount)
-        let phase = Double(frame % count) / Double(count)
-        let curve = (1 - cos(phase * 2 * Double.pi)) / 2
-        let value = 0.34 + 0.66 * curve
-        return dots.map { _ in value }
+        let span = Double(rows) + 1.6
+        let head = Double(frame % count) / Double(count) * span
+        let tail = 1.7
+        return dots.map { dot in
+            let lag = abs(dot.x - 0.5) * 0.7
+            let distance = head - (Double(dot.row) + lag)
+            guard distance >= 0, distance <= tail else { return 0.15 }
+            let glow = 1 - distance / tail
+            return 0.15 + 0.85 * glow * glow
+        }
     }
 
     static func chase(_ dots: [MatrixDot], frame: Int, frameCount: Int) -> [Double] {

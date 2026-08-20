@@ -32,7 +32,7 @@ enum IconRender: Equatable {
     case triangle
     case triangleLevel
     case triangleBeat
-    case triangleBreathe
+    case triangleRain
     case triangleSweep
     case spinner
     case blocked
@@ -55,10 +55,10 @@ struct IconPlan: Equatable {
 enum IconAnimation {
     static func awakePlan(reduceMotion: Bool) -> IconPlan {
         IconPlan(
-            render: reduceMotion ? .triangle : .triangleBreathe,
+            render: reduceMotion ? .triangle : .triangleRain,
             tint: .awake,
-            frameCount: reduceMotion ? 1 : Config.iconBreathFrames,
-            interval: reduceMotion ? 0 : Config.iconBreathInterval,
+            frameCount: reduceMotion ? 1 : Config.iconRainFrames,
+            interval: reduceMotion ? 0 : Config.iconRainInterval,
             repeats: !reduceMotion,
             levelDriven: false,
             minimumRedrawInterval: 0,
@@ -105,9 +105,9 @@ enum IconAnimation {
             return IconPlan(
                 render: .triangleLevel,
                 tint: .live,
-                frameCount: 1,
-                interval: 0,
-                repeats: false,
+                frameCount: reduceMotion ? 1 : Config.iconSwellFrames,
+                interval: reduceMotion ? 0 : Config.iconSwellInterval,
+                repeats: !reduceMotion,
                 levelDriven: true,
                 minimumRedrawInterval: reduceMotion
                     ? Config.iconReducedLevelInterval

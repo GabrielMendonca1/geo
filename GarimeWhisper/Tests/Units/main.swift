@@ -620,7 +620,9 @@ check(IconAnimation.plan(for: .starting, reduceMotion: false).isAnimated, "start
 check(!IconAnimation.plan(for: .starting, reduceMotion: false).repeats, "the starting pulse is one-shot")
 check(IconAnimation.plan(for: .recording, reduceMotion: false).levelDriven, "recording follows real levels")
 check(IconAnimation.plan(for: .listening, reduceMotion: false).levelDriven, "listening follows real levels")
-check(!IconAnimation.plan(for: .recording, reduceMotion: false).isAnimated, "level-driven states run no timer")
+check(IconAnimation.plan(for: .recording, reduceMotion: false).isAnimated, "the ripple needs its own ticker on top of the level")
+check(IconAnimation.plan(for: .recording, reduceMotion: false).interval >= 0.05, "but the ticker stays cheap (20fps at most)")
+check(!IconAnimation.plan(for: .recording, reduceMotion: true).isAnimated, "Reduce Motion drops back to a level-only icon")
 equal(IconAnimation.plan(for: .cancelled, reduceMotion: false).followUp, .idle, "cancel returns to idle")
 check(
     IconAnimation.plan(for: .cancelled, reduceMotion: false).render == .blocked,
@@ -1013,8 +1015,9 @@ print("== dot matrix: brightness follows the state ==")
 equal(DotMatrix.steady(matrix).count, matrix.count, "steady lights every dot")
 check(DotMatrix.steady(matrix).allSatisfy { $0 == 1 }, "idle burns the whole triangle evenly")
 let quiet = DotMatrix.level(matrix, level: 0, peak: 0)
-let loud = DotMatrix.level(matrix, level: 1, peak: 1)
-check(loud.allSatisfy { $0 >= 0.99 }, "a loud voice lights the whole matrix")
+let loud = (0..<18).map { DotMatrix.level(matrix, level: 1, peak: 1, frame: $0, frameCount: 18) }
+check(loud.contains { $0.allSatisfy { $0 >= 0.99 } }, "a loud voice lights the whole matrix at the crest")
+check(loud.allSatisfy { $0.filter { $0 >= 0.99 }.count >= matrix.count / 2 }, "even in the trough most of it stays lit")
 check(quiet.allSatisfy { $0 < 0.4 }, "silence dims it without going dark")
 check(quiet.allSatisfy { $0 > 0 }, "the shape is always readable, even in silence")
 let half = DotMatrix.level(matrix, level: 0.5, peak: 0.5)
@@ -1030,24 +1033,46 @@ let chaseFrames = (0..<12).map { DotMatrix.chase(matrix, frame: $0, frameCount: 
 check(chaseFrames.allSatisfy { $0.allSatisfy { $0 >= 0 && $0 <= 1 } }, "the chase stays in range")
 check(Set(chaseFrames.map { $0.map { Int($0 * 100) } }).count > 6, "the chase actually moves frame to frame")
 
-print("== caps lock: the matrix breathes in orange, no badge ==")
+print("== caps lock: matrix rain falling down the dots ==")
 let awake = IconAnimation.awakePlan(reduceMotion: false)
-equal(awake.render, IconRender.triangleBreathe, "caps lock makes the triangle breathe")
-equal(awake.tint, IconTint.awake, "the breathing is orange, not a grey badge")
-check(awake.repeats, "it keeps breathing while caps stays on")
-check(awake.isAnimated, "the breathing is a real animation")
+equal(awake.render, IconRender.triangleRain, "caps lock makes the matrix rain")
+equal(awake.tint, IconTint.awake, "the rain is orange, not a grey badge")
+check(awake.repeats, "it keeps raining while caps stays on")
 let awakeStill = IconAnimation.awakePlan(reduceMotion: true)
-check(!awakeStill.isAnimated, "Reduce Motion stops the breathing")
+check(!awakeStill.isAnimated, "Reduce Motion stops the rain")
 equal(awakeStill.tint, IconTint.awake, "but it stays orange so the state is still visible")
-let breathDots = DotMatrix.triangle()
-let breaths = (0..<34).map { DotMatrix.breathe(breathDots, frame: $0, frameCount: 34) }
-check(breaths.allSatisfy { Set($0).count == 1 }, "every dot breathes together, never a flicker")
-check(breaths.allSatisfy { $0.allSatisfy { $0 >= 0.3 && $0 <= 1 } }, "the triangle never fades out of sight")
-check(breaths.map { $0[0] }.max()! > 0.99, "the breath reaches full brightness")
-check(breaths.map { $0[0] }.min()! < 0.4, "the breath dips low enough to be seen")
-let deltas = zip(breaths.map { $0[0] }, breaths.dropFirst().map { $0[0] }).map { abs($1 - $0) }
-check(deltas.max()! < 0.09, "no frame jumps: the breath is smooth")
-equal(DotMatrix.breathe(breathDots, frame: 34, frameCount: 34)[0], DotMatrix.breathe(breathDots, frame: 0, frameCount: 34)[0], "the cycle loops seamlessly")
+let rainDots = DotMatrix.triangle()
+let rainFrames = (0..<22).map { DotMatrix.rain(rainDots, frame: $0, frameCount: 22) }
+check(rainFrames.allSatisfy { $0.allSatisfy { $0 >= 0.14 && $0 <= 1 } }, "the rain never blanks the icon")
+func brightestFrame(row: Int) -> Int {
+    let index = rainDots.firstIndex { $0.row == row && abs($0.x - 0.5) < 0.001 } ?? rainDots.firstIndex { $0.row == row }!
+    return rainFrames.enumerated().max(by: { $0.element[index] < $1.element[index] })!.offset
+}
+check(brightestFrame(row: 0) < brightestFrame(row: 1), "the drop falls from the apex to the second row")
+check(brightestFrame(row: 1) < brightestFrame(row: 2), "and keeps falling downward")
+check(brightestFrame(row: 2) < brightestFrame(row: 3), "reaching the base last")
+check(rainFrames.contains { $0.contains { $0 > 0.9 } }, "the head of the drop burns bright")
+check(rainFrames.contains { frame in frame.contains { $0 < 0.2 } }, "unlit dots stay dim so the drop reads")
+
+print("== dictation: the dots rise and fall with the voice ==")
+let voiceDots = DotMatrix.triangle()
+func lit(_ level: Float, frame: Int = 0) -> [Double] {
+    DotMatrix.level(voiceDots, level: level, peak: level, frame: frame, frameCount: 18)
+}
+let totals = [Float(0), 0.25, 0.5, 0.75, 1].map { lit($0).reduce(0, +) }
+check(zip(totals, totals.dropFirst()).allSatisfy { $0 < $1 }, "louder voice always lights more of the triangle")
+let apexIndex = voiceDots.firstIndex { $0.row == 0 }!
+check((0..<18).contains { lit(1, frame: $0)[apexIndex] > 0.99 }, "shouting reaches the apex on the crest")
+check(lit(0)[apexIndex] < 0.2, "silence leaves the apex dark")
+let baseIndexes = voiceDots.enumerated().filter { $0.element.row == 3 }.map(\.offset)
+check(baseIndexes.allSatisfy { lit(0.5)[$0] > lit(0.5)[apexIndex] }, "the base fills before the apex, like a VU meter")
+let moving = (0..<18).map { lit(0.7, frame: $0) }
+check(Set(moving.map { $0.map { Int($0 * 20) } }).count > 6, "at one steady volume the dots still ripple, they do not freeze")
+check(moving.allSatisfy { $0.allSatisfy { $0 >= 0.12 && $0 <= 1 } }, "the ripple never blows out or blanks the icon")
+let quietRipple = Set((0..<18).map { lit(0.12, frame: $0).map { Int($0 * 20) } }).count
+let loudRipple = Set((0..<18).map { lit(0.85, frame: $0).map { Int($0 * 20) } }).count
+check(quietRipple <= loudRipple, "a quiet voice ripples less than a loud one")
+equal(lit(0.7, frame: 18), lit(0.7, frame: 0), "the ripple loops seamlessly")
 
 print("== lid-close blocker: exact commands, never a wildcard ==")
 equal(SleepBlocker.arguments(on: true), ["-n", "/usr/bin/pmset", "-a", "disablesleep", "1"], "blocking asks pmset for exactly this")

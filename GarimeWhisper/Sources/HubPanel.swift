@@ -716,16 +716,43 @@ final class HubPanel {
 
     var isOpen: Bool { panel?.isVisible ?? false }
 
-    func show(content: NSView, below button: NSStatusBarButton?) {
+    private static let dark = NSAppearance(named: .darkAqua)
+
+    static func availableHeight(anchorBottom: CGFloat, screenBottom: CGFloat) -> CGFloat {
+        max(120, anchorBottom - screenBottom - Config.panelGap - 8)
+    }
+
+    private func fit(_ content: NSView, below button: NSStatusBarButton?) -> NSView {
+        guard let window = button?.window else { return content }
+        let anchor = window.convertToScreen(button!.convert(button!.bounds, to: nil))
+        let visible = (window.screen ?? NSScreen.main)?.visibleFrame ?? anchor
+        let ceiling = HubPanel.availableHeight(anchorBottom: anchor.minY, screenBottom: visible.minY)
+        guard content.frame.height > ceiling else { return content }
+        let scroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: content.frame.width, height: ceiling))
+        scroll.drawsBackground = false
+        scroll.hasVerticalScroller = true
+        scroll.scrollerStyle = .overlay
+        scroll.autohidesScrollers = true
+        scroll.verticalScrollElasticity = .allowed
+        scroll.documentView = content
+        content.frame.origin = .zero
+        return scroll
+    }
+
+    func show(content raw: NSView, below button: NSStatusBarButton?) {
+        let content = fit(raw, below: button)
         let size = content.frame.size
         let host = HubCardView(frame: NSRect(origin: .zero, size: size))
         host.wantsLayer = true
+        host.appearance = HubPanel.dark
+        content.appearance = HubPanel.dark
         host.addSubview(content)
 
         if let panel {
             panel.setContentSize(size)
             panel.contentView = host
             panel.setFrameOrigin(origin(for: size, below: button))
+            panel.displayIfNeeded()
             return
         }
 
@@ -735,18 +762,20 @@ final class HubPanel {
             backing: .buffered,
             defer: false
         )
-        window.contentView = host
+        window.appearance = HubPanel.dark
         window.isOpaque = false
         window.backgroundColor = .clear
         window.hasShadow = true
         window.isFloatingPanel = true
         window.becomesKeyOnlyIfNeeded = true
         window.level = .popUpMenu
-        window.appearance = NSAppearance(named: .darkAqua)
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
+        window.contentView = host
         let target = origin(for: size, below: button)
-        window.setFrameOrigin(NSPoint(x: target.x, y: target.y + Config.panelSlideRise))
+        window.setFrame(NSRect(origin: target, size: size), display: false)
+        window.setFrameOrigin(NSPoint(x: target.x, y: target.y - Config.panelSlideRise))
         window.alphaValue = 0
+        window.displayIfNeeded()
         window.orderFrontRegardless()
         panel = window
 

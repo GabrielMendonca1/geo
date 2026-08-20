@@ -72,7 +72,7 @@ check(!icon.isAnimating, "idle tears the timer down (zero idle cpu)")
 icon.apply(.success)
 check(!icon.isAnimating, "a static state runs no timer")
 icon.apply(.recording)
-check(!icon.isAnimating, "level-driven states run no timer")
+check(icon.isAnimating, "the dictation ripple runs a ticker")
 
 print("== status icon: one-shot pulse stops itself ==")
 icon.apply(.starting)

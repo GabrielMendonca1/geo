@@ -179,14 +179,22 @@ final class StatusIcon: NSObject {
             case .triangle:
                 base = drawTriangle()
             case .triangleLevel:
-                base = drawMatrix(DotMatrix.level(StatusIcon.dots, level: level, peak: peak))
+                base = drawMatrix(
+                    DotMatrix.level(
+                        StatusIcon.dots,
+                        level: level,
+                        peak: peak,
+                        frame: frameIndex,
+                        frameCount: plan.frameCount
+                    )
+                )
             case .triangleBeat:
                 base = drawMatrix(
                     DotMatrix.wave(StatusIcon.dots, frame: frameIndex, frameCount: plan.frameCount)
                 )
-            case .triangleBreathe:
+            case .triangleRain:
                 base = drawMatrix(
-                    DotMatrix.breathe(StatusIcon.dots, frame: frameIndex, frameCount: plan.frameCount)
+                    DotMatrix.rain(StatusIcon.dots, frame: frameIndex, frameCount: plan.frameCount)
                 )
             case .triangleSweep:
                 base = drawTriangleSweep()
