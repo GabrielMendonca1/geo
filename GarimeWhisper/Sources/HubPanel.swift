@@ -230,16 +230,16 @@ enum HubModel {
 }
 
 enum HubInk {
-    static let title = NSColor(calibratedWhite: 0.97, alpha: 1)
-    static let strong = NSColor(calibratedWhite: 0.95, alpha: 1)
-    static let muted = NSColor(calibratedWhite: 1, alpha: 0.48)
-    static let body = NSColor(calibratedWhite: 1, alpha: 0.72)
-    static let glyph = NSColor(calibratedWhite: 1, alpha: 0.42)
-    static let rail = NSColor(calibratedWhite: 1, alpha: 0.16)
-    static let faint = NSColor(calibratedWhite: 1, alpha: 0.28)
-    static let hover = NSColor(calibratedWhite: 1, alpha: 0.07)
-    static let card = NSColor(calibratedWhite: 0.05, alpha: 1)
+    static let title = NSColor.labelColor
+    static let strong = NSColor.labelColor
+    static let muted = NSColor.tertiaryLabelColor
+    static let body = NSColor.secondaryLabelColor
+    static let glyph = NSColor.tertiaryLabelColor
+    static let rail = NSColor.separatorColor
+    static let faint = NSColor.quaternaryLabelColor
+    static let hover = NSColor.labelColor.withAlphaComponent(0.08)
 }
+
 
 final class FlippedView: NSView {
     override var isFlipped: Bool { true }
@@ -377,57 +377,63 @@ final class HubScrollView: NSScrollView {
     }
 }
 
-final class HubCardView: NSView {
+final class HubHairline: NSView {
     override var isFlipped: Bool { true }
-
-    static let noiseTile: NSImage = makeNoiseTile()
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
     override func draw(_ dirtyRect: NSRect) {
         let radius = Config.panelCornerRadius
-        let card = NSBezierPath(roundedRect: bounds, xRadius: radius, yRadius: radius)
-        HubInk.card.setFill()
-        card.fill()
-
-        NSGraphicsContext.saveGraphicsState()
-        card.addClip()
-        let sheen = NSGradient(colors: [
-            NSColor(calibratedWhite: 1, alpha: 0.05),
-            NSColor(calibratedWhite: 1, alpha: 0),
-        ])
-        sheen?.draw(in: NSRect(x: 0, y: 0, width: bounds.width, height: bounds.height * 0.6), angle: 270)
-        NSGraphicsContext.current?.compositingOperation = .plusLighter
-        NSColor(patternImage: HubCardView.noiseTile).withAlphaComponent(0.04).setFill()
-        bounds.fill()
-        NSGraphicsContext.restoreGraphicsState()
-
         let hairline = NSBezierPath(
             roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5),
             xRadius: radius,
             yRadius: radius
         )
         hairline.lineWidth = 1
-        NSColor(calibratedWhite: 1, alpha: 0.09).setStroke()
+        NSColor.separatorColor.setStroke()
         hairline.stroke()
     }
+}
 
-    private static func makeNoiseTile() -> NSImage {
-        let size = NSSize(width: 64, height: 64)
-        return NSImage(size: size, flipped: false) { rect in
-            var seed: UInt64 = 0x9E37_79B9_7F4A_7C15
-            var y: CGFloat = 0
-            while y < rect.height {
-                var x: CGFloat = 0
-                while x < rect.width {
-                    seed = seed &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
-                    let value = CGFloat((seed >> 33) % 1000) / 1000
-                    NSColor(calibratedWhite: value, alpha: 0.5).setFill()
-                    NSRect(x: x, y: y, width: 1, height: 1).fill()
-                    x += 1
-                }
-                y += 1
-            }
+final class HubCardView: NSVisualEffectView {
+    override var isFlipped: Bool { true }
+
+    private let hairline = HubHairline()
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        material = .menu
+        blendingMode = .behindWindow
+        state = .active
+        wantsLayer = true
+        layer?.cornerRadius = Config.panelCornerRadius
+        layer?.cornerCurve = .continuous
+        layer?.masksToBounds = true
+        maskImage = HubCardView.mask(radius: Config.panelCornerRadius)
+        hairline.frame = bounds
+        hairline.autoresizingMask = [.width, .height]
+        addSubview(hairline)
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func layout() {
+        super.layout()
+        hairline.frame = bounds
+        if let last = subviews.last, last !== hairline {
+            addSubview(hairline, positioned: .above, relativeTo: last)
+        }
+    }
+
+    private static func mask(radius: CGFloat) -> NSImage {
+        let side = radius * 2 + 2
+        let image = NSImage(size: NSSize(width: side, height: side), flipped: false) { rect in
+            NSColor.black.setFill()
+            NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).fill()
             return true
         }
+        image.capInsets = NSEdgeInsets(top: radius, left: radius, bottom: radius, right: radius)
+        image.resizingMode = .stretch
+        return image
     }
 }
 
@@ -482,7 +488,7 @@ enum HubPanelView {
             back.contentTintColor = HubInk.body
             back.imagePosition = .imageOnly
             back.layer?.cornerRadius = 13
-            back.trackHover(resting: .clear, hover: NSColor(calibratedWhite: 1, alpha: 0.12))
+            back.trackHover(resting: .clear, hover: NSColor.labelColor.withAlphaComponent(0.12))
             container.addSubview(back)
             titleX = inset + 24
         }
@@ -587,7 +593,7 @@ enum HubPanelView {
                         ?? "Marcar como feito"
                     check.trackHover(
                         resting: .clear,
-                        hover: NSColor(calibratedWhite: 1, alpha: 0.12)
+                        hover: NSColor.labelColor.withAlphaComponent(0.12)
                     )
                     holder.addSubview(check)
                 } else {
@@ -681,16 +687,16 @@ enum HubPanelView {
                 button.layer?.cornerRadius = Config.panelActionSize / 2
                 button.trackHover(
                     resting: spec.on
-                        ? NSColor(calibratedWhite: 0.95, alpha: 1)
-                        : NSColor(calibratedWhite: 1, alpha: 0.09),
+                        ? NSColor.labelColor.withAlphaComponent(0.92)
+                        : NSColor.labelColor.withAlphaComponent(0.10),
                     hover: spec.on
-                        ? NSColor(calibratedWhite: 1, alpha: 1)
-                        : NSColor(calibratedWhite: 1, alpha: 0.2)
+                        ? NSColor.labelColor
+                        : NSColor.labelColor.withAlphaComponent(0.20)
                 )
                 button.image = NSImage(systemSymbolName: spec.symbol, accessibilityDescription: spec.tooltip)?
                     .withSymbolConfiguration(.init(pointSize: 14, weight: .medium))
                 button.contentTintColor = spec.on
-                    ? NSColor(calibratedWhite: 0.06, alpha: 1)
+                    ? NSColor.windowBackgroundColor
                     : HubInk.body
                 button.imagePosition = .imageOnly
                 button.toolTip = spec.tooltip
@@ -715,8 +721,6 @@ final class HubPanel {
     private var monitor: Any?
 
     var isOpen: Bool { panel?.isVisible ?? false }
-
-    private static let dark = NSAppearance(named: .darkAqua)
 
     static func availableHeight(anchorBottom: CGFloat, screenBottom: CGFloat) -> CGFloat {
         max(120, anchorBottom - screenBottom - Config.panelGap - 8)
@@ -744,8 +748,6 @@ final class HubPanel {
         let size = content.frame.size
         let host = HubCardView(frame: NSRect(origin: .zero, size: size))
         host.wantsLayer = true
-        host.appearance = HubPanel.dark
-        content.appearance = HubPanel.dark
         host.addSubview(content)
 
         if let panel {
@@ -762,7 +764,6 @@ final class HubPanel {
             backing: .buffered,
             defer: false
         )
-        window.appearance = HubPanel.dark
         window.isOpaque = false
         window.backgroundColor = .clear
         window.hasShadow = true
