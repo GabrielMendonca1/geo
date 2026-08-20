@@ -19,7 +19,7 @@ final class StatusIcon: NSObject {
 
     let menu = NSMenu()
 
-    private static let side: CGFloat = 18
+    private static let side: CGFloat = 21
     private static let dots = DotMatrix.triangle()
 
     var onPrimaryClick: (() -> Void)?
@@ -83,7 +83,7 @@ final class StatusIcon: NSObject {
         followUp = nil
 
         state = next
-        plan = IconAnimation.plan(for: next, reduceMotion: reduceMotion)
+        plan = effectivePlan()
         frameIndex = 0
         if plan.levelDriven {
             lastLevelDraw = .distantPast
@@ -101,7 +101,23 @@ final class StatusIcon: NSObject {
             ? overlays.insert(overlay).inserted
             : overlays.remove(overlay) != nil
         guard changed else { return }
+        refreshPlan()
+    }
+
+    private func refreshPlan() {
+        timer?.invalidate()
+        timer = nil
+        plan = effectivePlan()
+        frameIndex = 0
         render()
+        scheduleTicker()
+    }
+
+    private func effectivePlan() -> IconPlan {
+        if state == .idle, overlays.contains(.awake) {
+            return IconAnimation.awakePlan(reduceMotion: reduceMotion)
+        }
+        return IconAnimation.plan(for: state, reduceMotion: reduceMotion)
     }
 
     func flash(_ symbolName: String) {
@@ -168,6 +184,11 @@ final class StatusIcon: NSObject {
                 base = drawMatrix(
                     DotMatrix.wave(StatusIcon.dots, frame: frameIndex, frameCount: plan.frameCount)
                 )
+            case .triangleJump:
+                base = drawMatrix(
+                    DotMatrix.steady(StatusIcon.dots),
+                    lift: IconAnimation.jumpOffset(frame: frameIndex, frameCount: plan.frameCount)
+                )
             case .triangleSweep:
                 base = drawTriangleSweep()
             case .spinner:
@@ -211,7 +232,7 @@ final class StatusIcon: NSObject {
         guard let base else { return nil }
         guard !overlays.isEmpty else { return base }
         let active = overlays
-        let moon = active.contains(.awake) ? symbol("cup.and.saucer.fill") : nil
+        let moon: NSImage? = nil
         let size = NSSize(width: StatusIcon.side, height: StatusIcon.side)
         let image = NSImage(size: size, flipped: false) { rect in
             NSColor.black.setFill()
@@ -258,10 +279,11 @@ final class StatusIcon: NSObject {
     static func color(for tint: IconTint) -> NSColor? {
         switch tint {
         case .neutral: return nil
-        case .live: return NSColor.systemRed
-        case .work: return NSColor.systemOrange
-        case .good: return NSColor.systemGreen
-        case .warn: return NSColor.systemYellow
+        case .live: return NSColor(srgbRed: 1.0, green: 0.15, blue: 0.20, alpha: 1)
+        case .work: return NSColor(srgbRed: 1.0, green: 0.55, blue: 0.0, alpha: 1)
+        case .good: return NSColor(srgbRed: 0.10, green: 0.90, blue: 0.35, alpha: 1)
+        case .warn: return NSColor(srgbRed: 1.0, green: 0.83, blue: 0.0, alpha: 1)
+        case .awake: return NSColor(srgbRed: 1.0, green: 0.45, blue: 0.0, alpha: 1)
         }
     }
 
@@ -291,7 +313,7 @@ final class StatusIcon: NSObject {
         return NSRect(x: x - radius, y: y - radius, width: radius * 2, height: radius * 2)
     }
 
-    private func drawMatrix(_ brightness: [Double], scale: Double = 1) -> NSImage {
+    private func drawMatrix(_ brightness: [Double], scale: Double = 1, lift: Double = 0) -> NSImage {
         let dots = StatusIcon.dots
         let paint = StatusIcon.color(for: plan.tint) ?? NSColor.black
         return canvas(tint: plan.tint) { rect in
@@ -300,7 +322,9 @@ final class StatusIcon: NSObject {
                 let value = index < brightness.count ? brightness[index] : 1
                 guard value > 0.02 else { continue }
                 paint.withAlphaComponent(CGFloat(min(1, max(0, value)))).setFill()
-                NSBezierPath(ovalIn: StatusIcon.dotRect(dot, in: rect, radius: radius)).fill()
+                var box = StatusIcon.dotRect(dot, in: rect, radius: radius)
+                box.origin.y += CGFloat(lift) * Config.iconJumpLift
+                NSBezierPath(ovalIn: box).fill()
             }
         }
     }

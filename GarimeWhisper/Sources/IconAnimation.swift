@@ -24,6 +24,7 @@ enum IconTint: Equatable {
     case work
     case good
     case warn
+    case awake
 }
 
 enum IconRender: Equatable {
@@ -31,6 +32,7 @@ enum IconRender: Equatable {
     case triangle
     case triangleLevel
     case triangleBeat
+    case triangleJump
     case triangleSweep
     case spinner
     case blocked
@@ -51,6 +53,27 @@ struct IconPlan: Equatable {
 }
 
 enum IconAnimation {
+    static func awakePlan(reduceMotion: Bool) -> IconPlan {
+        IconPlan(
+            render: reduceMotion ? .triangle : .triangleJump,
+            tint: .awake,
+            frameCount: reduceMotion ? 1 : Config.iconJumpFrames,
+            interval: reduceMotion ? 0 : Config.iconJumpInterval,
+            repeats: !reduceMotion,
+            levelDriven: false,
+            minimumRedrawInterval: 0,
+            followUp: nil,
+            followUpDelay: 0
+        )
+    }
+
+    static func jumpOffset(frame: Int, frameCount: Int) -> Double {
+        let count = max(1, frameCount)
+        let phase = Double(frame % count) / Double(count)
+        let arc = sin(phase * Double.pi)
+        return arc * arc
+    }
+
     static func plan(for state: IconState, reduceMotion: Bool) -> IconPlan {
         switch state {
         case .idle:

@@ -258,6 +258,11 @@ check "$([ $? -ne 0 ] && echo 0 || echo 1)" "checking a todo never writes anywhe
 grep -q 'replaceItemAt' "$ROOT/Sources/StatusTodoWriter.swift"
 check $? "STATUS.md is rewritten atomically"
 
+grep -q 'case .awake: return NSColor' "$ROOT/Sources/StatusIcon.swift"
+check $? "caps lock has its own colour"
+grep -q 'cup.and.saucer.fill' "$ROOT/Sources/StatusIcon.swift"
+check "$([ $? -ne 0 ] && echo 0 || echo 1)" "caps lock no longer draws a badge glyph"
+
 grep -q 'DotMatrix.triangle' "$ROOT/Sources/StatusIcon.swift"
 check $? "the menu bar icon is drawn as a dot matrix"
 grep -q 'symbolCache\["__triangle"\]' "$ROOT/Sources/StatusIcon.swift"

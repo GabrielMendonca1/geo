@@ -1026,6 +1026,22 @@ let chaseFrames = (0..<12).map { DotMatrix.chase(matrix, frame: $0, frameCount: 
 check(chaseFrames.allSatisfy { $0.allSatisfy { $0 >= 0 && $0 <= 1 } }, "the chase stays in range")
 check(Set(chaseFrames.map { $0.map { Int($0 * 100) } }).count > 6, "the chase actually moves frame to frame")
 
+print("== caps lock: the matrix jumps in orange, no badge ==")
+let awake = IconAnimation.awakePlan(reduceMotion: false)
+equal(awake.render, IconRender.triangleJump, "caps lock makes the triangle jump")
+equal(awake.tint, IconTint.awake, "the jump is orange, not a grey badge")
+check(awake.repeats, "it keeps jumping while caps stays on")
+check(awake.isAnimated, "the jump is a real animation")
+let awakeStill = IconAnimation.awakePlan(reduceMotion: true)
+check(!awakeStill.isAnimated, "Reduce Motion stops the jumping")
+equal(awakeStill.tint, IconTint.awake, "but it stays orange so the state is still visible")
+let lifts = (0..<14).map { IconAnimation.jumpOffset(frame: $0, frameCount: 14) }
+check(lifts.allSatisfy { $0 >= 0 && $0 <= 1 }, "the jump never leaves the icon box")
+check(lifts.first! < 0.01, "the jump starts grounded")
+check(lifts.max()! > 0.95, "the jump reaches a real apex")
+check(lifts.max()! == lifts[7] || lifts.max()! == lifts[6], "the apex lands mid-cycle")
+equal(IconAnimation.jumpOffset(frame: 14, frameCount: 14), IconAnimation.jumpOffset(frame: 0, frameCount: 14), "the cycle loops seamlessly")
+
 print("== lid-close blocker: exact commands, never a wildcard ==")
 equal(SleepBlocker.arguments(on: true), ["-n", "/usr/bin/pmset", "-a", "disablesleep", "1"], "blocking asks pmset for exactly this")
 equal(SleepBlocker.arguments(on: false), ["-n", "/usr/bin/pmset", "-a", "disablesleep", "0"], "releasing is the mirror command")
