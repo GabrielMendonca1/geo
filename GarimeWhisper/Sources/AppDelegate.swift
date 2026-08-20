@@ -489,8 +489,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func insomniaTitle() -> String {
-        if caps?.isOn == true { return "Acordado — Caps Lock ligado" }
-        if insomnia.isAutomatic { return "Acordado enquanto grava" }
+        if caps?.isOn == true { return "Acordado (tampa aberta) — Caps Lock ligado" }
+        if insomnia.isAutomatic { return "Acordado (tampa aberta) enquanto grava" }
+        if insomnia.isActive { return "Acordado — só com a tampa aberta" }
         return "Manter acordado"
     }
 
