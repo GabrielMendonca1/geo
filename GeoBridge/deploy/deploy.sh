@@ -29,6 +29,7 @@ echo "OK  fontes verificadas"
 RSYNC_OPTS=(-a --checksum --itemize-changes)
 [ "$DRY" -eq 1 ] && RSYNC_OPTS+=(--dry-run)
 
+run ssh "$USER_@$HOST" mkdir -p "$STAGE/agent"
 run rsync "${RSYNC_OPTS[@]}" "$SRC_DIR/geobridge.py" "$USER_@$HOST:$STAGE/geobridge.py"
 run rsync "${RSYNC_OPTS[@]}" --delete "$SRC_DIR/deploy/agent/" "$USER_@$HOST:$STAGE/agent/"
 
