@@ -260,6 +260,8 @@ check $? "STATUS.md is rewritten atomically"
 
 grep -q 'case .awake: return NSColor' "$ROOT/Sources/StatusIcon.swift"
 check $? "caps lock has its own colour"
+grep -q 'triangleBreathe' "$ROOT/Sources/IconAnimation.swift"
+check $? "caps lock breathes instead of jumping around the bar"
 grep -q 'cup.and.saucer.fill' "$ROOT/Sources/StatusIcon.swift"
 check "$([ $? -ne 0 ] && echo 0 || echo 1)" "caps lock no longer draws a badge glyph"
 

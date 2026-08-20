@@ -62,10 +62,9 @@ enum Config {
     static let iconReducedBlinkInterval: TimeInterval = 1.0
     static let iconFlashSeconds: TimeInterval = 0.6
     static let iconTriangleInset: CGFloat = 3
-    static let iconDotRadius: CGFloat = 1.5
-    static let iconJumpFrames = 14
-    static let iconJumpInterval: TimeInterval = 0.055
-    static let iconJumpLift: CGFloat = 2.2
+    static let iconDotRadius: CGFloat = 1.8
+    static let iconBreathFrames = 34
+    static let iconBreathInterval: TimeInterval = 0.055
     static let iconBeatFrames = 24
     static let iconBeatInterval: TimeInterval = 0.07
 

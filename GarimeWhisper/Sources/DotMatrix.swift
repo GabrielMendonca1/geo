@@ -8,7 +8,7 @@ struct MatrixDot: Equatable {
 }
 
 enum DotMatrix {
-    static let rows = 5
+    static let rows = 4
 
     static func triangle(rows: Int = DotMatrix.rows) -> [MatrixDot] {
         guard rows > 1 else { return [MatrixDot(row: 0, column: 0, x: 0.5, y: 0.5)] }
@@ -31,7 +31,12 @@ enum DotMatrix {
         dots.map { _ in 1 }
     }
 
-    static func level(_ dots: [MatrixDot], level: Float, peak: Float, rows: Int = DotMatrix.rows) -> [Double] {
+    static func rowCount(_ dots: [MatrixDot]) -> Int {
+        (dots.map(\.row).max() ?? 0) + 1
+    }
+
+    static func level(_ dots: [MatrixDot], level: Float, peak: Float) -> [Double] {
+        let rows = rowCount(dots)
         let clamped = Double(max(0, min(1, level)))
         let ceiling = Double(max(0, min(1, peak)))
         let lit = clamped * Double(rows)
@@ -44,7 +49,8 @@ enum DotMatrix {
         }
     }
 
-    static func wave(_ dots: [MatrixDot], frame: Int, frameCount: Int, rows: Int = DotMatrix.rows) -> [Double] {
+    static func wave(_ dots: [MatrixDot], frame: Int, frameCount: Int) -> [Double] {
+        let rows = rowCount(dots)
         let count = max(1, frameCount)
         let phase = Double(frame % count) / Double(count)
         return dots.map { dot in
@@ -53,6 +59,14 @@ enum DotMatrix {
             let folded = min(distance, 1 - distance)
             return 0.18 + 0.82 * max(0, 1 - folded * 3)
         }
+    }
+
+    static func breathe(_ dots: [MatrixDot], frame: Int, frameCount: Int) -> [Double] {
+        let count = max(1, frameCount)
+        let phase = Double(frame % count) / Double(count)
+        let curve = (1 - cos(phase * 2 * Double.pi)) / 2
+        let value = 0.34 + 0.66 * curve
+        return dots.map { _ in value }
     }
 
     static func chase(_ dots: [MatrixDot], frame: Int, frameCount: Int) -> [Double] {

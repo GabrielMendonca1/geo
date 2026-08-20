@@ -19,7 +19,7 @@ final class StatusIcon: NSObject {
 
     let menu = NSMenu()
 
-    private static let side: CGFloat = 21
+    private static let side: CGFloat = 19
     private static let dots = DotMatrix.triangle()
 
     var onPrimaryClick: (() -> Void)?
@@ -184,10 +184,9 @@ final class StatusIcon: NSObject {
                 base = drawMatrix(
                     DotMatrix.wave(StatusIcon.dots, frame: frameIndex, frameCount: plan.frameCount)
                 )
-            case .triangleJump:
+            case .triangleBreathe:
                 base = drawMatrix(
-                    DotMatrix.steady(StatusIcon.dots),
-                    lift: IconAnimation.jumpOffset(frame: frameIndex, frameCount: plan.frameCount)
+                    DotMatrix.breathe(StatusIcon.dots, frame: frameIndex, frameCount: plan.frameCount)
                 )
             case .triangleSweep:
                 base = drawTriangleSweep()
@@ -313,7 +312,7 @@ final class StatusIcon: NSObject {
         return NSRect(x: x - radius, y: y - radius, width: radius * 2, height: radius * 2)
     }
 
-    private func drawMatrix(_ brightness: [Double], scale: Double = 1, lift: Double = 0) -> NSImage {
+    private func drawMatrix(_ brightness: [Double], scale: Double = 1) -> NSImage {
         let dots = StatusIcon.dots
         let paint = StatusIcon.color(for: plan.tint) ?? NSColor.black
         return canvas(tint: plan.tint) { rect in
@@ -322,9 +321,7 @@ final class StatusIcon: NSObject {
                 let value = index < brightness.count ? brightness[index] : 1
                 guard value > 0.02 else { continue }
                 paint.withAlphaComponent(CGFloat(min(1, max(0, value)))).setFill()
-                var box = StatusIcon.dotRect(dot, in: rect, radius: radius)
-                box.origin.y += CGFloat(lift) * Config.iconJumpLift
-                NSBezierPath(ovalIn: box).fill()
+                NSBezierPath(ovalIn: StatusIcon.dotRect(dot, in: rect, radius: radius)).fill()
             }
         }
     }
