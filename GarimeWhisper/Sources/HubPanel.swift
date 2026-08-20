@@ -377,31 +377,12 @@ final class HubScrollView: NSScrollView {
     }
 }
 
-final class HubHairline: NSView {
-    override var isFlipped: Bool { true }
-    override func hitTest(_ point: NSPoint) -> NSView? { nil }
-
-    override func draw(_ dirtyRect: NSRect) {
-        let radius = Config.panelCornerRadius
-        let hairline = NSBezierPath(
-            roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5),
-            xRadius: radius,
-            yRadius: radius
-        )
-        hairline.lineWidth = 1
-        NSColor.separatorColor.setStroke()
-        hairline.stroke()
-    }
-}
-
 final class HubCardView: NSVisualEffectView {
     override var isFlipped: Bool { true }
 
-    private let hairline = HubHairline()
-
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        material = .menu
+        material = .popover
         blendingMode = .behindWindow
         state = .active
         wantsLayer = true
@@ -409,20 +390,9 @@ final class HubCardView: NSVisualEffectView {
         layer?.cornerCurve = .continuous
         layer?.masksToBounds = true
         maskImage = HubCardView.mask(radius: Config.panelCornerRadius)
-        hairline.frame = bounds
-        hairline.autoresizingMask = [.width, .height]
-        addSubview(hairline)
     }
 
     required init?(coder: NSCoder) { nil }
-
-    override func layout() {
-        super.layout()
-        hairline.frame = bounds
-        if let last = subviews.last, last !== hairline {
-            addSubview(hairline, positioned: .above, relativeTo: last)
-        }
-    }
 
     private static func mask(radius: CGFloat) -> NSImage {
         let side = radius * 2 + 2
@@ -484,7 +454,7 @@ enum HubPanelView {
             )
             back.isBordered = false
             back.image = NSImage(systemSymbolName: "chevron.left", accessibilityDescription: "Voltar")?
-                .withSymbolConfiguration(.init(pointSize: 13, weight: .semibold))
+                .withSymbolConfiguration(.init(pointSize: 14, weight: .semibold))
             back.contentTintColor = HubInk.body
             back.imagePosition = .imageOnly
             back.layer?.cornerRadius = 13
@@ -495,11 +465,11 @@ enum HubPanelView {
 
         let title = NSMutableAttributedString()
         title.append(NSAttributedString(string: content.headerStrong + " ", attributes: [
-            .font: NSFont.systemFont(ofSize: 15, weight: .bold),
+            .font: NSFont.systemFont(ofSize: 17, weight: .bold),
             .foregroundColor: HubInk.title,
         ]))
         title.append(NSAttributedString(string: content.headerRest, attributes: [
-            .font: NSFont.systemFont(ofSize: 15, weight: .regular),
+            .font: NSFont.systemFont(ofSize: 17, weight: .regular),
             .foregroundColor: HubInk.title,
         ]))
         let titleLabel = NSTextField(labelWithAttributedString: title)
@@ -511,7 +481,7 @@ enum HubPanelView {
 
         if let notice = content.notice {
             let label = NSTextField(labelWithString: notice)
-            label.font = NSFont.systemFont(ofSize: 12, weight: .medium)
+            label.font = NSFont.systemFont(ofSize: 13, weight: .medium)
             label.textColor = HubInk.body
             label.frame = NSRect(x: inset, y: y, width: width - inset * 2, height: 16)
             container.addSubview(label)
@@ -526,15 +496,15 @@ enum HubPanelView {
             if !section.strong.isEmpty {
                 let head = NSMutableAttributedString()
                 head.append(NSAttributedString(string: section.pre, attributes: [
-                    .font: NSFont.systemFont(ofSize: 14),
+                    .font: NSFont.systemFont(ofSize: 15),
                     .foregroundColor: HubInk.muted,
                 ]))
                 head.append(NSAttributedString(string: section.strong, attributes: [
-                    .font: NSFont.systemFont(ofSize: 14, weight: .bold),
+                    .font: NSFont.systemFont(ofSize: 15, weight: .bold),
                     .foregroundColor: HubInk.strong,
                 ]))
                 head.append(NSAttributedString(string: section.post, attributes: [
-                    .font: NSFont.systemFont(ofSize: 14),
+                    .font: NSFont.systemFont(ofSize: 15),
                     .foregroundColor: HubInk.muted,
                 ]))
                 let headLabel = NSTextField(labelWithAttributedString: head)
@@ -545,7 +515,7 @@ enum HubPanelView {
 
             if section.rows.isEmpty, let empty = section.empty {
                 let label = NSTextField(labelWithString: empty)
-                label.font = NSFont.systemFont(ofSize: 13)
+                label.font = NSFont.systemFont(ofSize: 14)
                 label.textColor = HubInk.faint
                 label.frame = NSRect(
                     x: Config.panelTextX,
@@ -581,11 +551,11 @@ enum HubPanelView {
                     let check = ClosureButton(frame: glyphFrame) { onCheck(row.id) }
                     check.isBordered = false
                     check.image = NSImage(systemSymbolName: "circle", accessibilityDescription: "Concluir")?
-                        .withSymbolConfiguration(.init(pointSize: 14, weight: .light))
+                        .withSymbolConfiguration(.init(pointSize: 15, weight: .light))
                     check.alternateImage = NSImage(
                         systemSymbolName: "checkmark.circle.fill",
                         accessibilityDescription: nil
-                    )?.withSymbolConfiguration(.init(pointSize: 14, weight: .regular))
+                    )?.withSymbolConfiguration(.init(pointSize: 15, weight: .regular))
                     check.setButtonType(.momentaryChange)
                     check.contentTintColor = HubInk.glyph
                     check.imagePosition = .imageOnly
@@ -599,19 +569,19 @@ enum HubPanelView {
                 } else {
                     let glyph = NSImageView(frame: glyphFrame)
                     glyph.image = NSImage(systemSymbolName: row.symbol, accessibilityDescription: nil)?
-                        .withSymbolConfiguration(.init(pointSize: 14, weight: .light))
+                        .withSymbolConfiguration(.init(pointSize: 15, weight: .light))
                     glyph.contentTintColor = HubInk.glyph
                     holder.addSubview(glyph)
                 }
 
                 let text = NSMutableAttributedString()
                 text.append(NSAttributedString(string: row.title, attributes: [
-                    .font: NSFont.systemFont(ofSize: 14),
+                    .font: NSFont.systemFont(ofSize: 15),
                     .foregroundColor: HubInk.body,
                 ]))
                 if let trailing = row.trailing {
                     text.append(NSAttributedString(string: "  " + trailing, attributes: [
-                        .font: NSFont.systemFont(ofSize: 14, weight: .semibold),
+                        .font: NSFont.systemFont(ofSize: 15, weight: .semibold),
                         .foregroundColor: HubInk.strong,
                     ]))
                 }
@@ -707,7 +677,7 @@ enum HubPanelView {
         }
 
         let stamp = NSTextField(labelWithString: content.footer)
-        stamp.font = NSFont.systemFont(ofSize: 11)
+        stamp.font = NSFont.systemFont(ofSize: 12)
         stamp.textColor = HubInk.faint
         stamp.frame = NSRect(x: inset, y: y, width: width - inset * 2, height: 16)
         container.addSubview(stamp)
