@@ -377,33 +377,51 @@ final class HubScrollView: NSScrollView {
     }
 }
 
-final class HubCardView: NSVisualEffectView {
+final class HubCardView: NSView {
     override var isFlipped: Bool { true }
+
+    private var glass: NSView?
+    private var fallback: NSVisualEffectView?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        material = .popover
-        blendingMode = .behindWindow
-        state = .active
         wantsLayer = true
-        layer?.cornerRadius = Config.panelCornerRadius
-        layer?.cornerCurve = .continuous
-        layer?.masksToBounds = true
-        maskImage = HubCardView.mask(radius: Config.panelCornerRadius)
+        if #available(macOS 26.0, *) {
+            let liquid = NSGlassEffectView(frame: bounds)
+            liquid.autoresizingMask = [.width, .height]
+            liquid.cornerRadius = Config.panelCornerRadius
+            liquid.style = .regular
+            if #available(macOS 27.0, *) {
+                liquid.effectIsInteractive = true
+            }
+            addSubview(liquid)
+            glass = liquid
+        } else {
+            let frosted = NSVisualEffectView(frame: bounds)
+            frosted.autoresizingMask = [.width, .height]
+            frosted.material = .popover
+            frosted.blendingMode = .behindWindow
+            frosted.state = .active
+            frosted.wantsLayer = true
+            frosted.layer?.cornerRadius = Config.panelCornerRadius
+            frosted.layer?.cornerCurve = .continuous
+            frosted.layer?.masksToBounds = true
+            addSubview(frosted)
+            fallback = frosted
+        }
     }
 
     required init?(coder: NSCoder) { nil }
 
-    private static func mask(radius: CGFloat) -> NSImage {
-        let side = radius * 2 + 2
-        let image = NSImage(size: NSSize(width: side, height: side), flipped: false) { rect in
-            NSColor.black.setFill()
-            NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).fill()
-            return true
+    override func addSubview(_ view: NSView) {
+        if #available(macOS 26.0, *), let liquid = glass as? NSGlassEffectView, view !== liquid {
+            let holder = liquid.contentView ?? FlippedView(frame: liquid.bounds)
+            holder.autoresizingMask = [.width, .height]
+            holder.addSubview(view)
+            liquid.contentView = holder
+            return
         }
-        image.capInsets = NSEdgeInsets(top: radius, left: radius, bottom: radius, right: radius)
-        image.resizingMode = .stretch
-        return image
+        super.addSubview(view)
     }
 }
 
