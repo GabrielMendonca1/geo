@@ -40,6 +40,7 @@ Defaults below are the code's; the **effective** values come from the `Environme
 | `GEO_TERM_SHELL` | *(unset)* | If set, exported as `SHELL` to the tmux child (else tmux's default) |
 | `GEO_TERM_PROFILE_MAC` | *(unset)* | If set, the path (tilde-expanded) run as the command of the session literally named `mac` — a dedicated "my Mac" profile script instead of a bare shell. Ignored for every other session name |
 | `GEO_TERM_SESSION` | `mobile` | Default tmux session name (used **only** when `?session=` is absent; a malformed value is `400` on every verb — see "Session selection") |
+| `GEO_AGENT_SESSION` | `garime-agent` | tmux session of the single always-on agent, reported by `/term/health` and ensured by `/term/agent-ensure`. A value that fails `\A[A-Za-z0-9_-]{1,32}\Z` falls back to the default |
 | `GEO_TERM_REPLAY_BYTES` | `262144` | Per-session ring buffer of recent PTY output replayed to each new `/term/stream` |
 | `GEO_BRIDGE_TERM_TOKEN_FILE` | `~/.hermes/geobridge.term.token` | Second, dedicated bearer token for `/term/*` (single line, trimmed) |
 | `GEO_STATUS_UNITS` | `garime-wa syncthing-garime` | Space-separated allowlist of systemd units reported by `/term/agents` |
@@ -402,6 +403,23 @@ Read-only snapshot of a session's tail, for the sessions home on the phone. **Ne
 - `tmux capture-pane -p -e -t <session> -S -<n>` (subprocess timeout 5 s). `-e` **keeps the ANSI escapes**, so a client that wants plain text must strip them (the iOS home does, v1 is colorless).
 - `200 {"text":"<lines>"}`. The text is the whole visible pane plus `n` lines of scrollback, so it can be longer than `n` lines and usually ends in blank lines — trimming is the client's job.
 - No such session (non-zero exit) or tmux missing/timeout → `404 {"error":"no_session"}`.
+
+### GET /term/health
+
+Combined status for the single-agent home: is the Mac up, and is the always-on agent alive. Cheap by design — **no ssh herdr scan, no session cache**: one TCP probe of the Mac (the same 1 s `status_mac_online`) plus one local `tmux list-panes` on `GEO_AGENT_SESSION`. Read-only: it never spawns a session.
+
+- `200 {"ok":true,"mac_online":true,"agent":{"session":"garime-agent","running":true,"agent":"pi"}}`.
+- `running` is `true` only when the session exists **and** its active pane runs one of the known agents (same detection as `/term/agent-chat`); the detected name is echoed in `agent.agent` (`""` when idle or absent).
+- "VM online" is not a field: the bridge runs on the VM, so a `200` here *is* the VM signal. A transport failure is the client's red dot.
+- No such session, tmux down, or a scan error → `200` with `running:false` — this route never 5xxs. Same gate as the rest of `/term/*`: `404` when disabled, `401` on a bad term token.
+
+### POST /term/agent-ensure
+
+Makes sure the fixed agent session exists, so the phone's chat is one tap away even if the tmux server was restarted. Idempotent: `term_get_or_spawn` on `GEO_AGENT_SESSION` (`tmux new-session -A`) — an existing session is attached, never duplicated or restarted.
+
+- No params, no body. The session name is **always** `GEO_AGENT_SESSION`; the client cannot choose it.
+- It only guarantees the *session*, never the `pi` inside it: the agent process is owned by `garime-agent.service` (see `deploy/README.md`). A freshly spawned session answers `running:false` until systemd's launcher fills it.
+- `200 {"ok":true,"agent":{"session":"garime-agent","running":false,"agent":""}}` · `503 {"error":"unavailable"}` when the spawn fails (no tmux binary, pty exhaustion).
 
 ### GET /term/agents
 
