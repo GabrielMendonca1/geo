@@ -602,6 +602,8 @@ struct AgentChatView: View {
     @State private var dictationBase = ""
     @State private var workExpanded = false
     @FocusState private var composerFocused: Bool
+    @AppStorage("chat.mode") private var chatModeRaw = ""
+
 
     init(target: AgentChatTarget, initialDraft: String = "", onBack: @escaping () -> Void = {}) {
         self.target = target
@@ -946,10 +948,42 @@ struct AgentChatView: View {
     private func row(_ item: AgentChatItem) -> some View {
         switch item {
         case .message(let message):
-            if message.role == .user {
-                userRow(message)
+            if message.optimistic || message.text.isEmpty {
+                if message.role == .user { userRow(message) } else { assistantRow(message) }
+            } else if message.role == .user {
+                userRow(message).contextMenu {
+                    Button {
+                        UIPasteboard.general.string = message.text
+                    } label: {
+                        Label("copiar", systemImage: "doc.on.doc")
+                    }
+                    Button {
+                        draft = "explica melhor isso: \"\(String(message.text.prefix(280)))\""
+                        composerFocused = true
+                    } label: {
+                        Label("explicar melhor", systemImage: "questionmark.bubble")
+                    }
+                    Button {
+                        draft = message.text
+                        composerFocused = true
+                    } label: {
+                        Label("reenviar", systemImage: "arrow.uturn.backward")
+                    }
+                }
             } else {
-                assistantRow(message)
+                assistantRow(message).contextMenu {
+                    Button {
+                        UIPasteboard.general.string = message.text
+                    } label: {
+                        Label("copiar", systemImage: "doc.on.doc")
+                    }
+                    Button {
+                        draft = "explica melhor isso: \"\(String(message.text.prefix(280)))\""
+                        composerFocused = true
+                    } label: {
+                        Label("explicar melhor", systemImage: "questionmark.bubble")
+                    }
+                }
             }
         case .tools(_, let names):
             toolRow(names)
@@ -1109,6 +1143,30 @@ struct AgentChatView: View {
     private var composer: some View {
         GlassChrome {
             VStack(alignment: .leading, spacing: 6) {
+                if !model.showsAskCard && !AgentChatMode.all.isEmpty && (composerFocused || !chatModeRaw.isEmpty) {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            ForEach(AgentChatMode.all) { mode in
+                                Button {
+                                    chatModeRaw = (chatModeRaw == mode.rawValue) ? "" : mode.rawValue
+                                } label: {
+                                    Text(mode.label)
+                                        .font(.system(size: 10, design: .monospaced))
+                                        .foregroundStyle(.primary)
+                                        .padding(.horizontal, 10)
+                                        .frame(minHeight: 26)
+                                        .background(chatModeRaw == mode.rawValue ? Color.accentColor.opacity(0.22) : .clear, in: Capsule())
+                                        .overlay(Capsule().strokeBorder(Color.slateStroke.opacity(0.5)))
+                                        .contentShape(Capsule())
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.horizontal, 4)
+                    }
+                    .transition(.opacity)
+                    .accessibilityLabel("modo de conversa")
+                }
                 if showsCommandMenu {
                     commandMenu
                 }
@@ -1151,6 +1209,8 @@ struct AgentChatView: View {
         }
         .animation(enter, value: showsCommandMenu)
         .animation(enter, value: menuCommands.count)
+        .animation(enter, value: chatModeRaw)
+        .animation(enter, value: composerFocused)
         .animation(enter, value: statusLine)
         .animation(enter, value: model.showsAskCard)
         .photosPicker(isPresented: $showPhotoPicker, selection: $photoItem, matching: .images)
@@ -1371,8 +1431,10 @@ struct AgentChatView: View {
     }
 
     private func submit() {
-        let text = draft
         guard canSend else { return }
+        let mode = AgentChatMode(rawValue: chatModeRaw)?.directive ?? ""
+        let text = mode + draft
+        chatModeRaw = ""
         dictation.stop()
         composerModel.clearNotice()
         draft = ""
@@ -1396,5 +1458,34 @@ struct AgentChatView: View {
     private func stopTicker() {
         ticker?.cancel()
         ticker = nil
+    }
+}
+
+enum AgentChatMode: String, CaseIterable, Identifiable {
+    static let all: [AgentChatMode] = [.rapido, .pesquisa, .executar]
+
+    case rapido
+    case pesquisa
+    case executar
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .rapido: return "rápido"
+        case .pesquisa: return "pesquisa"
+        case .executar: return "executar"
+        }
+    }
+
+    var directive: String {
+        switch self {
+        case .rapido:
+            return "[modo rápido] Responda de forma enxuta e direta, sem rodeios.\n\n"
+        case .pesquisa:
+            return "[modo pesquisa] Pesquise na web antes de responder e cite as fontes.\n\n"
+        case .executar:
+            return "[modo executar] Execute sem pedir confirmação; só me avise do resultado. Ações destrutivas continuam proibidas.\n\n"
+        }
     }
 }
