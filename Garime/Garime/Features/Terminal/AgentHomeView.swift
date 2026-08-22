@@ -115,7 +115,7 @@ final class AgentHomeModel: ObservableObject {
 }
 
 enum AgentHomeRoute: Hashable {
-    case chat
+    case chat(prefill: String)
 }
 
 struct AgentHomeView: View {
@@ -147,8 +147,8 @@ struct AgentHomeView: View {
             .navigationBarHidden(true)
             .navigationDestination(for: AgentHomeRoute.self) { route in
                 switch route {
-                case .chat:
-                    AgentChatView(target: GarimeAgent.target(sessionName)) {
+                case .chat(let prefill):
+                    AgentChatView(target: GarimeAgent.target(sessionName), initialDraft: prefill) {
                         if !path.isEmpty { path.removeLast() }
                     }
                 }
@@ -230,7 +230,8 @@ struct AgentHomeView: View {
 
     private var chatCard: some View {
         let shape = RoundedRectangle(cornerRadius: SlateRadius.card, style: .continuous)
-        return Button { path.append(.chat) } label: {
+        return VStack(alignment: .leading, spacing: 10) {
+            Button { path.append(.chat(prefill: "")) } label: {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 10) {
                     AgentBadge(agent: GarimeAgent.name)
@@ -256,6 +257,28 @@ struct AgentHomeView: View {
         .accessibilityLabel("conversar com o agente")
         .accessibilityValue(model.agentNote)
         .accessibilityAddTraits(.isButton)
+        }
+        quickPrompts
+    }
+
+    private var quickPrompts: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(AgentQuickPrompt.all, id: \.self) { prompt in
+                    Button { path.append(.chat(prefill: prompt.text)) } label: {
+                        Text(prompt.label)
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundStyle(.primary)
+                            .padding(.horizontal, 12)
+                            .frame(minHeight: 32)
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .glassSurface(shape: Capsule(), interactive: true)
+                }
+            }
+            .padding(.vertical, 2)
+        }
     }
 
     private var sessionsLink: some View {
@@ -298,10 +321,21 @@ struct AgentHomeView: View {
     }
 
     private static func initialPath() -> [AgentHomeRoute] {
-        CommandLine.arguments.contains("-geoChat") ? [.chat] : []
+        CommandLine.arguments.contains("-geoChat") ? [.chat(prefill: "")] : []
     }
 }
 
 #Preview {
     AgentHomeView()
+}
+
+struct AgentQuickPrompt: Hashable {
+    let label: String
+    let text: String
+
+    static let all = [
+        AgentQuickPrompt(label: "último treino", text: "como foi meu último treino?"),
+        AgentQuickPrompt(label: "tarefas hoje", text: "quais são minhas tarefas pra hoje?"),
+        AgentQuickPrompt(label: "resumo do zap", text: "resuma o que apareceu no meu whatsapp hoje"),
+    ]
 }

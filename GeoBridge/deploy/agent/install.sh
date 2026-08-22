@@ -9,12 +9,18 @@ UNITS=(
   "garime-agent.service"
   "garime-agent-reset.service"
   "garime-agent-reset.timer"
+  "garime-agent-watchdog.service"
+  "garime-agent-watchdog.timer"
+  "garime-agent-notify.service"
+  "garime-agent-notify.timer"
 )
 PAYLOAD=(
   "garime-agent-launch.sh:0755"
   "garime-agent-reset.sh:0755"
   "system-prompt.md:0644"
   "agent.env:0644"
+  "garime-agent-watchdog.py:0755"
+  "garime-agent-notify.py:0755"
 )
 
 CHECK_ONLY=0
@@ -82,6 +88,8 @@ sync_files() {
   fi
   $sudo systemctl enable --now garime-agent.service
   $sudo systemctl enable --now garime-agent-reset.timer
+  $sudo systemctl enable --now garime-agent-watchdog.timer
+  $sudo systemctl enable --now garime-agent-notify.timer
   [ "$changed" -eq 0 ] || $sudo systemctl restart garime-agent.service
 }
 
@@ -90,6 +98,8 @@ report_live() {
   echo "--- estado do agente"
   systemctl is-active garime-agent.service || true
   systemctl list-timers garime-agent-reset.timer --no-pager || true
+  systemctl list-timers garime-agent-watchdog.timer --no-pager || true
+  systemctl list-timers garime-agent-notify.timer --no-pager || true
   echo "--- sessoes tmux"
   sudo -u biel tmux list-sessions 2>/dev/null || true
 }

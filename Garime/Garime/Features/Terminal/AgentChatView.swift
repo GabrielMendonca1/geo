@@ -516,7 +516,7 @@ struct AgentChatWorkingRow: View {
     var body: some View {
         HStack(spacing: 6) {
             AgentPulseMarks()
-            Text(StatusLevel.working.label)
+            Text("escrevendo…")
                 .font(.system(size: 10, design: .monospaced))
                 .foregroundStyle(Color.slateTextDim)
             Spacer(minLength: 0)
@@ -529,6 +529,7 @@ struct AgentChatWorkingRow: View {
 
 struct AgentChatView: View {
     let target: AgentChatTarget
+    var initialDraft: String = ""
     var onBack: () -> Void = {}
 
     @StateObject private var model: AgentChatModel
@@ -548,8 +549,9 @@ struct AgentChatView: View {
     @State private var workExpanded = false
     @FocusState private var composerFocused: Bool
 
-    init(target: AgentChatTarget, onBack: @escaping () -> Void = {}) {
+    init(target: AgentChatTarget, initialDraft: String = "", onBack: @escaping () -> Void = {}) {
         self.target = target
+        self.initialDraft = initialDraft
         self.onBack = onBack
         _model = StateObject(wrappedValue: AgentChatModel(target: target))
         _composerModel = StateObject(wrappedValue: AgentComposerModel(target: target))
@@ -597,6 +599,9 @@ struct AgentChatView: View {
             .onChange(of: atBottom) { _, value in
                 if value { pendingNew = false }
             }
+            .onChange(of: composerFocused) { _, focused in
+                if focused { glideToBottom(proxy) }
+            }
             .overlay(alignment: .bottom) {
                 if pendingNew {
                     newMessagesPill {
@@ -628,7 +633,12 @@ struct AgentChatView: View {
             try? await Task.sleep(nanoseconds: 4_000_000_000)
             model.clearNotice()
         }
-        .onAppear { startTicker() }
+        .onAppear {
+            startTicker()
+            if draft.isEmpty, !initialDraft.isEmpty {
+                draft = initialDraft
+            }
+        }
         .onDisappear {
             stopTicker()
             settle?.cancel()
