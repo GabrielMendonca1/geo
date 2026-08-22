@@ -78,6 +78,7 @@ struct AgentChatPayload: Decodable {
     let agent: String
     let status: String
     let messages: [AgentChatMessage]
+    var hasMore: Bool = false
 
     private struct Raw: Decodable {
         let role: String?
@@ -88,13 +89,14 @@ struct AgentChatPayload: Decodable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case agent, status, messages
+        case agent, status, messages, hasMore
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         agent = ((try? container.decodeIfPresent(String.self, forKey: .agent)) ?? nil) ?? ""
         status = ((try? container.decodeIfPresent(String.self, forKey: .status)) ?? nil) ?? ""
+        hasMore = ((try? container.decodeIfPresent(Bool.self, forKey: .hasMore)) ?? nil) ?? false
         let raw = ((try? container.decodeIfPresent([Raw].self, forKey: .messages)) ?? nil) ?? []
         messages = raw.enumerated().compactMap { index, item in
             guard let name = item.role, let role = AgentChatRole(rawValue: name) else { return nil }
@@ -286,6 +288,9 @@ final class AgentChatModel: ObservableObject {
     private var refreshing = false
     private var askSeq = 0
     @Published private(set) var streamConnected = false
+    @Published private(set) var hasMore = false
+    @Published private(set) var loadingOlder = false
+    private var skipCount = 0
     private var streamTask: Task<Void, Never>?
     private var lastStreamStatus = ""
     private var lastStreamCount = -1
@@ -319,6 +324,10 @@ final class AgentChatModel: ObservableObject {
     }
 
     func apply(_ payload: AgentChatPayload) async {
+        if !loadingOlder {
+            skipCount = 0
+            hasMore = false
+        }
         server = payload.messages
         status = payload.status
         noAgent = false
@@ -330,6 +339,29 @@ final class AgentChatModel: ObservableObject {
             lastStreamCount = payload.messages.count
             await refreshWork()
             await refreshAsk()
+        }
+    }
+
+    func loadOlder() async {
+        guard !loadingOlder, !server.isEmpty else { return }
+        loadingOlder = true
+        defer { loadingOlder = false }
+        let before = skipCount + server.count
+        let path = BridgeEndpoint.termAgentChat(target: target.ref, limit: Self.limit).path + "&before=\(before)"
+        do {
+            let data = try await client.getData(path, token: BridgeConfig.termToken)
+            let payload = try JSONDecoder().decode(AgentChatPayload.self, from: data)
+            guard !payload.messages.isEmpty else {
+                hasMore = false
+                return
+            }
+            skipCount = before
+            hasMore = payload.hasMore
+            let known = Set(server.map(\.id))
+            server = payload.messages.filter { !known.contains($0.id) } + server
+            reconcile()
+        } catch {
+            reachable = false
         }
     }
 
@@ -617,6 +649,28 @@ struct AgentChatView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 14) {
+                    if model.hasMore {
+                        Button {
+                            let anchor = AgentChatFeed.items(model.messages).first?.id
+                            Task {
+                                await model.loadOlder()
+                                if let anchor { proxy.scrollTo(anchor, anchor: .top) }
+                            }
+                        } label: {
+                            HStack(spacing: 6) {
+                                if model.loadingOlder {
+                                    ProgressView().controlSize(.small)
+                                }
+                                Text("carregar mais antigas")
+                                    .font(.system(size: 10, design: .monospaced))
+                            }
+                            .foregroundStyle(Color.slateTextDim)
+                            .frame(maxWidth: .infinity, minHeight: 32)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(model.loadingOlder)
+                    }
                     ForEach(AgentChatFeed.items(model.messages)) { item in
                         row(item)
                             .transition(.opacity)
@@ -1415,8 +1469,10 @@ struct AgentChatView: View {
 
     private func deliverUpload(_ data: Data, filename: String) async {
         guard let path = await composerModel.upload(data, filename: filename) else { return }
+        let isImage = ["png", "jpg", "jpeg", "gif", "webp", "heic"].contains(filename.lowercased().split(separator: ".").last.map(String.init) ?? "")
+        let lead = isImage ? "olhe a imagem em " : ""
         let separator = draft.isEmpty || draft.hasSuffix(" ") ? "" : " "
-        draft += separator + path + " "
+        draft += separator + lead + path + (isImage ? " e me diga o que você vê." : " ")
         composerFocused = true
     }
 

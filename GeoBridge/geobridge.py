@@ -1699,7 +1699,7 @@ def agent_chat_record(record):
     return out
 
 
-def agent_chat_messages(text, limit):
+def agent_chat_messages(text, limit, skip=0):
     messages = []
     for line in text.split("\n"):
         line = line.strip()
@@ -1710,6 +1710,9 @@ def agent_chat_messages(text, limit):
         except ValueError:
             continue
         messages += agent_chat_record(record)
+    skip = max(0, int(skip))
+    if skip:
+        messages = messages[:-skip]
     return messages[-limit:]
 
 
@@ -2135,7 +2138,7 @@ class Handler(BaseHTTPRequestHandler):
         }
         self._json(200, json.dumps(body, ensure_ascii=False).encode())
 
-    def _agent_chat_payload(self, session, limit=None):
+    def _agent_chat_payload(self, session, limit=None, skip=0):
         """Monta o payload do chat de uma sessão VM; retorna dict ou None (sem sessão/agente)."""
         found = self._term_vm_agent(session)
         if found is None:
@@ -2155,7 +2158,7 @@ class Handler(BaseHTTPRequestHandler):
             return body
         resolved, out = agent_chat_resolved(proc.stdout.decode("utf-8", "replace"))
         body["resolved"] = resolved
-        body["messages"] = agent_chat_messages(out, limit)
+        body["messages"] = agent_chat_messages(out, limit, skip)
         return body
 
     def _term_agent_stream(self):
@@ -2205,11 +2208,21 @@ class Handler(BaseHTTPRequestHandler):
     def _term_agent_chat(self):
         if not self._term_gate():
             return
+        q = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
+        try:
+            before = max(0, int((q.get("before") or ["0"])[0]))
+        except ValueError:
+            before = 0
         vm = self._term_vm_target()
         if vm is None:
             return
         if vm:
-            self._term_agent_chat_vm(vm)
+            limit = self._term_chat_limit(q)
+            body = self._agent_chat_payload(vm, limit, skip=before)
+            if body is None:
+                return
+            body["hasMore"] = len(body["messages"]) >= max(1, limit)
+            self._json(200, json.dumps(body, ensure_ascii=False).encode())
             return
         project, pane = self._term_agent_target()
         if project is None:

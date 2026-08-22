@@ -4,6 +4,8 @@ período real de trabalho, manda um resumo pelo WhatsApp (wa-outbox do sidecar).
 import glob
 import json
 import os
+import subprocess
+import sys
 import time
 
 ENV_FILE = os.environ.get("GARIME_AGENT_ENV", "/opt/garime/agent/agent.env")
@@ -16,12 +18,32 @@ if os.path.exists(ENV_FILE):
                 os.environ.setdefault(k.strip(), v.strip())
 
 SESSIONS_DIR = os.environ["GARIME_AGENT_SESSION_DIR"]
+SESSION = os.environ.get("GARIME_AGENT_SESSION", "garime-agent")
 OUTBOX = os.path.expanduser("~/.pi/wa-outbox")
 STATE = os.environ.get("NOTIFY_STATE", "/var/tmp/garime-agent-notify.json")
 FRESH = 30          # s: transcript escrito há menos que isso = trabalhando (status)
 GRACE = 180         # s: tolerância de 'ainda trabalhando' pro push (tools longas geram silêncio)
 MIN_WORK = 90       # s: só notifica se trabalhou ao menos isso
-COOLDOWN = 600      # s: entre notificações
+COOLDOWN = 600      # s: entre notificações de fim de task
+ASK_COOLDOWN = 900  # s: entre pushes de pergunta
+
+
+def asking_question():
+    """Detecta dialog aberto no pane do agente; devolve dict do ask ou None."""
+    try:
+        os.environ.setdefault("GEO_TERM_TMUX", os.environ.get("GARIME_AGENT_TMUX", "/usr/bin/tmux"))
+        if "/opt/garime" not in sys.path:
+            sys.path.insert(0, "/opt/garime")
+        import geobridge as g
+        text = g.agent_ask_capture(SESSION)
+        if text is None:
+            return None
+        info = g.agent_ask_parse(text)
+        if isinstance(info, dict) and info.get("asking") and (info.get("question") or info.get("raw_hint")):
+            return info
+    except Exception:
+        pass
+    return None
 
 
 def newest_jsonl():
@@ -88,6 +110,22 @@ def main() -> int:
     working_for_notify = bool(mtime and now - mtime <= GRACE)
 
     state = load_state()
+
+    # push de pergunta: agente preso num dialog esperando resposta
+    ask = asking_question() if not working_for_notify else None
+    if ask is None:
+        state["ask_active"] = False
+    elif now - state.get("asked_at", 0) > ASK_COOLDOWN:
+        q = " ".join(str(ask.get("question") or ask.get("raw_hint") or "").split())[:300]
+        name = time.strftime("agent-ask-%Y%m%d-%H%M%S.txt")
+        try:
+            with open(os.path.join(OUTBOX, name), "w") as f:
+                f.write("❓ garime-agent perguntou:\n" + q)
+            state["asked_at"] = now
+            state["ask_active"] = True
+        except OSError:
+            pass
+
     if working_for_notify:
         if state.get("working_since") is None:
             state["working_since"] = now
