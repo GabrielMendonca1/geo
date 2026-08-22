@@ -1,7 +1,12 @@
 import SwiftUI
 
+final class DockState: ObservableObject {
+    @Published var hidden = false
+}
+
 struct RootView: View {
     @State private var selection: String = RootView.initialTab()
+    @StateObject private var dockState = DockState()
     @AppStorage(AppearancePreference.storageKey) private var appearance = AppearancePreference.system.rawValue
     @State private var showSettings = RootView.shouldOpenSettings()
 
@@ -10,46 +15,74 @@ struct RootView: View {
     }
 
     var body: some View {
-        tabs
-            .tint(Color.slateText)
-            .preferredColorScheme(AppearancePreference(rawValue: appearance)?.colorScheme)
-            .sheet(isPresented: $showSettings) {
-                SettingsView(initialSection: RootView.settingsSection())
+        ZStack(alignment: .bottom) {
+            dockContent
+                .environmentObject(dockState)
+            if !dockState.hidden {
+                dock
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
             }
+        }
+        .animation(.spring(response: 0.3, dampingFraction: 0.9), value: dockState.hidden)
+        .tint(Color.slateText)
+        .preferredColorScheme(AppearancePreference(rawValue: appearance)?.colorScheme)
+        .sheet(isPresented: $showSettings) {
+            SettingsView(initialSection: RootView.settingsSection())
+        }
     }
 
     @ViewBuilder
-    private var tabs: some View {
-        if #available(iOS 26.0, *) {
-            tabView.tabBarMinimizeBehavior(.onScrollDown)
-        } else {
-            tabView
+    private var dockContent: some View {
+        switch selection {
+        case "health": HealthView()
+        case "terminal": AgentHomeView()
+        default: TodayView()
         }
     }
 
-    private var tabView: some View {
-        TabView(selection: $selection) {
-            TodayView()
-                .tabItem {
-                    Image(systemName: "calendar")
-                        .accessibilityLabel("Tarefas")
-                }
-                .tag("today")
-
-            HealthView()
-                .tabItem {
-                    Image(systemName: "figure.strengthtraining.traditional")
-                        .accessibilityLabel("Saúde")
-                }
-                .tag("health")
-
-            AgentHomeView()
-                .tabItem {
-                    Image(systemName: "terminal")
-                        .accessibilityLabel("Agente")
-                }
-                .tag("terminal")
+    private var dock: some View {
+        HStack(spacing: 4) {
+            dockItem("calendar", "Tarefas", tag: "today")
+            dockItem("figure.strengthtraining.traditional", "Saúde", tag: "health")
+            dockItem("terminal", "Agente", tag: "terminal")
         }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 34, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 34, style: .continuous)
+                        .strokeBorder(Color.slateStroke.opacity(0.5))
+                )
+                .shadow(color: .black.opacity(0.18), radius: 18, y: 6)
+        )
+        .padding(.horizontal, 24)
+        .padding(.bottom, 6)
+    }
+
+    private func dockItem(_ symbol: String, _ label: String, tag: String) -> some View {
+        let active = selection == tag
+        return Button {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) { selection = tag }
+        } label: {
+            VStack(spacing: 3) {
+                Image(systemName: symbol)
+                    .font(.system(size: 26, weight: .medium))
+                    .symbolRenderingMode(.hierarchical)
+                    .frame(height: 32)
+                Text(label)
+                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                    .opacity(active ? 1 : 0.45)
+            }
+            .foregroundStyle(active ? Color.primary : Color.secondary)
+            .frame(maxWidth: .infinity, minHeight: 62)
+            .contentShape(Rectangle())
+            .background(active ? Color.accentColor.opacity(0.12) : .clear, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+        .accessibilityAddTraits(active ? [.isSelected] : [])
     }
 
     private static func shouldOpenSettings() -> Bool {

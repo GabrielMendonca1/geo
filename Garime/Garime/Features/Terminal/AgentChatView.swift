@@ -623,6 +623,8 @@ struct AgentChatView: View {
     @StateObject private var dictation = AgentDictationModel()
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @EnvironmentObject private var dock: DockState
+    @State private var showCamera = false
     @State private var draft = AgentChatView.initialDraft()
     @State private var ticker: Task<Void, Never>?
     @State private var settle: Task<Void, Never>?
@@ -745,12 +747,14 @@ struct AgentChatView: View {
             model.clearNotice()
         }
         .onAppear {
+            dock.hidden = true
             startTicker()
             if draft.isEmpty, !initialDraft.isEmpty {
                 draft = initialDraft
             }
         }
         .onDisappear {
+            dock.hidden = false
             model.stopStream()
             stopTicker()
             settle?.cancel()
@@ -1268,6 +1272,13 @@ struct AgentChatView: View {
         .animation(enter, value: statusLine)
         .animation(enter, value: model.showsAskCard)
         .photosPicker(isPresented: $showPhotoPicker, selection: $photoItem, matching: .images)
+        .fullScreenCover(isPresented: $showCamera) {
+            CameraCaptureView { data, ext in
+                let name = UploadName.sanitized("foto-\(Self.stamp()).\(ext)", fallback: "foto")
+                Task { await deliverUpload(data, filename: name) }
+            }
+            .ignoresSafeArea()
+        }
         .fileImporter(isPresented: $showFileImporter, allowedContentTypes: [.item]) { result in
             importFile(result)
         }
@@ -1383,6 +1394,7 @@ struct AgentChatView: View {
 
     private var attachButton: some View {
         Menu {
+            Button { showCamera = true } label: { Label("câmera", systemImage: "camera") }
             Button { showPhotoPicker = true } label: { Label("foto", systemImage: "photo") }
             Button { showFileImporter = true } label: { Label("arquivo", systemImage: "doc") }
         } label: {
