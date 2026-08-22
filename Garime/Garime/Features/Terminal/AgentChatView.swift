@@ -285,6 +285,10 @@ final class AgentChatModel: ObservableObject {
     private var drafts: [Draft] = []
     private var refreshing = false
     private var askSeq = 0
+    @Published private(set) var streamConnected = false
+    private var streamTask: Task<Void, Never>?
+    private var lastStreamStatus = ""
+    private var lastStreamCount = -1
 
     init(target: AgentChatTarget, client: any BridgeAPI = BridgeClient.shared) {
         self.target = target
@@ -312,6 +316,56 @@ final class AgentChatModel: ObservableObject {
         let asking = showsAskCard ? "1" : "0"
         guard let last = messages.last else { return "0|\(asking)" }
         return "\(messages.count)|\(last.id)|\(last.text.count)|\(asking)"
+    }
+
+    func apply(_ payload: AgentChatPayload) async {
+        server = payload.messages
+        status = payload.status
+        noAgent = false
+        reachable = true
+        loaded = true
+        reconcile()
+        if payload.status != lastStreamStatus || payload.messages.count != lastStreamCount {
+            lastStreamStatus = payload.status
+            lastStreamCount = payload.messages.count
+            await refreshWork()
+            await refreshAsk()
+        }
+    }
+
+    func startStream() {
+        guard streamTask == nil, case .session(let name) = target.ref else { return }
+        streamTask = Task {
+            var backoff: UInt64 = 2_000_000_000
+            while !Task.isCancelled {
+                do {
+                    var req = URLRequest(url: URL(string: BridgeConfig.baseURLString + "/term/agent-stream?session=\(name)&limit=\(Self.limit)")!)
+                    req.setValue("Bearer \(BridgeConfig.termToken ?? "")", forHTTPHeaderField: "Authorization")
+                    req.timeoutInterval = 330
+                    let (bytes, response) = try await URLSession.shared.bytes(for: req)
+                    guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw URLError(.badServerResponse) }
+                    backoff = 2_000_000_000
+                    await MainActor.run { streamConnected = true }
+                    for try await line in bytes.lines {
+                        if Task.isCancelled { break }
+                        guard line.hasPrefix("data: ") else { continue }
+                        if let payload = try? JSONDecoder().decode(AgentChatPayload.self, from: Data(line.dropFirst(6).utf8)) {
+                            await self.apply(payload)
+                        }
+                    }
+                } catch { }
+                guard !Task.isCancelled else { break }
+                await MainActor.run { streamConnected = false }
+                try? await Task.sleep(nanoseconds: backoff)
+                backoff = min(backoff * 2, 30_000_000_000)
+            }
+        }
+    }
+
+    func stopStream() {
+        streamTask?.cancel()
+        streamTask = nil
+        streamConnected = false
     }
 
     func refresh() async {
@@ -616,6 +670,7 @@ struct AgentChatView: View {
             .safeAreaInset(edge: .bottom) { composer }
             .task {
                 await model.refresh()
+                model.startStream()
                 proxy.scrollTo(Self.bottomAnchor, anchor: .bottom)
             }
         }
@@ -640,6 +695,7 @@ struct AgentChatView: View {
             }
         }
         .onDisappear {
+            model.stopStream()
             stopTicker()
             settle?.cancel()
             dictation.stop()
@@ -649,6 +705,7 @@ struct AgentChatView: View {
                 startTicker()
                 Task { await model.refresh() }
             } else {
+                model.stopStream()
                 stopTicker()
                 dictation.stop()
             }
@@ -1329,7 +1386,9 @@ struct AgentChatView: View {
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: model.pollInterval)
                 guard !Task.isCancelled else { return }
-                await model.refresh()
+                if !model.streamConnected {
+                    await model.refresh()
+                }
             }
         }
     }

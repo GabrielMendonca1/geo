@@ -78,6 +78,8 @@ AGENT_CHAT_MAX_LIMIT = int(os.environ.get("GEO_AGENT_CHAT_MAX_LIMIT", "200"))
 AGENT_CHAT_TEXT_MAX = int(os.environ.get("GEO_AGENT_CHAT_TEXT_MAX", "2000"))
 AGENT_CHAT_TAIL_BYTES = int(os.environ.get("GEO_AGENT_CHAT_TAIL_BYTES", "131072"))
 AGENT_CHAT_TIMEOUT = float(os.environ.get("GEO_AGENT_CHAT_TIMEOUT", "12"))
+AGENT_STREAM_TICK_S = float(os.environ.get("GEO_AGENT_STREAM_TICK_S", "0.5"))
+AGENT_STREAM_MAX_S = float(os.environ.get("GEO_AGENT_STREAM_MAX_S", "300"))
 AGENT_PROMPT_MAX = 8192
 AGENT_PROMPT_TIMEOUT = float(os.environ.get("GEO_AGENT_PROMPT_TIMEOUT", "15"))
 AGENT_COMMANDS_TTL = float(os.environ.get("GEO_AGENT_COMMANDS_TTL", "120"))
@@ -2084,8 +2086,9 @@ class Handler(BaseHTTPRequestHandler):
             return None
         return agent, cwd
 
-    def _term_chat_limit(self):
-        q = parse_qs(urlsplit(self.path).query)
+    def _term_chat_limit(self, q=None):
+        if q is None:
+            q = parse_qs(urlsplit(self.path).query)
         try:
             limit = int((q.get("limit") or [str(AGENT_CHAT_LIMIT)])[0])
         except ValueError:
@@ -2132,28 +2135,71 @@ class Handler(BaseHTTPRequestHandler):
         }
         self._json(200, json.dumps(body, ensure_ascii=False).encode())
 
-    def _term_agent_chat_vm(self, session):
+    def _agent_chat_payload(self, session, limit=None):
+        """Monta o payload do chat de uma sessão VM; retorna dict ou None (sem sessão/agente)."""
         found = self._term_vm_agent(session)
         if found is None:
-            return
+            return None
         agent, cwd = found
-        limit = self._term_chat_limit()
+        if limit is None:
+            limit = self._term_chat_limit()
         body = {"agent": agent, "status": agent_chat_status(cwd), "resolved": "", "messages": []}
         script = agent_transcript_script(vm_agent_session(agent), cwd)
         if not script:
-            self._json(200, json.dumps(body, ensure_ascii=False).encode())
-            return
+            return body
         try:
             proc = agent_local(script, AGENT_CHAT_TIMEOUT)
         except Exception:
-            self._json(503, b'{"error":"unavailable"}')
-            return
+            return body
         if proc.returncode != 0:
-            self._json(503, b'{"error":"unavailable"}')
-            return
+            return body
         resolved, out = agent_chat_resolved(proc.stdout.decode("utf-8", "replace"))
         body["resolved"] = resolved
         body["messages"] = agent_chat_messages(out, limit)
+        return body
+
+    def _term_agent_stream(self):
+        """SSE: empurra o payload do chat a cada mudança (~0.5s). Fecho após AGENT_STREAM_MAX_S."""
+        if not self._term_gate():
+            return
+        q = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
+        session = self._term_session_name()
+        if not session:
+            return
+        limit = self._term_chat_limit(q)
+        try:
+            deadline = time.monotonic() + AGENT_STREAM_MAX_S
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Connection", "close")
+            self.end_headers()
+            self._streaming = True
+            last_hash = None
+            while time.monotonic() < deadline:
+                payload = self._agent_chat_payload(session, limit)
+                if payload is None:
+                    break
+                data = json.dumps(payload, ensure_ascii=False).encode()
+                digest = hashlib.sha256(data).digest()
+                if digest != last_hash:
+                    last_hash = digest
+                    self.wfile.write(b"data: " + data + b"\n\n")
+                    self.wfile.flush()
+                elif int((AGENT_STREAM_MAX_S - (deadline - time.monotonic())) * 2) % 30 == 0:
+                    pass  # heartbeat implícito: mudanças no hash chegam logo
+                time.sleep(AGENT_STREAM_TICK_S)
+            self.wfile.write(b"event: bye\ndata: {}\n\n")
+            self.wfile.flush()
+        except (ConnectionError, BrokenPipeError, socket.timeout, OSError):
+            pass
+        finally:
+            self.close_connection = True
+
+    def _term_agent_chat_vm(self, session):
+        body = self._agent_chat_payload(session)
+        if body is None:
+            return
         self._json(200, json.dumps(body, ensure_ascii=False).encode())
 
     def _term_agent_chat(self):
@@ -2855,6 +2901,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._term_health()
             elif path == "/term/panes":
                 self._term_panes()
+            elif path == "/term/agent-stream":
+                self._term_agent_stream()
             elif path == "/term/agent-chat":
                 self._term_agent_chat()
             elif path == "/term/agent-ask":
