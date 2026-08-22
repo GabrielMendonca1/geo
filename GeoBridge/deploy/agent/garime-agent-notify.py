@@ -18,7 +18,8 @@ if os.path.exists(ENV_FILE):
 SESSIONS_DIR = os.environ["GARIME_AGENT_SESSION_DIR"]
 OUTBOX = os.path.expanduser("~/.pi/wa-outbox")
 STATE = os.environ.get("NOTIFY_STATE", "/var/tmp/garime-agent-notify.json")
-FRESH = 30          # s: transcript escrito há menos que isso = trabalhando
+FRESH = 30          # s: transcript escrito há menos que isso = trabalhando (status)
+GRACE = 180         # s: tolerância de 'ainda trabalhando' pro push (tools longas geram silêncio)
 MIN_WORK = 90       # s: só notifica se trabalhou ao menos isso
 COOLDOWN = 600      # s: entre notificações
 
@@ -83,9 +84,11 @@ def main() -> int:
     path, mtime = newest_jsonl()
     now = time.time()
     working = bool(mtime and now - mtime <= FRESH)
+    # pro push, silêncio de transcript até GRACE não conta como fim de task
+    working_for_notify = bool(mtime and now - mtime <= GRACE)
 
     state = load_state()
-    if working:
+    if working_for_notify:
         if state.get("working_since") is None:
             state["working_since"] = now
         state["last_busy"] = now
