@@ -94,7 +94,7 @@ def case_health_shape(mod, port):
     status, body = request(port, "/term/health")
     check("codigo", status, 200)
     check("chaves", sorted(body), ["agent", "mac_online", "ok"])
-    check("agent", body["agent"], {"session": "garime-agent", "running": True, "agent": "pi"})
+    check("agent", body["agent"], {"session": "garime-agent", "running": True, "agent": "pi", "busy": False})
     check("mac_online", body["mac_online"], True)
     ok("sem campo vm_online", "vm_online" not in body, "o 200 e o sinal da VM")
 

@@ -647,13 +647,40 @@ def status_vm_agents():
     return agents
 
 
+def agent_chat_status(cwd, fresh_seconds=25):
+    """Status real do agente: 'working' se o transcript foi escrito há pouco, 'idle' caso contrário."""
+    try:
+        name = agent_pi_dir(cwd)
+        if not name:
+            return "unknown"
+        candidates = (
+            os.path.join(AGENT_PI_SESSIONS_DIR, name),
+            os.path.expanduser("~/.pi/agent/sessions/" + name),
+        )
+        for d in candidates:
+            try:
+                names = [n for n in os.listdir(d) if n.endswith(".jsonl")]
+            except OSError:
+                continue
+            if not names:
+                continue
+            newest = max(os.path.getmtime(os.path.join(d, n)) for n in names)
+            return "working" if time.time() - newest <= fresh_seconds else "idle"
+    except Exception:
+        pass
+    return "unknown"
+
+
 def agent_session_state():
     try:
         found = vm_session_agent(AGENT_SESSION)
     except Exception:
         found = None
     agent = found[0] if found else ""
-    return {"session": AGENT_SESSION, "running": bool(agent), "agent": agent}
+    state = {"session": AGENT_SESSION, "running": bool(agent), "agent": agent}
+    if agent and found[1]:
+        state["busy"] = agent_chat_status(found[1]) == "working"
+    return state
 
 
 def status_scan_full():
@@ -2111,7 +2138,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         agent, cwd = found
         limit = self._term_chat_limit()
-        body = {"agent": agent, "status": "running", "resolved": "", "messages": []}
+        body = {"agent": agent, "status": agent_chat_status(cwd), "resolved": "", "messages": []}
         script = agent_transcript_script(vm_agent_session(agent), cwd)
         if not script:
             self._json(200, json.dumps(body, ensure_ascii=False).encode())

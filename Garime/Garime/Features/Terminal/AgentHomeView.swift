@@ -20,9 +20,10 @@ struct AgentHealthProcess: Decodable, Equatable {
     let session: String
     let running: Bool
     let agent: String
+    let busy: Bool
 
     enum CodingKeys: String, CodingKey {
-        case session, running, agent
+        case session, running, agent, busy
     }
 
     init(from decoder: Decoder) throws {
@@ -30,6 +31,7 @@ struct AgentHealthProcess: Decodable, Equatable {
         session = ((try? container.decodeIfPresent(String.self, forKey: .session)) ?? nil) ?? ""
         running = ((try? container.decodeIfPresent(Bool.self, forKey: .running)) ?? nil) ?? false
         agent = ((try? container.decodeIfPresent(String.self, forKey: .agent)) ?? nil) ?? ""
+        busy = ((try? container.decodeIfPresent(Bool.self, forKey: .busy)) ?? nil) ?? false
     }
 }
 
@@ -58,6 +60,7 @@ final class AgentHomeModel: ObservableObject {
     @Published private(set) var reachable = false
     @Published private(set) var macOnline = false
     @Published private(set) var agentRunning = false
+    @Published private(set) var agentBusy = false
     @Published private(set) var latency: Int?
 
     private let client: any BridgeAPI
@@ -84,7 +87,7 @@ final class AgentHomeModel: ObservableObject {
     var agentNote: String {
         if !loaded { return "checando" }
         if !reachable { return "bridge fora do ar" }
-        return agentRunning ? "agente de pé" : "agente parado"
+        return agentBusy ? "trabalhando" : (agentRunning ? "agente de pé" : "agente parado")
     }
 
     func refresh() async {
@@ -98,11 +101,13 @@ final class AgentHomeModel: ObservableObject {
             reachable = payload.ok
             macOnline = payload.macOnline
             agentRunning = payload.agent?.running ?? false
+            agentBusy = payload.agent?.busy ?? false
             latency = max(0, Int(((clock() - started) * 1000).rounded()))
         } catch {
             reachable = false
             macOnline = false
             agentRunning = false
+            agentBusy = false
             latency = nil
         }
         loaded = true
