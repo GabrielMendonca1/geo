@@ -151,7 +151,7 @@ final class BridgeTasksDecodingTests: XCTestCase {
     }
 
     func testRealVaultPayloadDecodesFully() throws {
-        let dir = "/Users/biel/Vault/Tasks"
+        let dir = "/mnt/garime/state/tasks"
         let fm = FileManager.default
         guard let names = try? fm.contentsOfDirectory(atPath: dir) else {
             throw XCTSkip("vault indisponivel neste ambiente")

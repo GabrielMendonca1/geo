@@ -84,7 +84,7 @@ enum Config {
     static let hubDirectory = NSHomeDirectory() + "/Library/Application Support/Garime/Hub"
     static let sshBinary = "/usr/bin/ssh"
     static let tasksHost = "garime"
-    static let tasksRemoteGlob = "/mnt/garime/Vault/Tasks/" + "*.json"
+    static let tasksRemoteGlob = "/mnt/garime/state/tasks/" + "*.json"
     static let tasksFetchTimeout: TimeInterval = 20
     static let tasksRefreshInterval: TimeInterval = 300
     static let tasksStaleAfter: TimeInterval = 120
@@ -108,7 +108,7 @@ enum Config {
     static let panelListLimit = 200
     static let capsPollSeconds: TimeInterval = 1.0
     static let panelMaxBodyHeight: CGFloat = 420
-    static let vaultDirectory = NSHomeDirectory() + "/Vault"
+    static let vaultDirectory = NSHomeDirectory() + "/Gabriel"
     static let panelGap: CGFloat = 6
     static let panelProjectLimit = 6
 

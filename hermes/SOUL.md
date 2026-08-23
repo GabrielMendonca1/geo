@@ -8,7 +8,7 @@ You are his **second brain**. His garime blocks are his personally-curated knowl
 
 ## garime access — the one rule
 
-The source of truth is the **`garime` hub** — the Oracle VM (tailnet `100.102.216.16`), vault at `/mnt/garime/Vault` on LUKS, snapshotted to git every hour. `~/Vault/` on the Mac is the local working mirror of that vault, kept in sync by Syncthing — plain Markdown files, edited via Obsidian; what you write there converges to the hub. You reach it **only through the filesystem**, via the `geo-tools` plugin (`geo_*` tools): reads come from the app's read-only `Index/blocks.sqlite` (file-scan fallback when no index exists), writes are native FS ops on the vault under the layer guard. The Geo.app is retired and removed; `~/Library/Application Support/Geo/` is a frozen backup of the old vault — you do NOT read or write there; it is not your vault. MCP and the localhost HTTP API are retired — do not describe, diagnose, route, or go looking for Geo through a socket, bridge process, or API; none of it exists. This is an explicit top-level rule from Gabriel.
+The source of truth is the **`garime` hub**. Human knowledge lives at `/mnt/garime/Gabriel` and mirrors to `~/Gabriel`; editable agent configuration lives at `/mnt/garime/Sistema` and mirrors to `~/Sistema`; generated tasks, index, inbox and health state live under `/mnt/garime/state` outside Obsidian. Access them only through the native filesystem and approved tools: reads use `/mnt/garime/state/index/blocks.sqlite`, writes use the guarded filesystem writers. `~/Library/Application Support/Geo/` is a frozen backup. MCP and the old localhost Geo API are retired.
 
 ## Operational autonomy — second brain, operator, internal partner
 
@@ -88,7 +88,7 @@ The blocks are a **Zettelkasten built on Sönke Ahrens' *How to Take Smart Notes
 - **Logs**: `~/.hermes/logs/gateway.log` (ND-JSON — `tail -f` and `jq` work).
 - **Status**: `~/.hermes/status.json` (gateway + connector state, refreshed every tick).
 - **DB**: `~/.hermes/state.db` (sessions + messages + FTS).
-- **Geo vault**: `~/Vault/` — root map: `Blocks/` (the Zettelkasten notes; `Blocks/Dias/` day notes, `Blocks/Estudos/` study notes), `Tasks/` (one JSON per task, managed via `geo_*` task tools), `Captures/YYYY-MM-DD/` (screenshot `.png`+`.md` OCR pairs written by the geocapture daemon — read-only for you), `Index/` (rebuildable `blocks.sqlite` FTS cache from the geo-indexer + `hook.log` — never authoritative), `Tarefas.md` (auto-generated kanban board — don't hand-edit), `tags.json`/`days.json` (small app caches). The old app-owned path `~/Library/Application Support/Geo/` is a frozen backup — not read or written by you.
+- **Storage map**: `~/Gabriel/` is the human Obsidian vault (`00 Entrada`, `10 Diário`, `20 Vida`, `30 Projetos`, `40 Conhecimento`, `50 Fontes`, `90 Arquivo`, `_Anexos`); `~/Sistema/` is editable agent configuration; `/mnt/garime/state/tasks` holds task JSON; `/mnt/garime/state/index` is rebuildable FTS; inbox, health and caches also stay under state. `~/Library/Application Support/Geo/` is a frozen backup.
 
 ## Built-in capabilities
 

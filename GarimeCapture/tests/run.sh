@@ -47,8 +47,8 @@ BLANK_B64="iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEh
 ART_RE='^[0-9]{8}-[0-9]{6}-[0-9a-f]{10}\.(png|jpg|jpeg|heic|heif)$'
 
 vault_count() {
-  [ -d "$HOME/Vault/Captures" ] || { echo 0; return; }
-  find "$HOME/Vault/Captures" -type f 2>/dev/null | wc -l | tr -d ' '
+  [ -d "$HOME/Gabriel" ] || { echo 0; return; }
+  find "$HOME/Gabriel" -type f 2>/dev/null | wc -l | tr -d ' '
 }
 VAULT_BEFORE="$(vault_count)"
 
@@ -219,15 +219,15 @@ grep -q 'OCR timed out' "$TMP/ocrfail.log" && ok "the timeout is logged" || fail
 env GARIME_CAPTURE_HOME="$TMP/base16" "$BIN" capture-once "$TMP/shots/ocrfail-case.png" >/dev/null 2>&1 \
   && ok "the retry succeeds once OCR has time" || fail "OCR retry failed"
 
-section "T9 the ~/Vault guard refuses to run"
-GARIME_CAPTURE_HOME="$HOME/Vault/garimecapture-guard-$$" "$BIN" paths >"$TMP/guard.log" 2>&1
+section "T9 the ~/Gabriel guard refuses to run"
+GARIME_CAPTURE_HOME="$HOME/Gabriel/garimecapture-guard-$$" "$BIN" paths >"$TMP/guard.log" 2>&1
 STATUS=$?
-[ "$STATUS" -eq 78 ] && ok "exits 78 when the capture home resolves into ~/Vault" || fail "guard did not trigger (exit $STATUS)"
-[ ! -d "$HOME/Vault/garimecapture-guard-$$" ] && ok "nothing created under ~/Vault" || fail "guard created a dir in ~/Vault"
+[ "$STATUS" -eq 78 ] && ok "exits 78 when capture home resolves into ~/Gabriel" || fail "guard did not trigger (exit $STATUS)"
+[ ! -d "$HOME/Gabriel/garimecapture-guard-$$" ] && ok "nothing created under ~/Gabriel" || fail "guard created a dir in ~/Gabriel"
 grep -q 'forbidden vault root' "$TMP/guard.log" && ok "guard logged the refusal" || fail "guard did not log"
 VAULT_AFTER="$(vault_count)"
-[ "$VAULT_BEFORE" = "$VAULT_AFTER" ] && ok "~/Vault/Captures untouched ($VAULT_AFTER files)" \
-  || fail "~/Vault/Captures changed: $VAULT_BEFORE -> $VAULT_AFTER"
+[ "$VAULT_BEFORE" = "$VAULT_AFTER" ] && ok "~/Gabriel untouched ($VAULT_AFTER files)" \
+  || fail "~/Gabriel changed: $VAULT_BEFORE -> $VAULT_AFTER"
 
 section "T10 the archive is purged at 30 days, not before"
 rm -rf "$TMP/base7" "$TMP/outside7"

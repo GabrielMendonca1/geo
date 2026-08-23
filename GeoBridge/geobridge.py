@@ -26,8 +26,8 @@ from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
 
-TASKS_DIR = os.path.expanduser(os.environ.get("GEO_TASKS_DIR", "~/Vault/Tasks"))
-HEALTH_DIR = os.path.expanduser(os.environ.get("GEO_HEALTH_DIR", "~/Vault/Health"))
+TASKS_DIR = os.path.expanduser(os.environ.get("GEO_TASKS_DIR", "/mnt/garime/state/tasks"))
+HEALTH_DIR = os.path.expanduser(os.environ.get("GEO_HEALTH_DIR", "/mnt/garime/state/health"))
 DISPATCHES_DIR = os.path.expanduser(os.environ.get("GEO_DISPATCHES_DIR", "~/.hermes/dispatches"))
 BIND = os.environ.get("GEO_BRIDGE_BIND", "100.123.44.9")
 PORT = int(os.environ.get("GEO_BRIDGE_PORT", "8643"))
@@ -742,7 +742,7 @@ def agent_project_dir(cwd):
 
 def agent_pi_dir(cwd):
     project = agent_project_dir(cwd)
-    # convenção do pi: /mnt/garime/Vault → --mnt-garime-Vault-- (traço duplo nas duas pontas)
+    # convenção do pi: /mnt/garime/Gabriel → --mnt-garime-Gabriel-- (traço duplo nas duas pontas)
     return ("-" + project + "--") if project else ""
 
 

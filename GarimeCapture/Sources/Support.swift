@@ -30,6 +30,8 @@ func expandPath(_ path: String) -> URL {
 }
 
 let forbiddenRoots: [String] = [
+    homeDir.appendingPathComponent("Gabriel", isDirectory: true).standardizedFileURL.path,
+    homeDir.appendingPathComponent("Sistema", isDirectory: true).standardizedFileURL.path,
     homeDir.appendingPathComponent("Vault", isDirectory: true).standardizedFileURL.path,
     homeDir.appendingPathComponent("Library/Application Support/Geo", isDirectory: true).standardizedFileURL.path,
 ]

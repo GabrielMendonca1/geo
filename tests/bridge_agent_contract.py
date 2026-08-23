@@ -90,7 +90,7 @@ def case_gate(mod, port):
 def case_health_shape(mod, port):
     print("\n== /term/health")
     mod.status_mac_online = lambda: True
-    mod.vm_session_agent = lambda session: ("pi", "/mnt/garime/Vault")
+    mod.vm_session_agent = lambda session: ("pi", "/mnt/garime/Gabriel")
     status, body = request(port, "/term/health")
     check("codigo", status, 200)
     check("chaves", sorted(body), ["agent", "mac_online", "ok"])

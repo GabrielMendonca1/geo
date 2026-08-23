@@ -1,16 +1,16 @@
 # Garime Spirit
 
-Personal, local-first knowledge system. The vault is **`~/Vault/`** — plain Markdown, edited via Obsidian — and every component reaches it **only through the native filesystem**: no MCP, no HTTP API, no socket between components. The former macOS app was retired 2026-07-04 (code lives in git history); `~/Library/Application Support/Geo/` is a frozen backup that nothing reads or writes.
+Personal, local-first knowledge system split into **`~/Gabriel/`** (human Obsidian vault), **`~/Sistema/`** (editable operational vault), and **`/mnt/garime/state/`** (generated machine state outside Obsidian). Components use the native filesystem. The former macOS app was retired 2026-07-04; `~/Library/Application Support/Geo/` is a frozen backup.
 
 ```
-~/Vault/
-  Blocks/**.md         ← single source of truth (Zettelkasten)
-  Tasks/<id>.json      one file per task
-  Captures/YYYY-MM-DD/ OCR markdown — legado, congelado: GarimeCapture não escreve mais nada aqui
-  Index/blocks.sqlite  rebuildable FTS cache (geo_indexer) — NEVER authoritative
+~/Gabriel/                    human Markdown and attachments
+~/Sistema/Pi/                 system prompt, skills and Omni prompts
+/mnt/garime/state/tasks/      one JSON per task
+/mnt/garime/state/index/      rebuildable FTS cache
+/mnt/garime/state/{inbox,health}/ generated operational state
         ▲ filesystem only
-geo_indexer (VM garime)  `hermes/scripts` → rebuilds the FTS index over the vault
-GeoBridge             tasks/terminal/chat → Garime (iOS) over Tailscale
+geo_indexer (VM garime)  indexes the human tree into state/index
+GeoBridge             task/health state + terminal → Garime over Tailscale
 GarimeCapture daemon  ·  Garime (iOS)  ·  GeoCore (shared Swift pkg)
 ```
 
@@ -18,9 +18,9 @@ This file is the source of truth for architecture and rules. Deep dives: mobile�
 
 ## Hard rules
 
-- **Files are truth.** A block *is* its `.md` file (frontmatter `id/type/status/layer/tags` + inline `[[wikilinks]]` and `[[YYYY-MM-DD]]` day-links). `Index/blocks.sqlite` is a rebuildable cache — corruption is fixed by re-running `hermes/scripts/geo_indexer.py`, never by hand-editing the DB.
+- **Files are truth.** Human knowledge is its Markdown under `~/Gabriel`; `/mnt/garime/state/index/blocks.sqlite` is rebuildable and never edited by hand.
 - **The old vault path is forbidden.** Nothing may read or write `~/Library/Application Support/Geo/`; `GarimeCapture` carries an explicit guard against it.
-- **GarimeCapture é 100% local e não gera markdown.** Nada sai do Mac: o daemon não linka biblioteca de rede nem gera subprocesso. O texto do OCR vive só na memória e no **clipboard** — nunca em disco, nem no log (que registra apenas a contagem de caracteres). A imagem fica em `…/GarimeCapture/archive/<day>/` — onde `<day>` é o dia do *arquivamento*, não o da captura — e é purgada 30 dias depois, apagando só os artefatos que o próprio daemon gerou. O original só é apagado depois do archive durável (`F_FULLFSYNC`) **e** do clipboard aceito. Escrever em qualquer lugar sob `~/Vault/` é guardado e recusado — ver `GarimeCapture/README.md`.
+- **GarimeCapture é 100% local e não gera markdown.** Nada sai do Mac: o daemon não linka biblioteca de rede nem gera subprocesso. O texto do OCR vive só na memória e no **clipboard** — nunca em disco, nem no log (que registra apenas a contagem de caracteres). A imagem fica em `…/GarimeCapture/archive/<day>/` — onde `<day>` é o dia do *arquivamento*, não o da captura — e é purgada 30 dias depois, apagando só os artefatos que o próprio daemon gerou. O original só é apagado depois do archive durável (`F_FULLFSYNC`) **e** do clipboard aceito. Escrever em qualquer lugar sob `~/Gabriel/` ou `~/Sistema/` é guardado e recusado — ver `GarimeCapture/README.md`.
 - **Sync-conflict files are dead.** Syncthing `.sync-conflict-*` files are skipped by the indexer and all readers — never index or resurrect them.
 - **`hermes/` is source, not runtime.** The local hermes daemon was retired on 2026-08-04; what survives is `hermes/SOUL.md` (target of the `~/.hermes/SOUL.md` symlink) and `hermes/scripts/`, whose deployed copy runs on the VM garime. Edit the repo, never a copy.
 - **Commit format:** `<type>(<scope>): <description>` — `feat fix docs style refactor test chore`.

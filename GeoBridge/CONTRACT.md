@@ -23,13 +23,13 @@ Deploy: `scp` the repo's `geobridge.py` to `/opt/garime/geobridge.py`, then `sys
 
 ## Configuration (env vars)
 
-Defaults below are the code's; the **effective** values come from the `Environment=` lines of `garime-bridge.service` (VM paths: `GEO_TASKS_DIR=/mnt/garime/Vault/Tasks`, `GEO_BRIDGE_BIND=127.0.0.1` behind `tailscale serve`, tokens under `/etc/garime/`, `GEO_TERM_ENABLED=1`, `GEO_TERM_TMUX=/usr/bin/tmux`). `GEO_HEALTH_DIR` is not set in the unit — it resolves from `biel`'s `HOME` to `/home/biel/Vault/Health`.
+Defaults below are the code's; effective values come from `garime-bridge.service`: task and health state live under `/mnt/garime/state`, the bridge binds to `127.0.0.1` behind `tailscale serve`, tokens live under `/etc/garime/`, and the terminal uses `/usr/bin/tmux`.
 
 | Var | Default | Meaning |
 |---|---|---|
-| `GEO_TASKS_DIR` | `~/Vault/Tasks` | One `<id>.json` per task |
+| `GEO_TASKS_DIR` | `/mnt/garime/state/tasks` | One `<id>.json` per task |
 | `GEO_DISPATCHES_DIR` | `~/.hermes/dispatches` | One dir per cc-dispatch worker |
-| `GEO_HEALTH_DIR` | `~/Vault/Health` | `protocol.json`, `state.json`, one `log-YYYY-MM-DD.json` per session |
+| `GEO_HEALTH_DIR` | `/mnt/garime/state/health` | `protocol.json`, `state.json`, one `log-YYYY-MM-DD.json` per session |
 | `GEO_BRIDGE_BIND` | `100.123.44.9` | Tailnet address to bind (never `0.0.0.0`) |
 | `GEO_BRIDGE_PORT` | `8643` | |
 | `GEO_BRIDGE_TOKEN_FILE` | `~/.hermes/geobridge.token` | Bearer token for bridge auth (single line, trimmed) |
@@ -261,7 +261,7 @@ Bridge request:
 
 ## Vitals — `/vitals/*` (added in v4)
 
-The health module of the phone, over `GEO_HEALTH_DIR` (default `~/Vault/Health`). Dumb pipe as in principle 1: reads are verbatim bytes, writes are validate-then-atomic-write of the exact JSON the phone sent. The bridge never computes anything — in particular it does **not** derive today's session; the phone does that from `state.json` (`(anchorIndex + days_since(anchorDate)) mod 6`). Main bridge token, same as `/tasks`.
+The health module of the phone, over `GEO_HEALTH_DIR` (default `/mnt/garime/state/health`). Dumb pipe as in principle 1: reads are verbatim bytes, writes are validate-then-atomic-write of the exact JSON the phone sent. The bridge never computes anything — in particular it does **not** derive today's session; the phone does that from `state.json` (`(anchorIndex + days_since(anchorDate)) mod 6`). Main bridge token, same as `/tasks`.
 
 ### GET /vitals/protocol
 

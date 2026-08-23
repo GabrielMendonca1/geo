@@ -16,7 +16,8 @@ enum SnipStore {
     static let seeds: [Snip] = [
         Snip(name: "dash", command: "dash --live"),
         Snip(name: "htop", command: "htop"),
-        Snip(name: "vault", command: "cd ~/Vault && ls"),
+        Snip(name: "cérebro", command: "cd ~/Gabriel && ls"),
+        Snip(name: "sistema", command: "cd ~/Sistema && ls"),
         Snip(name: "tmux ls", command: "tmux ls"),
         Snip(name: "bridge log", command: "tail -f ~/Library/Logs/geobridge.log"),
     ]

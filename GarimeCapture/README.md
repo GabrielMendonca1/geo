@@ -33,7 +33,7 @@ folder, a symlink — all survive, and the day survives with them.
   code that could reach a network was deleted, and the test suite fails if any of it comes back.
 - **No markdown is ever generated or persisted.** The OCR text exists in memory and on the
   pasteboard, and nowhere else. Not even the log records it — only a character count.
-- Nothing is ever written under `~/Vault/` or the retired `~/Library/Application Support/Geo/`.
+- Nothing is ever written under the human `~/Gabriel/`, operational `~/Sistema/`, legacy `~/Vault/`, or retired `~/Library/Application Support/Geo/` roots.
   Both are hard-guarded; if `GARIME_CAPTURE_HOME` resolves inside either, the process exits 78.
 - The original screenshot is deleted only after **both**: the archived image and its day directory
   are `F_FULLFSYNC`ed, *and* the clipboard payload is accepted by the pasteboard server. A panic at

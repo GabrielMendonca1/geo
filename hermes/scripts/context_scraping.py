@@ -4,7 +4,7 @@ context_scraping.py — self-contained context scraper, fully on Gabriel's
 Claude Code account (Claude Max OAuth), like the brain-vault Haiku ingest.
 
 Pipeline (no gateway, no agent phase):
-  1. scan /mnt/garime/Vault/Inbox/wa_ingest.jsonl ONCE per run, bucket by chat.
+  1. scan /mnt/garime/state/inbox/wa_ingest.jsonl ONCE per run, bucket by chat.
      The same pass yields the new-message window (past the watermark), a bounded
      72h context tail per chat (HERMES_WA_CONTEXT_LOOKBACK_HOURS) and the
      bootstrap tail for chats with new messages. CONTEXT_MAX_CHARS=6000
@@ -1280,7 +1280,7 @@ async def decide(http: httpx.AsyncClient, headers: dict, kept: list[dict], brain
     return out, True
 
 
-BLOCKS_DIR = Path.home() / "Vault" / "Blocks"
+BLOCKS_DIR = Path("/mnt/garime/Gabriel") / "40 Conhecimento"
 _SANITIZE_RE = re.compile(r'[/:\\*?"<>|]')
 _TYPES = ("fleeting", "literature", "permanent", "moc", "project")
 _LAYERS = ("user", "agent", "review", "shared")
@@ -1505,7 +1505,7 @@ def upsert_daily_digest(date_iso: str, people_lines: list[str], social_lines: li
     return DIARY_PATH.name
 
 
-TASKS_DIR = Path.home() / "Vault" / "Tasks"
+TASKS_DIR = Path("/mnt/garime/state/tasks")
 EXPIRED_DIR = TASKS_DIR / ".expired"
 EXPIRED_REVIEW_PATH = BLOCKS_DIR / "Tasks expiradas.md"
 TASK_EXPIRY_DAYS = 7

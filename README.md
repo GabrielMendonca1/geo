@@ -1,6 +1,6 @@
 # Garime Spirit
 
-Personal, local-first knowledge system: a plain-Markdown vault (**`~/Vault/`**, edited via Obsidian) plus a set of satellite daemons that capture, index, and mirror everything — all over the native filesystem. No MCP, no HTTP API, no socket between components.
+Personal, local-first system split by responsibility: human knowledge in **`~/Gabriel/`**, editable operational sources in **`~/Sistema/`**, and generated machine state in **`/mnt/garime/state/`**. The two human-editable trees sync through Syncthing; state stays outside Obsidian.
 
 > **Personal, non-commercial project.** Garime Spirit is built and run for one person's own use.
 > It is not a product, it is not for sale, and it is not intended for commercial
@@ -9,17 +9,19 @@ Personal, local-first knowledge system: a plain-Markdown vault (**`~/Vault/`**, 
 ## Architecture
 
 ```
-~/Vault/                              ← single source of truth
-  Blocks/**.md       Zettelkasten (frontmatter id/type/status/layer/tags + [[wikilinks]])
-  Tasks/<id>.json    one file per task
-  Captures/          screenshot .png + .md OCR pairs (uploaded by GarimeCapture)
-  Index/blocks.sqlite  rebuildable FTS cache (geo_indexer) — never authoritative
+~/Gabriel/                          human Obsidian vault
+  00 Entrada/ 10 Diário/ 20 Vida/ 30 Projetos/
+  40 Conhecimento/ 50 Fontes/ 90 Arquivo/ _Anexos/
+~/Sistema/                          operational Obsidian vault
+  Pi/ (system prompt, skills, Omni prompts)  Claude/  Runbooks/
+/mnt/garime/state/                  generated, outside Obsidian
+  tasks/ index/ inbox/ health/ logs/ caches/
         ▲ native filesystem only
         │
-geo_indexer (VM garime)     rebuilds the FTS index over the vault
-GeoBridge                   tasks/terminal/chat → Garime (iOS) over Tailscale
-GarimeCapture               daemon: screenshot + OCR → local spool → vault on the VM
-GarimeWhisper               menu-bar dictation: hotkey → local whisper → paste
+geo_indexer (VM)     indexes human Markdown into state/index
+GeoBridge            exposes task/health state and terminal over Tailscale
+GarimeCapture        local screenshot/OCR archive, never writes either vault
+GarimeWhisper        menu-bar dictation: hotkey → local whisper → paste
 ```
 
 ## Components (this repo)
@@ -30,14 +32,14 @@ GarimeWhisper               menu-bar dictation: hotkey → local whisper → pas
 | `GeoBridge/` | HTTP bridge (launchd `ai.geo.bridge`) serving tasks/terminal/chat to GeoMobile over the tailnet — see `GeoBridge/CONTRACT.md` |
 | `Garime/` | iOS app (SwiftUI): unified Today, Chat, Agents, Terminal |
 | `GeoCore/` | Swift package shared with the iOS app |
-| `GarimeCapture/` | Swift daemon: screenshot + Vision OCR → durable local spool → `Captures/` in the vault on the VM garime. Never writes the local `~/Vault/` |
+| `GarimeCapture/` | Swift daemon: screenshot + Vision OCR → durable local archive. Never writes `~/Gabriel/` or `~/Sistema/` |
 | `GarimeWhisper/` | Swift menu-bar dictation app: hotkey → local whisper → paste |
 | `tests/` | `geo_time_contract.py` — time/timezone contract for `context_scraping` |
 
 The former macOS app (Swift/SwiftUI) was **retired on 2026-07-04** — its code was removed from the repo (lives in git history). The old vault at `~/Library/Application Support/Geo/` is a frozen backup, read and written by nothing.
 
 - **Files are truth.** A block *is* its `.md` file; everything else (FTS, graph, tag/day maps) is a rebuildable cache derived from those files.
-- **Local-first & private.** Notes never leave the machine. The repo contains no personal data — the vault lives outside it, under `~/Vault/`.
+- **Local-first & private.** The repo contains no personal data; human and operational vaults live outside it under `~/Gabriel/` and `~/Sistema/`.
 
 Rules and deep dives: [`CLAUDE.md`](CLAUDE.md). Current work state: [`STATUS.md`](STATUS.md).
 
