@@ -9,12 +9,12 @@ Pipeline (no gateway, no agent phase):
      72h context tail per chat (HERMES_WA_CONTEXT_LOOKBACK_HOURS) and the
      bootstrap tail for chats with new messages. CONTEXT_MAX_CHARS=6000
      measures rendered prompt size, including timestamps and media enrichment.
-  2. CLASSIFY each bucket in parallel with Haiku (model.nano) → proposals. Each
+  2. CLASSIFY each bucket in parallel with openai-codex / gpt-5.6-luna / low → proposals. Each
      WhatsApp bucket is shown CONTEXTO (the 72h tail + the previous live summary,
      read-only, for interpretation) and MENSAGENS NOVAS — only the latter may
      produce proposals. Emails get no replay.
   3. DECIDE via one stateless `pi -p` subprocess — openai-codex /
-     gpt-5.6-luna / thinking high by default (HERMES_WA_DECIDE_PROVIDER,
+     gpt-5.6-sol / thinking medium by default (HERMES_WA_DECIDE_PROVIDER,
      HERMES_WA_DECIDE_MODEL, HERMES_WA_DECIDE_EFFORT). No session, no tools,
      no skills/extensions/prompt-templates/context-files: the prompt is the
      only input. Runs only when CLASSIFY kept at least one proposal, and
@@ -103,8 +103,16 @@ def _config_model(key: str, env_key: str, fallback: str) -> str:
     return fallback
 
 
-def _nano_model() -> str:
-    return _config_model("nano", "HERMES_NANO_MODEL", "claude-haiku-4-5")
+def _classify_provider() -> str:
+    return os.environ.get("HERMES_WA_CLASSIFY_PROVIDER") or "openai-codex"
+
+
+def _classify_model() -> str:
+    return os.environ.get("HERMES_WA_CLASSIFY_MODEL") or "gpt-5.6-luna"
+
+
+def _classify_effort() -> str:
+    return os.environ.get("HERMES_WA_CLASSIFY_EFFORT") or "low"
 
 
 def _decide_provider() -> str:
@@ -112,11 +120,11 @@ def _decide_provider() -> str:
 
 
 def _decide_model() -> str:
-    return os.environ.get("HERMES_WA_DECIDE_MODEL") or "gpt-5.6-luna"
+    return os.environ.get("HERMES_WA_DECIDE_MODEL") or "gpt-5.6-sol"
 
 
 def _decide_effort() -> str:
-    return os.environ.get("HERMES_WA_DECIDE_EFFORT") or "high"
+    return os.environ.get("HERMES_WA_DECIDE_EFFORT") or "medium"
 
 
 # Persisted watermark (STATE_PATH, key last_processed_ts) is the real anti-overlap
@@ -132,7 +140,6 @@ EMAIL_WINDOW_HOURS = int(os.environ.get("HERMES_EMAIL_WINDOW_HOURS", "24"))
 EMAIL_TEXT_CAP = 1200
 MAX_PROPOSALS_PER_RUN = int(os.environ.get("HERMES_MAX_PROPOSALS_PER_RUN", "3"))
 PROPOSAL_TTL_DAYS = 7
-HAIKU_MODEL = _nano_model()
 MAX_CONCURRENT = 6
 PER_CALL_TIMEOUT_S = 45.0
 DECIDE_TIMEOUT_S = 300.0
@@ -353,7 +360,8 @@ class PiLaneError(RuntimeError):
     pass
 
 
-def _pi_argv(prompt: str) -> list[str]:
+def _pi_argv(prompt: str, provider: str | None = None, model: str | None = None,
+             effort: str | None = None) -> list[str]:
     return [
         PI_BIN,
         "-p",
@@ -363,14 +371,16 @@ def _pi_argv(prompt: str) -> list[str]:
         "--no-context-files",
         "--no-extensions",
         "--no-prompt-templates",
-        "--provider", _decide_provider(),
-        "--model", _decide_model(),
-        "--thinking", _decide_effort(),
+        "--provider", provider or _decide_provider(),
+        "--model", model or _decide_model(),
+        "--thinking", effort or _decide_effort(),
     ]
 
 
-async def _pi_complete(prompt: str, timeout_s: float) -> str:
-    argv = _pi_argv(prompt)
+async def _pi_complete(prompt: str, timeout_s: float, *, provider: str | None = None,
+                       model: str | None = None, effort: str | None = None,
+                       lane: str = "DECIDE") -> str:
+    argv = _pi_argv(prompt, provider, model, effort)
     try:
         proc = await asyncio.create_subprocess_exec(
             *argv,
@@ -388,13 +398,13 @@ async def _pi_complete(prompt: str, timeout_s: float) -> str:
         except Exception:
             pass
         await proc.wait()
-        raise PiLaneError(f"pi excedeu {timeout_s}s na lane DECIDE")
+        raise PiLaneError(f"pi excedeu {timeout_s}s na lane {lane}")
     if proc.returncode != 0:
         tail = (err or b"").decode(errors="replace").strip()[-400:]
         raise PiLaneError(f"pi saiu rc={proc.returncode}: {tail}")
     text = (out or b"").decode(errors="replace").strip()
     if not text:
-        raise PiLaneError("pi devolveu saida vazia na lane DECIDE")
+        raise PiLaneError(f"pi devolveu saida vazia na lane {lane}")
     return text
 
 
@@ -1075,9 +1085,14 @@ async def classify_bucket(http: httpx.AsyncClient, headers: dict, bucket: dict,
                           prev_summary: str = "") -> dict:
     prompt = format_prompt(bucket, prev_summary)
     empty_proposals = {"facts": [], "tasks": [], "reminders": [], "urgent": [], "people": [], "social": [], "mood": []}
-    raw = await _call_model(http, headers, HAIKU_MODEL, prompt, MAX_TOKENS_OUT, PER_CALL_TIMEOUT_S)
-    if raw is None:
-        raise PiLaneError(f"CLASSIFY falhou para {bucket['chat_id']}")
+    raw = await _pi_complete(
+        prompt,
+        PER_CALL_TIMEOUT_S,
+        provider=_classify_provider(),
+        model=_classify_model(),
+        effort=_classify_effort(),
+        lane="CLASSIFY",
+    )
     parsed = parse_json_response(raw)
     if not isinstance(parsed, dict):
         raise PiLaneError(f"CLASSIFY devolveu JSON invalido para {bucket['chat_id']}")
@@ -2124,9 +2139,6 @@ async def persist(decided: dict, state: dict | None = None) -> dict:
 async def run_whatsapp() -> int:
     dry = "--dry-run" in sys.argv
     token = load_oauth_token()
-    if not token:
-        log(f"nenhuma credencial anthropic utilizável — semear {AUTH_PATH.name}")
-        return 1
 
     state = load_state()
     store = load_chats()
@@ -2151,7 +2163,7 @@ async def run_whatsapp() -> int:
         print("[context-scraping] no messages in window")
         return 0
 
-    headers = _headers_oauth(token)
+    headers = _headers_oauth(token) if token else {}
     sem = asyncio.Semaphore(MAX_CONCURRENT)
 
     async with httpx.AsyncClient() as http:

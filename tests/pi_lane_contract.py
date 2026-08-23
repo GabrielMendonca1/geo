@@ -5,8 +5,8 @@ Encodes the TARGET contract:
   - The lane is a single stateless `pi -p` subprocess: no session, no tools,
     skills/extensions/prompt-templates/context-files. The prompt enters through
     stdin, so it is not limited by ARG_MAX and runs cannot influence each other.
-  - Provider/model/effort default to openai-codex / gpt-5.6-luna / high and are
-    each overridable (HERMES_WA_DECIDE_PROVIDER, _MODEL, _EFFORT).
+  - CLASSIFY defaults to openai-codex / gpt-5.6-luna / low; DECIDE defaults to
+    openai-codex / gpt-5.6-sol / medium. Both lanes are overridable.
   - The lane runs at most once per cycle, and only when CLASSIFY kept at least
     one proposal.
   - Every failure (timeout, rc!=0, empty stdout, non-JSON) surfaces as
@@ -33,7 +33,7 @@ from geo_time_contract import SCRIPTS_DIR, _load_extractor  # noqa: E402
 
 SOURCE = SCRIPTS_DIR / "context_scraping.py"
 DECIDE_ENV = ("HERMES_WA_DECIDE_PROVIDER", "HERMES_WA_DECIDE_MODEL", "HERMES_WA_DECIDE_EFFORT")
-NANO_ENV = ("HERMES_NANO_MODEL",)
+CLASSIFY_ENV = ("HERMES_WA_CLASSIFY_PROVIDER", "HERMES_WA_CLASSIFY_MODEL", "HERMES_WA_CLASSIFY_EFFORT")
 
 FAILS: list[str] = []
 
@@ -52,7 +52,7 @@ def ok(name: str, cond: bool, detail: str = "") -> None:
 
 
 def _clear_env() -> None:
-    for k in DECIDE_ENV + NANO_ENV:
+    for k in DECIDE_ENV + CLASSIFY_ENV:
         os.environ.pop(k, None)
 
 
@@ -109,9 +109,9 @@ def _expect_raises(fn, exc):
 def case_argv_default(wa) -> None:
     print("\n-- argv: hermetic + stateless by default --")
     _clear_env()
-    check("default model is Luna", wa._decide_model(), "gpt-5.6-luna")
-    check("default provider", wa._decide_provider(), "openai-codex")
-    check("default effort", wa._decide_effort(), "high")
+    check("DECIDE model is Sol", wa._decide_model(), "gpt-5.6-sol")
+    check("DECIDE provider", wa._decide_provider(), "openai-codex")
+    check("DECIDE effort", wa._decide_effort(), "medium")
     argv = wa._pi_argv("PROMPT")
     check(
         "argv exact contract",
@@ -126,8 +126,8 @@ def case_argv_default(wa) -> None:
             "--no-extensions",
             "--no-prompt-templates",
             "--provider", "openai-codex",
-            "--model", "gpt-5.6-luna",
-            "--thinking", "high",
+            "--model", "gpt-5.6-sol",
+            "--thinking", "medium",
         ],
     )
     for banned in ("-c", "--continue", "--session-dir", "--resume", "--fork", "--cwd"):
@@ -228,21 +228,19 @@ def case_failures(wa) -> None:
     ok("fenced ```json``` still parses", isinstance(decided, dict) and decide_ok is True)
 
 
-def case_nano_pin(wa) -> None:
-    print("\n-- CLASSIFY/summary model pin --")
+def case_classify_pin(wa) -> None:
+    print("\n-- CLASSIFY model pin --")
     _clear_env()
-    check("nano model default is the Haiku pin", wa._nano_model(), "claude-haiku-4-5")
-    os.environ["HERMES_NANO_MODEL"] = "claude-opus-4-8"
-    check("nano model honours HERMES_NANO_MODEL", wa._nano_model(), "claude-opus-4-8")
+    check("CLASSIFY provider", wa._classify_provider(), "openai-codex")
+    check("CLASSIFY model", wa._classify_model(), "gpt-5.6-luna")
+    check("CLASSIFY effort", wa._classify_effort(), "low")
+    argv = wa._pi_argv("P", wa._classify_provider(), wa._classify_model(), wa._classify_effort())
+    check("CLASSIFY argv provider", argv[argv.index("--provider") + 1], "openai-codex")
+    check("CLASSIFY argv model", argv[argv.index("--model") + 1], "gpt-5.6-luna")
+    check("CLASSIFY argv effort", argv[argv.index("--thinking") + 1], "low")
+    os.environ["HERMES_WA_CLASSIFY_MODEL"] = "gpt-5.6-sol"
+    check("CLASSIFY override", wa._classify_model(), "gpt-5.6-sol")
     _clear_env()
-    bound = [
-        n for n in ast.walk(ast.parse(SOURCE.read_text()))
-        if isinstance(n, ast.Assign)
-        and any(isinstance(t, ast.Name) and t.id == "HAIKU_MODEL" for t in n.targets)
-        and isinstance(n.value, ast.Call) and isinstance(n.value.func, ast.Name)
-        and n.value.func.id == "_nano_model"
-    ]
-    ok("HAIKU_MODEL = _nano_model()", len(bound) == 1, f"{len(bound)} binding(s)")
 
 
 def _rec(ts: str, msg_id: str | None, chat: str = "5511@c.us", text: str = "x", **extra) -> dict:
@@ -376,17 +374,17 @@ def case_group_email_prompt_media(wa) -> None:
     check("email origin label", email_bucket["label"], "email work: ana@example.com/Contrato")
 
     captured: list[str] = []
-    async def fake_call(http, headers, model, prompt, max_tokens, timeout_s, **kwargs):
+    async def fake_call(prompt, timeout_s, **kwargs):
         captured.append(prompt)
         return '{"proposals": {}}'
-    real_call = wa._call_model
-    wa._call_model = fake_call
+    real_call = wa._pi_complete
+    wa._pi_complete = fake_call
     try:
         _run(wa.classify_bucket(None, {}, grouped[0], "resumo vivo"))
         email_bucket["context"] = [_rec("2026-08-10T10:00:00Z", "old", text="SEGREDO")]
         _run(wa.classify_bucket(None, {}, email_bucket, "RESUMO EMAIL ANTIGO"))
     finally:
-        wa._call_model = real_call
+        wa._pi_complete = real_call
     ok("prompt separates CONTEXTO", "===== CONTEXTO —" in captured[0])
     ok("prompt separates MENSAGENS NOVAS", "===== MENSAGENS NOVAS —" in captured[0])
     ok("prompt forbids context-only proposals", "NÃO sugira nada que só aparece no CONTEXTO" in captured[0])
@@ -413,14 +411,14 @@ def case_scan_and_classify_failures(wa) -> None:
     check("scan I/O failure is bounded", failed, {"new": [], "context": {}, "bootstrap": {}})
 
     async def failed_call(*args, **kwargs):
-        return None
+        raise wa.PiLaneError("classify failed")
     bucket = wa.bucket_by_chat([_rec("2026-08-11T10:00:00Z", "x")])[0]
-    real_call = wa._call_model
-    wa._call_model = failed_call
+    real_call = wa._pi_complete
+    wa._pi_complete = failed_call
     try:
         err = _expect_raises(lambda: wa.classify_bucket(None, {}, bucket), wa.PiLaneError)
     finally:
-        wa._call_model = real_call
+        wa._pi_complete = real_call
     ok("CLASSIFY failure propagates as PiLaneError", isinstance(err, wa.PiLaneError), repr(err))
 
     fn = _run_whatsapp_ast()
@@ -457,14 +455,14 @@ def case_classify_failures_no_watermark_leak(wa) -> None:
     async def fake_enrich(*args, **kwargs):
         return None
 
-    async def fake_call(http, headers, model, prompt, max_tokens, timeout_s, **kwargs):
+    async def fake_call(prompt, timeout_s, **kwargs):
         prompts.append(prompt)
         for index in range(1, 4):
             chat_id = f"chat-{index}"
             if f'"chat_id": "{chat_id}"' not in prompt:
                 continue
             if fail_chat and chat_id == "chat-3":
-                return None
+                raise wa.PiLaneError("classify failed")
             classified.append(chat_id)
             return json.dumps({"proposals": {"facts": [{"content": f"fato-{index}"}]}})
         return None
@@ -507,7 +505,7 @@ def case_classify_failures_no_watermark_leak(wa) -> None:
         },
         "scan_email_jsonl": lambda *args: {"new": []},
         "enrich_window_media": fake_enrich,
-        "_call_model": fake_call,
+        "_pi_complete": fake_call,
         "update_chat_summaries": fake_summaries,
         "render_brain_context": lambda: "cérebro",
         "_recent_tasks_context": lambda: "tarefas",
@@ -686,7 +684,7 @@ def case_decide_structural_gates() -> None:
 
 def main() -> int:
     print(f"scripts={SCRIPTS_DIR}")
-    saved = {k: os.environ.get(k) for k in DECIDE_ENV + NANO_ENV}
+    saved = {k: os.environ.get(k) for k in DECIDE_ENV + CLASSIFY_ENV}
     try:
         wa = _load_extractor(SCRIPTS_DIR)
     except Exception as e:  # noqa: BLE001
@@ -697,7 +695,7 @@ def main() -> int:
         case_argv_overrides(wa)
         case_single_execution(wa)
         case_failures(wa)
-        case_nano_pin(wa)
+        case_classify_pin(wa)
         case_context_boundary_caps_dedup(wa)
         case_group_email_prompt_media(wa)
         case_scan_and_classify_failures(wa)
