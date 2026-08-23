@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Contract harness for the DECIDE lane (context_scraping -> prime-agent).
+"""Contract harness for the DECIDE lane (context_scraping -> pi).
 
 Encodes the TARGET contract:
-  - The lane is a single stateless `prime-agent -p` subprocess: no session, no
-    tools, no skills/extensions/prompt-templates/context-files. The prompt is
-    the only input, so two runs of the same window cannot influence each other.
+  - The lane is a single stateless `pi -p` subprocess: no session, no tools,
+    skills/extensions/prompt-templates/context-files. The prompt enters through
+    stdin, so it is not limited by ARG_MAX and runs cannot influence each other.
   - Provider/model/effort default to openai-codex / gpt-5.6-luna / high and are
     each overridable (HERMES_WA_DECIDE_PROVIDER, _MODEL, _EFFORT).
   - The lane runs at most once per cycle, and only when CLASSIFY kept at least
@@ -63,8 +63,10 @@ class FakeProc:
         self._err = err
         self._hang = hang
         self.killed = False
+        self.input = None
 
-    async def communicate(self):
+    async def communicate(self, input=None):
+        self.input = input
         if self._hang:
             await asyncio.sleep(3600)
         return self._out, self._err
@@ -126,12 +128,11 @@ def case_argv_default(wa) -> None:
             "--provider", "openai-codex",
             "--model", "gpt-5.6-luna",
             "--thinking", "high",
-            "--", "PROMPT",
         ],
     )
     for banned in ("-c", "--continue", "--session-dir", "--resume", "--fork", "--cwd"):
         ok(f"argv omits {banned}", banned not in argv)
-    ok("prompt is last and after --", argv[-1] == "PROMPT" and argv[-2] == "--")
+    ok("prompt is absent from argv", "PROMPT" not in argv and "--" not in argv)
     ok("no session state constants survive",
        not hasattr(wa, "PI_SESSION_DIR") and not hasattr(wa, "PI_CWD"))
 
@@ -172,6 +173,7 @@ def case_single_execution(wa) -> None:
     finally:
         asyncio.create_subprocess_exec = real
     check("subprocess spawned exactly once", len(spawn.calls), 1)
+    ok("prompt is sent through stdin", bool(spawn.last and spawn.last.input))
     check("decide reports ok", decide_ok, True)
     check("decided shape", sorted(decided.keys())[:3], ["blocks", "digest", "people"])
 

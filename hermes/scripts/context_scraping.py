@@ -13,7 +13,7 @@ Pipeline (no gateway, no agent phase):
      WhatsApp bucket is shown CONTEXTO (the 72h tail + the previous live summary,
      read-only, for interpretation) and MENSAGENS NOVAS — only the latter may
      produce proposals. Emails get no replay.
-  3. DECIDE via one stateless `prime-agent -p` subprocess — openai-codex /
+  3. DECIDE via one stateless `pi -p` subprocess — openai-codex /
      gpt-5.6-luna / thinking high by default (HERMES_WA_DECIDE_PROVIDER,
      HERMES_WA_DECIDE_MODEL, HERMES_WA_DECIDE_EFFORT). No session, no tools,
      no skills/extensions/prompt-templates/context-files: the prompt is the
@@ -56,8 +56,8 @@ from geo_context import render_brain_context
 PKG_DIR = Path(__file__).resolve().parent
 GARIME_MOUNT = Path("/mnt/garime")
 STATE_DIR = GARIME_MOUNT / "pi" / "state"
-JSONL_PATH = GARIME_MOUNT / "Vault" / "Inbox" / "wa_ingest.jsonl"
-EMAIL_JSONL_PATH = GARIME_MOUNT / "Vault" / "Inbox" / "email_ingest.jsonl"
+JSONL_PATH = GARIME_MOUNT / "state" / "inbox" / "wa_ingest.jsonl"
+EMAIL_JSONL_PATH = GARIME_MOUNT / "state" / "inbox" / "email_ingest.jsonl"
 OUTBOX_DIR = GARIME_MOUNT / "pi" / "wa-outbox"
 AUTH_PATH = Path(os.path.expanduser("~/.prime/agent/auth.json"))
 ENV_PATH = STATE_DIR / ".env"
@@ -345,7 +345,7 @@ def load_oauth_token() -> str | None:
     return access
 
 
-PI_BIN = os.environ.get("HERMES_PI_BIN", "/usr/bin/prime-agent")
+PI_BIN = os.environ.get("HERMES_PI_BIN", "/home/biel/.local/bin/pi")
 PI_DECIDE_TIMEOUT_S = float(os.environ.get("HERMES_PI_TIMEOUT_S", "900"))
 
 
@@ -366,7 +366,6 @@ def _pi_argv(prompt: str) -> list[str]:
         "--provider", _decide_provider(),
         "--model", _decide_model(),
         "--thinking", _decide_effort(),
-        "--", prompt,
     ]
 
 
@@ -375,14 +374,14 @@ async def _pi_complete(prompt: str, timeout_s: float) -> str:
     try:
         proc = await asyncio.create_subprocess_exec(
             *argv,
-            stdin=asyncio.subprocess.DEVNULL,
+            stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
     except Exception as e:
         raise PiLaneError(f"nao consegui executar {PI_BIN}: {type(e).__name__}: {e}") from e
     try:
-        out, err = await asyncio.wait_for(proc.communicate(), timeout=timeout_s)
+        out, err = await asyncio.wait_for(proc.communicate(prompt.encode("utf-8")), timeout=timeout_s)
     except asyncio.TimeoutError:
         try:
             proc.kill()
