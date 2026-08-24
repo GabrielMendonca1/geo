@@ -1,11 +1,10 @@
 # STATUS — spirit (garime)
 
-> atualizado: 2026-08-17
+> atualizado: 2026-08-24
 
 ## Todo
 - [ ] escrever o plano da transição Geo → garime (infra e nomenclatura)
 - [ ] colar os 2 tokens novos em Ajustes do app (sem eles o app fica em tokenMissing)
-- [ ] sincronizar `GeoBridge/geobridge.py` do repo com o que roda na VM (~714 linhas de drift)
 - [ ] abrir a porta 22 do `garime` no console da OCI (hoje não há rota de fuga fora do tailnet)
 - [ ] conceder os 2 grants de TCC do Garime Whisper (microfone e acessibilidade)
 - [ ] F2 do lifecycle de entradas (loop de clusters na sessão Geo Vault Cleaning)
@@ -15,7 +14,6 @@
 - [ ] corrigir `spans()` O(n²) no chat (hoje só protegido pelo teto de 2000 chars)
 - [ ] preencher `DEVELOPMENT_TEAM` no `gen_project.rb` (1 linha)
 - [ ] atualizar CONTRACT.md/plist do bridge: dizem que ele mora no Mac, roda na VM
-- [ ] trocar o índice hardcoded 0..5 da validação de sessão de treino no bridge
 - [ ] corrigir a nota de Saúde que usa `type: reference` (fora do vocabulário do geo_write)
 - [ ] reconciliar as 4 divergências de slugs front/back vs `BodyPaths.swift`
 - [ ] tratar workflow interrompido que fica `started` sem `result` e conta como rodando pra sempre
@@ -29,6 +27,7 @@
 - [ ] nits de UI: fonte do card bridge, locale EN no DatePicker, `settingsToolbar()` morto
 
 ## Feito
+- [x] Saúde v2: catálogo real (37 exercícios/20 blocos), safety gates, plano semanal como fonte principal, logs plan-primary retrocompatíveis; bridge implantado, W35 publicada e app instalado no iPhone (2026-08-24)
 - [x] GarimeWhisper promovido a hub único de menu bar — reunião/call, insomnia nativo (Capsomnia removido), observador do GarimeCapture, tasks do Vault e todos por projeto; instalado e vivo (2026-08-17)
 - [x] Garime Whisper: ditado nativo na menu bar instalado e vivo (2026-08-07)
 - [x] bridge da VM enxerga sessões `prime-agent` na lista de agentes (2026-08-06)
