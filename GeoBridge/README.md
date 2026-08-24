@@ -34,9 +34,11 @@ All except `/health` require `Authorization: Bearer <contents of ~/.hermes/geobr
 - Token: contents of `~/.hermes/geobridge.token` on the Mac
 - Reachability check: `GET /health` from the phone, then confirm the phone's tailnet IP shows up in `~/Library/Logs/geobridge.log`
 
-## Training v1 fixtures
+## Training v1 static sources
 
-`fixtures/training/` contains a generic demonstration catalog, one reusable block, and a frozen seven-day ISO-week snapshot. It contains no individualized clinical guidance and no `safety.json`. Nothing in this repository step deploys or seeds the VM automatically.
+`training/` is the canonical source for the real static catalog, blocks, and conservative safety governance. It deliberately contains no weekly plan, `protocol.json`, or `state.json`. The catalog can retain blocked exercises for future discovery, while `publishable: true` blocks exclude all currently locked, conditional, or pending exercises. These files are source artifacts only: this repository does not deploy or seed them automatically.
+
+`fixtures/training/` remains a separate generic demonstration catalog, one reusable block, and a frozen seven-day ISO-week snapshot for contract tests. It contains no individualized guidance and no `safety.json`.
 
 After comparing the deployed `/opt/garime/geobridge.py` with this checkout and deploying through the normal VM procedure, an operator can seed the read-only library and submit the write-once example plan explicitly:
 

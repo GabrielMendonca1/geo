@@ -35,7 +35,7 @@ This file is the source of truth for architecture and rules. Deep dives: mobile�
 | `GeoCore/` | Swift package shared with the iOS app |
 | `GarimeCapture/` | Daemon local: screenshot dir watch + Vision OCR → texto no clipboard, imagem no archive local de 30 dias. Sem rede, sem markdown (tests: `GarimeCapture/tests/run.sh`) |
 | `GarimeWhisper/` | **Hub de menu bar do Mac** (centro das infos): ditado ⌥Space, gravar reunião/call (call via `rec.sh` do `/record`), Manter acordado (Caps Lock ligado = Mac não dorme, igual ao Capsomnia; IOPMAssertion nativo), observador read-only do GarimeCapture, tasks do Vault via ssh (cache offline) e todos por projeto dos `STATUS.md`. Build/install/smoke scripts in-tree; `build/` is not versioned |
-| `tests/` | `geo_time_contract.py` — time/tz contract for `context_scraping._resolve_due`; `pi_lane_contract.py` — DECIDE lane contract; `test_vitals_plan_contract.py` — GeoBridge catalog/blocks/frozen-week contract. Run: `python3 tests/<name>.py` |
+| `tests/` | `geo_time_contract.py` — time/tz contract for `context_scraping._resolve_due`; `pi_lane_contract.py` — DECIDE lane contract; `test_vitals_plan_contract.py` — GeoBridge catalog/blocks/frozen-week contract; `test_real_training_catalog.py` — invariants of the canonical real static catalog. Run: `python3 tests/<name>.py` |
 
 ## iOS app build (device)
 

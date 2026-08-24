@@ -62,6 +62,22 @@ final class BridgeEndpointTests: XCTestCase {
         XCTAssertEqual(catalog.exercises.first?.id, "demo.remada-maquina")
     }
 
+    func testRealStaticCatalogAndBlocksDecodeWithCurrentSchema() throws {
+        let repositoryRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let training = repositoryRoot.appendingPathComponent("GeoBridge/training")
+        let catalogData = try Data(contentsOf: training.appendingPathComponent("catalog.json"))
+        let blocksData = try Data(contentsOf: training.appendingPathComponent("blocks.json"))
+
+        let catalog = try JSONDecoder().decode(TrainingCatalog.self, from: catalogData)
+        let blocks = try JSONDecoder().decode(TrainingBlocks.self, from: blocksData)
+
+        XCTAssertEqual(catalog.exercises.count, 37)
+        XCTAssertFalse(blocks.blocks.isEmpty)
+    }
+
     func testCatalogDecoderRejectsMissingOrInvalidID() {
         let missing = Data(#"{"schema":"vitals.catalog/1","version":1,"updatedAt":"now","exercises":[]}"#.utf8)
         XCTAssertThrowsError(try JSONDecoder().decode(TrainingCatalog.self, from: missing))

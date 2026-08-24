@@ -314,7 +314,7 @@ Same splice as `GET /tasks`: `[ <bytes of log-A.json>, <bytes of log-B.json>, �
 
 These routes are additive. They do not read or mutate `protocol.json`, `state.json`, or `log-*.json`; old clients and the existing logging flow continue unchanged. Missing new files return `404`, which is the normal pre-publication/rollback state. Every route uses the main bridge token.
 
-Stable IDs match `[A-Za-z0-9._-]+`, are immutable after publication, are never reused, and are retired rather than deleted. Demo IDs use the `demo.` namespace. Catalog and block files carry monotonically increasing integer versions. Unknown JSON fields may be added in compatible schema revisions.
+Stable IDs match `[A-Za-z0-9._-]+`, are immutable after publication, are never reused, and are retired rather than deleted. Demo IDs use the `demo.` namespace. Catalog and block files carry monotonically increasing integer versions. Unknown JSON fields may be added in compatible schema revisions. `GeoBridge/training/` is the repository's canonical source for the real static `catalog.json`, `blocks.json`, and `safety.json`; it is not a deployment or seed directory and intentionally contains no plan, `protocol.json`, or `state.json`.
 
 ### GET /vitals/catalog
 
@@ -337,7 +337,7 @@ Returns the verbatim bytes of `catalog.json`; missing/unreadable → `404`. Cata
 }
 ```
 
-`status` is `active` or `retired`. `muscles` uses the existing body vocabulary. Clinical advice is deliberately absent from this schema.
+`status` is `active` or `retired`. `muscles` uses the existing body vocabulary. Compatible catalog entries may add `pattern`, `goals`, `riskFlags`, `shoulderTier`, `substitutes`, `doseType`, `variantNote`, `reviewState`, and gate references; current app decoders ignore these unknown keys. Safety governance remains in the separate sidecar rather than changing the closed status enum.
 
 ### GET /vitals/blocks
 
@@ -356,11 +356,11 @@ Returns verbatim `blocks.json`; missing/unreadable → `404`. Blocks are version
 }
 ```
 
-Each `sets` entry is the same inclusive `[min,max]` repetition range used by the legacy protocol.
+Each `sets` entry is the same inclusive `[min,max]` range used by the legacy protocol. Blocks may add publication and safety metadata. A block marked `publishable: true` must not reference an exercise whose current review is locked or conditional; the canonical personalized source is stricter and also excludes pending tier B items while overhead discomfort remains reported.
 
 ### GET /vitals/safety
 
-Reserved for a separately governed `safety.json`. Returns verbatim bytes when present and `404` when absent. The v5 demonstration intentionally ships no `safety.json` and no clinical content.
+Reserved for a separately governed `safety.json`. Returns verbatim bytes when present and `404` when absent. The demo fixtures intentionally ship no `safety.json`. The canonical real sidecar records user-reported history rather than diagnosis, never describes strengthening as treatment or cure, and keeps overhead load, specific cuff/scapular work, and tier C behind professional gates that self-report alone cannot unlock.
 
 ### GET /vitals/plan?week=YYYY-Www
 

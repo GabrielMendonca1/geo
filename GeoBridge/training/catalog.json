@@ -1,0 +1,1034 @@
+{
+  "schema": "vitals.catalog/1",
+  "id": "gabriel-catalog",
+  "version": 1,
+  "updatedAt": "2026-08-24T18:00:00Z",
+  "exercises": [
+    {
+      "id": "puxada-alta",
+      "name": "Puxada alta — bloqueada (requer liberação profissional)",
+      "status": "active",
+      "muscles": [
+        "upper-back",
+        "biceps"
+      ],
+      "equipment": "machine",
+      "tags": [
+        "legado",
+        "pull"
+      ],
+      "pattern": "vertical-pull",
+      "goals": [
+        "shape-v",
+        "general-hypertrophy"
+      ],
+      "riskFlags": [
+        "overhead-load"
+      ],
+      "shoulderTier": "B",
+      "substitutes": [
+        "remada-baixa"
+      ],
+      "doseType": "reps",
+      "variantNote": "Sem execução enquanto o gate de carga acima da cabeça estiver locked.",
+      "reviewState": "locked",
+      "safetyGateIds": [
+        "gate-overhead-load"
+      ]
+    },
+    {
+      "id": "remada-baixa",
+      "name": "Remada baixa",
+      "status": "active",
+      "muscles": [
+        "upper-back",
+        "biceps"
+      ],
+      "equipment": "cable",
+      "tags": [
+        "legado",
+        "pull"
+      ],
+      "pattern": "horizontal-pull",
+      "goals": [
+        "shape-v",
+        "general-hypertrophy"
+      ],
+      "riskFlags": [],
+      "shoulderTier": "A",
+      "substitutes": [
+        "remada-cavalinho"
+      ],
+      "doseType": "reps",
+      "variantNote": "",
+      "reviewState": "available",
+      "safetyGateIds": []
+    },
+    {
+      "id": "remada-cavalinho",
+      "name": "Remada cavalinho",
+      "status": "active",
+      "muscles": [
+        "upper-back",
+        "biceps"
+      ],
+      "equipment": "machine",
+      "tags": [
+        "legado",
+        "pull"
+      ],
+      "pattern": "horizontal-pull",
+      "goals": [
+        "shape-v",
+        "general-hypertrophy"
+      ],
+      "riskFlags": [],
+      "shoulderTier": "A",
+      "substitutes": [
+        "remada-baixa"
+      ],
+      "doseType": "reps",
+      "variantNote": "",
+      "reviewState": "available",
+      "safetyGateIds": []
+    },
+    {
+      "id": "desenvolvimento-ombro",
+      "name": "Desenvolvimento de ombro — bloqueado (requer liberação profissional)",
+      "status": "active",
+      "muscles": [
+        "deltoids",
+        "triceps"
+      ],
+      "equipment": "machine",
+      "tags": [
+        "legado",
+        "push"
+      ],
+      "pattern": "vertical-push",
+      "goals": [
+        "shape-v",
+        "delt-hypertrophy"
+      ],
+      "riskFlags": [
+        "overhead-load"
+      ],
+      "shoulderTier": "B",
+      "substitutes": [
+        "elevacao-lateral"
+      ],
+      "doseType": "reps",
+      "variantNote": "Sem execução enquanto o gate de carga acima da cabeça estiver locked.",
+      "reviewState": "locked",
+      "safetyGateIds": [
+        "gate-overhead-load"
+      ]
+    },
+    {
+      "id": "elevacao-lateral",
+      "name": "Elevação lateral (até ~80–90°) — em observação",
+      "status": "active",
+      "muscles": [
+        "deltoids"
+      ],
+      "equipment": "dumbbell",
+      "tags": [
+        "legado",
+        "delt-lateral"
+      ],
+      "pattern": "lateral-raise",
+      "goals": [
+        "shape-v",
+        "delt-hypertrophy"
+      ],
+      "riskFlags": [],
+      "shoulderTier": "B",
+      "substitutes": [
+        "elevacao-lateral-cabo"
+      ],
+      "doseType": "reps",
+      "variantNote": "Amplitude limitada; permanece fora de plano enquanto houver desconforto acima da cabeça.",
+      "reviewState": "pending",
+      "safetyGateIds": [
+        "gate-tier-b-sem-overhead"
+      ]
+    },
+    {
+      "id": "elevacao-posterior",
+      "name": "Elevação posterior",
+      "status": "active",
+      "muscles": [
+        "deltoids",
+        "upper-back"
+      ],
+      "equipment": "dumbbell",
+      "tags": [
+        "legado",
+        "delt-posterior"
+      ],
+      "pattern": "rear-delt",
+      "goals": [
+        "shape-v",
+        "delt-hypertrophy"
+      ],
+      "riskFlags": [],
+      "shoulderTier": "A",
+      "substitutes": [],
+      "doseType": "reps",
+      "variantNote": "",
+      "reviewState": "available",
+      "safetyGateIds": []
+    },
+    {
+      "id": "cadeira-extensora",
+      "name": "Cadeira extensora",
+      "status": "active",
+      "muscles": [
+        "quadriceps"
+      ],
+      "equipment": "machine",
+      "tags": [
+        "legado",
+        "lower",
+        "anchor"
+      ],
+      "pattern": "knee-extension",
+      "goals": [
+        "general-hypertrophy",
+        "surf-readiness"
+      ],
+      "riskFlags": [],
+      "shoulderTier": "A",
+      "substitutes": [
+        "leg-press"
+      ],
+      "doseType": "reps",
+      "variantNote": "Âncora de carga; usa quatro séries no bloco de quadríceps.",
+      "reviewState": "available",
+      "safetyGateIds": []
+    },
+    {
+      "id": "agachamento-sumo",
+      "name": "Agachamento sumô",
+      "status": "active",
+      "muscles": [
+        "quadriceps",
+        "gluteal",
+        "adductors"
+      ],
+      "equipment": "dumbbell",
+      "tags": [
+        "legado",
+        "lower",
+        "anchor"
+      ],
+      "pattern": "squat",
+      "goals": [
+        "general-hypertrophy",
+        "surf-readiness"
+      ],
+      "riskFlags": [],
+      "shoulderTier": "A",
+      "substitutes": [
+        "leg-press"
+      ],
+      "doseType": "reps",
+      "variantNote": "Âncora de carga; usa quatro séries no bloco de quadríceps.",
+      "reviewState": "available",
+      "safetyGateIds": []
+    },
+    {
+      "id": "leg-press",
+      "name": "Leg press",
+      "status": "active",
+      "muscles": [
+        "quadriceps",
+        "gluteal"
+      ],
+      "equipment": "machine",
+      "tags": [
+        "legado",
+        "lower"
+      ],
+      "pattern": "squat",
+      "goals": [
+        "general-hypertrophy",
+        "surf-readiness"
+      ],
+      "riskFlags": [],
+      "shoulderTier": "A",
+      "substitutes": [
+        "agachamento-sumo"
+      ],
+      "doseType": "reps",
+      "variantNote": "",
+      "reviewState": "available",
+      "safetyGateIds": []
+    },
+    {
+      "id": "passada",
+      "name": "Passada",
+      "status": "active",
+      "muscles": [
+        "quadriceps",
+        "gluteal"
+      ],
+      "equipment": "dumbbell",
+      "tags": [
+        "legado",
+        "lower"
+      ],
+      "pattern": "lunge",
+      "goals": [
+        "general-hypertrophy",
+        "surf-readiness"
+      ],
+      "riskFlags": [],
+      "shoulderTier": "A",
+      "substitutes": [
+        "leg-press"
+      ],
+      "doseType": "reps",
+      "variantNote": "",
+      "reviewState": "available",
+      "safetyGateIds": []
+    },
+    {
+      "id": "supino",
+      "name": "Supino (máquina, sem alongamento máximo) — em observação",
+      "status": "active",
+      "muscles": [
+        "chest",
+        "triceps",
+        "deltoids"
+      ],
+      "equipment": "machine",
+      "tags": [
+        "legado",
+        "push"
+      ],
+      "pattern": "horizontal-push",
+      "goals": [
+        "general-hypertrophy",
+        "shape-v"
+      ],
+      "riskFlags": [
+        "alongamento-carregado-peitoral"
+      ],
+      "shoulderTier": "B",
+      "substitutes": [
+        "flexao-inclinada"
+      ],
+      "doseType": "reps",
+      "variantNote": "Evitar alongamento máximo; permanece fora de plano enquanto houver desconforto acima da cabeça.",
+      "reviewState": "pending",
+      "safetyGateIds": [
+        "gate-tier-b-sem-overhead"
+      ]
+    },
+    {
+      "id": "voador-crucifixo",
+      "name": "Voador/crucifixo (sem alongamento máximo) — em observação",
+      "status": "active",
+      "muscles": [
+        "chest",
+        "deltoids"
+      ],
+      "equipment": "machine",
+      "tags": [
+        "legado",
+        "push"
+      ],
+      "pattern": "horizontal-push",
+      "goals": [
+        "general-hypertrophy",
+        "shape-v"
+      ],
+      "riskFlags": [
+        "alongamento-carregado-peitoral"
+      ],
+      "shoulderTier": "B",
+      "substitutes": [
+        "supino"
+      ],
+      "doseType": "reps",
+      "variantNote": "Evitar alongamento máximo; permanece fora de plano enquanto houver desconforto acima da cabeça.",
+      "reviewState": "pending",
+      "safetyGateIds": [
+        "gate-tier-b-sem-overhead"
+      ]
+    },
+    {
+      "id": "paralela",
+      "name": "Paralela — bloqueada (requer liberação profissional)",
+      "status": "active",
+      "muscles": [
+        "chest",
+        "triceps",
+        "deltoids"
+      ],
+      "equipment": "bodyweight",
+      "tags": [
+        "legado",
+        "push"
+      ],
+      "pattern": "vertical-push",
+      "goals": [
+        "general-hypertrophy",
+        "shape-v"
+      ],
+      "riskFlags": [
+        "extensao-profunda-ombro",
+        "alongamento-carregado-peitoral"
+      ],
+      "shoulderTier": "C",
+      "substitutes": [],
+      "doseType": "reps",
+      "variantNote": "Item apenas para descoberta futura; não usar como fallback.",
+      "reviewState": "locked",
+      "safetyGateIds": [
+        "gate-tier-c"
+      ]
+    },
+    {
+      "id": "rosca-alternada-inclinada",
+      "name": "Rosca alternada inclinada",
+      "status": "active",
+      "muscles": [
+        "biceps",
+        "forearm"
+      ],
+      "equipment": "dumbbell",
+      "tags": [
+        "legado",
+        "arms"
+      ],
+      "pattern": "elbow-flexion",
+      "goals": [
+        "general-hypertrophy"
+      ],
+      "riskFlags": [],
+      "shoulderTier": "A",
+      "substitutes": [
+        "rosca-w"
+      ],
+      "doseType": "reps",
+      "variantNote": "",
+      "reviewState": "available",
+      "safetyGateIds": []
+    },
+    {
+      "id": "rosca-w",
+      "name": "Rosca W",
+      "status": "active",
+      "muscles": [
+        "biceps",
+        "forearm"
+      ],
+      "equipment": "barbell",
+      "tags": [
+        "legado",
+        "arms"
+      ],
+      "pattern": "elbow-flexion",
+      "goals": [
+        "general-hypertrophy"
+      ],
+      "riskFlags": [],
+      "shoulderTier": "A",
+      "substitutes": [
+        "rosca-concentrada"
+      ],
+      "doseType": "reps",
+      "variantNote": "",
+      "reviewState": "available",
+      "safetyGateIds": []
+    },
+    {
+      "id": "rosca-concentrada",
+      "name": "Rosca concentrada",
+      "status": "active",
+      "muscles": [
+        "biceps",
+        "forearm"
+      ],
+      "equipment": "dumbbell",
+      "tags": [
+        "legado",
+        "arms"
+      ],
+      "pattern": "elbow-flexion",
+      "goals": [
+        "general-hypertrophy"
+      ],
+      "riskFlags": [],
+      "shoulderTier": "A",
+      "substitutes": [
+        "rosca-alternada-inclinada"
+      ],
+      "doseType": "reps",
+      "variantNote": "",
+      "reviewState": "available",
+      "safetyGateIds": []
+    },
+    {
+      "id": "triceps-corda",
+      "name": "Tríceps corda",
+      "status": "active",
+      "muscles": [
+        "triceps"
+      ],
+      "equipment": "cable",
+      "tags": [
+        "legado",
+        "arms"
+      ],
+      "pattern": "elbow-extension",
+      "goals": [
+        "general-hypertrophy"
+      ],
+      "riskFlags": [],
+      "shoulderTier": "A",
+      "substitutes": [
+        "triceps-polia-alta"
+      ],
+      "doseType": "reps",
+      "variantNote": "",
+      "reviewState": "available",
+      "safetyGateIds": []
+    },
+    {
+      "id": "triceps-testa",
+      "name": "Tríceps testa",
+      "status": "active",
+      "muscles": [
+        "triceps"
+      ],
+      "equipment": "barbell",
+      "tags": [
+        "legado",
+        "arms"
+      ],
+      "pattern": "elbow-extension",
+      "goals": [
+        "general-hypertrophy"
+      ],
+      "riskFlags": [],
+      "shoulderTier": "A",
+      "substitutes": [
+        "triceps-corda"
+      ],
+      "doseType": "reps",
+      "variantNote": "",
+      "reviewState": "available",
+      "safetyGateIds": []
+    },
+    {
+      "id": "triceps-polia-alta",
+      "name": "Tríceps na polia alta",
+      "status": "active",
+      "muscles": [
+        "triceps"
+      ],
+      "equipment": "cable",
+      "tags": [
+        "legado",
+        "arms"
+      ],
+      "pattern": "elbow-extension",
+      "goals": [
+        "general-hypertrophy"
+      ],
+      "riskFlags": [],
+      "shoulderTier": "A",
+      "substitutes": [
+        "triceps-testa"
+      ],
+      "doseType": "reps",
+      "variantNote": "",
+      "reviewState": "available",
+      "safetyGateIds": []
+    },
+    {
+      "id": "mesa-flexora",
+      "name": "Mesa flexora",
+      "status": "active",
+      "muscles": [
+        "hamstring"
+      ],
+      "equipment": "machine",
+      "tags": [
+        "legado",
+        "lower"
+      ],
+      "pattern": "knee-flexion",
+      "goals": [
+        "general-hypertrophy",
+        "surf-readiness"
+      ],
+      "riskFlags": [],
+      "shoulderTier": "A",
+      "substitutes": [
+        "cadeira-flexora-unilateral"
+      ],
+      "doseType": "reps",
+      "variantNote": "",
+      "reviewState": "available",
+      "safetyGateIds": []
+    },
+    {
+      "id": "cadeira-flexora-unilateral",
+      "name": "Cadeira flexora unilateral",
+      "status": "active",
+      "muscles": [
+        "hamstring"
+      ],
+      "equipment": "machine",
+      "tags": [
+        "legado",
+        "lower"
+      ],
+      "pattern": "knee-flexion",
+      "goals": [
+        "general-hypertrophy",
+        "surf-readiness"
+      ],
+      "riskFlags": [],
+      "shoulderTier": "A",
+      "substitutes": [
+        "mesa-flexora"
+      ],
+      "doseType": "reps",
+      "variantNote": "",
+      "reviewState": "available",
+      "safetyGateIds": []
+    },
+    {
+      "id": "stiff",
+      "name": "Stiff",
+      "status": "active",
+      "muscles": [
+        "hamstring",
+        "gluteal",
+        "lower-back"
+      ],
+      "equipment": "barbell",
+      "tags": [
+        "legado",
+        "lower"
+      ],
+      "pattern": "hinge",
+      "goals": [
+        "general-hypertrophy",
+        "surf-readiness"
+      ],
+      "riskFlags": [],
+      "shoulderTier": "A",
+      "substitutes": [
+        "mesa-flexora"
+      ],
+      "doseType": "reps",
+      "variantNote": "",
+      "reviewState": "available",
+      "safetyGateIds": []
+    },
+    {
+      "id": "elevacao-pelvica",
+      "name": "Elevação pélvica",
+      "status": "active",
+      "muscles": [
+        "gluteal",
+        "hamstring"
+      ],
+      "equipment": "barbell",
+      "tags": [
+        "legado",
+        "lower"
+      ],
+      "pattern": "hip-thrust",
+      "goals": [
+        "general-hypertrophy",
+        "surf-readiness"
+      ],
+      "riskFlags": [],
+      "shoulderTier": "A",
+      "substitutes": [],
+      "doseType": "reps",
+      "variantNote": "",
+      "reviewState": "available",
+      "safetyGateIds": []
+    },
+    {
+      "id": "elevacao-lateral-cabo",
+      "name": "Elevação lateral no cabo (até ~80–90°) — em observação",
+      "status": "active",
+      "muscles": [
+        "deltoids"
+      ],
+      "equipment": "cable",
+      "tags": [
+        "novo-2026",
+        "delt-lateral"
+      ],
+      "pattern": "lateral-raise",
+      "goals": [
+        "shape-v",
+        "delt-hypertrophy"
+      ],
+      "riskFlags": [],
+      "shoulderTier": "B",
+      "substitutes": [
+        "elevacao-lateral"
+      ],
+      "doseType": "reps",
+      "variantNote": "Histórico separado do halter; permanece fora de plano enquanto houver desconforto acima da cabeça.",
+      "reviewState": "pending",
+      "safetyGateIds": [
+        "gate-tier-b-sem-overhead"
+      ]
+    },
+    {
+      "id": "panturrilha-em-pe",
+      "name": "Panturrilha em pé",
+      "status": "active",
+      "muscles": [
+        "calves"
+      ],
+      "equipment": "bodyweight",
+      "tags": [
+        "novo-2026",
+        "lower"
+      ],
+      "pattern": "calf-raise",
+      "goals": [
+        "general-hypertrophy",
+        "surf-readiness"
+      ],
+      "riskFlags": [],
+      "shoulderTier": "A",
+      "substitutes": [],
+      "doseType": "reps",
+      "variantNote": "",
+      "reviewState": "available",
+      "safetyGateIds": []
+    },
+    {
+      "id": "abdominal-infra",
+      "name": "Abdominal infra",
+      "status": "active",
+      "muscles": [
+        "abs"
+      ],
+      "equipment": "bodyweight",
+      "tags": [
+        "novo-2026",
+        "core"
+      ],
+      "pattern": "core-flexion",
+      "goals": [
+        "general-hypertrophy",
+        "surf-readiness"
+      ],
+      "riskFlags": [],
+      "shoulderTier": "A",
+      "substitutes": [],
+      "doseType": "reps",
+      "variantNote": "",
+      "reviewState": "available",
+      "safetyGateIds": []
+    },
+    {
+      "id": "prancha",
+      "name": "Prancha",
+      "status": "active",
+      "muscles": [
+        "abs",
+        "obliques"
+      ],
+      "equipment": "bodyweight",
+      "tags": [
+        "novo-2026",
+        "core"
+      ],
+      "pattern": "core-anti-extension",
+      "goals": [
+        "surf-readiness"
+      ],
+      "riskFlags": [],
+      "shoulderTier": "A",
+      "substitutes": [],
+      "doseType": "time-sec",
+      "variantNote": "",
+      "reviewState": "available",
+      "safetyGateIds": []
+    },
+    {
+      "id": "pallof-press",
+      "name": "Pallof press",
+      "status": "active",
+      "muscles": [
+        "abs",
+        "obliques"
+      ],
+      "equipment": "cable",
+      "tags": [
+        "novo-2026",
+        "core"
+      ],
+      "pattern": "core-anti-rotation",
+      "goals": [
+        "surf-readiness"
+      ],
+      "riskFlags": [],
+      "shoulderTier": "A",
+      "substitutes": [],
+      "doseType": "reps",
+      "variantNote": "",
+      "reviewState": "available",
+      "safetyGateIds": []
+    },
+    {
+      "id": "esteira-caminhada",
+      "name": "Caminhada na esteira",
+      "status": "active",
+      "muscles": [
+        "quadriceps",
+        "hamstring",
+        "calves"
+      ],
+      "equipment": "treadmill",
+      "tags": [
+        "novo-2026",
+        "conditioning"
+      ],
+      "pattern": "conditioning",
+      "goals": [
+        "conditioning",
+        "surf-readiness"
+      ],
+      "riskFlags": [],
+      "shoulderTier": "A",
+      "substitutes": [],
+      "doseType": "time-min",
+      "variantNote": "Formaliza o descanso ativo legado.",
+      "reviewState": "available",
+      "safetyGateIds": []
+    },
+    {
+      "id": "esteira-intervalado",
+      "name": "Intervalado na esteira — disponível apenas na fase 3B+",
+      "status": "active",
+      "muscles": [
+        "quadriceps",
+        "hamstring",
+        "calves"
+      ],
+      "equipment": "treadmill",
+      "tags": [
+        "novo-2026",
+        "conditioning",
+        "fase-3b+"
+      ],
+      "pattern": "conditioning",
+      "goals": [
+        "conditioning",
+        "surf-readiness"
+      ],
+      "riskFlags": [],
+      "shoulderTier": "A",
+      "substitutes": [],
+      "doseType": "time-min",
+      "variantNote": "Restrição de fase, não uma classificação mecânica do ombro.",
+      "reviewState": "phase-gated",
+      "safetyGateIds": []
+    },
+    {
+      "id": "flexao-inclinada",
+      "name": "Flexão inclinada (lenta, sem pop-up) — em observação",
+      "status": "active",
+      "muscles": [
+        "chest",
+        "triceps",
+        "deltoids"
+      ],
+      "equipment": "bench",
+      "tags": [
+        "novo-2026",
+        "push"
+      ],
+      "pattern": "horizontal-push",
+      "goals": [
+        "general-hypertrophy",
+        "shape-v"
+      ],
+      "riskFlags": [],
+      "shoulderTier": "B",
+      "substitutes": [],
+      "doseType": "reps",
+      "variantNote": "Somente execução lenta; variante balística não catalogada. Fora de plano enquanto houver desconforto acima da cabeça.",
+      "reviewState": "pending",
+      "safetyGateIds": [
+        "gate-tier-b-sem-overhead"
+      ]
+    },
+    {
+      "id": "mobilidade-toracica",
+      "name": "Mobilidade torácica",
+      "status": "active",
+      "muscles": [
+        "upper-back"
+      ],
+      "equipment": "bodyweight",
+      "tags": [
+        "novo-2026",
+        "mobility"
+      ],
+      "pattern": "mobility",
+      "goals": [
+        "mobility",
+        "surf-readiness"
+      ],
+      "riskFlags": [],
+      "shoulderTier": "A",
+      "substitutes": [],
+      "doseType": "time-min",
+      "variantNote": "",
+      "reviewState": "available",
+      "safetyGateIds": []
+    },
+    {
+      "id": "mobilidade-quadril",
+      "name": "Mobilidade de quadril",
+      "status": "active",
+      "muscles": [
+        "gluteal",
+        "adductors"
+      ],
+      "equipment": "bodyweight",
+      "tags": [
+        "novo-2026",
+        "mobility"
+      ],
+      "pattern": "mobility",
+      "goals": [
+        "mobility",
+        "surf-readiness"
+      ],
+      "riskFlags": [],
+      "shoulderTier": "A",
+      "substitutes": [],
+      "doseType": "time-min",
+      "variantNote": "",
+      "reviewState": "available",
+      "safetyGateIds": []
+    },
+    {
+      "id": "rotacao-externa-cabo",
+      "name": "Rotação externa no cabo — bloqueada/condicional (requer orientação profissional)",
+      "status": "active",
+      "muscles": [
+        "deltoids"
+      ],
+      "equipment": "cable",
+      "tags": [
+        "novo-2026",
+        "cuff"
+      ],
+      "pattern": "cuff",
+      "goals": [
+        "surf-readiness"
+      ],
+      "riskFlags": [],
+      "shoulderTier": "COND",
+      "substitutes": [],
+      "doseType": "reps",
+      "variantNote": "Fortalecimento específico não é tratamento nem cura da instabilidade.",
+      "reviewState": "locked",
+      "safetyGateIds": [
+        "gate-manguito-escapula"
+      ]
+    },
+    {
+      "id": "rotacao-interna-cabo",
+      "name": "Rotação interna no cabo — bloqueada/condicional (requer orientação profissional)",
+      "status": "active",
+      "muscles": [
+        "deltoids"
+      ],
+      "equipment": "cable",
+      "tags": [
+        "novo-2026",
+        "cuff"
+      ],
+      "pattern": "cuff",
+      "goals": [
+        "surf-readiness"
+      ],
+      "riskFlags": [],
+      "shoulderTier": "COND",
+      "substitutes": [],
+      "doseType": "reps",
+      "variantNote": "Fortalecimento específico não é tratamento nem cura da instabilidade.",
+      "reviewState": "locked",
+      "safetyGateIds": [
+        "gate-manguito-escapula"
+      ]
+    },
+    {
+      "id": "face-pull",
+      "name": "Face pull — bloqueado/condicional (requer orientação profissional)",
+      "status": "active",
+      "muscles": [
+        "upper-back",
+        "trapezius",
+        "deltoids"
+      ],
+      "equipment": "cable",
+      "tags": [
+        "novo-2026",
+        "scap"
+      ],
+      "pattern": "scap",
+      "goals": [
+        "shape-v",
+        "surf-readiness"
+      ],
+      "riskFlags": [],
+      "shoulderTier": "COND",
+      "substitutes": [],
+      "doseType": "reps",
+      "variantNote": "Fortalecimento específico não é tratamento nem cura da instabilidade.",
+      "reviewState": "locked",
+      "safetyGateIds": [
+        "gate-manguito-escapula"
+      ]
+    },
+    {
+      "id": "flexao-escapular",
+      "name": "Flexão escapular — bloqueada/condicional (requer orientação profissional)",
+      "status": "active",
+      "muscles": [
+        "upper-back",
+        "chest"
+      ],
+      "equipment": "bodyweight",
+      "tags": [
+        "novo-2026",
+        "scap"
+      ],
+      "pattern": "scap",
+      "goals": [
+        "surf-readiness"
+      ],
+      "riskFlags": [],
+      "shoulderTier": "COND",
+      "substitutes": [],
+      "doseType": "reps",
+      "variantNote": "Fortalecimento específico não é tratamento nem cura da instabilidade.",
+      "reviewState": "locked",
+      "safetyGateIds": [
+        "gate-manguito-escapula"
+      ]
+    }
+  ]
+}
