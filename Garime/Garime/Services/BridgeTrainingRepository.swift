@@ -93,6 +93,12 @@ enum TrainingExerciseStatus: String, Codable, Sendable {
     case retired
 }
 
+enum TrainingDoseType: String, Codable, Sendable {
+    case reps
+    case timeMin = "time-min"
+    case timeSec = "time-sec"
+}
+
 struct TrainingCatalogExercise: Codable, Identifiable, Sendable {
     let id: String
     let name: String
@@ -100,9 +106,10 @@ struct TrainingCatalogExercise: Codable, Identifiable, Sendable {
     let muscles: [String]
     let equipment: String
     let tags: [String]
+    let doseType: TrainingDoseType
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, status, muscles, equipment, tags
+        case id, name, status, muscles, equipment, tags, doseType
     }
 
     init(from decoder: Decoder) throws {
@@ -113,6 +120,7 @@ struct TrainingCatalogExercise: Codable, Identifiable, Sendable {
         muscles = try container.decode([String].self, forKey: .muscles)
         equipment = try container.decode(String.self, forKey: .equipment)
         tags = try container.decode([String].self, forKey: .tags)
+        doseType = try container.decodeIfPresent(TrainingDoseType.self, forKey: .doseType) ?? .reps
     }
 }
 
@@ -260,6 +268,7 @@ struct WeeklyPlanItem: Codable, Identifiable, Sendable {
     let muscles: [String]
     let sets: [[Int]]
     let restSec: Int
+    let doseType: TrainingDoseType
 
     var id: String { exerciseId }
 
@@ -269,12 +278,13 @@ struct WeeklyPlanItem: Codable, Identifiable, Sendable {
             name: name,
             sets: sets,
             muscles: muscles,
-            restSec: restSec
+            restSec: restSec,
+            doseType: doseType
         )
     }
 
     private enum CodingKeys: String, CodingKey {
-        case exerciseId, name, muscles, sets, restSec
+        case exerciseId, name, muscles, sets, restSec, doseType
     }
 
     init(from decoder: Decoder) throws {
@@ -284,6 +294,7 @@ struct WeeklyPlanItem: Codable, Identifiable, Sendable {
         muscles = try container.decode([String].self, forKey: .muscles)
         sets = try container.decode([[Int]].self, forKey: .sets)
         restSec = try container.decode(Int.self, forKey: .restSec)
+        doseType = try container.decodeIfPresent(TrainingDoseType.self, forKey: .doseType) ?? .reps
         try TrainingDecode.validate(sets: sets, codingPath: decoder.codingPath)
         guard restSec >= 0 else {
             throw DecodingError.dataCorruptedError(forKey: .restSec, in: container, debugDescription: "invalid rest")

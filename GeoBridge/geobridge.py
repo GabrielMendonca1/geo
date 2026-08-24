@@ -1804,6 +1804,7 @@ def valid_plan(plan):
                 or not isinstance(item.get("muscles"), list)
                 or not all(isinstance(muscle, str) for muscle in item["muscles"])
                 or not isinstance(item.get("sets"), list)
+                or item.get("doseType", "reps") not in ("reps", "time-min", "time-sec")
                 or type(item.get("restSec")) is not int
                 or item["restSec"] < 0
             ):

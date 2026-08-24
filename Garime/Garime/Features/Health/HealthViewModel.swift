@@ -45,6 +45,10 @@ final class HealthViewModel: ObservableObject {
         vitalsProtocol?.sessions ?? []
     }
 
+    var todayKey: String {
+        clock.dayKey(for: now())
+    }
+
     var effectiveDay: EffectiveDay? {
         effectiveDay(for: now())
     }

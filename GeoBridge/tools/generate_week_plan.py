@@ -123,6 +123,8 @@ def validate_sources(catalog, blocks, safety):
     for exercise in exercises.values():
         if exercise.get("status") not in {"active", "retired"}:
             raise GenerationError(f"invalid exercise status: {exercise['id']}")
+        if exercise.get("doseType") not in {"reps", "time-min", "time-sec"}:
+            raise GenerationError(f"invalid dose type: {exercise['id']}")
         if not isinstance(exercise.get("reviewState"), str):
             raise GenerationError(f"missing review state: {exercise['id']}")
         if not isinstance(exercise.get("riskFlags"), list) or not all(isinstance(value, str) for value in exercise["riskFlags"]):
@@ -218,6 +220,7 @@ def build_plan(catalog, blocks, safety, week, training_days, revision=1):
                     raise GenerationError(f"duplicate exercise in day: {exercise_id}")
                 exercise_ids.add(exercise_id)
                 items.append({
+                    "doseType": exercise["doseType"],
                     "exerciseId": exercise_id,
                     "muscles": exercise.get("muscles", []),
                     "name": exercise.get("name", ""),

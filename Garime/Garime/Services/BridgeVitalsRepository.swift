@@ -6,17 +6,26 @@ struct VitalsExercise: Decodable, Identifiable {
     let sets: [[Int]]
     let muscles: [String]
     let restSec: Int?
+    let doseType: TrainingDoseType
 
-    init(id: String, name: String, sets: [[Int]], muscles: [String], restSec: Int? = nil) {
+    init(
+        id: String,
+        name: String,
+        sets: [[Int]],
+        muscles: [String],
+        restSec: Int? = nil,
+        doseType: TrainingDoseType = .reps
+    ) {
         self.id = id
         self.name = name
         self.sets = sets
         self.muscles = muscles
         self.restSec = restSec
+        self.doseType = doseType
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, sets, muscles, restSec
+        case id, name, sets, muscles, restSec, doseType
     }
 
     init(from decoder: Decoder) throws {
@@ -26,6 +35,7 @@ struct VitalsExercise: Decodable, Identifiable {
         sets = try container.decodeIfPresent([[Int]].self, forKey: .sets) ?? []
         muscles = try container.decodeIfPresent([String].self, forKey: .muscles) ?? []
         restSec = try container.decodeIfPresent(Int.self, forKey: .restSec)
+        doseType = try container.decodeIfPresent(TrainingDoseType.self, forKey: .doseType) ?? .reps
     }
 }
 

@@ -21,7 +21,7 @@ struct ExerciseLogSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
-                    Text(VitalsFormat.sets(exercise.sets))
+                    Text(VitalsFormat.prescription(exercise.sets, doseType: exercise.doseType))
                         .font(.system(size: 12, design: .monospaced))
                         .foregroundStyle(Color.slateTextDim)
 

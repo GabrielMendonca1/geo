@@ -2,7 +2,6 @@ import SwiftUI
 
 struct HealthView: View {
     @StateObject private var viewModel = HealthViewModel()
-    @StateObject private var weekViewModel = WeekPlanViewModel()
     @State private var showOnboarding = false
     @State private var loggingExercise: VitalsExercise?
     @State private var note = ""
@@ -32,8 +31,13 @@ struct HealthView: View {
                         planFallback(error)
                     }
 
-                    if viewModel.errorMessage == nil || weekViewModel.hasContent {
-                        TrainingOverviewSection(viewModel: weekViewModel)
+                    if viewModel.errorMessage == nil || viewModel.plan != nil {
+                        TrainingOverviewSection(
+                            plan: viewModel.plan,
+                            today: viewModel.todayKey,
+                            isLoading: viewModel.isLoading && !viewModel.hasLoaded,
+                            errorMessage: viewModel.planErrorMessage
+                        )
                     }
                 }
                 .padding(.horizontal, 16)
@@ -43,9 +47,7 @@ struct HealthView: View {
             .safeAreaInset(edge: .top) { header }
             .navigationBarHidden(true)
             .refreshable {
-                async let health: Void = viewModel.reload()
-                async let training: Void = weekViewModel.reload()
-                _ = await (health, training)
+                await viewModel.reload()
             }
             .sheet(isPresented: $showOnboarding) {
                 OnboardingSheet(
@@ -71,9 +73,7 @@ struct HealthView: View {
         }
         .tint(Color.slateText)
         .task {
-            async let health: Void = viewModel.reload()
-            async let training: Void = weekViewModel.reload()
-            _ = await (health, training)
+            await viewModel.reload()
         }
         .onChange(of: viewModel.needsOnboarding) { _, needs in
             if needs, !showOnboarding { showOnboarding = true }
@@ -131,17 +131,26 @@ struct HealthView: View {
                     if index > 0 {
                         Divider().overlay(Color.slateStroke.opacity(0.4))
                     }
-                    Button {
-                        loggingExercise = exercise
-                    } label: {
-                        exerciseRow(exercise, session: session)
-                    }
-                    .buttonStyle(.plain)
+                    exerciseEntry(exercise, session: session)
                 }
             }
             .glassSurface(shape: RoundedRectangle(cornerRadius: SlateRadius.card, style: .continuous))
 
             noteField
+        }
+    }
+
+    @ViewBuilder
+    private func exerciseEntry(_ exercise: VitalsExercise, session: VitalsSession) -> some View {
+        if exercise.doseType == .reps {
+            Button {
+                loggingExercise = exercise
+            } label: {
+                exerciseRow(exercise, session: session)
+            }
+            .buttonStyle(.plain)
+        } else {
+            exerciseRow(exercise, session: session)
         }
     }
 
@@ -172,10 +181,10 @@ struct HealthView: View {
                     .foregroundStyle(Color.slateText)
             } else {
                 HStack(spacing: 10) {
-                    Text(VitalsFormat.sets(exercise.sets))
+                    Text(VitalsFormat.prescription(exercise.sets, doseType: exercise.doseType))
                         .font(.system(size: 12, design: .monospaced))
                         .foregroundStyle(Color.slateTextDim)
-                    if let restSec = exercise.restSec {
+                    if let restSec = exercise.restSec, restSec > 0 {
                         Text("\(restSec)s")
                             .font(.system(size: 12, design: .monospaced))
                             .foregroundStyle(Color.slateTextFaint)
@@ -257,16 +266,27 @@ enum VitalsFormat {
         return sets.map { "\($0.reps)×\(kg($0.kg))" }.joined(separator: " / ")
     }
 
-    static func sets(_ sets: [[Int]]) -> String {
+    static func prescription(_ sets: [[Int]], doseType: TrainingDoseType = .reps) -> String {
         guard !sets.isEmpty else { return "" }
         let ranges = sets.map { range -> String in
             guard let low = range.first, let high = range.last else { return "" }
-            return low == high ? "\(low)" : "\(low)-\(high)"
+            return low == high ? "\(low)" : "\(low)–\(high)"
+        }
+        let noun = sets.count == 1 ? "série" : "séries"
+        if doseType != .reps {
+            let unit = doseType == .timeMin ? "min" : "s"
+            if sets.count == 1 {
+                return "\(ranges[0]) \(unit)"
+            }
+            if let first = ranges.first, ranges.allSatisfy({ $0 == first }) {
+                return "\(sets.count) \(noun) · \(first) \(unit)"
+            }
+            return "\(sets.count) \(noun) · \(ranges.joined(separator: " / ")) \(unit)"
         }
         if let first = ranges.first, ranges.allSatisfy({ $0 == first }) {
-            return "\(sets.count)×\(first)"
+            return "\(sets.count) \(noun) · \(first)"
         }
-        return ranges.joined(separator: " / ")
+        return "\(sets.count) \(noun) · \(ranges.joined(separator: " / "))"
     }
 }
 

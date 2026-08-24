@@ -29,8 +29,8 @@ class GenerateWeekPlanTests(unittest.TestCase):
         cls.exercises = {value["id"]: value for value in cls.catalog["exercises"]}
         cls.block_index = {value["id"]: value for value in cls.blocks["blocks"]}
 
-    def build(self, days):
-        return generator.build_plan(self.catalog, self.blocks, self.safety, "2026-W35", days)
+    def build(self, days, revision=1):
+        return generator.build_plan(self.catalog, self.blocks, self.safety, "2026-W35", days, revision)
 
     def test_four_and_five_day_variants_are_valid_deterministic_and_safe(self):
         denied_reviews = set(self.safety["publicationRules"]["denyReviewStates"])
@@ -52,8 +52,10 @@ class GenerateWeekPlanTests(unittest.TestCase):
             for day in training_days:
                 ids = [item["exerciseId"] for item in day["items"]]
                 self.assertEqual(len(ids), len(set(ids)))
-                for exercise_id in ids:
+                for item in day["items"]:
+                    exercise_id = item["exerciseId"]
                     exercise = self.exercises[exercise_id]
+                    self.assertEqual(item["doseType"], exercise["doseType"])
                     self.assertNotIn(exercise_id, generator.DENIED_IDS)
                     self.assertNotIn(exercise_id, blocked_by_gate)
                     self.assertNotIn(exercise["reviewState"], denied_reviews)
@@ -94,12 +96,18 @@ class GenerateWeekPlanTests(unittest.TestCase):
                 generator.build_plan(catalog, blocks, safety, "2026-W35", 5)
 
     def test_versioned_five_day_example_is_generator_output(self):
-        fixture = ROOT / "GeoBridge" / "fixtures" / "training" / "generated" / "plan-2026-W35.r1-5days.json"
-        expected = generator.plan_bytes(self.build(5))
+        fixture = ROOT / "GeoBridge" / "fixtures" / "training" / "generated" / "plan-2026-W35.r2-5days.json"
+        expected = generator.plan_bytes(self.build(5, revision=2))
         self.assertEqual(fixture.read_bytes(), expected)
         self.assertTrue(generator.valid_plan(json.loads(expected)))
         self.assertFalse(list(fixture.parent.glob("protocol.json")))
         self.assertFalse(list(fixture.parent.glob("state.json")))
+
+    def test_historical_revision_one_remains_valid_without_dose_metadata(self):
+        fixture = ROOT / "GeoBridge" / "fixtures" / "training" / "generated" / "plan-2026-W35.r1-5days.json"
+        plan = json.loads(fixture.read_text())
+        self.assertTrue(generator.valid_plan(plan))
+        self.assertTrue(all("doseType" not in item for day in plan["days"] for item in day["items"]))
 
     def test_cli_refuses_legacy_state_output_names(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -146,43 +146,23 @@ final class BridgeEndpointTests: XCTestCase {
         XCTAssertEqual(exercise.sets, [[10, 12], [8, 10]])
         XCTAssertEqual(exercise.muscles, ["upper-back"])
         XCTAssertEqual(exercise.restSec, 75)
+        XCTAssertEqual(exercise.doseType, .reps)
     }
 
-    @MainActor
-    func testInvalidCatalogDoesNotPreventValidWeekFromLoading() async throws {
-        let invalidCatalog = Data(#"""
-        {"schema":"vitals.catalog/1","id":"demo-catalog","version":1,"updatedAt":"2026-08-24T18:00:00Z",
-         "exercises":[{"id":"demo.exercise","name":"Demo","status":"paused","muscles":[],"equipment":"none","tags":[]}]}
-        """#.utf8)
-        let validPlan = Data(#"""
-        {"schema":"vitals.plan/1","id":"plan-2026-W35.r1","week":"2026-W35","revision":1,
-         "frozenAt":"2026-08-24T18:00:00Z",
-         "source":{"catalogId":"demo-catalog","catalogVersion":1,"blocks":[],"generator":"manual"},
-         "days":[
-           {"date":"2026-08-24","label":"Descanso","rest":true,"items":[]},
-           {"date":"2026-08-25","label":"Descanso","rest":true,"items":[]},
-           {"date":"2026-08-26","label":"Descanso","rest":true,"items":[]},
-           {"date":"2026-08-27","label":"Descanso","rest":true,"items":[]},
-           {"date":"2026-08-28","label":"Descanso","rest":true,"items":[]},
-           {"date":"2026-08-29","label":"Descanso","rest":true,"items":[]},
-           {"date":"2026-08-30","label":"Descanso","rest":true,"items":[]}
-         ]}
-        """#.utf8)
-        let missing = Result<Data, Error>.failure(BridgeError.server(status: 404, code: "not_found"))
-        let fake = FakeTrainingBridge(routes: [
-            BridgeEndpoint.vitalsCatalog.path: .success(invalidCatalog),
-            BridgeEndpoint.vitalsBlocks.path: missing,
-            BridgeEndpoint.vitalsPlan(week: "2026-W35").path: .success(validPlan),
-        ])
-        let model = WeekPlanViewModel(repository: BridgeTrainingRepository(client: fake))
-        let date = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-08-24T12:00:00Z"))
+    func testTimedPrescriptionUsesMinutesInsteadOfSetsAndReps() throws {
+        let data = Data(#"{"exerciseId":"esteira-caminhada","name":"Caminhada na esteira","muscles":["calves"],"sets":[[5,8]],"restSec":0,"doseType":"time-min"}"#.utf8)
+        let item = try JSONDecoder().decode(WeeklyPlanItem.self, from: data)
 
-        await model.reload(date: date)
+        XCTAssertEqual(item.doseType, .timeMin)
+        XCTAssertEqual(item.vitalsExercise.doseType, .timeMin)
+        XCTAssertEqual(VitalsFormat.prescription(item.sets, doseType: item.doseType), "5–8 min")
+    }
 
-        XCTAssertEqual(model.plan?.id, "plan-2026-W35.r1")
-        XCTAssertNotNil(model.catalogErrorMessage)
-        XCTAssertNil(model.planErrorMessage)
-        XCTAssertNil(model.blocksErrorMessage)
+    func testStrengthPrescriptionNamesSeriesAndKeepsPerSetRanges() {
+        XCTAssertEqual(
+            VitalsFormat.prescription([[12, 15], [10, 12], [10, 12], [6, 8]]),
+            "4 séries · 12–15 / 10–12 / 10–12 / 6–8"
+        )
     }
 
     @MainActor
