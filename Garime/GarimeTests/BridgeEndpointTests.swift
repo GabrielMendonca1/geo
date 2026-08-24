@@ -6,6 +6,10 @@ final class BridgeEndpointTests: XCTestCase {
         XCTAssertEqual(BridgeEndpoint.health.path, "/health")
     }
 
+    func testBridgeDoesNotWaitForeverWhenTailnetIsUnavailable() {
+        XCTAssertFalse(BridgeClient.session.configuration.waitsForConnectivity)
+    }
+
     func testTaskCRUDPathsAreCorrect() {
         let id = "task-123"
         XCTAssertEqual(BridgeEndpoint.tasksList.path, "/tasks")
