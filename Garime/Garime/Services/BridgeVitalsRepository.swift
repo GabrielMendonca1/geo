@@ -5,9 +5,18 @@ struct VitalsExercise: Decodable, Identifiable {
     let name: String
     let sets: [[Int]]
     let muscles: [String]
+    let restSec: Int?
+
+    init(id: String, name: String, sets: [[Int]], muscles: [String], restSec: Int? = nil) {
+        self.id = id
+        self.name = name
+        self.sets = sets
+        self.muscles = muscles
+        self.restSec = restSec
+    }
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, sets, muscles
+        case id, name, sets, muscles, restSec
     }
 
     init(from decoder: Decoder) throws {
@@ -16,6 +25,7 @@ struct VitalsExercise: Decodable, Identifiable {
         name = try container.decodeIfPresent(String.self, forKey: .name) ?? ""
         sets = try container.decodeIfPresent([[Int]].self, forKey: .sets) ?? []
         muscles = try container.decodeIfPresent([String].self, forKey: .muscles) ?? []
+        restSec = try container.decodeIfPresent(Int.self, forKey: .restSec)
     }
 }
 
@@ -28,6 +38,15 @@ struct VitalsSession: Decodable, Identifiable {
     let exercises: [VitalsExercise]
 
     var id: Int { index }
+
+    init(index: Int, name: String, short: String, rest: Bool, muscles: [String], exercises: [VitalsExercise]) {
+        self.index = index
+        self.name = name
+        self.short = short
+        self.rest = rest
+        self.muscles = muscles
+        self.exercises = exercises
+    }
 
     private enum CodingKeys: String, CodingKey {
         case index, name, short, rest, muscles, exercises
@@ -127,27 +146,41 @@ struct VitalsLogExercise: Codable {
 struct VitalsLog: Codable, Identifiable {
     let id: String
     let date: String
-    let sessionIndex: Int
+    let sessionIndex: Int?
+    let planId: String?
+    let planDayId: String?
     let exercises: [VitalsLogExercise]
     let note: String
 
-    init(id: String, date: String, sessionIndex: Int, exercises: [VitalsLogExercise], note: String) {
+    init(
+        id: String,
+        date: String,
+        sessionIndex: Int? = nil,
+        planId: String? = nil,
+        planDayId: String? = nil,
+        exercises: [VitalsLogExercise],
+        note: String
+    ) {
         self.id = id
         self.date = date
         self.sessionIndex = sessionIndex
+        self.planId = planId
+        self.planDayId = planDayId
         self.exercises = exercises
         self.note = note
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, date, sessionIndex, exercises, note
+        case id, date, sessionIndex, planId, planDayId, exercises, note
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
         date = try container.decodeIfPresent(String.self, forKey: .date) ?? ""
-        sessionIndex = try container.decodeIfPresent(Int.self, forKey: .sessionIndex) ?? 0
+        sessionIndex = try container.decodeIfPresent(Int.self, forKey: .sessionIndex)
+        planId = try container.decodeIfPresent(String.self, forKey: .planId)
+        planDayId = try container.decodeIfPresent(String.self, forKey: .planDayId)
         exercises = try container.decodeIfPresent([VitalsLogExercise].self, forKey: .exercises) ?? []
         note = try container.decodeIfPresent(String.self, forKey: .note) ?? ""
     }
@@ -159,14 +192,6 @@ struct BridgeVitalsRepository {
     init(client: any BridgeAPI = BridgeClient.shared) {
         self.client = client
     }
-
-    static let dayFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter
-    }()
 
     func fetchProtocol() async throws -> VitalsProtocol {
         let data = try await client.getData(BridgeEndpoint.vitalsProtocol.path)

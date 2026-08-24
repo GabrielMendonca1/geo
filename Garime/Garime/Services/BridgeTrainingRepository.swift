@@ -1,5 +1,69 @@
 import Foundation
 
+struct TrainingClock: Sendable {
+    private let calendar: Calendar
+
+    init(timeZone: TimeZone = .autoupdatingCurrent) {
+        var calendar = Calendar(identifier: .iso8601)
+        calendar.timeZone = timeZone
+        self.calendar = calendar
+    }
+
+    init(calendar: Calendar) {
+        self.calendar = calendar
+    }
+
+    func keys(for date: Date) -> (week: String, day: String) {
+        (weekKey(for: date), dayKey(for: date))
+    }
+
+    func weekKey(for date: Date) -> String {
+        let components = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: date)
+        return String(format: "%04d-W%02d", components.yearForWeekOfYear ?? 0, components.weekOfYear ?? 0)
+    }
+
+    func dayKey(for date: Date) -> String {
+        let components = calendar.dateComponents([.year, .month, .day], from: date)
+        return String(format: "%04d-%02d-%02d", components.year ?? 0, components.month ?? 0, components.day ?? 0)
+    }
+
+    func date(forDayKey value: String) -> Date? {
+        let parts = value.split(separator: "-")
+        guard parts.count == 3,
+              let year = Int(parts[0]),
+              let month = Int(parts[1]),
+              let day = Int(parts[2]),
+              let date = calendar.date(from: DateComponents(year: year, month: month, day: day)),
+              dayKey(for: date) == value else { return nil }
+        return date
+    }
+
+    func days(from startDay: String, to date: Date) -> Int? {
+        guard let start = self.date(forDayKey: startDay) else { return nil }
+        return calendar.dateComponents(
+            [.day],
+            from: calendar.startOfDay(for: start),
+            to: calendar.startOfDay(for: date)
+        ).day
+    }
+
+    func dayKeys(forWeek week: String) -> [String]? {
+        let parts = week.split(separator: "-")
+        guard parts.count == 2,
+              parts[1].first == "W",
+              let year = Int(parts[0]),
+              let number = Int(parts[1].dropFirst()) else { return nil }
+        var components = DateComponents()
+        components.weekday = 2
+        components.weekOfYear = number
+        components.yearForWeekOfYear = year
+        guard let monday = calendar.date(from: components), weekKey(for: monday) == week else { return nil }
+        return (0..<7).compactMap { offset in
+            calendar.date(byAdding: .day, value: offset, to: monday).map { dayKey(for: $0) }
+        }
+    }
+}
+
 private enum TrainingDecode {
     static func stableID<K: CodingKey>(
         _ container: KeyedDecodingContainer<K>,
@@ -199,6 +263,16 @@ struct WeeklyPlanItem: Codable, Identifiable, Sendable {
 
     var id: String { exerciseId }
 
+    var vitalsExercise: VitalsExercise {
+        VitalsExercise(
+            id: exerciseId,
+            name: name,
+            sets: sets,
+            muscles: muscles,
+            restSec: restSec
+        )
+    }
+
     private enum CodingKeys: String, CodingKey {
         case exerciseId, name, muscles, sets, restSec
     }
@@ -251,7 +325,11 @@ struct WeeklyPlan: Codable, Identifiable, Sendable {
         frozenAt = try container.decode(String.self, forKey: .frozenAt)
         source = try container.decode(WeeklyPlanSource.self, forKey: .source)
         days = try container.decode([WeeklyPlanDay].self, forKey: .days)
-        guard revision > 0, id == "plan-\(week).r\(revision)", days.count == 7 else {
+        let clock = TrainingClock(timeZone: TimeZone(secondsFromGMT: 0)!)
+        guard revision > 0,
+              id == "plan-\(week).r\(revision)",
+              let expectedDays = clock.dayKeys(forWeek: week),
+              days.map(\.date) == expectedDays else {
             throw DecodingError.dataCorruptedError(forKey: .id, in: container, debugDescription: "invalid frozen plan identity or shape")
         }
     }
@@ -280,8 +358,7 @@ struct BridgeTrainingRepository: Sendable {
     }
 
     static func isoWeek(for date: Date, calendar: Calendar = Calendar(identifier: .iso8601)) -> String {
-        let components = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: date)
-        return String(format: "%04d-W%02d", components.yearForWeekOfYear ?? 0, components.weekOfYear ?? 0)
+        TrainingClock(calendar: calendar).weekKey(for: date)
     }
 
     private func fetchOptional<T: Decodable>(_ type: T.Type, path: String) async throws -> T? {

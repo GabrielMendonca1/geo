@@ -176,6 +176,7 @@ PANE_PUBLIC_KEYS = ("pane", "agent", "status", "title", "cwd", "tab")
 ID_RE = re.compile(r"\A[A-Za-z0-9._-]+\Z")
 DATE_RE = re.compile(r"\A\d{4}-\d{2}-\d{2}\Z")
 WEEK_RE = re.compile(r"\A\d{4}-W\d{2}\Z")
+PLAN_ID_RE = re.compile(r"\Aplan-(\d{4}-W\d{2})\.r([1-9]\d*)\Z")
 PLAN_FILE_RE = re.compile(r"\Aplan-(\d{4}-W\d{2})\.r([1-9]\d*)\.json\Z")
 TASK_ROUTE = re.compile(r"^/tasks/([^/]+)/(complete|reopen)$")
 TASK_DELETE_ROUTE = re.compile(r"^/tasks/([^/]+)$")
@@ -1728,7 +1729,12 @@ def valid_id(value):
 
 
 def valid_date(value):
-    return isinstance(value, str) and DATE_RE.match(value) is not None
+    if not isinstance(value, str) or DATE_RE.match(value) is None:
+        return False
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").strftime("%Y-%m-%d") == value
+    except ValueError:
+        return False
 
 
 def valid_week(value):
@@ -3461,18 +3467,39 @@ class Handler(BaseHTTPRequestHandler):
         if not isinstance(log, dict):
             self._json(400, b'{"error":"invalid_body"}')
             return
-        index = log.get("sessionIndex")
         exercises = log.get("exercises")
         if (
             not valid_id(log.get("id"))
             or not valid_date(log.get("date"))
-            or not isinstance(index, int)
-            or isinstance(index, bool)
-            or not 0 <= index <= 5
             or not isinstance(exercises, list)
         ):
             self._json(400, b'{"error":"invalid_body"}')
             return
+        has_session = "sessionIndex" in log
+        has_plan = "planId" in log or "planDayId" in log
+        if has_session and has_plan:
+            self._json(400, b'{"error":"mixed_identity"}')
+            return
+        if not has_session and not has_plan:
+            self._json(400, b'{"error":"missing_identity"}')
+            return
+        if has_session:
+            index = log.get("sessionIndex")
+            if not isinstance(index, int) or isinstance(index, bool) or not 0 <= index <= 5:
+                self._json(400, b'{"error":"invalid_body"}')
+                return
+        else:
+            plan_match = PLAN_ID_RE.match(log.get("planId", "")) if isinstance(log.get("planId"), str) else None
+            if not plan_match or not valid_date(log.get("planDayId")):
+                self._json(400, b'{"error":"invalid_plan_identity"}')
+                return
+            if log["planDayId"] != log["date"]:
+                self._json(400, b'{"error":"invalid_plan_day"}')
+                return
+            log_week = datetime.strptime(log["date"], "%Y-%m-%d").strftime("%G-W%V")
+            if plan_match.group(1) != log_week:
+                self._json(400, b'{"error":"invalid_plan_week"}')
+                return
         for exercise in exercises:
             if not isinstance(exercise, dict) or not valid_id(exercise.get("id")) or not isinstance(exercise.get("sets"), list):
                 self._json(400, b'{"error":"invalid_body"}')

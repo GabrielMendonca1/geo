@@ -16,9 +16,14 @@ final class WeekPlanViewModel: ObservableObject {
     @Published private(set) var blocksErrorMessage: String?
 
     private let repository: BridgeTrainingRepository
+    private let clock: TrainingClock
 
-    init(repository: BridgeTrainingRepository = BridgeTrainingRepository()) {
+    init(
+        repository: BridgeTrainingRepository = BridgeTrainingRepository(),
+        clock: TrainingClock = TrainingClock()
+    ) {
         self.repository = repository
+        self.clock = clock
     }
 
     var hasContent: Bool {
@@ -26,8 +31,9 @@ final class WeekPlanViewModel: ObservableObject {
     }
 
     func reload(date: Date = Date()) async {
-        requestedWeek = BridgeTrainingRepository.isoWeek(for: date)
-        today = BridgeVitalsRepository.dayFormatter.string(from: date)
+        let keys = clock.keys(for: date)
+        requestedWeek = keys.week
+        today = keys.day
         if plan?.week != requestedWeek {
             plan = nil
         }

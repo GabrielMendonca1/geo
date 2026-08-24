@@ -90,7 +90,9 @@ final class BridgeEndpointTests: XCTestCase {
         let empty = FakeTrainingBridge(result: .failure(BridgeError.server(status: 404, code: "not_found")))
         let emptyRepository = BridgeTrainingRepository(client: empty)
         let catalog = try await emptyRepository.fetchCatalog()
+        let plan = try await emptyRepository.fetchPlan(week: "2026-W35")
         XCTAssertNil(catalog)
+        XCTAssertNil(plan)
 
         let invalid = FakeTrainingBridge(result: .success(Data("not-json".utf8)))
         let invalidRepository = BridgeTrainingRepository(client: invalid)
@@ -101,6 +103,45 @@ final class BridgeEndpointTests: XCTestCase {
         } catch {
             XCTFail("unexpected error: \(error)")
         }
+    }
+
+    func testTrainingRepositoryDiscardsAPlanFromAnotherWeek() async throws {
+        let repositoryRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let data = try Data(contentsOf: repositoryRoot.appendingPathComponent("GeoBridge/fixtures/training/plan-2026-W35.r1.json"))
+        let fake = FakeTrainingBridge(routes: [
+            BridgeEndpoint.vitalsPlan(week: "2026-W36").path: .success(data),
+        ])
+        let repository = BridgeTrainingRepository(client: fake)
+        let plan = try await repository.fetchPlan(week: "2026-W36")
+
+        XCTAssertNil(plan)
+    }
+
+    func testTrainingClockUsesOneTimezoneAcrossISOWeekBoundaries() throws {
+        let clock = TrainingClock(timeZone: try XCTUnwrap(TimeZone(secondsFromGMT: 0)))
+        let sunday = try XCTUnwrap(ISO8601DateFormatter().date(from: "2021-01-03T23:30:00Z"))
+        let monday = try XCTUnwrap(ISO8601DateFormatter().date(from: "2021-01-04T00:30:00Z"))
+
+        XCTAssertEqual(clock.keys(for: sunday).week, "2020-W53")
+        XCTAssertEqual(clock.keys(for: sunday).day, "2021-01-03")
+        XCTAssertEqual(clock.keys(for: monday).week, "2021-W01")
+        XCTAssertEqual(clock.keys(for: monday).day, "2021-01-04")
+        XCTAssertEqual(clock.dayKeys(forWeek: "2021-W01")?.first, "2021-01-04")
+    }
+
+    func testWeeklyPlanItemAdapterKeepsStableIdentityRangesAndRest() throws {
+        let data = Data(#"{"exerciseId":"remada-baixa","name":"Remada baixa","muscles":["upper-back"],"sets":[[10,12],[8,10]],"restSec":75}"#.utf8)
+        let item = try JSONDecoder().decode(WeeklyPlanItem.self, from: data)
+        let exercise = item.vitalsExercise
+
+        XCTAssertEqual(exercise.id, "remada-baixa")
+        XCTAssertEqual(exercise.name, "Remada baixa")
+        XCTAssertEqual(exercise.sets, [[10, 12], [8, 10]])
+        XCTAssertEqual(exercise.muscles, ["upper-back"])
+        XCTAssertEqual(exercise.restSec, 75)
     }
 
     @MainActor
@@ -139,11 +180,152 @@ final class BridgeEndpointTests: XCTestCase {
         XCTAssertNil(model.planErrorMessage)
         XCTAssertNil(model.blocksErrorMessage)
     }
+
+    @MainActor
+    func testHealthUsesCurrentPlanWhenLegacyProtocolFails() async throws {
+        let plan = Data(#"""
+        {"schema":"vitals.plan/1","id":"plan-2026-W35.r1","week":"2026-W35","revision":1,
+         "frozenAt":"2026-08-24T00:00:00Z",
+         "source":{"catalogId":"gabriel-catalog","catalogVersion":1,"blocks":[],"generator":"conversation"},
+         "days":[
+           {"date":"2026-08-24","label":"Treino 1","rest":false,"items":[{"exerciseId":"remada-baixa","name":"Remada baixa","muscles":["upper-back"],"sets":[[10,12]],"restSec":75}]},
+           {"date":"2026-08-25","label":"Descanso","rest":true,"items":[]},
+           {"date":"2026-08-26","label":"Descanso","rest":true,"items":[]},
+           {"date":"2026-08-27","label":"Descanso","rest":true,"items":[]},
+           {"date":"2026-08-28","label":"Descanso","rest":true,"items":[]},
+           {"date":"2026-08-29","label":"Descanso","rest":true,"items":[]},
+           {"date":"2026-08-30","label":"Descanso","rest":true,"items":[]}
+         ]}
+        """#.utf8)
+        let fake = FakeTrainingBridge(routes: [
+            BridgeEndpoint.vitalsPlan(week: "2026-W35").path: .success(plan),
+            BridgeEndpoint.vitalsProtocol.path: .failure(BridgeError.unreachable("legacy unavailable")),
+            BridgeEndpoint.vitalsState.path: .failure(BridgeError.server(status: 404, code: "not_found")),
+            BridgeEndpoint.vitalsLogs.path: .success(Data("[]".utf8)),
+        ])
+        let clock = TrainingClock(timeZone: try XCTUnwrap(TimeZone(secondsFromGMT: 0)))
+        let date = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-08-24T12:00:00Z"))
+        let model = HealthViewModel(
+            repository: BridgeVitalsRepository(client: fake),
+            trainingRepository: BridgeTrainingRepository(client: fake),
+            clock: clock,
+            now: { date }
+        )
+
+        await model.reload(date: date)
+
+        XCTAssertTrue(model.isPlanPrimary)
+        XCTAssertEqual(model.todaySession?.exercises.first?.id, "remada-baixa")
+        XCTAssertNil(model.errorMessage)
+        XCTAssertFalse(model.needsOnboarding)
+    }
+
+    @MainActor
+    func testHealthFallsBackToLegacyWhenPlanCannotDecode() async throws {
+        let legacy = Data(#"""
+        {"id":"legacy","name":"Legado","sessions":[
+          {"index":0,"name":"Sessão legado","short":"legado","rest":false,"muscles":["biceps"],
+           "exercises":[{"id":"rosca-w","name":"Rosca W","sets":[[10,12]],"muscles":["biceps"]}]}
+        ]}
+        """#.utf8)
+        let state = Data(#"{"protocolId":"legacy","anchorDate":"2026-08-24","anchorIndex":0}"#.utf8)
+        let fake = FakeTrainingBridge(routes: [
+            BridgeEndpoint.vitalsPlan(week: "2026-W35").path: .success(Data("not-json".utf8)),
+            BridgeEndpoint.vitalsProtocol.path: .success(legacy),
+            BridgeEndpoint.vitalsState.path: .success(state),
+            BridgeEndpoint.vitalsLogs.path: .success(Data("[]".utf8)),
+        ])
+        let clock = TrainingClock(timeZone: try XCTUnwrap(TimeZone(secondsFromGMT: 0)))
+        let date = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-08-24T12:00:00Z"))
+        let model = HealthViewModel(
+            repository: BridgeVitalsRepository(client: fake),
+            trainingRepository: BridgeTrainingRepository(client: fake),
+            clock: clock,
+            now: { date }
+        )
+
+        await model.reload(date: date)
+
+        XCTAssertFalse(model.isPlanPrimary)
+        XCTAssertEqual(model.todaySession?.index, 0)
+        XCTAssertEqual(model.todaySession?.exercises.first?.id, "rosca-w")
+        XCTAssertNotNil(model.planErrorMessage)
+        XCTAssertNil(model.errorMessage)
+    }
+
+    @MainActor
+    func testSaveAfterMidnightReloadsAndNeverRewritesPreviousDay() async throws {
+        let plan = Data(#"""
+        {"schema":"vitals.plan/1","id":"plan-2026-W35.r1","week":"2026-W35","revision":1,
+         "frozenAt":"2026-08-24T00:00:00Z",
+         "source":{"catalogId":"gabriel-catalog","catalogVersion":1,"blocks":[],"generator":"conversation"},
+         "days":[
+           {"date":"2026-08-24","label":"Treino 1","rest":false,"items":[{"exerciseId":"remada-baixa","name":"Remada baixa","muscles":["upper-back"],"sets":[[10,12]],"restSec":75}]},
+           {"date":"2026-08-25","label":"Treino 2","rest":false,"items":[{"exerciseId":"remada-baixa","name":"Remada baixa","muscles":["upper-back"],"sets":[[10,12]],"restSec":75}]},
+           {"date":"2026-08-26","label":"Descanso","rest":true,"items":[]},
+           {"date":"2026-08-27","label":"Descanso","rest":true,"items":[]},
+           {"date":"2026-08-28","label":"Descanso","rest":true,"items":[]},
+           {"date":"2026-08-29","label":"Descanso","rest":true,"items":[]},
+           {"date":"2026-08-30","label":"Descanso","rest":true,"items":[]}
+         ]}
+        """#.utf8)
+        let logs = Data(#"""
+        [{"id":"yesterday","date":"2026-08-24","planId":"plan-2026-W35.r1","planDayId":"2026-08-24",
+          "exercises":[],"note":"ontem"}]
+        """#.utf8)
+        let fake = FakeTrainingBridge(routes: [
+            BridgeEndpoint.vitalsPlan(week: "2026-W35").path: .success(plan),
+            BridgeEndpoint.vitalsProtocol.path: .failure(BridgeError.unreachable("legacy unavailable")),
+            BridgeEndpoint.vitalsState.path: .failure(BridgeError.server(status: 404, code: "not_found")),
+            BridgeEndpoint.vitalsLogs.path: .success(logs),
+        ])
+        let clock = TrainingClock(timeZone: try XCTUnwrap(TimeZone(secondsFromGMT: 0)))
+        let firstDay = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-08-24T23:50:00Z"))
+        let secondDay = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-08-25T00:05:00Z"))
+        let current = MutableDate(firstDay)
+        let model = HealthViewModel(
+            repository: BridgeVitalsRepository(client: fake),
+            trainingRepository: BridgeTrainingRepository(client: fake),
+            clock: clock,
+            now: { current.value }
+        )
+        await model.reload(date: firstDay)
+        XCTAssertEqual(model.todayLog?.id, "yesterday")
+
+        current.value = secondDay
+        try await model.saveExercise(
+            exerciseId: "remada-baixa",
+            sets: [VitalsLogSet(reps: 12, kg: 40)]
+        )
+
+        let post = try XCTUnwrap(fake.posts.first)
+        XCTAssertEqual(post.path, BridgeEndpoint.vitalsLog.path)
+        let saved = try JSONDecoder().decode(VitalsLog.self, from: post.body)
+        XCTAssertEqual(saved.date, "2026-08-25")
+        XCTAssertEqual(saved.planDayId, "2026-08-25")
+        XCTAssertEqual(saved.planId, "plan-2026-W35.r1")
+        XCTAssertNotEqual(saved.id, "yesterday")
+        XCTAssertEqual(saved.note, "")
+    }
+}
+
+private final class MutableDate: @unchecked Sendable {
+    var value: Date
+
+    init(_ value: Date) {
+        self.value = value
+    }
 }
 
 private final class FakeTrainingBridge: BridgeAPI, @unchecked Sendable {
+    struct Post {
+        let path: String
+        let body: Data
+    }
+
     let routes: [String: Result<Data, Error>]
     let fallback: Result<Data, Error>?
+    private(set) var posts: [Post] = []
 
     init(result: Result<Data, Error>) {
         routes = [:]
@@ -166,7 +348,9 @@ private final class FakeTrainingBridge: BridgeAPI, @unchecked Sendable {
     }
 
     func postData(_ path: String, body: Data?, token: String?) async throws -> Data {
-        throw BridgeError.unsupported(path)
+        guard let body else { throw BridgeError.unsupported(path) }
+        posts.append(Post(path: path, body: body))
+        return body
     }
 
     func delete(_ path: String, token: String?) async throws -> Data {

@@ -28,6 +28,10 @@ struct HealthView: View {
                             .padding(.vertical, 60)
                     }
 
+                    if let error = viewModel.planErrorMessage, !viewModel.isPlanPrimary, viewModel.errorMessage == nil {
+                        planFallback(error)
+                    }
+
                     if viewModel.errorMessage == nil || weekViewModel.hasContent {
                         TrainingOverviewSection(viewModel: weekViewModel)
                     }
@@ -59,7 +63,6 @@ struct HealthView: View {
                     lastWeight: viewModel.lastWeight(for: exercise.id)
                 ) { sets in
                     try await viewModel.saveExercise(
-                        sessionIndex: viewModel.todaySession?.index ?? 0,
                         exerciseId: exercise.id,
                         sets: sets
                     )
@@ -87,7 +90,7 @@ struct HealthView: View {
                     .font(.system(size: 34, weight: .bold, design: .monospaced))
                     .foregroundStyle(Color.slateText)
                 Spacer(minLength: 8)
-                if !viewModel.sessions.isEmpty {
+                if !viewModel.isPlanPrimary, !viewModel.sessions.isEmpty {
                     Button { showOnboarding = true } label: {
                         Text("trocar")
                             .font(.system(size: 12, design: .monospaced))
@@ -138,7 +141,7 @@ struct HealthView: View {
             }
             .glassSurface(shape: RoundedRectangle(cornerRadius: SlateRadius.card, style: .continuous))
 
-            noteField(session: session)
+            noteField
         }
     }
 
@@ -172,6 +175,11 @@ struct HealthView: View {
                     Text(VitalsFormat.sets(exercise.sets))
                         .font(.system(size: 12, design: .monospaced))
                         .foregroundStyle(Color.slateTextDim)
+                    if let restSec = exercise.restSec {
+                        Text("\(restSec)s")
+                            .font(.system(size: 12, design: .monospaced))
+                            .foregroundStyle(Color.slateTextFaint)
+                    }
                     if let weight = viewModel.lastWeight(for: exercise.id) {
                         Text(VitalsFormat.kg(weight))
                             .font(.system(size: 12, design: .monospaced))
@@ -185,7 +193,7 @@ struct HealthView: View {
         .contentShape(Rectangle())
     }
 
-    private func noteField(session: VitalsSession) -> some View {
+    private var noteField: some View {
         TextField("", text: $note, prompt: Text("nota").foregroundStyle(.tertiary))
             .font(.system(size: 12, design: .monospaced))
             .foregroundStyle(Color.slateTextDim)
@@ -193,9 +201,18 @@ struct HealthView: View {
             .onSubmit {
                 let trimmed = note.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard trimmed != viewModel.todayNote else { return }
-                Task { try? await viewModel.saveNote(sessionIndex: session.index, note: trimmed) }
+                Task { try? await viewModel.saveNote(note: trimmed) }
             }
             .padding(14)
+            .glassSurface(shape: RoundedRectangle(cornerRadius: SlateRadius.cell, style: .continuous))
+    }
+
+    private func planFallback(_ message: String) -> some View {
+        Text("plano semanal indisponível; usando protocolo legado · \(message)")
+            .font(.system(size: 10, design: .monospaced))
+            .foregroundStyle(Color.slateTextDim)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
             .glassSurface(shape: RoundedRectangle(cornerRadius: SlateRadius.cell, style: .continuous))
     }
 

@@ -301,18 +301,29 @@ Same splice as `GET /tasks`: `[ <bytes of log-A.json>, <bytes of log-B.json>, �
 
 ### POST /vitals/log
 
+Legacy identity remains accepted:
+
 ```json
 {"id":"6D2A7F10-4C3B-4E5A-9F81-0B7C2D3E4F50","date":"2026-08-04","sessionIndex":3,
  "exercises":[{"id":"supino","sets":[{"reps":12,"kg":40.0}]}],"note":""}
 ```
 
-1. Validate: object with `id` matching the id regex, `date` matching `^\d{4}-\d{2}-\d{2}$`, `sessionIndex` an int in `0..5`, `exercises` a list whose entries are objects with an id-regex `id` and a list `sets`. Deeper shape (`reps`/`kg`, `note`) is not validated — dumb pipe. Anything else → `400 {"error":"invalid_body"}`.
-2. Write atomically over `log-<date>.json`. **Overwrite allowed** (unlike `POST /tasks`): the day's log is edited during the session, so there is no `409`.
-3. `200` with the exact bytes written.
+A frozen-plan log uses plan provenance instead of `sessionIndex`:
+
+```json
+{"id":"6D2A7F10-4C3B-4E5A-9F81-0B7C2D3E4F50","date":"2026-08-24",
+ "planId":"plan-2026-W35.r1","planDayId":"2026-08-24",
+ "exercises":[{"id":"remada-baixa","sets":[{"reps":12,"kg":40.0}]}],"note":""}
+```
+
+1. Validate the common shape: object with an id-regex `id`, a real calendar `date` in `YYYY-MM-DD`, and `exercises` as a list whose entries have an id-regex `id` and a list `sets`. Deeper shape (`reps`/`kg`, `note`) is not validated — dumb pipe.
+2. Require exactly one identity mode: either `sessionIndex` as an int in `0..5`, or both `planId` (`plan-<ISO-week>.r<positive revision>`) and `planDayId`. Mixed and missing identities are rejected. In plan mode, `planDayId` must equal `date`, and the date's ISO week must equal the week in `planId`.
+3. Write atomically over `log-<date>.json`. **Overwrite allowed** (unlike `POST /tasks`): only today's log is edited during the session, so there is no `409`. Clients must never use this route to rewrite a past day's log.
+4. `200` with the compact JSON bytes written. Unknown compatible fields are preserved. `GET /vitals/logs` returns legacy and plan-provenance logs together without migration or rewriting.
 
 ## Versioned training library and frozen week (added in v5)
 
-These routes are additive. They do not read or mutate `protocol.json`, `state.json`, or `log-*.json`; old clients and the existing logging flow continue unchanged. Missing new files return `404`, which is the normal pre-publication/rollback state. Every route uses the main bridge token.
+These routes are additive at the bridge boundary. They do not read or mutate `protocol.json` or `state.json`; old clients and the legacy logging flow continue unchanged. Current clients treat a valid frozen plan for the current ISO week as the primary Health source and use the legacy protocol/state only when that plan is missing or unusable. Plan replacement is a new append-only revision, never re-anchoring `state.json`. Missing new files return `404`, which is the normal pre-publication/rollback state. Every route uses the main bridge token.
 
 Stable IDs match `[A-Za-z0-9._-]+`, are immutable after publication, are never reused, and are retired rather than deleted. Demo IDs use the `demo.` namespace. Catalog and block files carry monotonically increasing integer versions. Unknown JSON fields may be added in compatible schema revisions. `GeoBridge/training/` is the repository's canonical source for the real static `catalog.json`, `blocks.json`, and `safety.json`; it is not a deployment or seed directory and intentionally contains no plan, `protocol.json`, or `state.json`.
 
@@ -396,7 +407,7 @@ A frozen plan is denormalized so later catalog/template changes cannot alter the
 }
 ```
 
-The complete payload has exactly seven days, Monday through Sunday of `week`, in order. `source` pins catalog and block provenance. `generator` is `manual` or the reserved future value `conversation`; the bridge does not generate plans and v5 implements no AI.
+The complete payload has exactly seven days, Monday through Sunday of `week`, in order. `source` pins catalog and block provenance. `generator` is `manual` or `conversation`; the bridge itself does not generate plans. The repository tool `GeoBridge/tools/generate_week_plan.py` deterministically builds 4- or 5-day test artifacts from canonical catalog, blocks, and safety data. It fails closed on denied review/gate states, blocked templates, invalid references, and session duration outside 40–70 minutes, and never writes `protocol.json` or `state.json`.
 
 ### POST /vitals/plan
 
