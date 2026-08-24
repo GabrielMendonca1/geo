@@ -2,6 +2,7 @@ import SwiftUI
 
 struct HealthView: View {
     @StateObject private var viewModel = HealthViewModel()
+    @StateObject private var weekViewModel = WeekPlanViewModel()
     @State private var showOnboarding = false
     @State private var loggingExercise: VitalsExercise?
     @State private var note = ""
@@ -26,6 +27,10 @@ struct HealthView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 60)
                     }
+
+                    if viewModel.errorMessage == nil || weekViewModel.hasContent {
+                        TrainingOverviewSection(viewModel: weekViewModel)
+                    }
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 28)
@@ -33,7 +38,11 @@ struct HealthView: View {
             .background(Color.slateCanvas)
             .safeAreaInset(edge: .top) { header }
             .navigationBarHidden(true)
-            .refreshable { await viewModel.reload() }
+            .refreshable {
+                async let health: Void = viewModel.reload()
+                async let training: Void = weekViewModel.reload()
+                _ = await (health, training)
+            }
             .sheet(isPresented: $showOnboarding) {
                 OnboardingSheet(
                     title: viewModel.vitalsProtocol?.name ?? "",
@@ -58,7 +67,11 @@ struct HealthView: View {
             }
         }
         .tint(Color.slateText)
-        .task { await viewModel.reload() }
+        .task {
+            async let health: Void = viewModel.reload()
+            async let training: Void = weekViewModel.reload()
+            _ = await (health, training)
+        }
         .onChange(of: viewModel.needsOnboarding) { _, needs in
             if needs, !showOnboarding { showOnboarding = true }
         }

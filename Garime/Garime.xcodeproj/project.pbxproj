@@ -39,6 +39,8 @@
 		7B62D606BC558A82A8D63129 /* AirTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9992F838B054E30D31797808 /* AirTheme.swift */; };
 		7E95FD87ACE85F2AD18DAA3F /* GeoTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEF1DDAF6E83BD074D7AA04A /* GeoTerminalView.swift */; };
 		86B4642B1EAEEB00E5AA68BD /* BridgeVitalsRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = E37E43CC1D9BCC3AE8F0C69B /* BridgeVitalsRepository.swift */; };
+		A10B9F2E6D1C4A3B8E700001 /* BridgeTrainingRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10B9F2E6D1C4A3B8E700003 /* BridgeTrainingRepository.swift */; };
+		A10B9F2E6D1C4A3B8E700002 /* TrainingOverviewSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10B9F2E6D1C4A3B8E700004 /* TrainingOverviewSection.swift */; };
 		888E18C3C0CD103A037855F1 /* BridgeTasksDecodingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 149A8C94ADEB8D15CF91D0D1 /* BridgeTasksDecodingTests.swift */; };
 		89B0E7C8595C723C97B94CC9 /* TermAgentsDecodingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AD6D8AA8BABA7091A378E60 /* TermAgentsDecodingTests.swift */; };
 		90BF7EDA2D398BA5A9F5F0A5 /* TasksCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 785D4A685A4C254013F0562D /* TasksCache.swift */; };
@@ -151,6 +153,8 @@
 		D72462CA7797125440CCC104 /* ComposerShotsUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ComposerShotsUITests.swift; sourceTree = "<group>"; };
 		DEF1DDAF6E83BD074D7AA04A /* GeoTerminalView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GeoTerminalView.swift; path = Features/Terminal/GeoTerminalView.swift; sourceTree = "<group>"; };
 		E37E43CC1D9BCC3AE8F0C69B /* BridgeVitalsRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BridgeVitalsRepository.swift; path = Services/BridgeVitalsRepository.swift; sourceTree = "<group>"; };
+		A10B9F2E6D1C4A3B8E700003 /* BridgeTrainingRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BridgeTrainingRepository.swift; path = Services/BridgeTrainingRepository.swift; sourceTree = "<group>"; };
+		A10B9F2E6D1C4A3B8E700004 /* TrainingOverviewSection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TrainingOverviewSection.swift; path = Features/Health/TrainingOverviewSection.swift; sourceTree = "<group>"; };
 		F09E7864DFC67F2F57A6D6F7 /* HealthViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HealthViewModel.swift; path = Features/Health/HealthViewModel.swift; sourceTree = "<group>"; };
 		F3F298574F8C37130B09632F /* BridgeClient.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BridgeClient.swift; path = Services/BridgeClient.swift; sourceTree = "<group>"; };
 		F4AF0B2DFA5ADFF7F4EA3019 /* SVGPath.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SVGPath.swift; path = Features/Health/SVGPath.swift; sourceTree = "<group>"; };
@@ -251,6 +255,7 @@
 				704208954BE148C557608359 /* ExerciseLogSheet.swift */,
 				8E7DB12C595B178A9C575B7E /* HealthView.swift */,
 				F09E7864DFC67F2F57A6D6F7 /* HealthViewModel.swift */,
+				A10B9F2E6D1C4A3B8E700004 /* TrainingOverviewSection.swift */,
 				5D0B74DAB8B4BD06956A2AFD /* OnboardingSheet.swift */,
 				F4AF0B2DFA5ADFF7F4EA3019 /* SVGPath.swift */,
 				225F665383C70A7262F5969B /* ServiceStatusViewModel.swift */,
@@ -281,6 +286,7 @@
 				9BF4AA5149A1A98CF2FD6A11 /* BridgeEndpoint.swift */,
 				08AA7B1DDF50E123F1547BC1 /* BridgeTasksRepository.swift */,
 				E37E43CC1D9BCC3AE8F0C69B /* BridgeVitalsRepository.swift */,
+				A10B9F2E6D1C4A3B8E700003 /* BridgeTrainingRepository.swift */,
 				97B4D9037994F6D9E5DB7716 /* EventKitService.swift */,
 				007BE6A0B59F5E822B970457 /* SSEClient.swift */,
 				785D4A685A4C254013F0562D /* TasksCache.swift */,
@@ -439,6 +445,7 @@
 				73C688B50A1915887E6B9671 /* ExerciseLogSheet.swift in Sources */,
 				BCC31A050164A43EAE0BE002 /* HealthView.swift in Sources */,
 				74C55A0B9379DBD2996D2C4D /* HealthViewModel.swift in Sources */,
+				A10B9F2E6D1C4A3B8E700002 /* TrainingOverviewSection.swift in Sources */,
 				9FE5BF3ACB696E94BF939FF1 /* OnboardingSheet.swift in Sources */,
 				A242152F2C4EA99DB1D162E9 /* SVGPath.swift in Sources */,
 				D4CE5DCB5AF2EB924104BC28 /* ServiceStatusViewModel.swift in Sources */,
@@ -469,6 +476,7 @@
 				7594D9A34B63F53CA2051352 /* BridgeEndpoint.swift in Sources */,
 				674BD68F9566973CFCDA1740 /* BridgeTasksRepository.swift in Sources */,
 				86B4642B1EAEEB00E5AA68BD /* BridgeVitalsRepository.swift in Sources */,
+				A10B9F2E6D1C4A3B8E700001 /* BridgeTrainingRepository.swift in Sources */,
 				696463CC3D2D592917156E06 /* EventKitService.swift in Sources */,
 				31CF72089D6EB1E0C88F3D79 /* SSEClient.swift in Sources */,
 				90BF7EDA2D398BA5A9F5F0A5 /* TasksCache.swift in Sources */,

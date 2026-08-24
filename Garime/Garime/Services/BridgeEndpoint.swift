@@ -37,6 +37,9 @@ enum BridgeEndpoint {
     case vitalsState
     case vitalsLogs
     case vitalsLog
+    case vitalsCatalog
+    case vitalsBlocks
+    case vitalsPlan(week: String)
 
     var path: String {
         switch self {
@@ -100,6 +103,12 @@ enum BridgeEndpoint {
             return "/vitals/logs"
         case .vitalsLog:
             return "/vitals/log"
+        case .vitalsCatalog:
+            return "/vitals/catalog"
+        case .vitalsBlocks:
+            return "/vitals/blocks"
+        case .vitalsPlan(let week):
+            return "/vitals/plan?week=\(Self.encode(week))"
         }
     }
 

@@ -2,7 +2,7 @@
 
 HTTP daemon on the VM `garime` exposing three local resources to the tailnet for the iPhone app. The bridge is a **dumb pipe over files**: it never re-models data. Reads return file contents **verbatim** (zero re-encode); mutations are minimal field edits; streams are line pass-through. The Mac app (Geo.app) and hermes remain the owners of all state — the bridge only relays it.
 
-Spec version: 4 (v3 + `/vitals/*` health). All facts below were extracted from the live system on 2026-07-01 (real task files, real dispatch dirs, `TaskItem.swift`, `TasksStore.swift`, `HermesKanbanService.swift`, `api_server.py`, `~/.hermes/config.yaml`).
+Spec version: 5 (v4 + versioned training catalog, blocks, and frozen weekly plans). All facts below were extracted from the live system on 2026-07-01 (real task files, real dispatch dirs, `TaskItem.swift`, `TasksStore.swift`, `HermesKanbanService.swift`, `api_server.py`, `~/.hermes/config.yaml`).
 
 ## Deployment
 
@@ -261,7 +261,7 @@ Bridge request:
 
 ## Vitals — `/vitals/*` (added in v4)
 
-The health module of the phone, over `GEO_HEALTH_DIR` (default `/mnt/garime/state/health`). Dumb pipe as in principle 1: reads are verbatim bytes, writes are validate-then-atomic-write of the exact JSON the phone sent. The bridge never computes anything — in particular it does **not** derive today's session; the phone does that from `state.json` (`(anchorIndex + days_since(anchorDate)) mod 6`). Main bridge token, same as `/tasks`.
+The health module of the phone, over `GEO_HEALTH_DIR` (default `/mnt/garime/state/health`). Dumb pipe as in principle 1: reads are verbatim bytes, writes are validate-then-atomic-write of the exact JSON the phone sent. The legacy routes never compute anything — in particular the bridge does **not** derive today's session; the phone does that from `state.json` (`(anchorIndex + days_since(anchorDate)) mod 6`). Main bridge token, same as `/tasks`.
 
 ### GET /vitals/protocol
 
@@ -309,6 +309,102 @@ Same splice as `GET /tasks`: `[ <bytes of log-A.json>, <bytes of log-B.json>, �
 1. Validate: object with `id` matching the id regex, `date` matching `^\d{4}-\d{2}-\d{2}$`, `sessionIndex` an int in `0..5`, `exercises` a list whose entries are objects with an id-regex `id` and a list `sets`. Deeper shape (`reps`/`kg`, `note`) is not validated — dumb pipe. Anything else → `400 {"error":"invalid_body"}`.
 2. Write atomically over `log-<date>.json`. **Overwrite allowed** (unlike `POST /tasks`): the day's log is edited during the session, so there is no `409`.
 3. `200` with the exact bytes written.
+
+## Versioned training library and frozen week (added in v5)
+
+These routes are additive. They do not read or mutate `protocol.json`, `state.json`, or `log-*.json`; old clients and the existing logging flow continue unchanged. Missing new files return `404`, which is the normal pre-publication/rollback state. Every route uses the main bridge token.
+
+Stable IDs match `[A-Za-z0-9._-]+`, are immutable after publication, are never reused, and are retired rather than deleted. Demo IDs use the `demo.` namespace. Catalog and block files carry monotonically increasing integer versions. Unknown JSON fields may be added in compatible schema revisions.
+
+### GET /vitals/catalog
+
+Returns the verbatim bytes of `catalog.json`; missing/unreadable → `404`. Catalog v1 is:
+
+```json
+{
+  "schema": "vitals.catalog/1",
+  "id": "demo-catalog",
+  "version": 1,
+  "updatedAt": "2026-08-03T18:00:00Z",
+  "exercises": [{
+    "id": "demo.remada-maquina",
+    "name": "Remada na máquina (demo)",
+    "status": "active",
+    "muscles": ["upper-back"],
+    "equipment": "machine",
+    "tags": ["pull", "demo"]
+  }]
+}
+```
+
+`status` is `active` or `retired`. `muscles` uses the existing body vocabulary. Clinical advice is deliberately absent from this schema.
+
+### GET /vitals/blocks
+
+Returns verbatim `blocks.json`; missing/unreadable → `404`. Blocks are versioned reusable templates:
+
+```json
+{
+  "schema": "vitals.blocks/1",
+  "version": 1,
+  "blocks": [{
+    "id": "demo.corpo-inteiro-a",
+    "version": 1,
+    "name": "Corpo inteiro A (demo)",
+    "items": [{"exerciseId":"demo.remada-maquina","sets":[[10,12],[10,12]],"restSec":90}]
+  }]
+}
+```
+
+Each `sets` entry is the same inclusive `[min,max]` repetition range used by the legacy protocol.
+
+### GET /vitals/safety
+
+Reserved for a separately governed `safety.json`. Returns verbatim bytes when present and `404` when absent. The v5 demonstration intentionally ships no `safety.json` and no clinical content.
+
+### GET /vitals/plan?week=YYYY-Www
+
+Validates a real ISO week; malformed/nonexistent weeks → `400 {"error":"invalid_week"}`. It returns verbatim bytes of the highest revision matching `plan-<week>.r<N>.json`, ignoring names containing `.sync-conflict-`; no revision → `404`.
+
+A frozen plan is denormalized so later catalog/template changes cannot alter the prescribed snapshot:
+
+```json
+{
+  "schema": "vitals.plan/1",
+  "id": "plan-2026-W32.r1",
+  "week": "2026-W32",
+  "revision": 1,
+  "frozenAt": "2026-08-03T18:00:00Z",
+  "source": {
+    "catalogId": "demo-catalog",
+    "catalogVersion": 1,
+    "blocks": [{"blockId":"demo.corpo-inteiro-a","blockVersion":1}],
+    "generator": "manual"
+  },
+  "days": [{
+    "date": "2026-08-03",
+    "label": "Corpo inteiro A (demo)",
+    "rest": false,
+    "items": [{
+      "exerciseId": "demo.remada-maquina",
+      "name": "Remada na máquina (demo)",
+      "muscles": ["upper-back"],
+      "sets": [[10,12],[10,12]],
+      "restSec": 90
+    }]
+  }]
+}
+```
+
+The complete payload has exactly seven days, Monday through Sunday of `week`, in order. `source` pins catalog and block provenance. `generator` is `manual` or the reserved future value `conversation`; the bridge does not generate plans and v5 implements no AI.
+
+### POST /vitals/plan
+
+Validates schema tag, stable IDs, positive versions/revision, source shape, set ranges, and exactly seven consecutive ISO-week dates. `id` must equal `plan-<week>.r<revision>`.
+
+Plans are append-only and write-once. The first revision is 1; each later POST must be exactly the current maximum + 1. A replay/existing revision → `409 {"error":"revision_exists"}`; a gap or stale non-existing revision → `400 {"error":"invalid_revision"}`; malformed payload → `400 {"error":"invalid_body"}`. Accepted bytes are compact JSON written atomically without overwrite as `plan-<week>.r<revision>.json`; success → `200` with those bytes.
+
+`catalog.json`, `blocks.json`, `safety.json`, and `plan-*` can never enter `GET /vitals/logs`, whose filename filter remains exactly `log-*.json`.
 
 ## Terminal — `/term/*` (added in v3)
 

@@ -22,7 +22,7 @@ import tempfile
 import termios
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
 
@@ -175,6 +175,8 @@ PANE_PUBLIC_KEYS = ("pane", "agent", "status", "title", "cwd", "tab")
 
 ID_RE = re.compile(r"\A[A-Za-z0-9._-]+\Z")
 DATE_RE = re.compile(r"\A\d{4}-\d{2}-\d{2}\Z")
+WEEK_RE = re.compile(r"\A\d{4}-W\d{2}\Z")
+PLAN_FILE_RE = re.compile(r"\Aplan-(\d{4}-W\d{2})\.r([1-9]\d*)\.json\Z")
 TASK_ROUTE = re.compile(r"^/tasks/([^/]+)/(complete|reopen)$")
 TASK_DELETE_ROUTE = re.compile(r"^/tasks/([^/]+)$")
 DISPATCH_STREAM_ROUTE = re.compile(r"^/dispatches/([^/]+)/stream$")
@@ -182,6 +184,7 @@ DISPATCH_STREAM_ROUTE = re.compile(r"^/dispatches/([^/]+)/stream$")
 TOKEN = ""
 TERM_TOKEN = ""
 LOG_LOCK = threading.Lock()
+HEALTH_PLAN_LOCK = threading.Lock()
 TERM_REGISTRY = {}
 TERM_REGISTRY_LOCK = threading.Lock()
 AGENTS_CACHE = {"at": 0.0, "value": [], "panes": [], "mac_ok": False}
@@ -1728,6 +1731,88 @@ def valid_date(value):
     return isinstance(value, str) and DATE_RE.match(value) is not None
 
 
+def valid_week(value):
+    if not isinstance(value, str) or WEEK_RE.match(value) is None:
+        return False
+    try:
+        datetime.strptime(value + "-1", "%G-W%V-%u")
+    except ValueError:
+        return False
+    return True
+
+
+def valid_plan(plan):
+    if not isinstance(plan, dict):
+        return False
+    revision = plan.get("revision")
+    week = plan.get("week")
+    source = plan.get("source")
+    days = plan.get("days")
+    if (
+        plan.get("schema") != "vitals.plan/1"
+        or not valid_week(week)
+        or type(revision) is not int
+        or revision < 1
+        or plan.get("id") != "plan-%s.r%d" % (week, revision)
+        or not isinstance(plan.get("frozenAt"), str)
+        or not plan["frozenAt"]
+        or not isinstance(source, dict)
+        or not isinstance(days, list)
+        or len(days) != 7
+    ):
+        return False
+    catalog_version = source.get("catalogVersion")
+    block_sources = source.get("blocks")
+    if (
+        not valid_id(source.get("catalogId"))
+        or type(catalog_version) is not int
+        or catalog_version < 1
+        or source.get("generator") not in ("manual", "conversation")
+        or not isinstance(block_sources, list)
+    ):
+        return False
+    for block in block_sources:
+        if (
+            not isinstance(block, dict)
+            or not valid_id(block.get("blockId"))
+            or type(block.get("blockVersion")) is not int
+            or block["blockVersion"] < 1
+        ):
+            return False
+    monday = datetime.strptime(week + "-1", "%G-W%V-%u")
+    expected_dates = [(monday + timedelta(days=offset)).strftime("%Y-%m-%d") for offset in range(7)]
+    if [day.get("date") if isinstance(day, dict) else None for day in days] != expected_dates:
+        return False
+    for day in days:
+        if (
+            not isinstance(day.get("label"), str)
+            or type(day.get("rest")) is not bool
+            or not isinstance(day.get("items"), list)
+        ):
+            return False
+        for item in day["items"]:
+            if (
+                not isinstance(item, dict)
+                or not valid_id(item.get("exerciseId"))
+                or not isinstance(item.get("name"), str)
+                or not isinstance(item.get("muscles"), list)
+                or not all(isinstance(muscle, str) for muscle in item["muscles"])
+                or not isinstance(item.get("sets"), list)
+                or type(item.get("restSec")) is not int
+                or item["restSec"] < 0
+            ):
+                return False
+            for value_range in item["sets"]:
+                if (
+                    not isinstance(value_range, list)
+                    or len(value_range) != 2
+                    or not all(type(value) is int and value > 0 for value in value_range)
+                    or value_range[0] > value_range[1]
+                ):
+                    return False
+    return True
+
+
 def read_hermes_key():
     try:
         with open(HERMES_KEY_FILE) as f:
@@ -2934,6 +3019,14 @@ class Handler(BaseHTTPRequestHandler):
                 self._get_health_file("state.json")
             elif path == "/vitals/logs":
                 self._get_vitals_logs()
+            elif path == "/vitals/catalog":
+                self._get_health_file("catalog.json")
+            elif path == "/vitals/blocks":
+                self._get_health_file("blocks.json")
+            elif path == "/vitals/safety":
+                self._get_health_file("safety.json")
+            elif path == "/vitals/plan":
+                self._get_vitals_plan()
             elif path == "/dispatches":
                 self._get_dispatches()
             else:
@@ -3007,6 +3100,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._put_vitals_state()
             elif path == "/vitals/log":
                 self._put_vitals_log()
+            elif path == "/vitals/plan":
+                self._put_vitals_plan()
             elif path == "/chat/stream":
                 self._chat_stream()
             else:
@@ -3232,6 +3327,36 @@ class Handler(BaseHTTPRequestHandler):
             return False
         return True
 
+    def _create_health_file(self, name, data):
+        path = os.path.join(HEALTH_DIR, name)
+        try:
+            os.makedirs(HEALTH_DIR, exist_ok=True)
+            fd, tmp = tempfile.mkstemp(dir=HEALTH_DIR, prefix=".geobridge-")
+            os.write(fd, data)
+            os.fsync(fd)
+            os.close(fd)
+            fd = -1
+            os.chmod(tmp, 0o600)
+            os.link(tmp, path)
+        except FileExistsError:
+            self._json(409, b'{"error":"revision_exists"}')
+            return False
+        except OSError:
+            if "fd" in locals() and fd != -1:
+                try:
+                    os.close(fd)
+                except OSError:
+                    pass
+            self._json(500, b'{"error":"internal"}')
+            return False
+        finally:
+            if "tmp" in locals():
+                try:
+                    os.unlink(tmp)
+                except OSError:
+                    pass
+        return True
+
     def _read_json_body(self):
         try:
             length = int(self.headers.get("Content-Length") or 0)
@@ -3266,6 +3391,51 @@ class Handler(BaseHTTPRequestHandler):
                 continue
             parts.append(data)
         self._json(200, b"[" + b",".join(parts) + b"]")
+
+    def _plan_revisions(self, week):
+        try:
+            names = os.listdir(HEALTH_DIR)
+        except OSError:
+            return []
+        revisions = []
+        for name in names:
+            if ".sync-conflict-" in name:
+                continue
+            match = PLAN_FILE_RE.match(name)
+            if match and match.group(1) == week:
+                revisions.append((int(match.group(2)), name))
+        return sorted(revisions)
+
+    def _get_vitals_plan(self):
+        query = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
+        values = query.get("week")
+        if not values or len(values) != 1 or not valid_week(values[0]):
+            self._json(400, b'{"error":"invalid_week"}')
+            return
+        revisions = self._plan_revisions(values[0])
+        if not revisions:
+            self._json(404, b'{"error":"not_found"}')
+            return
+        self._get_health_file(revisions[-1][1])
+
+    def _put_vitals_plan(self):
+        plan = self._read_json_body()
+        if not valid_plan(plan):
+            self._json(400, b'{"error":"invalid_body"}')
+            return
+        data = json.dumps(plan, separators=(",", ":"), ensure_ascii=False).encode()
+        with HEALTH_PLAN_LOCK:
+            revisions = self._plan_revisions(plan["week"])
+            expected = revisions[-1][0] + 1 if revisions else 1
+            if plan["revision"] != expected:
+                if any(revision == plan["revision"] for revision, _ in revisions):
+                    self._json(409, b'{"error":"revision_exists"}')
+                else:
+                    self._json(400, b'{"error":"invalid_revision"}')
+                return
+            name = "plan-%s.r%d.json" % (plan["week"], plan["revision"])
+            if self._create_health_file(name, data):
+                self._json(200, data)
 
     def _put_vitals_state(self):
         state = self._read_json_body()
