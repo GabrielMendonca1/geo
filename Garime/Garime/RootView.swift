@@ -2,8 +2,9 @@ import SwiftUI
 
 final class DockState: ObservableObject {
     @Published var hidden = false
-    /// Verdadeiro enquanto a lista da tela está rolando.
-    @Published var scrolling = false
+    /// Verdadeiro quando o usuário está descendo na lista: o dock encolhe
+    /// e volta ao tamanho normal ao subir ou ao chegar no topo.
+    @Published var collapsed = false
 }
 
 private struct DockStateKey: EnvironmentKey {
@@ -17,18 +18,36 @@ extension EnvironmentValues {
     }
 }
 
-/// Encolhe o dock enquanto a rolagem está ativa. Precisa ser aplicado
-/// diretamente na ScrollView/List da tela: o pai não recebe esses eventos.
+/// Decide o tamanho do dock a partir do deslocamento da lista.
+enum DockScrollRule {
+    /// Perto do topo o dock sempre volta ao tamanho normal.
+    static let topThreshold: CGFloat = 12
+    /// Movimento menor que isso é tremor de dedo, não intenção.
+    static let moveThreshold: CGFloat = 6
+
+    static func collapsed(was current: Bool, from old: CGFloat, to new: CGFloat) -> Bool {
+        if new <= topThreshold { return false }
+        let delta = new - old
+        guard abs(delta) > moveThreshold else { return current }
+        return delta > 0
+    }
+}
+
+/// Encolhe o dock quando a lista desce e o devolve quando sobe. Precisa ser
+/// aplicado direto na ScrollView/List da tela: o pai não recebe esses eventos.
 private struct DockScrollTracking: ViewModifier {
     @Environment(\.dockState) private var dock
 
     func body(content: Content) -> some View {
         if #available(iOS 18.0, *) {
-            content.onScrollPhaseChange { _, phase in
+            content.onScrollGeometryChange(for: CGFloat.self) { geometry in
+                geometry.contentOffset.y + geometry.contentInsets.top
+            } action: { old, new in
                 guard let dock else { return }
-                let scrolling = phase != .idle
-                if dock.scrolling != scrolling {
-                    dock.scrolling = scrolling
+                let collapsed = DockScrollRule.collapsed(was: dock.collapsed, from: old, to: new)
+                guard dock.collapsed != collapsed else { return }
+                withAnimation(.spring(response: 0.34, dampingFraction: 0.85)) {
+                    dock.collapsed = collapsed
                 }
             }
         } else {
@@ -81,41 +100,40 @@ struct RootView: View {
     }
 
     private var dock: some View {
-        let shrunk = dockState.scrolling
-        return HStack(spacing: 4) {
-            dockItem("calendar", "Tarefas", tag: "today")
-            dockItem("figure.strengthtraining.traditional", "Saúde", tag: "health")
-            dockItem("terminal", "Agente", tag: "terminal")
+        let collapsed = dockState.collapsed
+        let radius: CGFloat = collapsed ? 21 : 28
+        return HStack(spacing: collapsed ? 2 : 4) {
+            dockItem("calendar", "Tarefas", tag: "today", collapsed: collapsed)
+            dockItem("figure.strengthtraining.traditional", "Saúde", tag: "health", collapsed: collapsed)
+            dockItem("terminal", "Agente", tag: "terminal", collapsed: collapsed)
         }
-        .padding(5)
+        .padding(collapsed ? 4 : 6)
         .background(
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
+            RoundedRectangle(cornerRadius: radius, style: .continuous)
                 .fill(.ultraThinMaterial)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    RoundedRectangle(cornerRadius: radius, style: .continuous)
                         .strokeBorder(Color.slateStroke.opacity(0.4))
                 )
-                .shadow(color: .black.opacity(0.18), radius: 16, y: 6)
+                .shadow(color: .black.opacity(0.18), radius: collapsed ? 10 : 16, y: 5)
         )
-        .scaleEffect(shrunk ? 0.8 : 1, anchor: .bottom)
-        .opacity(shrunk ? 0.9 : 1)
-        .padding(.bottom, 6)
-        .animation(.spring(response: 0.32, dampingFraction: 0.86), value: shrunk)
+        .padding(.bottom, 2)
+        .accessibilityIdentifier("dock")
     }
 
-    private func dockItem(_ symbol: String, _ label: String, tag: String) -> some View {
+    private func dockItem(_ symbol: String, _ label: String, tag: String, collapsed: Bool) -> some View {
         let active = selection == tag
         return Button {
             guard !active else { return }
             withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) { selection = tag }
         } label: {
             Image(systemName: symbol)
-                .font(.system(size: 21, weight: .medium))
+                .font(.system(size: collapsed ? 16 : 23, weight: .medium))
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(active ? Color.primary : Color.secondary)
-                .frame(width: 60, height: 40)
+                .frame(width: collapsed ? 44 : 64, height: collapsed ? 30 : 46)
                 .background(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    RoundedRectangle(cornerRadius: collapsed ? 13 : 20, style: .continuous)
                         .fill(active ? Color.primary.opacity(0.13) : .clear)
                 )
                 .contentShape(Rectangle())
