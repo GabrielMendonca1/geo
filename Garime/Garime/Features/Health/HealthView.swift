@@ -43,6 +43,7 @@ struct HealthView: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 28)
             }
+            .dockScrollTracking()
             .background(Color.slateCanvas)
             .safeAreaInset(edge: .top) { header }
             .navigationBarHidden(true)

@@ -2,8 +2,45 @@ import SwiftUI
 
 final class DockState: ObservableObject {
     @Published var hidden = false
-    /// Verdadeiro enquanto o usuário está rolando a tela.
+    /// Verdadeiro enquanto a lista da tela está rolando.
     @Published var scrolling = false
+}
+
+private struct DockStateKey: EnvironmentKey {
+    static let defaultValue: DockState? = nil
+}
+
+extension EnvironmentValues {
+    var dockState: DockState? {
+        get { self[DockStateKey.self] }
+        set { self[DockStateKey.self] = newValue }
+    }
+}
+
+/// Encolhe o dock enquanto a rolagem está ativa. Precisa ser aplicado
+/// diretamente na ScrollView/List da tela: o pai não recebe esses eventos.
+private struct DockScrollTracking: ViewModifier {
+    @Environment(\.dockState) private var dock
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, *) {
+            content.onScrollPhaseChange { _, phase in
+                guard let dock else { return }
+                let scrolling = phase != .idle
+                if dock.scrolling != scrolling {
+                    dock.scrolling = scrolling
+                }
+            }
+        } else {
+            content
+        }
+    }
+}
+
+extension View {
+    func dockScrollTracking() -> some View {
+        modifier(DockScrollTracking())
+    }
 }
 
 struct RootView: View {
@@ -20,18 +57,7 @@ struct RootView: View {
         ZStack(alignment: .bottom) {
             dockContent
                 .environmentObject(dockState)
-                .simultaneousGesture(
-                    DragGesture(minimumDistance: 12)
-                        .onChanged { value in
-                            guard abs(value.translation.height) > 12 else { return }
-                            if !dockState.scrolling {
-                                dockState.scrolling = true
-                            }
-                        }
-                        .onEnded { _ in
-                            dockState.scrolling = false
-                        }
-                )
+                .environment(\.dockState, dockState)
             if !dockState.hidden {
                 dock
                     .transition(.move(edge: .bottom).combined(with: .opacity))

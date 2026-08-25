@@ -232,6 +232,7 @@ struct TodayView: View {
         .scrollContentBackground(.hidden)
         .background(Color.slateCanvas)
         .refreshable { await viewModel.reload() }
+        .dockScrollTracking()
     }
 
     private var rowTransition: AnyTransition {
