@@ -101,8 +101,8 @@ struct RootView: View {
 
     private var dock: some View {
         let collapsed = dockState.collapsed
-        let radius: CGFloat = collapsed ? 21 : 28
-        return HStack(spacing: collapsed ? 2 : 4) {
+        let radius: CGFloat = collapsed ? 21 : 34
+        return HStack(spacing: collapsed ? 2 : 6) {
             dockItem("calendar", "Tarefas", tag: "today", collapsed: collapsed)
             dockItem("figure.strengthtraining.traditional", "Saúde", tag: "health", collapsed: collapsed)
             dockItem("terminal", "Agente", tag: "terminal", collapsed: collapsed)
@@ -117,6 +117,7 @@ struct RootView: View {
                 )
                 .shadow(color: .black.opacity(0.18), radius: collapsed ? 10 : 16, y: 5)
         )
+        .padding(.horizontal, collapsed ? 0 : 14)
         .padding(.bottom, 2)
         .accessibilityIdentifier("dock")
     }
@@ -128,12 +129,12 @@ struct RootView: View {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) { selection = tag }
         } label: {
             Image(systemName: symbol)
-                .font(.system(size: collapsed ? 16 : 23, weight: .medium))
+                .font(.system(size: collapsed ? 16 : 25, weight: .medium))
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(active ? Color.primary : Color.secondary)
-                .frame(width: collapsed ? 44 : 64, height: collapsed ? 30 : 46)
+                .frame(maxWidth: collapsed ? 44 : .infinity, minHeight: collapsed ? 30 : 56)
                 .background(
-                    RoundedRectangle(cornerRadius: collapsed ? 13 : 20, style: .continuous)
+                    RoundedRectangle(cornerRadius: collapsed ? 13 : 26, style: .continuous)
                         .fill(active ? Color.primary.opacity(0.13) : .clear)
                 )
                 .contentShape(Rectangle())
