@@ -2,6 +2,14 @@ import SwiftUI
 
 final class DockState: ObservableObject {
     @Published var hidden = false
+    /// Verdadeiro enquanto o usuário está rolando a tela.
+    @Published var scrolling = false
+    /// nil = automático (rolagem); true/false = escolha manual por toque.
+    @Published var manuallyExpanded: Bool?
+
+    var expanded: Bool {
+        manuallyExpanded ?? !scrolling
+    }
 }
 
 struct RootView: View {
@@ -18,6 +26,18 @@ struct RootView: View {
         ZStack(alignment: .bottom) {
             dockContent
                 .environmentObject(dockState)
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 12)
+                        .onChanged { value in
+                            guard abs(value.translation.height) > 12 else { return }
+                            if !dockState.scrolling {
+                                dockState.scrolling = true
+                            }
+                        }
+                        .onEnded { _ in
+                            dockState.scrolling = false
+                        }
+                )
             if !dockState.hidden {
                 dock
                     .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -41,44 +61,54 @@ struct RootView: View {
     }
 
     private var dock: some View {
-        HStack(spacing: 4) {
-            dockItem("calendar", "Tarefas", tag: "today")
-            dockItem("figure.strengthtraining.traditional", "Saúde", tag: "health")
-            dockItem("terminal", "Agente", tag: "terminal")
+        let expanded = dockState.expanded
+        return HStack(spacing: 2) {
+            dockItem("calendar", "Tarefas", tag: "today", expanded: expanded)
+            dockItem("figure.strengthtraining.traditional", "Saúde", tag: "health", expanded: expanded)
+            dockItem("terminal", "Agente", tag: "terminal", expanded: expanded)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
+        .padding(.horizontal, expanded ? 14 : 10)
+        .padding(.vertical, expanded ? 6 : 4)
         .background(
-            RoundedRectangle(cornerRadius: 34, style: .continuous)
+            RoundedRectangle(cornerRadius: expanded ? 27 : 22, style: .continuous)
                 .fill(.ultraThinMaterial)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 34, style: .continuous)
+                    RoundedRectangle(cornerRadius: expanded ? 27 : 22, style: .continuous)
                         .strokeBorder(Color.slateStroke.opacity(0.5))
                 )
-                .shadow(color: .black.opacity(0.18), radius: 18, y: 6)
+                .shadow(color: .black.opacity(0.16), radius: 14, y: 5)
         )
         .padding(.horizontal, 24)
-        .padding(.bottom, 6)
+        .padding(.bottom, 4)
+        .animation(.spring(response: 0.3, dampingFraction: 0.85), value: expanded)
     }
 
-    private func dockItem(_ symbol: String, _ label: String, tag: String) -> some View {
+    private func dockItem(_ symbol: String, _ label: String, tag: String, expanded: Bool) -> some View {
         let active = selection == tag
         return Button {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) { selection = tag }
+            if active {
+                dockState.manuallyExpanded = !(dockState.manuallyExpanded ?? dockState.expanded)
+            } else {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) { selection = tag }
+            }
         } label: {
-            VStack(spacing: 3) {
+            VStack(spacing: 2) {
                 Image(systemName: symbol)
-                    .font(.system(size: 26, weight: .medium))
+                    .font(.system(size: expanded ? 19 : 17, weight: .medium))
                     .symbolRenderingMode(.hierarchical)
-                    .frame(height: 32)
-                Text(label)
-                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                    .opacity(active ? 1 : 0.45)
+                    .frame(height: 22)
+                if expanded {
+                    Text(label)
+                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                        .opacity(active ? 1 : 0.45)
+                        .fixedSize()
+                }
             }
             .foregroundStyle(active ? Color.primary : Color.secondary)
-            .frame(maxWidth: .infinity, minHeight: 62)
+            .padding(.horizontal, expanded ? 18 : 14)
+            .frame(maxWidth: .infinity, minHeight: expanded ? 48 : 36)
             .contentShape(Rectangle())
-            .background(active ? Color.accentColor.opacity(0.12) : .clear, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .background(active ? Color.accentColor.opacity(0.12) : .clear, in: RoundedRectangle(cornerRadius: expanded ? 21 : 17, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
