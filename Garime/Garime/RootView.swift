@@ -4,12 +4,6 @@ final class DockState: ObservableObject {
     @Published var hidden = false
     /// Verdadeiro enquanto o usuário está rolando a tela.
     @Published var scrolling = false
-    /// nil = automático (rolagem); true/false = escolha manual por toque.
-    @Published var manuallyExpanded: Bool?
-
-    var expanded: Bool {
-        manuallyExpanded ?? !scrolling
-    }
 }
 
 struct RootView: View {
@@ -61,54 +55,44 @@ struct RootView: View {
     }
 
     private var dock: some View {
-        let expanded = dockState.expanded
-        return HStack(spacing: 2) {
-            dockItem("calendar", "Tarefas", tag: "today", expanded: expanded)
-            dockItem("figure.strengthtraining.traditional", "Saúde", tag: "health", expanded: expanded)
-            dockItem("terminal", "Agente", tag: "terminal", expanded: expanded)
+        let shrunk = dockState.scrolling
+        return HStack(spacing: 4) {
+            dockItem("calendar", "Tarefas", tag: "today")
+            dockItem("figure.strengthtraining.traditional", "Saúde", tag: "health")
+            dockItem("terminal", "Agente", tag: "terminal")
         }
-        .padding(.horizontal, expanded ? 14 : 10)
-        .padding(.vertical, expanded ? 6 : 4)
+        .padding(5)
         .background(
-            RoundedRectangle(cornerRadius: expanded ? 27 : 22, style: .continuous)
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
                 .fill(.ultraThinMaterial)
                 .overlay(
-                    RoundedRectangle(cornerRadius: expanded ? 27 : 22, style: .continuous)
-                        .strokeBorder(Color.slateStroke.opacity(0.5))
+                    RoundedRectangle(cornerRadius: 26, style: .continuous)
+                        .strokeBorder(Color.slateStroke.opacity(0.4))
                 )
-                .shadow(color: .black.opacity(0.16), radius: 14, y: 5)
+                .shadow(color: .black.opacity(0.18), radius: 16, y: 6)
         )
-        .padding(.horizontal, 24)
-        .padding(.bottom, 4)
-        .animation(.spring(response: 0.3, dampingFraction: 0.85), value: expanded)
+        .scaleEffect(shrunk ? 0.8 : 1, anchor: .bottom)
+        .opacity(shrunk ? 0.9 : 1)
+        .padding(.bottom, 6)
+        .animation(.spring(response: 0.32, dampingFraction: 0.86), value: shrunk)
     }
 
-    private func dockItem(_ symbol: String, _ label: String, tag: String, expanded: Bool) -> some View {
+    private func dockItem(_ symbol: String, _ label: String, tag: String) -> some View {
         let active = selection == tag
         return Button {
-            if active {
-                dockState.manuallyExpanded = !(dockState.manuallyExpanded ?? dockState.expanded)
-            } else {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) { selection = tag }
-            }
+            guard !active else { return }
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) { selection = tag }
         } label: {
-            VStack(spacing: 2) {
-                Image(systemName: symbol)
-                    .font(.system(size: expanded ? 19 : 17, weight: .medium))
-                    .symbolRenderingMode(.hierarchical)
-                    .frame(height: 22)
-                if expanded {
-                    Text(label)
-                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                        .opacity(active ? 1 : 0.45)
-                        .fixedSize()
-                }
-            }
-            .foregroundStyle(active ? Color.primary : Color.secondary)
-            .padding(.horizontal, expanded ? 18 : 14)
-            .frame(maxWidth: .infinity, minHeight: expanded ? 48 : 36)
-            .contentShape(Rectangle())
-            .background(active ? Color.accentColor.opacity(0.12) : .clear, in: RoundedRectangle(cornerRadius: expanded ? 21 : 17, style: .continuous))
+            Image(systemName: symbol)
+                .font(.system(size: 21, weight: .medium))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(active ? Color.primary : Color.secondary)
+                .frame(width: 60, height: 40)
+                .background(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(active ? Color.primary.opacity(0.13) : .clear)
+                )
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
