@@ -94,6 +94,7 @@ struct RootView: View {
     private var dockContent: some View {
         switch selection {
         case "health": HealthView()
+        case "money": MoneyView()
         case "terminal": AgentHomeView()
         default: TodayView()
         }
@@ -105,6 +106,7 @@ struct RootView: View {
         return HStack(spacing: collapsed ? 2 : 6) {
             dockItem("calendar", "Tarefas", tag: "today", collapsed: collapsed)
             dockItem("figure.strengthtraining.traditional", "Saúde", tag: "health", collapsed: collapsed)
+            dockItem("dollarsign.circle", "Dinheiro", tag: "money", collapsed: collapsed)
             dockItem("terminal", "Agente", tag: "terminal", collapsed: collapsed)
         }
         .padding(collapsed ? 4 : 6)
@@ -156,7 +158,7 @@ struct RootView: View {
     }
 
     private static func initialTab() -> String {
-        let valid = ["today", "health", "terminal"]
+        let valid = ["today", "health", "money", "terminal"]
         
         if let index = CommandLine.arguments.firstIndex(of: "-geoTab"),
            index + 1 < CommandLine.arguments.count {
