@@ -46,6 +46,7 @@
 		90BF7EDA2D398BA5A9F5F0A5 /* TasksCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 785D4A685A4C254013F0562D /* TasksCache.swift */; };
 		941A43D663736113D54D67F7 /* AgentWork.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBECF4620DA0B4DE0F77C8BA /* AgentWork.swift */; };
 		9A9C93AEA71D6C0CA468EB4C /* BodyPaths.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31B17CD985C4671509422B6 /* BodyPaths.swift */; };
+		9CDF274BBB24451018E9E79B /* GarimeCalendarMirrorService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C707F9936718DBE26EC4595 /* GarimeCalendarMirrorService.swift */; };
 		9FE5BF3ACB696E94BF939FF1 /* OnboardingSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D0B74DAB8B4BD06956A2AFD /* OnboardingSheet.swift */; };
 		A242152F2C4EA99DB1D162E9 /* SVGPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4AF0B2DFA5ADFF7F4EA3019 /* SVGPath.swift */; };
 		A497B61CA6330886DF3FCF42 /* WeekStripView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C9A9E620F648DF8F0327FAA /* WeekStripView.swift */; };
@@ -120,6 +121,7 @@
 		60C98AA89B5F253D9FE24284 /* NewTaskSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NewTaskSheet.swift; path = Features/Today/NewTaskSheet.swift; sourceTree = "<group>"; };
 		62242A657FD936DC2BAEC589 /* TerminalRulesTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TerminalRulesTests.swift; sourceTree = "<group>"; };
 		6AD6D8AA8BABA7091A378E60 /* TermAgentsDecodingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TermAgentsDecodingTests.swift; sourceTree = "<group>"; };
+		6C707F9936718DBE26EC4595 /* GarimeCalendarMirrorService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GarimeCalendarMirrorService.swift; path = Services/GarimeCalendarMirrorService.swift; sourceTree = "<group>"; };
 		7040B74500650ABEA82B7D94 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		704208954BE148C557608359 /* ExerciseLogSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExerciseLogSheet.swift; path = Features/Health/ExerciseLogSheet.swift; sourceTree = "<group>"; };
 		709243288D77F587A36A81DF /* AgentChatView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AgentChatView.swift; path = Features/Terminal/AgentChatView.swift; sourceTree = "<group>"; };
@@ -294,6 +296,7 @@
 				45C636D9E7C65DD129BF7D73 /* Secrets.swift */,
 				15E2E167882C60B10D7E33F7 /* StatusIndicator.swift */,
 				1EB48228A08A20894225AC25 /* Assets.xcassets */,
+				6C707F9936718DBE26EC4595 /* GarimeCalendarMirrorService.swift */,
 			);
 			name = Garime;
 			path = Garime;
@@ -483,6 +486,7 @@
 				7B62D606BC558A82A8D63129 /* AirTheme.swift in Sources */,
 				56CA427A979BFA7ACECAA619 /* Secrets.swift in Sources */,
 				507C8124A22486E6EC61D9B7 /* StatusIndicator.swift in Sources */,
+				9CDF274BBB24451018E9E79B /* GarimeCalendarMirrorService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

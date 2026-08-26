@@ -100,6 +100,9 @@ struct TodayView: View {
             if let error = viewModel.errorMessage {
                 banner(error, icon: "exclamationmark.triangle")
             }
+            if let calendarError = viewModel.calendarSyncError {
+                banner(calendarError, icon: "calendar.badge.exclamationmark")
+            }
         }
         .padding(.bottom, 10)
     }

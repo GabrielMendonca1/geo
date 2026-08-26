@@ -1,6 +1,7 @@
 import Combine
 import EventKit
 import Foundation
+import GeoCore
 
 struct CalendarEventItem: Identifiable, Hashable {
     let id: String
@@ -18,6 +19,9 @@ final class EventKitService: ObservableObject {
     let store = EKEventStore()
 
     @Published private(set) var changeToken = 0
+    private(set) var mirrorErrorMessage: String?
+
+    private(set) lazy var mirror = GarimeCalendarMirrorService(store: store)
 
     init() {
         NotificationCenter.default.addObserver(
@@ -44,14 +48,34 @@ final class EventKitService: ObservableObject {
         return granted
     }
 
+    func syncMirror(tasks: [TaskItem]) {
+        guard isCalendarAuthorized else {
+            mirrorErrorMessage = nil
+            return
+        }
+        do {
+            try mirror.sync(tasks: tasks)
+            mirrorErrorMessage = nil
+        } catch {
+            mirrorErrorMessage = error.localizedDescription
+        }
+    }
+
     func events(in interval: DateInterval) -> [CalendarEventItem] {
         guard isCalendarAuthorized else { return [] }
+        let mirrorCalendarIdentifier = mirror.calendarIdentifier
         let predicate = store.predicateForEvents(
             withStart: interval.start,
             end: interval.end,
             calendars: nil
         )
         return store.events(matching: predicate)
+            .filter { event in
+                if let mirrorCalendarIdentifier, event.calendar?.calendarIdentifier == mirrorCalendarIdentifier {
+                    return false
+                }
+                return !CalendarMirror.isMirrored(notes: event.notes)
+            }
             .sorted { $0.startDate < $1.startDate }
             .map { ek in
                 let resolvedId = ek.eventIdentifier ?? ek.calendarItemIdentifier
