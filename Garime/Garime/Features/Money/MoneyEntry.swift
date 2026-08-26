@@ -24,6 +24,8 @@ struct MoneyEntry: Codable, Identifiable, Equatable {
     var note: String
     /// Compromisso que se repete todo mês (aluguel, salário, assinatura).
     var recurring: Bool
+    /// FITID do extrato importado: impede lançar duas vezes a mesma transação.
+    var externalId: String?
 
     init(
         id: UUID = UUID(),
@@ -32,7 +34,8 @@ struct MoneyEntry: Codable, Identifiable, Equatable {
         amount: Decimal,
         category: String,
         note: String = "",
-        recurring: Bool = false
+        recurring: Bool = false,
+        externalId: String? = nil
     ) {
         self.id = id
         self.date = date
@@ -41,6 +44,7 @@ struct MoneyEntry: Codable, Identifiable, Equatable {
         self.category = category
         self.note = note
         self.recurring = recurring
+        self.externalId = externalId
     }
 }
 
