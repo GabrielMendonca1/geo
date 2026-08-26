@@ -2,7 +2,7 @@
 
 HTTP daemon on the VM `garime` exposing three local resources to the tailnet for the iPhone app. The bridge is a **dumb pipe over files**: it never re-models data. Reads return file contents **verbatim** (zero re-encode); mutations are minimal field edits; streams are line pass-through. The Mac app (Geo.app) and hermes remain the owners of all state — the bridge only relays it.
 
-Spec version: 4 (v3 + `/vitals/*` health). All facts below were extracted from the live system on 2026-07-01 (real task files, real dispatch dirs, `TaskItem.swift`, `TasksStore.swift`, `HermesKanbanService.swift`, `api_server.py`, `~/.hermes/config.yaml`).
+Spec version: 5 (v4 + versioned training catalog, blocks, and frozen weekly plans). All facts below were extracted from the live system on 2026-07-01 (real task files, real dispatch dirs, `TaskItem.swift`, `TasksStore.swift`, `HermesKanbanService.swift`, `api_server.py`, `~/.hermes/config.yaml`).
 
 ## Deployment
 
@@ -261,7 +261,7 @@ Bridge request:
 
 ## Vitals — `/vitals/*` (added in v4)
 
-The health module of the phone, over `GEO_HEALTH_DIR` (default `/mnt/garime/state/health`). Dumb pipe as in principle 1: reads are verbatim bytes, writes are validate-then-atomic-write of the exact JSON the phone sent. The bridge never computes anything — in particular it does **not** derive today's session; the phone does that from `state.json` (`(anchorIndex + days_since(anchorDate)) mod 6`). Main bridge token, same as `/tasks`.
+The health module of the phone, over `GEO_HEALTH_DIR` (default `/mnt/garime/state/health`). Dumb pipe as in principle 1: reads are verbatim bytes, writes are validate-then-atomic-write of the exact JSON the phone sent. The legacy routes never compute anything — in particular the bridge does **not** derive today's session; the phone does that from `state.json` (`(anchorIndex + days_since(anchorDate)) mod 6`). Main bridge token, same as `/tasks`.
 
 ### GET /vitals/protocol
 
@@ -301,14 +301,121 @@ Same splice as `GET /tasks`: `[ <bytes of log-A.json>, <bytes of log-B.json>, �
 
 ### POST /vitals/log
 
+Legacy identity remains accepted:
+
 ```json
 {"id":"6D2A7F10-4C3B-4E5A-9F81-0B7C2D3E4F50","date":"2026-08-04","sessionIndex":3,
  "exercises":[{"id":"supino","sets":[{"reps":12,"kg":40.0}]}],"note":""}
 ```
 
-1. Validate: object with `id` matching the id regex, `date` matching `^\d{4}-\d{2}-\d{2}$`, `sessionIndex` an int in `0..5`, `exercises` a list whose entries are objects with an id-regex `id` and a list `sets`. Deeper shape (`reps`/`kg`, `note`) is not validated — dumb pipe. Anything else → `400 {"error":"invalid_body"}`.
-2. Write atomically over `log-<date>.json`. **Overwrite allowed** (unlike `POST /tasks`): the day's log is edited during the session, so there is no `409`.
-3. `200` with the exact bytes written.
+A frozen-plan log uses plan provenance instead of `sessionIndex`:
+
+```json
+{"id":"6D2A7F10-4C3B-4E5A-9F81-0B7C2D3E4F50","date":"2026-08-24",
+ "planId":"plan-2026-W35.r1","planDayId":"2026-08-24",
+ "exercises":[{"id":"remada-baixa","sets":[{"reps":12,"kg":40.0}]}],"note":""}
+```
+
+1. Validate the common shape: object with an id-regex `id`, a real calendar `date` in `YYYY-MM-DD`, and `exercises` as a list whose entries have an id-regex `id` and a list `sets`. Deeper shape (`reps`/`kg`, `note`) is not validated — dumb pipe.
+2. Require exactly one identity mode: either `sessionIndex` as an int in `0..5`, or both `planId` (`plan-<ISO-week>.r<positive revision>`) and `planDayId`. Mixed and missing identities are rejected. In plan mode, `planDayId` must equal `date`, and the date's ISO week must equal the week in `planId`.
+3. Write atomically over `log-<date>.json`. **Overwrite allowed** (unlike `POST /tasks`): only today's log is edited during the session, so there is no `409`. Clients must never use this route to rewrite a past day's log.
+4. `200` with the compact JSON bytes written. Unknown compatible fields are preserved. `GET /vitals/logs` returns legacy and plan-provenance logs together without migration or rewriting.
+
+## Versioned training library and frozen week (added in v5)
+
+These routes are additive at the bridge boundary. They do not read or mutate `protocol.json` or `state.json`; old clients and the legacy logging flow continue unchanged. Current clients treat a valid frozen plan for the current ISO week as the primary Health source and use the legacy protocol/state only when that plan is missing or unusable. Plan replacement is a new append-only revision, never re-anchoring `state.json`. Missing new files return `404`, which is the normal pre-publication/rollback state. Every route uses the main bridge token.
+
+Stable IDs match `[A-Za-z0-9._-]+`, are immutable after publication, are never reused, and are retired rather than deleted. Demo IDs use the `demo.` namespace. Catalog and block files carry monotonically increasing integer versions. Unknown JSON fields may be added in compatible schema revisions. `GeoBridge/training/` is the repository's canonical source for the real static `catalog.json`, `blocks.json`, and `safety.json`; it is not a deployment or seed directory and intentionally contains no plan, `protocol.json`, or `state.json`.
+
+### GET /vitals/catalog
+
+Returns the verbatim bytes of `catalog.json`; missing/unreadable → `404`. Catalog v1 is:
+
+```json
+{
+  "schema": "vitals.catalog/1",
+  "id": "demo-catalog",
+  "version": 1,
+  "updatedAt": "2026-08-03T18:00:00Z",
+  "exercises": [{
+    "id": "demo.remada-maquina",
+    "name": "Remada na máquina (demo)",
+    "status": "active",
+    "muscles": ["upper-back"],
+    "equipment": "machine",
+    "tags": ["pull", "demo"]
+  }]
+}
+```
+
+`status` is `active` or `retired`. `muscles` uses the existing body vocabulary. Compatible catalog entries may add `pattern`, `goals`, `riskFlags`, `shoulderTier`, `substitutes`, `doseType`, `variantNote`, `reviewState`, and gate references; current app decoders ignore these unknown keys. Safety governance remains in the separate sidecar rather than changing the closed status enum.
+
+### GET /vitals/blocks
+
+Returns verbatim `blocks.json`; missing/unreadable → `404`. Blocks are versioned reusable templates:
+
+```json
+{
+  "schema": "vitals.blocks/1",
+  "version": 1,
+  "blocks": [{
+    "id": "demo.corpo-inteiro-a",
+    "version": 1,
+    "name": "Corpo inteiro A (demo)",
+    "items": [{"exerciseId":"demo.remada-maquina","sets":[[10,12],[10,12]],"restSec":90}]
+  }]
+}
+```
+
+Each `sets` entry is the same inclusive `[min,max]` range used by the legacy protocol. Blocks may add publication and safety metadata. A block marked `publishable: true` must not reference an exercise whose current review is locked or conditional; the canonical personalized source is stricter and also excludes pending tier B items while overhead discomfort remains reported.
+
+### GET /vitals/safety
+
+Reserved for a separately governed `safety.json`. Returns verbatim bytes when present and `404` when absent. The demo fixtures intentionally ship no `safety.json`. The canonical real sidecar records user-reported history rather than diagnosis, never describes strengthening as treatment or cure, and keeps overhead load, specific cuff/scapular work, and tier C behind professional gates that self-report alone cannot unlock.
+
+### GET /vitals/plan?week=YYYY-Www
+
+Validates a real ISO week; malformed/nonexistent weeks → `400 {"error":"invalid_week"}`. It returns verbatim bytes of the highest revision matching `plan-<week>.r<N>.json`, ignoring names containing `.sync-conflict-`; no revision → `404`.
+
+A frozen plan is denormalized so later catalog/template changes cannot alter the prescribed snapshot:
+
+```json
+{
+  "schema": "vitals.plan/1",
+  "id": "plan-2026-W32.r1",
+  "week": "2026-W32",
+  "revision": 1,
+  "frozenAt": "2026-08-03T18:00:00Z",
+  "source": {
+    "catalogId": "demo-catalog",
+    "catalogVersion": 1,
+    "blocks": [{"blockId":"demo.corpo-inteiro-a","blockVersion":1}],
+    "generator": "manual"
+  },
+  "days": [{
+    "date": "2026-08-03",
+    "label": "Corpo inteiro A (demo)",
+    "rest": false,
+    "items": [{
+      "exerciseId": "demo.remada-maquina",
+      "name": "Remada na máquina (demo)",
+      "muscles": ["upper-back"],
+      "sets": [[10,12],[10,12]],
+      "restSec": 90
+    }]
+  }]
+}
+```
+
+The complete payload has exactly seven days, Monday through Sunday of `week`, in order. `source` pins catalog and block provenance. `generator` is `manual` or `conversation`; the bridge itself does not generate plans. The repository tool `GeoBridge/tools/generate_week_plan.py` deterministically builds 4- or 5-day test artifacts from canonical catalog, blocks, and safety data. It fails closed on denied review/gate states, blocked templates, invalid references, and session duration outside 40–70 minutes, and never writes `protocol.json` or `state.json`.
+
+### POST /vitals/plan
+
+Validates schema tag, stable IDs, positive versions/revision, source shape, set ranges, and exactly seven consecutive ISO-week dates. `id` must equal `plan-<week>.r<revision>`.
+
+Plans are append-only and write-once. The first revision is 1; each later POST must be exactly the current maximum + 1. A replay/existing revision → `409 {"error":"revision_exists"}`; a gap or stale non-existing revision → `400 {"error":"invalid_revision"}`; malformed payload → `400 {"error":"invalid_body"}`. Accepted bytes are compact JSON written atomically without overwrite as `plan-<week>.r<revision>.json`; success → `200` with those bytes.
+
+`catalog.json`, `blocks.json`, `safety.json`, and `plan-*` can never enter `GET /vitals/logs`, whose filename filter remains exactly `log-*.json`.
 
 ## Terminal — `/term/*` (added in v3)
 

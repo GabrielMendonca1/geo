@@ -22,7 +22,7 @@ import tempfile
 import termios
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
 
@@ -175,6 +175,9 @@ PANE_PUBLIC_KEYS = ("pane", "agent", "status", "title", "cwd", "tab")
 
 ID_RE = re.compile(r"\A[A-Za-z0-9._-]+\Z")
 DATE_RE = re.compile(r"\A\d{4}-\d{2}-\d{2}\Z")
+WEEK_RE = re.compile(r"\A\d{4}-W\d{2}\Z")
+PLAN_ID_RE = re.compile(r"\Aplan-(\d{4}-W\d{2})\.r([1-9]\d*)\Z")
+PLAN_FILE_RE = re.compile(r"\Aplan-(\d{4}-W\d{2})\.r([1-9]\d*)\.json\Z")
 TASK_ROUTE = re.compile(r"^/tasks/([^/]+)/(complete|reopen)$")
 TASK_DELETE_ROUTE = re.compile(r"^/tasks/([^/]+)$")
 DISPATCH_STREAM_ROUTE = re.compile(r"^/dispatches/([^/]+)/stream$")
@@ -182,6 +185,7 @@ DISPATCH_STREAM_ROUTE = re.compile(r"^/dispatches/([^/]+)/stream$")
 TOKEN = ""
 TERM_TOKEN = ""
 LOG_LOCK = threading.Lock()
+HEALTH_PLAN_LOCK = threading.Lock()
 TERM_REGISTRY = {}
 TERM_REGISTRY_LOCK = threading.Lock()
 AGENTS_CACHE = {"at": 0.0, "value": [], "panes": [], "mac_ok": False}
@@ -1021,6 +1025,35 @@ def agent_upload_script(name):
     ) % (shlex.quote(AGENT_UPLOAD_DIR), shlex.quote(name), shlex.quote(stem), shlex.quote(ext))
 
 
+def local_upload_write(name, data, home=None):
+    """Grava um upload no proprio host do bridge (agente de sessao na VM).
+
+    Espelha agent_upload_script: diretorio 0700, arquivo 0600, nome unico,
+    nunca sobrescreve nem segue link. Devolve o caminho absoluto ou "".
+    """
+    base = home or os.path.expanduser("~")
+    directory = os.path.join(base, AGENT_UPLOAD_DIR)
+    try:
+        os.makedirs(directory, mode=0o700, exist_ok=True)
+    except Exception:
+        return ""
+    stem, ext = os.path.splitext(name)
+    candidate = os.path.join(directory, name)
+    index = 0
+    while os.path.exists(candidate) or os.path.islink(candidate):
+        index += 1
+        if index > 1000:
+            return ""
+        candidate = os.path.join(directory, "%s-%d%s" % (stem, index, ext))
+    try:
+        fd = os.open(candidate, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(data)
+    except Exception:
+        return ""
+    return candidate
+
+
 def agent_work_session_id(session):
     if not isinstance(session, dict) or session.get("kind") != "id":
         return ""
@@ -1725,7 +1758,95 @@ def valid_id(value):
 
 
 def valid_date(value):
-    return isinstance(value, str) and DATE_RE.match(value) is not None
+    if not isinstance(value, str) or DATE_RE.match(value) is None:
+        return False
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").strftime("%Y-%m-%d") == value
+    except ValueError:
+        return False
+
+
+def valid_week(value):
+    if not isinstance(value, str) or WEEK_RE.match(value) is None:
+        return False
+    try:
+        datetime.strptime(value + "-1", "%G-W%V-%u")
+    except ValueError:
+        return False
+    return True
+
+
+def valid_plan(plan):
+    if not isinstance(plan, dict):
+        return False
+    revision = plan.get("revision")
+    week = plan.get("week")
+    source = plan.get("source")
+    days = plan.get("days")
+    if (
+        plan.get("schema") != "vitals.plan/1"
+        or not valid_week(week)
+        or type(revision) is not int
+        or revision < 1
+        or plan.get("id") != "plan-%s.r%d" % (week, revision)
+        or not isinstance(plan.get("frozenAt"), str)
+        or not plan["frozenAt"]
+        or not isinstance(source, dict)
+        or not isinstance(days, list)
+        or len(days) != 7
+    ):
+        return False
+    catalog_version = source.get("catalogVersion")
+    block_sources = source.get("blocks")
+    if (
+        not valid_id(source.get("catalogId"))
+        or type(catalog_version) is not int
+        or catalog_version < 1
+        or source.get("generator") not in ("manual", "conversation")
+        or not isinstance(block_sources, list)
+    ):
+        return False
+    for block in block_sources:
+        if (
+            not isinstance(block, dict)
+            or not valid_id(block.get("blockId"))
+            or type(block.get("blockVersion")) is not int
+            or block["blockVersion"] < 1
+        ):
+            return False
+    monday = datetime.strptime(week + "-1", "%G-W%V-%u")
+    expected_dates = [(monday + timedelta(days=offset)).strftime("%Y-%m-%d") for offset in range(7)]
+    if [day.get("date") if isinstance(day, dict) else None for day in days] != expected_dates:
+        return False
+    for day in days:
+        if (
+            not isinstance(day.get("label"), str)
+            or type(day.get("rest")) is not bool
+            or not isinstance(day.get("items"), list)
+        ):
+            return False
+        for item in day["items"]:
+            if (
+                not isinstance(item, dict)
+                or not valid_id(item.get("exerciseId"))
+                or not isinstance(item.get("name"), str)
+                or not isinstance(item.get("muscles"), list)
+                or not all(isinstance(muscle, str) for muscle in item["muscles"])
+                or not isinstance(item.get("sets"), list)
+                or item.get("doseType", "reps") not in ("reps", "time-min", "time-sec")
+                or type(item.get("restSec")) is not int
+                or item["restSec"] < 0
+            ):
+                return False
+            for value_range in item["sets"]:
+                if (
+                    not isinstance(value_range, list)
+                    or len(value_range) != 2
+                    or not all(type(value) is int and value > 0 for value in value_range)
+                    or value_range[0] > value_range[1]
+                ):
+                    return False
+    return True
 
 
 def read_hermes_key():
@@ -2708,13 +2829,7 @@ class Handler(BaseHTTPRequestHandler):
         body.update(work)
         self._json(200, json.dumps(body, ensure_ascii=False).encode())
 
-    def _term_agent_upload(self):
-        if not self._term_gate():
-            return
-        self.close_connection = True
-        project, pane = self._term_agent_target()
-        if project is None:
-            return
+    def _term_upload_name(self):
         name = (self.headers.get("X-Geo-Filename") or "").strip()
         if (
             not TERM_UPLOAD_NAME_RE.match(name)
@@ -2722,21 +2837,60 @@ class Handler(BaseHTTPRequestHandler):
             or name.startswith(".")
         ):
             self._json(400, b'{"error":"invalid_filename"}')
-            return
+            return None
+        return name
+
+    def _term_upload_body(self):
         try:
             length = int(self.headers.get("Content-Length") or 0)
         except ValueError:
             length = -1
         if length > AGENT_UPLOAD_MAX:
             self._json(413, b'{"error":"too_large"}')
-            return
+            return None
         if length <= 0:
             self._json(400, b'{"error":"invalid_body"}')
-            return
+            return None
         self._body_read = True
         data = self.rfile.read(length)
         if len(data) != length:
             self._json(400, b'{"error":"invalid_body"}')
+            return None
+        return data
+
+    def _term_agent_upload_vm(self, session):
+        name = self._term_upload_name()
+        if name is None:
+            return
+        data = self._term_upload_body()
+        if data is None:
+            return
+        if self._term_vm_agent(session) is None:
+            return
+        path = local_upload_write(name, data)
+        if not path or not AGENT_UPLOAD_PATH_RE.match(path):
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        self._json(200, json.dumps({"path": path}, ensure_ascii=False).encode())
+
+    def _term_agent_upload(self):
+        if not self._term_gate():
+            return
+        self.close_connection = True
+        vm = self._term_vm_target()
+        if vm is None:
+            return
+        if vm:
+            self._term_agent_upload_vm(vm)
+            return
+        project, pane = self._term_agent_target()
+        if project is None:
+            return
+        name = self._term_upload_name()
+        if name is None:
+            return
+        data = self._term_upload_body()
+        if data is None:
             return
         if self._term_agent_resolve(project, pane, True) is None:
             return
@@ -2934,6 +3088,14 @@ class Handler(BaseHTTPRequestHandler):
                 self._get_health_file("state.json")
             elif path == "/vitals/logs":
                 self._get_vitals_logs()
+            elif path == "/vitals/catalog":
+                self._get_health_file("catalog.json")
+            elif path == "/vitals/blocks":
+                self._get_health_file("blocks.json")
+            elif path == "/vitals/safety":
+                self._get_health_file("safety.json")
+            elif path == "/vitals/plan":
+                self._get_vitals_plan()
             elif path == "/dispatches":
                 self._get_dispatches()
             else:
@@ -3007,6 +3169,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._put_vitals_state()
             elif path == "/vitals/log":
                 self._put_vitals_log()
+            elif path == "/vitals/plan":
+                self._put_vitals_plan()
             elif path == "/chat/stream":
                 self._chat_stream()
             else:
@@ -3232,6 +3396,36 @@ class Handler(BaseHTTPRequestHandler):
             return False
         return True
 
+    def _create_health_file(self, name, data):
+        path = os.path.join(HEALTH_DIR, name)
+        try:
+            os.makedirs(HEALTH_DIR, exist_ok=True)
+            fd, tmp = tempfile.mkstemp(dir=HEALTH_DIR, prefix=".geobridge-")
+            os.write(fd, data)
+            os.fsync(fd)
+            os.close(fd)
+            fd = -1
+            os.chmod(tmp, 0o600)
+            os.link(tmp, path)
+        except FileExistsError:
+            self._json(409, b'{"error":"revision_exists"}')
+            return False
+        except OSError:
+            if "fd" in locals() and fd != -1:
+                try:
+                    os.close(fd)
+                except OSError:
+                    pass
+            self._json(500, b'{"error":"internal"}')
+            return False
+        finally:
+            if "tmp" in locals():
+                try:
+                    os.unlink(tmp)
+                except OSError:
+                    pass
+        return True
+
     def _read_json_body(self):
         try:
             length = int(self.headers.get("Content-Length") or 0)
@@ -3267,6 +3461,51 @@ class Handler(BaseHTTPRequestHandler):
             parts.append(data)
         self._json(200, b"[" + b",".join(parts) + b"]")
 
+    def _plan_revisions(self, week):
+        try:
+            names = os.listdir(HEALTH_DIR)
+        except OSError:
+            return []
+        revisions = []
+        for name in names:
+            if ".sync-conflict-" in name:
+                continue
+            match = PLAN_FILE_RE.match(name)
+            if match and match.group(1) == week:
+                revisions.append((int(match.group(2)), name))
+        return sorted(revisions)
+
+    def _get_vitals_plan(self):
+        query = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
+        values = query.get("week")
+        if not values or len(values) != 1 or not valid_week(values[0]):
+            self._json(400, b'{"error":"invalid_week"}')
+            return
+        revisions = self._plan_revisions(values[0])
+        if not revisions:
+            self._json(404, b'{"error":"not_found"}')
+            return
+        self._get_health_file(revisions[-1][1])
+
+    def _put_vitals_plan(self):
+        plan = self._read_json_body()
+        if not valid_plan(plan):
+            self._json(400, b'{"error":"invalid_body"}')
+            return
+        data = json.dumps(plan, separators=(",", ":"), ensure_ascii=False).encode()
+        with HEALTH_PLAN_LOCK:
+            revisions = self._plan_revisions(plan["week"])
+            expected = revisions[-1][0] + 1 if revisions else 1
+            if plan["revision"] != expected:
+                if any(revision == plan["revision"] for revision, _ in revisions):
+                    self._json(409, b'{"error":"revision_exists"}')
+                else:
+                    self._json(400, b'{"error":"invalid_revision"}')
+                return
+            name = "plan-%s.r%d.json" % (plan["week"], plan["revision"])
+            if self._create_health_file(name, data):
+                self._json(200, data)
+
     def _put_vitals_state(self):
         state = self._read_json_body()
         if not isinstance(state, dict):
@@ -3291,18 +3530,39 @@ class Handler(BaseHTTPRequestHandler):
         if not isinstance(log, dict):
             self._json(400, b'{"error":"invalid_body"}')
             return
-        index = log.get("sessionIndex")
         exercises = log.get("exercises")
         if (
             not valid_id(log.get("id"))
             or not valid_date(log.get("date"))
-            or not isinstance(index, int)
-            or isinstance(index, bool)
-            or not 0 <= index <= 5
             or not isinstance(exercises, list)
         ):
             self._json(400, b'{"error":"invalid_body"}')
             return
+        has_session = "sessionIndex" in log
+        has_plan = "planId" in log or "planDayId" in log
+        if has_session and has_plan:
+            self._json(400, b'{"error":"mixed_identity"}')
+            return
+        if not has_session and not has_plan:
+            self._json(400, b'{"error":"missing_identity"}')
+            return
+        if has_session:
+            index = log.get("sessionIndex")
+            if not isinstance(index, int) or isinstance(index, bool) or not 0 <= index <= 5:
+                self._json(400, b'{"error":"invalid_body"}')
+                return
+        else:
+            plan_match = PLAN_ID_RE.match(log.get("planId", "")) if isinstance(log.get("planId"), str) else None
+            if not plan_match or not valid_date(log.get("planDayId")):
+                self._json(400, b'{"error":"invalid_plan_identity"}')
+                return
+            if log["planDayId"] != log["date"]:
+                self._json(400, b'{"error":"invalid_plan_day"}')
+                return
+            log_week = datetime.strptime(log["date"], "%Y-%m-%d").strftime("%G-W%V")
+            if plan_match.group(1) != log_week:
+                self._json(400, b'{"error":"invalid_plan_week"}')
+                return
         for exercise in exercises:
             if not isinstance(exercise, dict) or not valid_id(exercise.get("id")) or not isinstance(exercise.get("sets"), list):
                 self._json(400, b'{"error":"invalid_body"}')

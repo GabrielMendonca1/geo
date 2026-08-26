@@ -33,3 +33,23 @@ All except `/health` require `Authorization: Bearer <contents of ~/.hermes/geobr
 - URL: `http://100.123.44.9:8643` (tailnet only)
 - Token: contents of `~/.hermes/geobridge.token` on the Mac
 - Reachability check: `GET /health` from the phone, then confirm the phone's tailnet IP shows up in `~/Library/Logs/geobridge.log`
+
+## Training v1 static sources
+
+`training/` is the canonical source for the real static catalog, blocks, and conservative safety governance. It deliberately contains no weekly plan, `protocol.json`, or `state.json`. The catalog can retain blocked exercises for future discovery, while `publishable: true` blocks exclude all currently locked, conditional, or pending exercises. These files are source artifacts only: this repository does not deploy or seed them automatically.
+
+`fixtures/training/` remains a separate generic demonstration catalog, one reusable block, and a frozen seven-day ISO-week snapshot for contract tests. It contains no individualized guidance and no `safety.json`.
+
+After comparing the deployed `/opt/garime/geobridge.py` with this checkout and deploying through the normal VM procedure, an operator can seed the read-only library and submit the write-once example plan explicitly:
+
+```sh
+sudo -u biel install -m 600 fixtures/training/catalog.json /mnt/garime/state/health/catalog.json
+sudo -u biel install -m 600 fixtures/training/blocks.json /mnt/garime/state/health/blocks.json
+curl -fsS -X POST \
+  -H "Authorization: Bearer $(cat /etc/garime/bridge.token)" \
+  -H 'Content-Type: application/json' \
+  --data-binary @fixtures/training/plan-2026-W35.r1.json \
+  http://127.0.0.1:8643/vitals/plan
+```
+
+Run the file installs as the bridge runtime user (`biel`) so mode `600` remains readable by GeoBridge. The sample is fixed to the checkout's current week, `2026-W35`; a different week requires updating `week`, `id`, and all seven dates together. Rollback removes only `catalog.json`, `blocks.json`, and matching `plan-*.json`; legacy `protocol.json`, `state.json`, and `log-*.json` must not be touched.

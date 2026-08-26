@@ -84,7 +84,7 @@ struct BridgeClient: BridgeAPI, Sendable {
 
     static let session: URLSession = {
         let configuration = URLSessionConfiguration.default
-        configuration.waitsForConnectivity = true
+        configuration.waitsForConnectivity = false
         configuration.timeoutIntervalForRequest = 15
         configuration.timeoutIntervalForResource = 60
         return URLSession(configuration: configuration)

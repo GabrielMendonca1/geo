@@ -1,0 +1,995 @@
+{
+  "schema": "vitals.blocks/1",
+  "version": 1,
+  "blocks": [
+    {
+      "id": "bl.aquecimento",
+      "version": 1,
+      "name": "Aquecimento: caminhada na esteira",
+      "publishable": true,
+      "blockedReasons": [],
+      "estimatedMinutes": 9.0,
+      "items": [
+        {
+          "exerciseId": "esteira-caminhada",
+          "sets": [
+            [
+              5,
+              8
+            ]
+          ],
+          "restSec": 0,
+          "doseType": "time-min"
+        }
+      ]
+    },
+    {
+      "id": "bl.costas-a",
+      "version": 1,
+      "name": "Costas A — bloqueado enquanto puxada alta exigir liberação",
+      "publishable": false,
+      "blockedReasons": [
+        "gate-overhead-load"
+      ],
+      "estimatedMinutes": 21.0,
+      "items": [
+        {
+          "exerciseId": "puxada-alta",
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ],
+          "restSec": 90,
+          "doseType": "reps"
+        },
+        {
+          "exerciseId": "remada-baixa",
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ],
+          "restSec": 75,
+          "doseType": "reps"
+        },
+        {
+          "exerciseId": "remada-cavalinho",
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ],
+          "restSec": 75,
+          "doseType": "reps"
+        }
+      ]
+    },
+    {
+      "id": "bl.costas-b",
+      "version": 1,
+      "name": "Costas B — bloqueado enquanto puxada alta exigir liberação",
+      "publishable": false,
+      "blockedReasons": [
+        "gate-overhead-load"
+      ],
+      "estimatedMinutes": 12.1,
+      "items": [
+        {
+          "exerciseId": "remada-baixa",
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ],
+          "restSec": 75,
+          "doseType": "reps"
+        },
+        {
+          "exerciseId": "puxada-alta",
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ]
+          ],
+          "restSec": 90,
+          "doseType": "reps"
+        }
+      ]
+    },
+    {
+      "id": "bl.costas-a.gate",
+      "version": 1,
+      "name": "Costas A sem carga acima da cabeça",
+      "publishable": true,
+      "blockedReasons": [],
+      "estimatedMinutes": 17.3,
+      "items": [
+        {
+          "exerciseId": "remada-baixa",
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ],
+          "restSec": 75,
+          "doseType": "reps"
+        },
+        {
+          "exerciseId": "remada-cavalinho",
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ],
+          "restSec": 75,
+          "doseType": "reps"
+        }
+      ]
+    },
+    {
+      "id": "bl.costas-b.gate",
+      "version": 1,
+      "name": "Costas B sem carga acima da cabeça",
+      "publishable": true,
+      "blockedReasons": [],
+      "estimatedMinutes": 11.6,
+      "items": [
+        {
+          "exerciseId": "remada-cavalinho",
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ],
+          "restSec": 75,
+          "doseType": "reps"
+        },
+        {
+          "exerciseId": "remada-baixa",
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ]
+          ],
+          "restSec": 75,
+          "doseType": "reps"
+        }
+      ]
+    },
+    {
+      "id": "bl.ombro-3d",
+      "version": 1,
+      "name": "Ombro 3D — bloqueado/pending",
+      "publishable": false,
+      "blockedReasons": [
+        "gate-overhead-load",
+        "gate-tier-b-sem-overhead"
+      ],
+      "estimatedMinutes": 19.5,
+      "items": [
+        {
+          "exerciseId": "desenvolvimento-ombro",
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ],
+          "restSec": 90,
+          "doseType": "reps"
+        },
+        {
+          "exerciseId": "elevacao-lateral",
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ],
+          "restSec": 60,
+          "doseType": "reps"
+        },
+        {
+          "exerciseId": "elevacao-posterior",
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ],
+          "restSec": 60,
+          "doseType": "reps"
+        }
+      ]
+    },
+    {
+      "id": "bl.delt-foco",
+      "version": 1,
+      "name": "Deltoides em foco — pending durante desconforto",
+      "publishable": false,
+      "blockedReasons": [
+        "gate-tier-b-sem-overhead"
+      ],
+      "estimatedMinutes": 12.0,
+      "items": [
+        {
+          "exerciseId": "elevacao-lateral-cabo",
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ],
+          "restSec": 60,
+          "doseType": "reps"
+        },
+        {
+          "exerciseId": "elevacao-posterior",
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ],
+          "restSec": 60,
+          "doseType": "reps"
+        }
+      ]
+    },
+    {
+      "id": "bl.peito-conservador",
+      "version": 1,
+      "name": "Peito conservador — pending durante desconforto",
+      "publishable": false,
+      "blockedReasons": [
+        "gate-tier-b-sem-overhead"
+      ],
+      "estimatedMinutes": 16.4,
+      "items": [
+        {
+          "exerciseId": "supino",
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ],
+          "restSec": 90,
+          "doseType": "reps"
+        },
+        {
+          "exerciseId": "voador-crucifixo",
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ],
+          "restSec": 75,
+          "doseType": "reps"
+        }
+      ]
+    },
+    {
+      "id": "bl.bracos-a",
+      "version": 1,
+      "name": "Braços A",
+      "publishable": true,
+      "blockedReasons": [],
+      "estimatedMinutes": 12.0,
+      "items": [
+        {
+          "exerciseId": "rosca-alternada-inclinada",
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ],
+          "restSec": 60,
+          "doseType": "reps"
+        },
+        {
+          "exerciseId": "triceps-corda",
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ],
+          "restSec": 60,
+          "doseType": "reps"
+        }
+      ]
+    },
+    {
+      "id": "bl.bracos-b1",
+      "version": 1,
+      "name": "Braços B1",
+      "publishable": true,
+      "blockedReasons": [],
+      "estimatedMinutes": 12.0,
+      "items": [
+        {
+          "exerciseId": "rosca-w",
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ],
+          "restSec": 60,
+          "doseType": "reps"
+        },
+        {
+          "exerciseId": "triceps-polia-alta",
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ],
+          "restSec": 60,
+          "doseType": "reps"
+        }
+      ]
+    },
+    {
+      "id": "bl.bracos-b2",
+      "version": 1,
+      "name": "Braços B2",
+      "publishable": true,
+      "blockedReasons": [],
+      "estimatedMinutes": 12.0,
+      "items": [
+        {
+          "exerciseId": "rosca-concentrada",
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ],
+          "restSec": 60,
+          "doseType": "reps"
+        },
+        {
+          "exerciseId": "triceps-testa",
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ],
+          "restSec": 60,
+          "doseType": "reps"
+        }
+      ]
+    },
+    {
+      "id": "bl.quadriceps",
+      "version": 1,
+      "name": "Quadríceps",
+      "publishable": true,
+      "blockedReasons": [],
+      "estimatedMinutes": 28.8,
+      "items": [
+        {
+          "exerciseId": "cadeira-extensora",
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ],
+          "restSec": 90,
+          "doseType": "reps"
+        },
+        {
+          "exerciseId": "agachamento-sumo",
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ],
+          "restSec": 120,
+          "doseType": "reps"
+        },
+        {
+          "exerciseId": "leg-press",
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ],
+          "restSec": 90,
+          "doseType": "reps",
+          "alternation": {
+            "groupId": "quadriceps-3",
+            "parity": "even"
+          }
+        },
+        {
+          "exerciseId": "passada",
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ],
+          "restSec": 90,
+          "doseType": "reps",
+          "alternation": {
+            "groupId": "quadriceps-3",
+            "parity": "odd"
+          }
+        }
+      ]
+    },
+    {
+      "id": "bl.posterior",
+      "version": 1,
+      "name": "Posterior",
+      "publishable": true,
+      "blockedReasons": [],
+      "estimatedMinutes": 21.8,
+      "items": [
+        {
+          "exerciseId": "mesa-flexora",
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ],
+          "restSec": 75,
+          "doseType": "reps",
+          "alternation": {
+            "groupId": "posterior-1",
+            "parity": "even"
+          }
+        },
+        {
+          "exerciseId": "cadeira-flexora-unilateral",
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ],
+          "restSec": 75,
+          "doseType": "reps",
+          "alternation": {
+            "groupId": "posterior-1",
+            "parity": "odd"
+          }
+        },
+        {
+          "exerciseId": "stiff",
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ],
+          "restSec": 90,
+          "doseType": "reps"
+        },
+        {
+          "exerciseId": "elevacao-pelvica",
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ],
+          "restSec": 90,
+          "doseType": "reps"
+        }
+      ]
+    },
+    {
+      "id": "bl.panturrilha",
+      "version": 1,
+      "name": "Panturrilha",
+      "publishable": true,
+      "blockedReasons": [],
+      "estimatedMinutes": 6.0,
+      "items": [
+        {
+          "exerciseId": "panturrilha-em-pe",
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ],
+          "restSec": 60,
+          "doseType": "reps"
+        }
+      ]
+    },
+    {
+      "id": "bl.abdomen",
+      "version": 1,
+      "name": "Abdômen",
+      "publishable": true,
+      "blockedReasons": [],
+      "estimatedMinutes": 5.3,
+      "items": [
+        {
+          "exerciseId": "abdominal-infra",
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ],
+          "restSec": 45,
+          "doseType": "reps"
+        }
+      ]
+    },
+    {
+      "id": "bl.core-surf",
+      "version": 1,
+      "name": "Core para surf",
+      "publishable": true,
+      "blockedReasons": [],
+      "estimatedMinutes": 11.5,
+      "items": [
+        {
+          "exerciseId": "prancha",
+          "sets": [
+            [
+              30,
+              45
+            ],
+            [
+              30,
+              45
+            ],
+            [
+              30,
+              45
+            ]
+          ],
+          "restSec": 45,
+          "doseType": "time-sec"
+        },
+        {
+          "exerciseId": "pallof-press",
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ],
+          "restSec": 60,
+          "doseType": "reps"
+        }
+      ]
+    },
+    {
+      "id": "bl.cond-base",
+      "version": 1,
+      "name": "Condicionamento base",
+      "publishable": true,
+      "blockedReasons": [],
+      "estimatedMinutes": 26.0,
+      "items": [
+        {
+          "exerciseId": "esteira-caminhada",
+          "sets": [
+            [
+              20,
+              25
+            ]
+          ],
+          "restSec": 0,
+          "doseType": "time-min"
+        }
+      ]
+    },
+    {
+      "id": "bl.cond-surf",
+      "version": 1,
+      "name": "Condicionamento para surf — fase 3B+",
+      "publishable": false,
+      "blockedReasons": [
+        "fase-3b+"
+      ],
+      "estimatedMinutes": 21.0,
+      "items": [
+        {
+          "exerciseId": "esteira-intervalado",
+          "sets": [
+            [
+              15,
+              20
+            ]
+          ],
+          "restSec": 0,
+          "doseType": "time-min"
+        }
+      ]
+    },
+    {
+      "id": "bl.mob-surf",
+      "version": 1,
+      "name": "Mobilidade para surf",
+      "publishable": true,
+      "blockedReasons": [],
+      "estimatedMinutes": 10.0,
+      "items": [
+        {
+          "exerciseId": "mobilidade-toracica",
+          "sets": [
+            [
+              4,
+              4
+            ]
+          ],
+          "restSec": 0,
+          "doseType": "time-min"
+        },
+        {
+          "exerciseId": "mobilidade-quadril",
+          "sets": [
+            [
+              4,
+              4
+            ]
+          ],
+          "restSec": 0,
+          "doseType": "time-min"
+        }
+      ]
+    },
+    {
+      "id": "bl.manguito-escapula",
+      "version": 1,
+      "name": "Manguito e escápula — bloqueado/condicional (requer orientação profissional)",
+      "publishable": false,
+      "blockedReasons": [
+        "gate-manguito-escapula"
+      ],
+      "estimatedMinutes": 13.0,
+      "items": [
+        {
+          "exerciseId": "rotacao-externa-cabo",
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ]
+          ],
+          "restSec": 60,
+          "doseType": "reps"
+        },
+        {
+          "exerciseId": "face-pull",
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ]
+          ],
+          "restSec": 60,
+          "doseType": "reps"
+        },
+        {
+          "exerciseId": "flexao-escapular",
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ]
+          ],
+          "restSec": 60,
+          "doseType": "reps"
+        }
+      ]
+    }
+  ]
+}

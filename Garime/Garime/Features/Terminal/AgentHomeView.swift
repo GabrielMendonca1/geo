@@ -141,6 +141,7 @@ struct AgentHomeView: View {
                 .padding(.top, 12)
                 .padding(.bottom, 32)
             }
+            .dockScrollTracking()
             .background(Color.slateCanvas.ignoresSafeArea())
             .refreshable { await model.refresh() }
             .safeAreaInset(edge: .top) { header }
