@@ -56,6 +56,7 @@ final class TodayViewModel: ObservableObject {
     @Published private(set) var isOffline = false
     @Published private(set) var cacheDate: Date?
     @Published private(set) var hasItemsByDate: [Date: Bool] = [:]
+    @Published private(set) var calendarSyncError: String?
 
     private var allTasks: [TaskItem] = []
     private var today: [TaskItem] = []
@@ -128,6 +129,7 @@ final class TodayViewModel: ObservableObject {
             errorMessage = nil
             isOffline = false
             cacheDate = Date()
+            syncMirror(with: tasks)
             guard tasks != allTasks else { return }
             allTasks = tasks
         } catch {
@@ -235,7 +237,13 @@ final class TodayViewModel: ObservableObject {
 
     private func updateAllTasks(_ transform: ([TaskItem]) -> [TaskItem]) {
         allTasks = transform(allTasks)
+        syncMirror(with: allTasks)
         rebuildForSelectedDate()
+    }
+
+    private func syncMirror(with tasks: [TaskItem]) {
+        service.syncMirror(tasks: tasks)
+        calendarSyncError = service.mirrorErrorMessage
     }
 
     func shiftDisplayedMonth(by months: Int) {
