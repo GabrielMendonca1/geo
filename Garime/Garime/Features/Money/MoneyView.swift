@@ -1,8 +1,11 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct MoneyView: View {
     @StateObject private var store = MoneyStore.shared
     @State private var composing: MoneyKind?
+    @State private var importing = false
+    @State private var importMessage: String?
 
     private var month: [MoneyEntry] {
         MoneyMath.entries(store.entries, inMonthOf: Date())
@@ -33,6 +36,21 @@ struct MoneyView: View {
             MoneyEntrySheet(kind: kind) { entry in
                 store.add(entry)
             }
+        }
+        .fileImporter(
+            isPresented: $importing,
+            allowedContentTypes: MoneyView.statementTypes,
+            allowsMultipleSelection: false
+        ) { result in
+            importStatement(result)
+        }
+        .alert("extrato", isPresented: Binding(
+            get: { importMessage != nil },
+            set: { if !$0 { importMessage = nil } }
+        )) {
+            Button("ok", role: .cancel) { importMessage = nil }
+        } message: {
+            Text(importMessage ?? "")
         }
     }
 
@@ -93,10 +111,48 @@ struct MoneyView: View {
     }
 
     private var quickAdd: some View {
-        HStack(spacing: 10) {
-            addButton(.expense, symbol: "arrow.up.right")
-            addButton(.income, symbol: "arrow.down.left")
+        VStack(spacing: 10) {
+            HStack(spacing: 10) {
+                addButton(.expense, symbol: "arrow.up.right")
+                addButton(.income, symbol: "arrow.down.left")
+            }
+            Button { importing = true } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "tray.and.arrow.down")
+                        .font(.system(size: 12, weight: .semibold))
+                    Text("importar extrato ofx")
+                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                }
+                .foregroundStyle(Color.slateTextDim)
+                .frame(maxWidth: .infinity, minHeight: 40)
+                .glassSurface(shape: RoundedRectangle(cornerRadius: SlateRadius.cell, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("money-import")
         }
+    }
+
+    static var statementTypes: [UTType] {
+        var types: [UTType] = [.data]
+        if let ofx = UTType(filenameExtension: "ofx") { types.insert(ofx, at: 0) }
+        return types
+    }
+
+    private func importStatement(_ result: Result<[URL], Error>) {
+        guard case .success(let urls) = result, let url = urls.first else {
+            importMessage = "não deu pra abrir o arquivo"
+            return
+        }
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+
+        guard let data = try? Data(contentsOf: url) else {
+            importMessage = "não deu pra ler o arquivo"
+            return
+        }
+        let transactions = OFXParser.parse(data)
+        let outcome = store.importEntries(MoneyImport.entries(from: transactions))
+        importMessage = outcome.message
     }
 
     private func addButton(_ kind: MoneyKind, symbol: String) -> some View {

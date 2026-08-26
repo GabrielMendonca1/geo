@@ -33,6 +33,33 @@ final class MoneyStore: ObservableObject {
         save()
     }
 
+    /// Importa extrato sem duplicar: o FITID do banco manda.
+    /// Reimportar o mesmo arquivo não cria lançamento novo.
+    @discardableResult
+    func importEntries(_ incoming: [MoneyEntry]) -> MoneyImportResult {
+        let known = Set(entries.compactMap(\.externalId))
+        var seen = Set<String>()
+        var added: [MoneyEntry] = []
+        var skipped = 0
+
+        for entry in incoming {
+            if let id = entry.externalId {
+                guard !known.contains(id), !seen.contains(id) else {
+                    skipped += 1
+                    continue
+                }
+                seen.insert(id)
+            }
+            added.append(entry)
+        }
+
+        guard !added.isEmpty else { return MoneyImportResult(added: 0, skipped: skipped) }
+        entries.append(contentsOf: added)
+        entries.sort { $0.date > $1.date }
+        save()
+        return MoneyImportResult(added: added.count, skipped: skipped)
+    }
+
     func delete(_ entry: MoneyEntry) {
         entries.removeAll { $0.id == entry.id }
         save()
@@ -64,6 +91,20 @@ final class MoneyStore: ObservableObject {
             try encoder.encode(entries).write(to: fileURL, options: .atomic)
         } catch {
             logger.warning("Failed to persist money entries: \(error.localizedDescription)")
+        }
+    }
+}
+
+struct MoneyImportResult: Equatable {
+    var added: Int
+    var skipped: Int
+
+    var message: String {
+        switch (added, skipped) {
+        case (0, 0): return "nenhuma transação encontrada no arquivo"
+        case (0, _): return "tudo já estava lançado (\(skipped) repetidas)"
+        case (_, 0): return "\(added) lançamentos importados"
+        default: return "\(added) importados · \(skipped) já existiam"
         }
     }
 }
