@@ -27,7 +27,6 @@ struct MoneyView: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 110)
             }
-            .dockScrollTracking()
             .background(Color.slateCanvas)
             .safeAreaInset(edge: .top) { header }
             .navigationBarHidden(true)
