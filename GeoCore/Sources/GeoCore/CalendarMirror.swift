@@ -16,6 +16,16 @@ public struct CalendarMirrorEntry: Hashable, Sendable {
     }
 
     public var notes: String { CalendarMirror.marker(for: taskId) }
+
+    public var signature: String {
+        [
+            taskId,
+            title,
+            String(start.timeIntervalSinceReferenceDate),
+            String(end.timeIntervalSinceReferenceDate),
+            String(isAllDay)
+        ].joined(separator: "|")
+    }
 }
 
 public struct CalendarMirrorEvent: Hashable, Sendable {
@@ -40,11 +50,20 @@ public enum CalendarMirrorAction: Hashable, Sendable {
     case create(CalendarMirrorEntry)
     case update(eventId: String, entry: CalendarMirrorEntry)
     case delete(eventId: String)
+
+    public var signature: String {
+        switch self {
+        case .create(let entry): return "create|" + entry.signature
+        case .update(let eventId, let entry): return "update|" + eventId + "|" + entry.signature
+        case .delete(let eventId): return "delete|" + eventId
+        }
+    }
 }
 
 public enum CalendarMirror {
     public static let calendarTitle = "Garime"
     public static let untitledFallback = "Sem título"
+    public static let minimumDuration: TimeInterval = 60
 
     private static let markerOpen = "[Garime:"
     private static let markerClose = "]"
@@ -69,12 +88,14 @@ public enum CalendarMirror {
         guard task.status == .pending else { return nil }
         guard case .event(let start, let end, _) = task.body else { return nil }
         let trimmed = task.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let isAllDay = task.resolvedIsAllDay
+        let floor = isAllDay ? start : start.addingTimeInterval(minimumDuration)
         return CalendarMirrorEntry(
             taskId: task.id,
             title: trimmed.isEmpty ? untitledFallback : trimmed,
             start: start,
-            end: max(end, start),
-            isAllDay: task.resolvedIsAllDay
+            end: max(end, floor),
+            isAllDay: isAllDay
         )
     }
 
@@ -125,8 +146,12 @@ public enum CalendarMirror {
         return actions
     }
 
+    public static func signature(for actions: [CalendarMirrorAction]) -> String {
+        actions.map(\.signature).joined(separator: "\n")
+    }
+
     static func overlaps(entry: CalendarMirrorEntry, window: DateInterval) -> Bool {
-        entry.end >= window.start && entry.start <= window.end
+        entry.end > window.start && entry.start < window.end
     }
 
     static func isUpToDate(_ event: CalendarMirrorEvent, entry: CalendarMirrorEntry, calendar: Calendar) -> Bool {

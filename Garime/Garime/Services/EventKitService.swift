@@ -54,8 +54,7 @@ final class EventKitService: ObservableObject {
             return
         }
         do {
-            try mirror.sync(tasks: tasks)
-            mirrorErrorMessage = nil
+            mirrorErrorMessage = try mirror.sync(tasks: tasks).failureMessage
         } catch {
             mirrorErrorMessage = error.localizedDescription
         }
