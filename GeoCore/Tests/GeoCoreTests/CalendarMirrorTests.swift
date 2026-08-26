@@ -34,9 +34,50 @@ final class CalendarMirrorTests: XCTestCase {
         let start = date(2025, 3, 10, 9, 0)
         let broken = event(id: "e1", title: "   ", start: start, end: date(2025, 3, 10, 8, 0))
         let entry = CalendarMirror.entry(for: broken)
-        XCTAssertEqual(entry?.end, start)
+        XCTAssertEqual(entry?.end, start.addingTimeInterval(CalendarMirror.minimumDuration))
         XCTAssertEqual(entry?.title, CalendarMirror.untitledFallback)
         XCTAssertEqual(entry?.notes, "[Garime:e1]")
+    }
+
+    func testTimedEntryNeverHasZeroDurationButAllDayMay() {
+        let start = date(2025, 3, 10, 9, 0)
+        let timed = CalendarMirror.entry(for: event(id: "e1", start: start, end: start))
+        XCTAssertEqual(timed?.end, start.addingTimeInterval(CalendarMirror.minimumDuration))
+
+        let midnight = date(2025, 3, 10, 0, 0)
+        let allDay = CalendarMirror.entry(for: event(id: "e2", start: midnight, end: midnight, isAllDay: true))
+        XCTAssertEqual(allDay?.end, midnight)
+    }
+
+    func testWindowBoundariesAreHalfOpenLikeTheEventKitPredicate() {
+        let windowStart = date(2025, 3, 1, 0, 0)
+        let windowEnd = date(2025, 4, 1, 0, 0)
+        let window = DateInterval(start: windowStart, end: windowEnd)
+
+        let startsOnUpperBound = event(id: "upper", start: windowEnd, end: windowEnd.addingTimeInterval(3600))
+        let endsOnLowerBound = event(id: "lower", start: windowStart.addingTimeInterval(-3600), end: windowStart)
+        XCTAssertEqual(plan(tasks: [startsOnUpperBound, endsOnLowerBound], existing: [], window: window), [])
+
+        let justInside = event(id: "inside", start: windowEnd.addingTimeInterval(-60), end: windowEnd)
+        XCTAssertEqual(plan(tasks: [justInside], existing: [], window: window).count, 1)
+    }
+
+    func testBoundaryEntryDoesNotCreateOnEverySync() {
+        let window = DateInterval(start: date(2025, 3, 1, 0, 0), end: date(2025, 4, 1, 0, 0))
+        let onBoundary = event(id: "boundary", start: window.end, end: window.end)
+        for _ in 0..<3 {
+            XCTAssertEqual(plan(tasks: [onBoundary], existing: [], window: window), [])
+        }
+    }
+
+    func testSignatureIsStableForEqualPlansAndDiffersOtherwise() {
+        let start = date(2025, 3, 10, 9, 0)
+        let first = plan(tasks: [event(id: "e1", title: "Dentista", start: start)], existing: [])
+        let same = plan(tasks: [event(id: "e1", title: "Dentista", start: start)], existing: [])
+        let other = plan(tasks: [event(id: "e1", title: "Outro", start: start)], existing: [])
+        XCTAssertEqual(CalendarMirror.signature(for: first), CalendarMirror.signature(for: same))
+        XCTAssertEqual(CalendarMirror.signature(for: []), "")
+        XCTAssertTrue(CalendarMirror.signature(for: first) != CalendarMirror.signature(for: other))
     }
 
     func testPlanCreatesMissingEvents() {

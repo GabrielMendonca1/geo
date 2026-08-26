@@ -6,8 +6,10 @@ struct GarimeCalendarMirrorReport: Equatable {
     var created = 0
     var updated = 0
     var deleted = 0
+    var skipped = 0
+    var failureMessage: String?
 
-    var isEmpty: Bool { created == 0 && updated == 0 && deleted == 0 }
+    var isEmpty: Bool { created == 0 && updated == 0 && deleted == 0 && skipped == 0 }
 }
 
 enum GarimeCalendarMirrorError: LocalizedError {
@@ -28,11 +30,17 @@ enum GarimeCalendarMirrorError: LocalizedError {
 final class GarimeCalendarMirrorService {
     static let pastWindowDays = 30
     static let futureWindowDays = 400
+    static let boundaryMarginDays = 1
+    static let maxRepeatedPlans = 3
+    static let retryCooldown: TimeInterval = 60
 
     private let store: EKEventStore
     private let defaults: UserDefaults
     private let storageKey = "garime.calendarMirror.calendarIdentifier"
     private var cachedCalendarIdentifier: String?
+    private var lastPlanSignature: String?
+    private var repeatedPlanCount = 0
+    private var lastPlanAttempt: Date?
 
     init(store: EKEventStore, defaults: UserDefaults = .standard) {
         self.store = store
@@ -48,11 +56,37 @@ final class GarimeCalendarMirrorService {
             throw GarimeCalendarMirrorError.notAuthorized
         }
 
-        let window = Self.window(around: now)
+        let readWindow = Self.window(around: now)
         let calendar = existingCalendar()
-        let existing = calendar.map { mirroredEvents(in: window, calendar: $0) } ?? []
-        let actions = CalendarMirror.plan(tasks: tasks, existing: existing, in: window)
-        guard !actions.isEmpty else { return GarimeCalendarMirrorReport() }
+        let existing = calendar.map { mirroredEvents(in: readWindow, calendar: $0) } ?? []
+        let actions = CalendarMirror.plan(
+            tasks: tasks,
+            existing: existing,
+            in: Self.planningWindow(inside: readWindow)
+        )
+        guard !actions.isEmpty else {
+            lastPlanSignature = nil
+            repeatedPlanCount = 0
+            return GarimeCalendarMirrorReport()
+        }
+
+        let signature = CalendarMirror.signature(for: actions)
+        if signature == lastPlanSignature {
+            repeatedPlanCount += 1
+        } else {
+            lastPlanSignature = signature
+            repeatedPlanCount = 1
+        }
+        if repeatedPlanCount > Self.maxRepeatedPlans {
+            if let lastPlanAttempt, now.timeIntervalSince(lastPlanAttempt) < Self.retryCooldown {
+                return GarimeCalendarMirrorReport(
+                    skipped: actions.count,
+                    failureMessage: "espelhamento do calendário não converge; tentando de novo em instantes"
+                )
+            }
+            repeatedPlanCount = 1
+        }
+        lastPlanAttempt = now
 
         let target: EKCalendar
         if let calendar {
@@ -62,31 +96,22 @@ final class GarimeCalendarMirrorService {
         }
 
         var report = GarimeCalendarMirrorReport()
-        do {
-            for action in actions {
-                switch action {
-                case .create(let entry):
-                    let event = EKEvent(eventStore: store)
-                    event.calendar = target
-                    apply(entry, to: event)
-                    try store.save(event, span: .thisEvent, commit: false)
-                    report.created += 1
-                case .update(let eventId, let entry):
-                    guard let event = managedEvent(id: eventId, in: target) else { continue }
-                    apply(entry, to: event)
-                    try store.save(event, span: .thisEvent, commit: false)
-                    report.updated += 1
-                case .delete(let eventId):
-                    guard let event = managedEvent(id: eventId, in: target) else { continue }
-                    try store.remove(event, span: .thisEvent, commit: false)
-                    report.deleted += 1
-                }
+        var firstFailure: Error?
+        for action in actions {
+            do {
+                try apply(action, in: target, report: &report)
+            } catch {
+                report.skipped += 1
+                if firstFailure == nil { firstFailure = error }
             }
+        }
+        do {
             try store.commit()
         } catch {
             store.reset()
             throw error
         }
+        report.failureMessage = firstFailure?.localizedDescription
         return report
     }
 
@@ -97,11 +122,39 @@ final class GarimeCalendarMirrorService {
         return DateInterval(start: start, end: end)
     }
 
+    static func planningWindow(inside readWindow: DateInterval, calendar: Calendar = .current) -> DateInterval {
+        let start = calendar.date(byAdding: .day, value: boundaryMarginDays, to: readWindow.start)
+        let end = calendar.date(byAdding: .day, value: -boundaryMarginDays, to: readWindow.end)
+        guard let start, let end, start < end else { return readWindow }
+        return DateInterval(start: start, end: end)
+    }
+
+    private func apply(_ action: CalendarMirrorAction, in target: EKCalendar, report: inout GarimeCalendarMirrorReport) throws {
+        switch action {
+        case .create(let entry):
+            let event = EKEvent(eventStore: store)
+            event.calendar = target
+            apply(entry, to: event)
+            try store.save(event, span: .thisEvent, commit: false)
+            report.created += 1
+        case .update(let eventId, let entry):
+            guard let event = managedEvent(id: eventId, in: target) else { return }
+            apply(entry, to: event)
+            try store.save(event, span: .thisEvent, commit: false)
+            report.updated += 1
+        case .delete(let eventId):
+            guard let event = managedEvent(id: eventId, in: target) else { return }
+            try store.remove(event, span: .thisEvent, commit: false)
+            report.deleted += 1
+        }
+    }
+
     private func existingCalendar() -> EKCalendar? {
         guard EKEventStore.authorizationStatus(for: .event) == .fullAccess else { return nil }
         if let cachedCalendarIdentifier,
            let calendar = store.calendar(withIdentifier: cachedCalendarIdentifier),
-           calendar.title == CalendarMirror.calendarTitle {
+           calendar.title == CalendarMirror.calendarTitle,
+           calendar.allowsContentModifications {
             return calendar
         }
         let match = store.calendars(for: .event).first {
