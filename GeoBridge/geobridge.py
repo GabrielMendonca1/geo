@@ -1025,6 +1025,35 @@ def agent_upload_script(name):
     ) % (shlex.quote(AGENT_UPLOAD_DIR), shlex.quote(name), shlex.quote(stem), shlex.quote(ext))
 
 
+def local_upload_write(name, data, home=None):
+    """Grava um upload no proprio host do bridge (agente de sessao na VM).
+
+    Espelha agent_upload_script: diretorio 0700, arquivo 0600, nome unico,
+    nunca sobrescreve nem segue link. Devolve o caminho absoluto ou "".
+    """
+    base = home or os.path.expanduser("~")
+    directory = os.path.join(base, AGENT_UPLOAD_DIR)
+    try:
+        os.makedirs(directory, mode=0o700, exist_ok=True)
+    except Exception:
+        return ""
+    stem, ext = os.path.splitext(name)
+    candidate = os.path.join(directory, name)
+    index = 0
+    while os.path.exists(candidate) or os.path.islink(candidate):
+        index += 1
+        if index > 1000:
+            return ""
+        candidate = os.path.join(directory, "%s-%d%s" % (stem, index, ext))
+    try:
+        fd = os.open(candidate, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(data)
+    except Exception:
+        return ""
+    return candidate
+
+
 def agent_work_session_id(session):
     if not isinstance(session, dict) or session.get("kind") != "id":
         return ""
@@ -2800,13 +2829,7 @@ class Handler(BaseHTTPRequestHandler):
         body.update(work)
         self._json(200, json.dumps(body, ensure_ascii=False).encode())
 
-    def _term_agent_upload(self):
-        if not self._term_gate():
-            return
-        self.close_connection = True
-        project, pane = self._term_agent_target()
-        if project is None:
-            return
+    def _term_upload_name(self):
         name = (self.headers.get("X-Geo-Filename") or "").strip()
         if (
             not TERM_UPLOAD_NAME_RE.match(name)
@@ -2814,21 +2837,60 @@ class Handler(BaseHTTPRequestHandler):
             or name.startswith(".")
         ):
             self._json(400, b'{"error":"invalid_filename"}')
-            return
+            return None
+        return name
+
+    def _term_upload_body(self):
         try:
             length = int(self.headers.get("Content-Length") or 0)
         except ValueError:
             length = -1
         if length > AGENT_UPLOAD_MAX:
             self._json(413, b'{"error":"too_large"}')
-            return
+            return None
         if length <= 0:
             self._json(400, b'{"error":"invalid_body"}')
-            return
+            return None
         self._body_read = True
         data = self.rfile.read(length)
         if len(data) != length:
             self._json(400, b'{"error":"invalid_body"}')
+            return None
+        return data
+
+    def _term_agent_upload_vm(self, session):
+        name = self._term_upload_name()
+        if name is None:
+            return
+        data = self._term_upload_body()
+        if data is None:
+            return
+        if self._term_vm_agent(session) is None:
+            return
+        path = local_upload_write(name, data)
+        if not path or not AGENT_UPLOAD_PATH_RE.match(path):
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        self._json(200, json.dumps({"path": path}, ensure_ascii=False).encode())
+
+    def _term_agent_upload(self):
+        if not self._term_gate():
+            return
+        self.close_connection = True
+        vm = self._term_vm_target()
+        if vm is None:
+            return
+        if vm:
+            self._term_agent_upload_vm(vm)
+            return
+        project, pane = self._term_agent_target()
+        if project is None:
+            return
+        name = self._term_upload_name()
+        if name is None:
+            return
+        data = self._term_upload_body()
+        if data is None:
             return
         if self._term_agent_resolve(project, pane, True) is None:
             return

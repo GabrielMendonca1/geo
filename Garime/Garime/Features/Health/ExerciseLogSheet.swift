@@ -11,6 +11,8 @@ struct ExerciseLogSheet: View {
     let exercise: VitalsExercise
     let logged: VitalsLogExercise?
     let lastWeight: Double?
+    /// Leitura da foto: entra como sugestão pré-preenchida, nunca como log.
+    var reading: TrainingVisionReading?
     let onSave: ([VitalsLogSet]) async throws -> Void
 
     @State private var rows: [SetInput] = []
@@ -24,6 +26,10 @@ struct ExerciseLogSheet: View {
                     Text(VitalsFormat.prescription(exercise.sets, doseType: exercise.doseType))
                         .font(.system(size: 12, design: .monospaced))
                         .foregroundStyle(Color.slateTextDim)
+
+                    if let reading {
+                        visionBanner(reading)
+                    }
 
                     VStack(spacing: 10) {
                         ForEach(Array(rows.enumerated()), id: \.element.id) { index, _ in
@@ -129,9 +135,35 @@ struct ExerciseLogSheet: View {
         )
     }
 
+    @ViewBuilder
+    private func visionBanner(_ reading: TrainingVisionReading) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Image(systemName: "camera.viewfinder")
+                    .font(.system(size: 11, weight: .semibold))
+                Text("leitura da foto · confira antes de salvar")
+                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+            }
+            .foregroundStyle(BodyMapPalette.highlight)
+
+            Text(VisionBannerText.summary(reading))
+                .font(.system(size: 12, design: .monospaced))
+                .foregroundStyle(Color.slateText)
+
+            if !reading.note.isEmpty {
+                Text(reading.note.lowercased())
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(Color.slateTextDim)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .glassSurface(shape: RoundedRectangle(cornerRadius: SlateRadius.cell, style: .continuous))
+    }
+
     private func prepare() {
         guard rows.isEmpty else { return }
-        let fallback = lastWeight ?? 0
+        let fallback = reading?.weightKg ?? lastWeight ?? 0
         let count = max(exercise.sets.count, logged?.sets.count ?? 0)
         rows = (0..<max(count, 1)).map { index in
             guard let set = logged?.sets[safe: index] else {

@@ -5,6 +5,11 @@ struct HealthView: View {
     @State private var showOnboarding = false
     @State private var loggingExercise: VitalsExercise?
     @State private var note = ""
+    @AppStorage(GarimeAgent.sessionKey) private var agentSession = ""
+    @StateObject private var vision = TrainingVisionModel(target: GarimeAgent.target(""))
+    @State private var photoExercise: VitalsExercise?
+    @State private var showCamera = false
+    @State private var reading: TrainingVisionReading?
 
     var body: some View {
         NavigationStack {
@@ -63,7 +68,8 @@ struct HealthView: View {
                 ExerciseLogSheet(
                     exercise: exercise,
                     logged: viewModel.todayEntry(for: exercise.id),
-                    lastWeight: viewModel.lastWeight(for: exercise.id)
+                    lastWeight: viewModel.lastWeight(for: exercise.id),
+                    reading: reading
                 ) { sets in
                     try await viewModel.saveExercise(
                         exerciseId: exercise.id,
@@ -71,6 +77,14 @@ struct HealthView: View {
                     )
                 }
             }
+            .fullScreenCover(isPresented: $showCamera) {
+                CameraCaptureView { data, _ in
+                    showCamera = false
+                    analyzePhoto(data)
+                }
+                .ignoresSafeArea()
+            }
+            .overlay(alignment: .bottom) { visionStatus }
         }
         .tint(Color.slateText)
         .task {
@@ -144,14 +158,76 @@ struct HealthView: View {
     @ViewBuilder
     private func exerciseEntry(_ exercise: VitalsExercise, session: VitalsSession) -> some View {
         if exercise.doseType == .reps {
-            Button {
-                loggingExercise = exercise
-            } label: {
-                exerciseRow(exercise, session: session)
+            HStack(spacing: 0) {
+                Button {
+                    reading = nil
+                    loggingExercise = exercise
+                } label: {
+                    exerciseRow(exercise, session: session)
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    photoExercise = exercise
+                    reading = nil
+                    vision.reset()
+                    showCamera = true
+                } label: {
+                    Image(systemName: "camera")
+                        .font(.system(size: 14))
+                        .foregroundStyle(Color.slateTextDim)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("ler máquina e peso pela foto")
+                .padding(.trailing, 8)
             }
-            .buttonStyle(.plain)
         } else {
             exerciseRow(exercise, session: session)
+        }
+    }
+
+    @ViewBuilder
+    private var visionStatus: some View {
+        switch vision.phase {
+        case .idle, .done:
+            EmptyView()
+        case .uploading, .waiting:
+            visionBadge(vision.phase == .uploading ? "enviando foto…" : "o agente está olhando…", spinner: true)
+        case .failed(let message):
+            visionBadge(message, spinner: false)
+        }
+    }
+
+    private func visionBadge(_ text: String, spinner: Bool) -> some View {
+        HStack(spacing: 8) {
+            if spinner {
+                ProgressView().tint(.slateText).scaleEffect(0.7)
+            }
+            Text(text)
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(Color.slateText)
+            if !spinner {
+                Button("ok") { vision.reset() }
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .glassSurface(shape: Capsule())
+        .padding(.bottom, 90)
+    }
+
+    private func analyzePhoto(_ data: Data) {
+        guard let exercise = photoExercise else { return }
+        Task {
+            await vision.analyze(image: data, exercise: exercise.name)
+            if case .done(let result) = vision.phase {
+                reading = result
+                loggingExercise = exercise
+                vision.reset()
+            }
         }
     }
 
