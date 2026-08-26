@@ -7,321 +7,360 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		02DB3CF4E6033303F3520483 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = B38CDE600147141B8FED979F /* SwiftTerm */; };
-		074ADD3CB4FA24DC1E7E9EC5 /* MonthGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9CE383EAF91C6A122896A38 /* MonthGridView.swift */; };
-		07B96384843D425986350EDA /* SmartKeysView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08521209201DFA8045A8CCEC /* SmartKeysView.swift */; };
-		12F5845757350670CEE749C3 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7040B74500650ABEA82B7D94 /* Foundation.framework */; };
-		1764E83764582BC82C9DCBF7 /* BridgeEndpointTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 962A1CCCE875B39E1B6877A0 /* BridgeEndpointTests.swift */; };
-		26348A7848F7CD3EF7BB8420 /* AgentWorkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5476044DA21949B215493398 /* AgentWorkTests.swift */; };
-		2643DC9266D7E23F3C10A4F6 /* HealthLogMergeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4A2F6D3B11156B9446E85B7 /* HealthLogMergeTests.swift */; };
-		31CF72089D6EB1E0C88F3D79 /* SSEClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 007BE6A0B59F5E822B970457 /* SSEClient.swift */; };
-		3380EE39E1CDE68D71C599C7 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7040B74500650ABEA82B7D94 /* Foundation.framework */; };
-		3810207B359ADC50F22F3640 /* AgentHomeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D5D128C366CDBC4B46B4288 /* AgentHomeTests.swift */; };
-		3ED3631584C7211910FE9355 /* TodayViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F379DA231D1196FE5C92C25 /* TodayViewModel.swift */; };
-		46E6FEF9B9866BCF90D286B2 /* KillShotUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B58E2B7C4E5E4B1335B252A2 /* KillShotUITests.swift */; };
-		48BC746C254D447AA7193B17 /* AgentChatTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F920AFC79520B208B75F39A4 /* AgentChatTests.swift */; };
-		507C8124A22486E6EC61D9B7 /* StatusIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15E2E167882C60B10D7E33F7 /* StatusIndicator.swift */; };
-		5385B70972154EDC1A5D0D24 /* TerminalGesturesUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15CED010739A79C15D012A96 /* TerminalGesturesUITests.swift */; };
-		53D64D37CCF2004A24050F4A /* AgentComposerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF9536462191B0D71AED5995 /* AgentComposerTests.swift */; };
-		560167371B94948D47AA07E7 /* GarimeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FE8F559912F8CB2D5962475 /* GarimeApp.swift */; };
-		56CA427A979BFA7ACECAA619 /* Secrets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45C636D9E7C65DD129BF7D73 /* Secrets.swift */; };
-		57CBE5362AB9E9FE8516C24C /* SessionsHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 199D49EBD6B5190D6DB19171 /* SessionsHomeView.swift */; };
-		5FF45A9A152D169F4E420939 /* AgentComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CC771298382F4AC33D32D1C /* AgentComposer.swift */; };
-		61DBD06B0DFD7E68D162B9A3 /* AgentHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACBE3210569C282DD892AF15 /* AgentHomeView.swift */; };
-		674BD68F9566973CFCDA1740 /* BridgeTasksRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08AA7B1DDF50E123F1547BC1 /* BridgeTasksRepository.swift */; };
-		68DA040F192CE0FFE64E440A /* SessionsHomeKillTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C9C3768C4F5D1EF284D88C8 /* SessionsHomeKillTests.swift */; };
-		696463CC3D2D592917156E06 /* EventKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97B4D9037994F6D9E5DB7716 /* EventKitService.swift */; };
-		6F3F9C699FA360E87DF26E99 /* SessionsHomeRefreshTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 850687354A31A2CB5DAC318A /* SessionsHomeRefreshTests.swift */; };
-		73C688B50A1915887E6B9671 /* ExerciseLogSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 704208954BE148C557608359 /* ExerciseLogSheet.swift */; };
-		74C55A0B9379DBD2996D2C4D /* HealthViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F09E7864DFC67F2F57A6D6F7 /* HealthViewModel.swift */; };
-		7594D9A34B63F53CA2051352 /* BridgeEndpoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BF4AA5149A1A98CF2FD6A11 /* BridgeEndpoint.swift */; };
-		79F747619F79C590FBF69FD1 /* AgentChatMarkup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07174F502E7E0B50EFB33A3E /* AgentChatMarkup.swift */; };
-		7B62D606BC558A82A8D63129 /* AirTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9992F838B054E30D31797808 /* AirTheme.swift */; };
-		7E95FD87ACE85F2AD18DAA3F /* GeoTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEF1DDAF6E83BD074D7AA04A /* GeoTerminalView.swift */; };
-		86B4642B1EAEEB00E5AA68BD /* BridgeVitalsRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = E37E43CC1D9BCC3AE8F0C69B /* BridgeVitalsRepository.swift */; };
-		888E18C3C0CD103A037855F1 /* BridgeTasksDecodingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 149A8C94ADEB8D15CF91D0D1 /* BridgeTasksDecodingTests.swift */; };
-		89B0E7C8595C723C97B94CC9 /* TermAgentsDecodingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AD6D8AA8BABA7091A378E60 /* TermAgentsDecodingTests.swift */; };
-		90BF7EDA2D398BA5A9F5F0A5 /* TasksCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 785D4A685A4C254013F0562D /* TasksCache.swift */; };
-		941A43D663736113D54D67F7 /* AgentWork.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBECF4620DA0B4DE0F77C8BA /* AgentWork.swift */; };
-		9A9C93AEA71D6C0CA468EB4C /* BodyPaths.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31B17CD985C4671509422B6 /* BodyPaths.swift */; };
-		9CDF274BBB24451018E9E79B /* GarimeCalendarMirrorService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C707F9936718DBE26EC4595 /* GarimeCalendarMirrorService.swift */; };
-		9FE5BF3ACB696E94BF939FF1 /* OnboardingSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D0B74DAB8B4BD06956A2AFD /* OnboardingSheet.swift */; };
-		A242152F2C4EA99DB1D162E9 /* SVGPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4AF0B2DFA5ADFF7F4EA3019 /* SVGPath.swift */; };
-		A497B61CA6330886DF3FCF42 /* WeekStripView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C9A9E620F648DF8F0327FAA /* WeekStripView.swift */; };
-		A4A88BD6559B339CF58CB774 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7040B74500650ABEA82B7D94 /* Foundation.framework */; };
-		A54A6792522583892F518ED6 /* AgentTargetRefTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7DD52A96C827006E888A4A7 /* AgentTargetRefTests.swift */; };
-		A5C06E78E827B8B015AE3DF5 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1EB48228A08A20894225AC25 /* Assets.xcassets */; };
-		B209B2A3E0546AF53DA49CFD /* AgentChatMarkdownTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C991D62BE55F2EC54875626A /* AgentChatMarkdownTests.swift */; };
-		B750D1BC0ADFE07F21785E9F /* SettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9124001BCA90F4D606D4CC61 /* SettingsViewModel.swift */; };
-		BCC31A050164A43EAE0BE002 /* HealthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E7DB12C595B178A9C575B7E /* HealthView.swift */; };
-		BD8E0E7E16AD1420951CC395 /* BodyMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB97E9309BF0C10B19F2B5D2 /* BodyMapView.swift */; };
-		BF8476649495394E76BCDB7F /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03B2D690AF1223F846AB9105 /* SettingsView.swift */; };
-		C61FC57EEC6832B2F2026788 /* SessionsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CF0E688E877AA47FC88C7E3 /* SessionsSheet.swift */; };
-		CBEE68EB87F81723F9D96A13 /* BridgeConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F94D8C71853E7A74B130822 /* BridgeConfig.swift */; };
-		CD081049A0CD2E7522F34336 /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D06D5595C006268FDA55066A /* TodayView.swift */; };
-		D0B1225D7FB9426B97F55F29 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D05FC8CCDD35CDF263F75545 /* RootView.swift */; };
-		D23BDD2CF076ADC661F0F64C /* TerminalHostView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DDA83CC70A38B720A340013 /* TerminalHostView.swift */; };
-		D4CE5DCB5AF2EB924104BC28 /* ServiceStatusViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 225F665383C70A7262F5969B /* ServiceStatusViewModel.swift */; };
-		DC17A9ECC22F619D4BAF7358 /* SnipsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F651FF31187B451AC2818906 /* SnipsView.swift */; };
-		DEF0F7F93DF4A3346F74F0F1 /* StartAgentShotUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2782C03A58566A55EC8F36CE /* StartAgentShotUITests.swift */; };
-		E0B869BD1705983A66C54FBC /* GeoCore in Frameworks */ = {isa = PBXBuildFile; productRef = C5C832DD094EE94EEBC2B6E1 /* GeoCore */; };
-		E6B543BD95FFF4258924058D /* BridgeClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3F298574F8C37130B09632F /* BridgeClient.swift */; };
-		E7D86257560087E1425D7ADF /* StatusIndicatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 411E13C9B419511CC7CA1FDC /* StatusIndicatorTests.swift */; };
-		EC687290C651F1154FBBE768 /* TerminalViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 925340E251B7496BD8E809ED /* TerminalViewModel.swift */; };
-		EFCF5E35106C26031D9524FC /* NewTaskSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60C98AA89B5F253D9FE24284 /* NewTaskSheet.swift */; };
-		F2AEB1A2E47EFE447A8BD6ED /* AgentChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 709243288D77F587A36A81DF /* AgentChatView.swift */; };
-		F68DDAEE0C1C85A2831AFF38 /* TerminalScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C110F56A38D2E06033014F8 /* TerminalScreen.swift */; };
-		F85C215993A2B615F6616FA5 /* ComposerShotsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D72462CA7797125440CCC104 /* ComposerShotsUITests.swift */; };
-		FDDD981F71FE26AEDCD47302 /* TerminalRulesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62242A657FD936DC2BAEC589 /* TerminalRulesTests.swift */; };
+		02D3213DFD113E1AF2A47C9C /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ABF831C36268DC3E578F557 /* SettingsView.swift */; };
+		0316BCEDD967EBFAECD0D3D8 /* AgentChatMarkdownTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 476673DF4C8C898579BFD3F1 /* AgentChatMarkdownTests.swift */; };
+		03D202C8F599CC360D38A49F /* AgentChatTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 467C078928AC210DDC6F4CF9 /* AgentChatTests.swift */; };
+		03EBB9DDCE0BEBEE618BF509 /* AgentWorkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 812572FEC7D568BED762B319 /* AgentWorkTests.swift */; };
+		0682074D68B35F5EF10F3862 /* AgentComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93DA265CB3170DCE8B1343AC /* AgentComposer.swift */; };
+		0D170057286B2641D314B69E /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E8BCC0F853CF86C70D138A4 /* Foundation.framework */; };
+		12C9F4748FB27B1C910DFED6 /* AgentHomeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6ADF12D49943BF100CC079D /* AgentHomeTests.swift */; };
+		1426C281B91BFD88AA3BC20E /* BodyPaths.swift in Sources */ = {isa = PBXBuildFile; fileRef = 138544BC368375F8F18500B9 /* BodyPaths.swift */; };
+		14D2BC478F6C5C2A48544FD0 /* BridgeTasksDecodingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 143F407F22B44B16CD770AFE /* BridgeTasksDecodingTests.swift */; };
+		15B053760BD102AFD9330EBA /* GarimeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41D38D114CCE8C628AAE3E6C /* GarimeApp.swift */; };
+		235D00211694C27933FC8D85 /* StatusIndicatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFA1EC9B02511E450603D958 /* StatusIndicatorTests.swift */; };
+		24D1D4C58E99CA11332AC6B1 /* ComposerShotsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504030C27F1CEBDB00BE1B6E /* ComposerShotsUITests.swift */; };
+		25CB7B57978CC8CA1613E73E /* TerminalRulesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82945ADF09F50271F9F20F95 /* TerminalRulesTests.swift */; };
+		297731E8750584ABAFAAB61D /* EventKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB41B1A546E345F51D156056 /* EventKitService.swift */; };
+		2A78D8A6A493D31729E647F0 /* TerminalHostView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D6359FF8CAF8B0B2773AA9D /* TerminalHostView.swift */; };
+		2C524BC8D91F7D300F2AB0D6 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = A87B23D35747619C792EDEFA /* SwiftTerm */; };
+		2F5956E4FFF0D7D638B8A021 /* SessionsHomeKillTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F849B8CC87AE522F05E3346E /* SessionsHomeKillTests.swift */; };
+		30648A6BBE262DA056F358EE /* AgentTargetRefTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17C75C5590AE5E6D0D7CE7D7 /* AgentTargetRefTests.swift */; };
+		3151790829466A4392D1ACF5 /* AirTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3E79B45A3697FA7E5C1CE9E /* AirTheme.swift */; };
+		38B5F0F69615F2D2C5F8BCD1 /* TerminalGesturesUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5EB3E1410070AF8FFAC4E7D /* TerminalGesturesUITests.swift */; };
+		3B1056E60BABA320E064AD9D /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E8BCC0F853CF86C70D138A4 /* Foundation.framework */; };
+		3D2E2FF11FF6DB626D55CCD5 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 59CC38C2DA2A3C6417608910 /* Assets.xcassets */; };
+		3E40FDD99ABC6AD1B43ED3ED /* KillShotUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E900289EFA7CED030BB93E62 /* KillShotUITests.swift */; };
+		48EFF9424E583F3AB3875B54 /* WeekStripView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4990FB000175CD6197D98C5 /* WeekStripView.swift */; };
+		4CEDE04C7AE34F3B0F6FB958 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5996B7C174D1482E7BC4DCF6 /* RootView.swift */; };
+		4ED6D842CFBAEE0F1EF720A6 /* GeoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 44F662D1F6BB045F5C795E3C /* GeoCore */; };
+		50BF64176E7D9F0A77627497 /* AgentChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F49EEA7F36729DAD545420A0 /* AgentChatView.swift */; };
+		54A72B6FF71F37B5F9255ACD /* AgentComposerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 755F34C03F8B769C742B321F /* AgentComposerTests.swift */; };
+		54F285EB34046778CE48F973 /* HealthViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8280F92589A348456B42BE92 /* HealthViewModel.swift */; };
+		55B7B8CFF6CC56018DBCA80D /* SVGPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72116089380BFAC3FA81287E /* SVGPath.swift */; };
+		59EC0A1300B6CFF7DB18F084 /* NewTaskSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F54178A01A4AD5BBA466AA67 /* NewTaskSheet.swift */; };
+		5B0B9708A25D3346B4008CC4 /* CameraCaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC1282EE62DAE650FCB4256E /* CameraCaptureView.swift */; };
+		5CD465754AE46B633767D63B /* MonthGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BB110D6332EEA5E87BFEB14 /* MonthGridView.swift */; };
+		61C5DB66894040057C4FAC0E /* TermAgentsDecodingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4EF9C6787F22A0F07B2D819 /* TermAgentsDecodingTests.swift */; };
+		63ACEBD8E5E9287BF4182097 /* ServiceStatusViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D4FB12368B5A6E084E77C80 /* ServiceStatusViewModel.swift */; };
+		664DE7FA94896557B2888E99 /* AgentWork.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E587135480EF395710BDA26 /* AgentWork.swift */; };
+		6766D14480BB6246142C3735 /* SessionsHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5B874CF5C5C5D8A6D388F6E /* SessionsHomeView.swift */; };
+		67D5F854E37CECBE3431F56F /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9CD94A6677CAE56473C6145 /* TodayView.swift */; };
+		7B3A27784F96CC4E29A82344 /* Secrets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5824B4478A20B77B1C2BABCF /* Secrets.swift */; };
+		7BAC8D53CBB40770BA31547C /* SessionsHomeRefreshTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBC99E60C89C84FE4E41D294 /* SessionsHomeRefreshTests.swift */; };
+		7C10EB5C5E61494EB59D3E4D /* SessionsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 938559CF7B2C38759BD8F6FE /* SessionsSheet.swift */; };
+		7EAE4DA84856D276FB9EA57B /* StartAgentShotUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A4F85D28CD16BF8492EE966 /* StartAgentShotUITests.swift */; };
+		8424CF1CB658CEA095BE3DC5 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E8BCC0F853CF86C70D138A4 /* Foundation.framework */; };
+		8A2A305F2D02F59522A9448E /* SnipsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06A038482BE4E00DB6076C05 /* SnipsView.swift */; };
+		8DB79C3F2CBCCD4463D3E2D2 /* BridgeTasksRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7930B8DFFCDC48E8EDCB093 /* BridgeTasksRepository.swift */; };
+		97E1FAD8FABF341BA087650B /* SmartKeysView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E927837752A5535F8E2D6F67 /* SmartKeysView.swift */; };
+		9C6021DC4EE861CE7EA9E41C /* GarimeCalendarMirrorService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 724C4268C93094EB8E1A28A1 /* GarimeCalendarMirrorService.swift */; };
+		A131533652C49660C916E349 /* BridgeEndpointTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1069F7FB15EFC61E3BFAC81F /* BridgeEndpointTests.swift */; };
+		B091EA9D579C8213C739D74C /* BridgeClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69695B693CE1059470FE33C3 /* BridgeClient.swift */; };
+		BD521BCF83A1B5FF14A7A199 /* BodyMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3402B8AA26B114E3F5C91521 /* BodyMapView.swift */; };
+		BF68D507D23BFC26BBAF4BCC /* HealthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D27A78EFF5BAB0DBF3A5DC85 /* HealthView.swift */; };
+		BF9DBDBB7DE48D4A329945B2 /* TasksCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6567A72E47CECFE553858DB /* TasksCache.swift */; };
+		C1E67CF9A5B280E0C1309C76 /* SettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6D7B2800A43159579DA158C /* SettingsViewModel.swift */; };
+		C2D812D80FC361AAFD5185AD /* StatusIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C24085196C502CD25B0C92 /* StatusIndicator.swift */; };
+		C8DCE1DAEEA537616E9B1353 /* BridgeEndpoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21C49359E2A298439FC16F8E /* BridgeEndpoint.swift */; };
+		C941658A3D51316FE95B28FB /* TerminalScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 416B2627FF7A203795106B77 /* TerminalScreen.swift */; };
+		CA790A41E6DD5859E1BAA8F5 /* SSEClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9ABC86FC693EEF845DF2E48 /* SSEClient.swift */; };
+		D793987CEFCA1144D93BB531 /* BridgeConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02FD157364147049E2E36BB1 /* BridgeConfig.swift */; };
+		D98918BBC53990A166796D2B /* OnboardingSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49E893F78C6AEF0404AFA590 /* OnboardingSheet.swift */; };
+		E25A9B77D1726F722FEE7037 /* AgentHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0E259C24320292A54F67A14 /* AgentHomeView.swift */; };
+		E7C90316F2FCF239A20F4AE6 /* AgentChatMarkup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67E2AC8DD1BF778854052D65 /* AgentChatMarkup.swift */; };
+		EB417EE632728C99E8021AE4 /* HealthLogMergeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F742E1DD3580CD3C6A75DF8 /* HealthLogMergeTests.swift */; };
+		F22768412A644C04B72EBD59 /* TodayViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6C4B947CCB5487E43DBBE2E /* TodayViewModel.swift */; };
+		F7CDC95260C1C4C807A49973 /* GeoTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97CEC07095F68806490BDDF8 /* GeoTerminalView.swift */; };
+		F8F1522E9376A1F19410831E /* ExerciseLogSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0AA33BFB28C58109E38A440 /* ExerciseLogSheet.swift */; };
+		FB07410323BB930997FB388E /* BridgeVitalsRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8937706D75C1D993FBE8DF09 /* BridgeVitalsRepository.swift */; };
+		FFFBE6B3C738A3833FA943A9 /* TerminalViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 708C2E6DF31FE143B838B3F0 /* TerminalViewModel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		04C0FC59DEB6202D6C0506AC /* PBXContainerItemProxy */ = {
+		72B99EB16744CFA7BE0041B8 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
-			containerPortal = 9393567397331E1E8F6D40D6 /* Project object */;
+			containerPortal = 9721694998C85DA88444536E /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 3DCCEF25015E44F3600AD2A8;
+			remoteGlobalIDString = D522A2A602AFC4B7BD29FAD1;
 			remoteInfo = Garime;
 		};
-		BC21E2BE880771176C541CE1 /* PBXContainerItemProxy */ = {
+		81750FC6E27827FC974FB392 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
-			containerPortal = 9393567397331E1E8F6D40D6 /* Project object */;
+			containerPortal = 9721694998C85DA88444536E /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 3DCCEF25015E44F3600AD2A8;
+			remoteGlobalIDString = D522A2A602AFC4B7BD29FAD1;
 			remoteInfo = Garime;
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		007BE6A0B59F5E822B970457 /* SSEClient.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SSEClient.swift; path = Services/SSEClient.swift; sourceTree = "<group>"; };
-		03B2D690AF1223F846AB9105 /* SettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsView.swift; path = Features/Settings/SettingsView.swift; sourceTree = "<group>"; };
-		07174F502E7E0B50EFB33A3E /* AgentChatMarkup.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AgentChatMarkup.swift; path = Features/Terminal/AgentChatMarkup.swift; sourceTree = "<group>"; };
-		08521209201DFA8045A8CCEC /* SmartKeysView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SmartKeysView.swift; path = Features/Terminal/SmartKeysView.swift; sourceTree = "<group>"; };
-		08AA7B1DDF50E123F1547BC1 /* BridgeTasksRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BridgeTasksRepository.swift; path = Services/BridgeTasksRepository.swift; sourceTree = "<group>"; };
-		0C9C3768C4F5D1EF284D88C8 /* SessionsHomeKillTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SessionsHomeKillTests.swift; sourceTree = "<group>"; };
-		149A8C94ADEB8D15CF91D0D1 /* BridgeTasksDecodingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BridgeTasksDecodingTests.swift; sourceTree = "<group>"; };
-		15CED010739A79C15D012A96 /* TerminalGesturesUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TerminalGesturesUITests.swift; sourceTree = "<group>"; };
-		15E2E167882C60B10D7E33F7 /* StatusIndicator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = StatusIndicator.swift; path = Shared/StatusIndicator.swift; sourceTree = "<group>"; };
-		199D49EBD6B5190D6DB19171 /* SessionsHomeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SessionsHomeView.swift; path = Features/Terminal/SessionsHomeView.swift; sourceTree = "<group>"; };
-		1D5D128C366CDBC4B46B4288 /* AgentHomeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AgentHomeTests.swift; sourceTree = "<group>"; };
-		1EB48228A08A20894225AC25 /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		225F665383C70A7262F5969B /* ServiceStatusViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ServiceStatusViewModel.swift; path = Features/Settings/ServiceStatusViewModel.swift; sourceTree = "<group>"; };
-		2782C03A58566A55EC8F36CE /* StartAgentShotUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StartAgentShotUITests.swift; sourceTree = "<group>"; };
-		2D3151FC228D093F055A59D4 /* GarimeUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GarimeUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		3DDA83CC70A38B720A340013 /* TerminalHostView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TerminalHostView.swift; path = Features/Terminal/TerminalHostView.swift; sourceTree = "<group>"; };
-		411E13C9B419511CC7CA1FDC /* StatusIndicatorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StatusIndicatorTests.swift; sourceTree = "<group>"; };
-		45C636D9E7C65DD129BF7D73 /* Secrets.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Secrets.swift; path = Shared/Secrets.swift; sourceTree = "<group>"; };
-		485048215C76F3CA093AA3E0 /* Garime.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Garime.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		4C110F56A38D2E06033014F8 /* TerminalScreen.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TerminalScreen.swift; path = Features/Terminal/TerminalScreen.swift; sourceTree = "<group>"; };
-		5476044DA21949B215493398 /* AgentWorkTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AgentWorkTests.swift; sourceTree = "<group>"; };
-		5D0B74DAB8B4BD06956A2AFD /* OnboardingSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingSheet.swift; path = Features/Health/OnboardingSheet.swift; sourceTree = "<group>"; };
-		5F379DA231D1196FE5C92C25 /* TodayViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TodayViewModel.swift; path = Features/Today/TodayViewModel.swift; sourceTree = "<group>"; };
-		60C98AA89B5F253D9FE24284 /* NewTaskSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NewTaskSheet.swift; path = Features/Today/NewTaskSheet.swift; sourceTree = "<group>"; };
-		62242A657FD936DC2BAEC589 /* TerminalRulesTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TerminalRulesTests.swift; sourceTree = "<group>"; };
-		6AD6D8AA8BABA7091A378E60 /* TermAgentsDecodingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TermAgentsDecodingTests.swift; sourceTree = "<group>"; };
-		6C707F9936718DBE26EC4595 /* GarimeCalendarMirrorService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GarimeCalendarMirrorService.swift; path = Services/GarimeCalendarMirrorService.swift; sourceTree = "<group>"; };
-		7040B74500650ABEA82B7D94 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
-		704208954BE148C557608359 /* ExerciseLogSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExerciseLogSheet.swift; path = Features/Health/ExerciseLogSheet.swift; sourceTree = "<group>"; };
-		709243288D77F587A36A81DF /* AgentChatView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AgentChatView.swift; path = Features/Terminal/AgentChatView.swift; sourceTree = "<group>"; };
-		785D4A685A4C254013F0562D /* TasksCache.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TasksCache.swift; path = Services/TasksCache.swift; sourceTree = "<group>"; };
-		7CF0E688E877AA47FC88C7E3 /* SessionsSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SessionsSheet.swift; path = Features/Terminal/SessionsSheet.swift; sourceTree = "<group>"; };
-		850687354A31A2CB5DAC318A /* SessionsHomeRefreshTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SessionsHomeRefreshTests.swift; sourceTree = "<group>"; };
-		8C9A9E620F648DF8F0327FAA /* WeekStripView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WeekStripView.swift; path = Features/Today/WeekStripView.swift; sourceTree = "<group>"; };
-		8E7DB12C595B178A9C575B7E /* HealthView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HealthView.swift; path = Features/Health/HealthView.swift; sourceTree = "<group>"; };
-		9124001BCA90F4D606D4CC61 /* SettingsViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsViewModel.swift; path = Features/Settings/SettingsViewModel.swift; sourceTree = "<group>"; };
-		925340E251B7496BD8E809ED /* TerminalViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TerminalViewModel.swift; path = Features/Terminal/TerminalViewModel.swift; sourceTree = "<group>"; };
-		962A1CCCE875B39E1B6877A0 /* BridgeEndpointTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BridgeEndpointTests.swift; sourceTree = "<group>"; };
-		97B4D9037994F6D9E5DB7716 /* EventKitService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EventKitService.swift; path = Services/EventKitService.swift; sourceTree = "<group>"; };
-		9992F838B054E30D31797808 /* AirTheme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AirTheme.swift; path = Shared/AirTheme.swift; sourceTree = "<group>"; };
-		9BF4AA5149A1A98CF2FD6A11 /* BridgeEndpoint.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BridgeEndpoint.swift; path = Services/BridgeEndpoint.swift; sourceTree = "<group>"; };
-		9CC771298382F4AC33D32D1C /* AgentComposer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AgentComposer.swift; path = Features/Terminal/AgentComposer.swift; sourceTree = "<group>"; };
-		9F94D8C71853E7A74B130822 /* BridgeConfig.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BridgeConfig.swift; path = Services/BridgeConfig.swift; sourceTree = "<group>"; };
-		9FE8F559912F8CB2D5962475 /* GarimeApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GarimeApp.swift; sourceTree = "<group>"; };
-		A31B17CD985C4671509422B6 /* BodyPaths.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BodyPaths.swift; path = Features/Health/BodyPaths.swift; sourceTree = "<group>"; };
-		ACBE3210569C282DD892AF15 /* AgentHomeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AgentHomeView.swift; path = Features/Terminal/AgentHomeView.swift; sourceTree = "<group>"; };
-		B58E2B7C4E5E4B1335B252A2 /* KillShotUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KillShotUITests.swift; sourceTree = "<group>"; };
-		B7DD52A96C827006E888A4A7 /* AgentTargetRefTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AgentTargetRefTests.swift; sourceTree = "<group>"; };
-		B9CE383EAF91C6A122896A38 /* MonthGridView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MonthGridView.swift; path = Features/Today/MonthGridView.swift; sourceTree = "<group>"; };
-		BBECF4620DA0B4DE0F77C8BA /* AgentWork.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AgentWork.swift; path = Features/Terminal/AgentWork.swift; sourceTree = "<group>"; };
-		BF9536462191B0D71AED5995 /* AgentComposerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AgentComposerTests.swift; sourceTree = "<group>"; };
-		C48E67C49580E056B04F0A93 /* GarimeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GarimeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		C4A2F6D3B11156B9446E85B7 /* HealthLogMergeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HealthLogMergeTests.swift; sourceTree = "<group>"; };
-		C991D62BE55F2EC54875626A /* AgentChatMarkdownTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AgentChatMarkdownTests.swift; sourceTree = "<group>"; };
-		CB97E9309BF0C10B19F2B5D2 /* BodyMapView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BodyMapView.swift; path = Features/Health/BodyMapView.swift; sourceTree = "<group>"; };
-		D05FC8CCDD35CDF263F75545 /* RootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
-		D06D5595C006268FDA55066A /* TodayView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TodayView.swift; path = Features/Today/TodayView.swift; sourceTree = "<group>"; };
-		D72462CA7797125440CCC104 /* ComposerShotsUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ComposerShotsUITests.swift; sourceTree = "<group>"; };
-		DEF1DDAF6E83BD074D7AA04A /* GeoTerminalView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GeoTerminalView.swift; path = Features/Terminal/GeoTerminalView.swift; sourceTree = "<group>"; };
-		E37E43CC1D9BCC3AE8F0C69B /* BridgeVitalsRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BridgeVitalsRepository.swift; path = Services/BridgeVitalsRepository.swift; sourceTree = "<group>"; };
-		F09E7864DFC67F2F57A6D6F7 /* HealthViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HealthViewModel.swift; path = Features/Health/HealthViewModel.swift; sourceTree = "<group>"; };
-		F3F298574F8C37130B09632F /* BridgeClient.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BridgeClient.swift; path = Services/BridgeClient.swift; sourceTree = "<group>"; };
-		F4AF0B2DFA5ADFF7F4EA3019 /* SVGPath.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SVGPath.swift; path = Features/Health/SVGPath.swift; sourceTree = "<group>"; };
-		F651FF31187B451AC2818906 /* SnipsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SnipsView.swift; path = Features/Terminal/SnipsView.swift; sourceTree = "<group>"; };
-		F920AFC79520B208B75F39A4 /* AgentChatTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AgentChatTests.swift; sourceTree = "<group>"; };
+		02FD157364147049E2E36BB1 /* BridgeConfig.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BridgeConfig.swift; path = Services/BridgeConfig.swift; sourceTree = "<group>"; };
+		06A038482BE4E00DB6076C05 /* SnipsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SnipsView.swift; path = Features/Terminal/SnipsView.swift; sourceTree = "<group>"; };
+		0D6359FF8CAF8B0B2773AA9D /* TerminalHostView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TerminalHostView.swift; path = Features/Terminal/TerminalHostView.swift; sourceTree = "<group>"; };
+		1069F7FB15EFC61E3BFAC81F /* BridgeEndpointTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BridgeEndpointTests.swift; sourceTree = "<group>"; };
+		138544BC368375F8F18500B9 /* BodyPaths.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BodyPaths.swift; path = Features/Health/BodyPaths.swift; sourceTree = "<group>"; };
+		143F407F22B44B16CD770AFE /* BridgeTasksDecodingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BridgeTasksDecodingTests.swift; sourceTree = "<group>"; };
+		17C75C5590AE5E6D0D7CE7D7 /* AgentTargetRefTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AgentTargetRefTests.swift; sourceTree = "<group>"; };
+		1A4F85D28CD16BF8492EE966 /* StartAgentShotUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StartAgentShotUITests.swift; sourceTree = "<group>"; };
+		21C49359E2A298439FC16F8E /* BridgeEndpoint.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BridgeEndpoint.swift; path = Services/BridgeEndpoint.swift; sourceTree = "<group>"; };
+		3402B8AA26B114E3F5C91521 /* BodyMapView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BodyMapView.swift; path = Features/Health/BodyMapView.swift; sourceTree = "<group>"; };
+		416B2627FF7A203795106B77 /* TerminalScreen.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TerminalScreen.swift; path = Features/Terminal/TerminalScreen.swift; sourceTree = "<group>"; };
+		41D38D114CCE8C628AAE3E6C /* GarimeApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GarimeApp.swift; sourceTree = "<group>"; };
+		467C078928AC210DDC6F4CF9 /* AgentChatTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AgentChatTests.swift; sourceTree = "<group>"; };
+		476673DF4C8C898579BFD3F1 /* AgentChatMarkdownTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AgentChatMarkdownTests.swift; sourceTree = "<group>"; };
+		49E893F78C6AEF0404AFA590 /* OnboardingSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingSheet.swift; path = Features/Health/OnboardingSheet.swift; sourceTree = "<group>"; };
+		4ABF831C36268DC3E578F557 /* SettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsView.swift; path = Features/Settings/SettingsView.swift; sourceTree = "<group>"; };
+		504030C27F1CEBDB00BE1B6E /* ComposerShotsUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ComposerShotsUITests.swift; sourceTree = "<group>"; };
+		5824B4478A20B77B1C2BABCF /* Secrets.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = Secrets.swift; path = Shared/Secrets.swift; sourceTree = "<group>"; };
+		5996B7C174D1482E7BC4DCF6 /* RootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		59CC38C2DA2A3C6417608910 /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		5BB110D6332EEA5E87BFEB14 /* MonthGridView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MonthGridView.swift; path = Features/Today/MonthGridView.swift; sourceTree = "<group>"; };
+		5E8BCC0F853CF86C70D138A4 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		5F742E1DD3580CD3C6A75DF8 /* HealthLogMergeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HealthLogMergeTests.swift; sourceTree = "<group>"; };
+		67E2AC8DD1BF778854052D65 /* AgentChatMarkup.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AgentChatMarkup.swift; path = Features/Terminal/AgentChatMarkup.swift; sourceTree = "<group>"; };
+		69695B693CE1059470FE33C3 /* BridgeClient.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BridgeClient.swift; path = Services/BridgeClient.swift; sourceTree = "<group>"; };
+		708C2E6DF31FE143B838B3F0 /* TerminalViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TerminalViewModel.swift; path = Features/Terminal/TerminalViewModel.swift; sourceTree = "<group>"; };
+		72116089380BFAC3FA81287E /* SVGPath.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SVGPath.swift; path = Features/Health/SVGPath.swift; sourceTree = "<group>"; };
+		724C4268C93094EB8E1A28A1 /* GarimeCalendarMirrorService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GarimeCalendarMirrorService.swift; path = Services/GarimeCalendarMirrorService.swift; sourceTree = "<group>"; };
+		73A9F727A06567CC3D54ACC5 /* GarimeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GarimeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		755F34C03F8B769C742B321F /* AgentComposerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AgentComposerTests.swift; sourceTree = "<group>"; };
+		7E587135480EF395710BDA26 /* AgentWork.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AgentWork.swift; path = Features/Terminal/AgentWork.swift; sourceTree = "<group>"; };
+		812572FEC7D568BED762B319 /* AgentWorkTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AgentWorkTests.swift; sourceTree = "<group>"; };
+		8280F92589A348456B42BE92 /* HealthViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HealthViewModel.swift; path = Features/Health/HealthViewModel.swift; sourceTree = "<group>"; };
+		82945ADF09F50271F9F20F95 /* TerminalRulesTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TerminalRulesTests.swift; sourceTree = "<group>"; };
+		8937706D75C1D993FBE8DF09 /* BridgeVitalsRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BridgeVitalsRepository.swift; path = Services/BridgeVitalsRepository.swift; sourceTree = "<group>"; };
+		8CEC999675996CB448FC6090 /* Garime.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Garime.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		8D4FB12368B5A6E084E77C80 /* ServiceStatusViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ServiceStatusViewModel.swift; path = Features/Settings/ServiceStatusViewModel.swift; sourceTree = "<group>"; };
+		938559CF7B2C38759BD8F6FE /* SessionsSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SessionsSheet.swift; path = Features/Terminal/SessionsSheet.swift; sourceTree = "<group>"; };
+		93DA265CB3170DCE8B1343AC /* AgentComposer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AgentComposer.swift; path = Features/Terminal/AgentComposer.swift; sourceTree = "<group>"; };
+		97CEC07095F68806490BDDF8 /* GeoTerminalView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GeoTerminalView.swift; path = Features/Terminal/GeoTerminalView.swift; sourceTree = "<group>"; };
+		A0E259C24320292A54F67A14 /* AgentHomeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AgentHomeView.swift; path = Features/Terminal/AgentHomeView.swift; sourceTree = "<group>"; };
+		A6567A72E47CECFE553858DB /* TasksCache.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TasksCache.swift; path = Services/TasksCache.swift; sourceTree = "<group>"; };
+		A6D7B2800A43159579DA158C /* SettingsViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SettingsViewModel.swift; path = Features/Settings/SettingsViewModel.swift; sourceTree = "<group>"; };
+		B4990FB000175CD6197D98C5 /* WeekStripView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WeekStripView.swift; path = Features/Today/WeekStripView.swift; sourceTree = "<group>"; };
+		B5B874CF5C5C5D8A6D388F6E /* SessionsHomeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SessionsHomeView.swift; path = Features/Terminal/SessionsHomeView.swift; sourceTree = "<group>"; };
+		B9CD94A6677CAE56473C6145 /* TodayView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TodayView.swift; path = Features/Today/TodayView.swift; sourceTree = "<group>"; };
+		C3C24085196C502CD25B0C92 /* StatusIndicator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = StatusIndicator.swift; path = Shared/StatusIndicator.swift; sourceTree = "<group>"; };
+		C6ADF12D49943BF100CC079D /* AgentHomeTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AgentHomeTests.swift; sourceTree = "<group>"; };
+		C6C4B947CCB5487E43DBBE2E /* TodayViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TodayViewModel.swift; path = Features/Today/TodayViewModel.swift; sourceTree = "<group>"; };
+		CFA1EC9B02511E450603D958 /* StatusIndicatorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StatusIndicatorTests.swift; sourceTree = "<group>"; };
+		D27A78EFF5BAB0DBF3A5DC85 /* HealthView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HealthView.swift; path = Features/Health/HealthView.swift; sourceTree = "<group>"; };
+		D3E79B45A3697FA7E5C1CE9E /* AirTheme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AirTheme.swift; path = Shared/AirTheme.swift; sourceTree = "<group>"; };
+		D5EB3E1410070AF8FFAC4E7D /* TerminalGesturesUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TerminalGesturesUITests.swift; sourceTree = "<group>"; };
+		E2E47D7172CE7B67213CDF71 /* GarimeUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GarimeUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		E7930B8DFFCDC48E8EDCB093 /* BridgeTasksRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = BridgeTasksRepository.swift; path = Services/BridgeTasksRepository.swift; sourceTree = "<group>"; };
+		E900289EFA7CED030BB93E62 /* KillShotUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KillShotUITests.swift; sourceTree = "<group>"; };
+		E927837752A5535F8E2D6F67 /* SmartKeysView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SmartKeysView.swift; path = Features/Terminal/SmartKeysView.swift; sourceTree = "<group>"; };
+		E9ABC86FC693EEF845DF2E48 /* SSEClient.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SSEClient.swift; path = Services/SSEClient.swift; sourceTree = "<group>"; };
+		EB41B1A546E345F51D156056 /* EventKitService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EventKitService.swift; path = Services/EventKitService.swift; sourceTree = "<group>"; };
+		F0AA33BFB28C58109E38A440 /* ExerciseLogSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExerciseLogSheet.swift; path = Features/Health/ExerciseLogSheet.swift; sourceTree = "<group>"; };
+		F49EEA7F36729DAD545420A0 /* AgentChatView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AgentChatView.swift; path = Features/Terminal/AgentChatView.swift; sourceTree = "<group>"; };
+		F4EF9C6787F22A0F07B2D819 /* TermAgentsDecodingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TermAgentsDecodingTests.swift; sourceTree = "<group>"; };
+		F54178A01A4AD5BBA466AA67 /* NewTaskSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NewTaskSheet.swift; path = Features/Today/NewTaskSheet.swift; sourceTree = "<group>"; };
+		F849B8CC87AE522F05E3346E /* SessionsHomeKillTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SessionsHomeKillTests.swift; sourceTree = "<group>"; };
+		FBC99E60C89C84FE4E41D294 /* SessionsHomeRefreshTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SessionsHomeRefreshTests.swift; sourceTree = "<group>"; };
+		FC1282EE62DAE650FCB4256E /* CameraCaptureView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CameraCaptureView.swift; path = Features/Terminal/CameraCaptureView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		50B3BC386C4A542BD7FFE2F3 /* Frameworks */ = {
+		0F17C9603B5D5681773CBE34 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				3380EE39E1CDE68D71C599C7 /* Foundation.framework in Frameworks */,
+				8424CF1CB658CEA095BE3DC5 /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		87BE6CEB45C0D7552029012D /* Frameworks */ = {
+		26D1684D74E762E7C6D37B69 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				12F5845757350670CEE749C3 /* Foundation.framework in Frameworks */,
+				3B1056E60BABA320E064AD9D /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		D3715B24A9CF6F30AB0FCF23 /* Frameworks */ = {
+		F946161E2253C072DCCCF5EF /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A4A88BD6559B339CF58CB774 /* Foundation.framework in Frameworks */,
-				E0B869BD1705983A66C54FBC /* GeoCore in Frameworks */,
-				02DB3CF4E6033303F3520483 /* SwiftTerm in Frameworks */,
+				0D170057286B2641D314B69E /* Foundation.framework in Frameworks */,
+				4ED6D842CFBAEE0F1EF720A6 /* GeoCore in Frameworks */,
+				2C524BC8D91F7D300F2AB0D6 /* SwiftTerm in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		1DC756569413AFE801C75BB9 = {
+		12DFDD51409EEE0DCD955C3E /* GarimeUITests */ = {
 			isa = PBXGroup;
 			children = (
-				43EF389FDDEACECBFA609FCE /* Products */,
-				AEDF5359D80172792652E586 /* Frameworks */,
-				99D29ED0042E5273189AAB94 /* Garime */,
-				71E2289ADA44FA0BFBD202AC /* GarimeTests */,
-				5EC7A7283967E036D02C4D12 /* GarimeUITests */,
-			);
-			sourceTree = "<group>";
-		};
-		43EF389FDDEACECBFA609FCE /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				485048215C76F3CA093AA3E0 /* Garime.app */,
-				C48E67C49580E056B04F0A93 /* GarimeTests.xctest */,
-				2D3151FC228D093F055A59D4 /* GarimeUITests.xctest */,
-			);
-			name = Products;
-			sourceTree = "<group>";
-		};
-		5EC7A7283967E036D02C4D12 /* GarimeUITests */ = {
-			isa = PBXGroup;
-			children = (
-				D72462CA7797125440CCC104 /* ComposerShotsUITests.swift */,
-				B58E2B7C4E5E4B1335B252A2 /* KillShotUITests.swift */,
-				2782C03A58566A55EC8F36CE /* StartAgentShotUITests.swift */,
-				15CED010739A79C15D012A96 /* TerminalGesturesUITests.swift */,
+				504030C27F1CEBDB00BE1B6E /* ComposerShotsUITests.swift */,
+				E900289EFA7CED030BB93E62 /* KillShotUITests.swift */,
+				1A4F85D28CD16BF8492EE966 /* StartAgentShotUITests.swift */,
+				D5EB3E1410070AF8FFAC4E7D /* TerminalGesturesUITests.swift */,
 			);
 			name = GarimeUITests;
 			path = GarimeUITests;
 			sourceTree = "<group>";
 		};
-		71E2289ADA44FA0BFBD202AC /* GarimeTests */ = {
+		52A9D0BDEC3FC34E20FF8E3D = {
 			isa = PBXGroup;
 			children = (
-				C991D62BE55F2EC54875626A /* AgentChatMarkdownTests.swift */,
-				F920AFC79520B208B75F39A4 /* AgentChatTests.swift */,
-				BF9536462191B0D71AED5995 /* AgentComposerTests.swift */,
-				1D5D128C366CDBC4B46B4288 /* AgentHomeTests.swift */,
-				B7DD52A96C827006E888A4A7 /* AgentTargetRefTests.swift */,
-				5476044DA21949B215493398 /* AgentWorkTests.swift */,
-				962A1CCCE875B39E1B6877A0 /* BridgeEndpointTests.swift */,
-				149A8C94ADEB8D15CF91D0D1 /* BridgeTasksDecodingTests.swift */,
-				C4A2F6D3B11156B9446E85B7 /* HealthLogMergeTests.swift */,
-				0C9C3768C4F5D1EF284D88C8 /* SessionsHomeKillTests.swift */,
-				850687354A31A2CB5DAC318A /* SessionsHomeRefreshTests.swift */,
-				411E13C9B419511CC7CA1FDC /* StatusIndicatorTests.swift */,
-				6AD6D8AA8BABA7091A378E60 /* TermAgentsDecodingTests.swift */,
-				62242A657FD936DC2BAEC589 /* TerminalRulesTests.swift */,
+				AABED882DF00E0412DC0C417 /* Products */,
+				76B375DF519ED69746114FAB /* Frameworks */,
+				6CC46ACE35FBFCA1878E8A1C /* Garime */,
+				AE9AA78F3B4EFA5A21272E3B /* GarimeTests */,
+				12DFDD51409EEE0DCD955C3E /* GarimeUITests */,
 			);
-			name = GarimeTests;
-			path = GarimeTests;
 			sourceTree = "<group>";
 		};
-		99D29ED0042E5273189AAB94 /* Garime */ = {
+		6CC46ACE35FBFCA1878E8A1C /* Garime */ = {
 			isa = PBXGroup;
 			children = (
-				CB97E9309BF0C10B19F2B5D2 /* BodyMapView.swift */,
-				A31B17CD985C4671509422B6 /* BodyPaths.swift */,
-				704208954BE148C557608359 /* ExerciseLogSheet.swift */,
-				8E7DB12C595B178A9C575B7E /* HealthView.swift */,
-				F09E7864DFC67F2F57A6D6F7 /* HealthViewModel.swift */,
-				5D0B74DAB8B4BD06956A2AFD /* OnboardingSheet.swift */,
-				F4AF0B2DFA5ADFF7F4EA3019 /* SVGPath.swift */,
-				225F665383C70A7262F5969B /* ServiceStatusViewModel.swift */,
-				03B2D690AF1223F846AB9105 /* SettingsView.swift */,
-				9124001BCA90F4D606D4CC61 /* SettingsViewModel.swift */,
-				07174F502E7E0B50EFB33A3E /* AgentChatMarkup.swift */,
-				709243288D77F587A36A81DF /* AgentChatView.swift */,
-				9CC771298382F4AC33D32D1C /* AgentComposer.swift */,
-				ACBE3210569C282DD892AF15 /* AgentHomeView.swift */,
-				BBECF4620DA0B4DE0F77C8BA /* AgentWork.swift */,
-				DEF1DDAF6E83BD074D7AA04A /* GeoTerminalView.swift */,
-				199D49EBD6B5190D6DB19171 /* SessionsHomeView.swift */,
-				7CF0E688E877AA47FC88C7E3 /* SessionsSheet.swift */,
-				08521209201DFA8045A8CCEC /* SmartKeysView.swift */,
-				F651FF31187B451AC2818906 /* SnipsView.swift */,
-				3DDA83CC70A38B720A340013 /* TerminalHostView.swift */,
-				4C110F56A38D2E06033014F8 /* TerminalScreen.swift */,
-				925340E251B7496BD8E809ED /* TerminalViewModel.swift */,
-				B9CE383EAF91C6A122896A38 /* MonthGridView.swift */,
-				60C98AA89B5F253D9FE24284 /* NewTaskSheet.swift */,
-				D06D5595C006268FDA55066A /* TodayView.swift */,
-				5F379DA231D1196FE5C92C25 /* TodayViewModel.swift */,
-				8C9A9E620F648DF8F0327FAA /* WeekStripView.swift */,
-				9FE8F559912F8CB2D5962475 /* GarimeApp.swift */,
-				D05FC8CCDD35CDF263F75545 /* RootView.swift */,
-				F3F298574F8C37130B09632F /* BridgeClient.swift */,
-				9F94D8C71853E7A74B130822 /* BridgeConfig.swift */,
-				9BF4AA5149A1A98CF2FD6A11 /* BridgeEndpoint.swift */,
-				08AA7B1DDF50E123F1547BC1 /* BridgeTasksRepository.swift */,
-				E37E43CC1D9BCC3AE8F0C69B /* BridgeVitalsRepository.swift */,
-				97B4D9037994F6D9E5DB7716 /* EventKitService.swift */,
-				007BE6A0B59F5E822B970457 /* SSEClient.swift */,
-				785D4A685A4C254013F0562D /* TasksCache.swift */,
-				9992F838B054E30D31797808 /* AirTheme.swift */,
-				45C636D9E7C65DD129BF7D73 /* Secrets.swift */,
-				15E2E167882C60B10D7E33F7 /* StatusIndicator.swift */,
-				1EB48228A08A20894225AC25 /* Assets.xcassets */,
-				6C707F9936718DBE26EC4595 /* GarimeCalendarMirrorService.swift */,
+				3402B8AA26B114E3F5C91521 /* BodyMapView.swift */,
+				138544BC368375F8F18500B9 /* BodyPaths.swift */,
+				F0AA33BFB28C58109E38A440 /* ExerciseLogSheet.swift */,
+				D27A78EFF5BAB0DBF3A5DC85 /* HealthView.swift */,
+				8280F92589A348456B42BE92 /* HealthViewModel.swift */,
+				49E893F78C6AEF0404AFA590 /* OnboardingSheet.swift */,
+				72116089380BFAC3FA81287E /* SVGPath.swift */,
+				8D4FB12368B5A6E084E77C80 /* ServiceStatusViewModel.swift */,
+				4ABF831C36268DC3E578F557 /* SettingsView.swift */,
+				A6D7B2800A43159579DA158C /* SettingsViewModel.swift */,
+				67E2AC8DD1BF778854052D65 /* AgentChatMarkup.swift */,
+				F49EEA7F36729DAD545420A0 /* AgentChatView.swift */,
+				93DA265CB3170DCE8B1343AC /* AgentComposer.swift */,
+				A0E259C24320292A54F67A14 /* AgentHomeView.swift */,
+				7E587135480EF395710BDA26 /* AgentWork.swift */,
+				FC1282EE62DAE650FCB4256E /* CameraCaptureView.swift */,
+				97CEC07095F68806490BDDF8 /* GeoTerminalView.swift */,
+				B5B874CF5C5C5D8A6D388F6E /* SessionsHomeView.swift */,
+				938559CF7B2C38759BD8F6FE /* SessionsSheet.swift */,
+				E927837752A5535F8E2D6F67 /* SmartKeysView.swift */,
+				06A038482BE4E00DB6076C05 /* SnipsView.swift */,
+				0D6359FF8CAF8B0B2773AA9D /* TerminalHostView.swift */,
+				416B2627FF7A203795106B77 /* TerminalScreen.swift */,
+				708C2E6DF31FE143B838B3F0 /* TerminalViewModel.swift */,
+				5BB110D6332EEA5E87BFEB14 /* MonthGridView.swift */,
+				F54178A01A4AD5BBA466AA67 /* NewTaskSheet.swift */,
+				B9CD94A6677CAE56473C6145 /* TodayView.swift */,
+				C6C4B947CCB5487E43DBBE2E /* TodayViewModel.swift */,
+				B4990FB000175CD6197D98C5 /* WeekStripView.swift */,
+				41D38D114CCE8C628AAE3E6C /* GarimeApp.swift */,
+				5996B7C174D1482E7BC4DCF6 /* RootView.swift */,
+				69695B693CE1059470FE33C3 /* BridgeClient.swift */,
+				02FD157364147049E2E36BB1 /* BridgeConfig.swift */,
+				21C49359E2A298439FC16F8E /* BridgeEndpoint.swift */,
+				E7930B8DFFCDC48E8EDCB093 /* BridgeTasksRepository.swift */,
+				8937706D75C1D993FBE8DF09 /* BridgeVitalsRepository.swift */,
+				EB41B1A546E345F51D156056 /* EventKitService.swift */,
+				724C4268C93094EB8E1A28A1 /* GarimeCalendarMirrorService.swift */,
+				E9ABC86FC693EEF845DF2E48 /* SSEClient.swift */,
+				A6567A72E47CECFE553858DB /* TasksCache.swift */,
+				D3E79B45A3697FA7E5C1CE9E /* AirTheme.swift */,
+				5824B4478A20B77B1C2BABCF /* Secrets.swift */,
+				C3C24085196C502CD25B0C92 /* StatusIndicator.swift */,
+				59CC38C2DA2A3C6417608910 /* Assets.xcassets */,
 			);
 			name = Garime;
 			path = Garime;
 			sourceTree = "<group>";
 		};
-		AEDF5359D80172792652E586 /* Frameworks */ = {
+		76B375DF519ED69746114FAB /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				B9C30BDA1D4946F862AF473D /* iOS */,
+				84176887C45DEC9D5B5C978A /* iOS */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
-		B9C30BDA1D4946F862AF473D /* iOS */ = {
+		84176887C45DEC9D5B5C978A /* iOS */ = {
 			isa = PBXGroup;
 			children = (
-				7040B74500650ABEA82B7D94 /* Foundation.framework */,
+				5E8BCC0F853CF86C70D138A4 /* Foundation.framework */,
 			);
 			name = iOS;
+			sourceTree = "<group>";
+		};
+		AABED882DF00E0412DC0C417 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				8CEC999675996CB448FC6090 /* Garime.app */,
+				73A9F727A06567CC3D54ACC5 /* GarimeTests.xctest */,
+				E2E47D7172CE7B67213CDF71 /* GarimeUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		AE9AA78F3B4EFA5A21272E3B /* GarimeTests */ = {
+			isa = PBXGroup;
+			children = (
+				476673DF4C8C898579BFD3F1 /* AgentChatMarkdownTests.swift */,
+				467C078928AC210DDC6F4CF9 /* AgentChatTests.swift */,
+				755F34C03F8B769C742B321F /* AgentComposerTests.swift */,
+				C6ADF12D49943BF100CC079D /* AgentHomeTests.swift */,
+				17C75C5590AE5E6D0D7CE7D7 /* AgentTargetRefTests.swift */,
+				812572FEC7D568BED762B319 /* AgentWorkTests.swift */,
+				1069F7FB15EFC61E3BFAC81F /* BridgeEndpointTests.swift */,
+				143F407F22B44B16CD770AFE /* BridgeTasksDecodingTests.swift */,
+				5F742E1DD3580CD3C6A75DF8 /* HealthLogMergeTests.swift */,
+				F849B8CC87AE522F05E3346E /* SessionsHomeKillTests.swift */,
+				FBC99E60C89C84FE4E41D294 /* SessionsHomeRefreshTests.swift */,
+				CFA1EC9B02511E450603D958 /* StatusIndicatorTests.swift */,
+				F4EF9C6787F22A0F07B2D819 /* TermAgentsDecodingTests.swift */,
+				82945ADF09F50271F9F20F95 /* TerminalRulesTests.swift */,
+			);
+			name = GarimeTests;
+			path = GarimeTests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		3DCCEF25015E44F3600AD2A8 /* Garime */ = {
+		45ABF0FE68EEA16EB777E869 /* GarimeTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 7C0D21F8AEC3E3C5E63D9276 /* Build configuration list for PBXNativeTarget "Garime" */;
+			buildConfigurationList = AFDAE3BCE7511AC810C99732 /* Build configuration list for PBXNativeTarget "GarimeTests" */;
 			buildPhases = (
-				12DCE1D9DDD436ECBD51A766 /* Sources */,
-				D3715B24A9CF6F30AB0FCF23 /* Frameworks */,
-				9259D80D3C9801CEF2020122 /* Resources */,
+				AFE8BEECF4BD0DE3FF3BB17B /* Sources */,
+				26D1684D74E762E7C6D37B69 /* Frameworks */,
+				8377F8F3F8AA1231B6DEB0F0 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				F86D8FCAE57F9FB14235E260 /* PBXTargetDependency */,
+			);
+			name = GarimeTests;
+			productName = GarimeTests;
+			productReference = 73A9F727A06567CC3D54ACC5 /* GarimeTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		7DF83FD30053F78A5D21EF80 /* GarimeUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6D0999480F06BA1FFB8307FF /* Build configuration list for PBXNativeTarget "GarimeUITests" */;
+			buildPhases = (
+				EED07276B00AD9BF03722003 /* Sources */,
+				0F17C9603B5D5681773CBE34 /* Frameworks */,
+				BE15FB34C7F32F4C80BDCED6 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				83A9E94EBAE37B329594A514 /* PBXTargetDependency */,
+			);
+			name = GarimeUITests;
+			productName = GarimeUITests;
+			productReference = E2E47D7172CE7B67213CDF71 /* GarimeUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		D522A2A602AFC4B7BD29FAD1 /* Garime */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 65A0EE3B935C694E3EB26B3D /* Build configuration list for PBXNativeTarget "Garime" */;
+			buildPhases = (
+				BD423A735E5AD41FDC3656AC /* Sources */,
+				F946161E2253C072DCCCF5EF /* Frameworks */,
+				668B2860224DA119AA53436F /* Resources */,
 			);
 			buildRules = (
 			);
@@ -329,59 +368,23 @@
 			);
 			name = Garime;
 			packageProductDependencies = (
-				C5C832DD094EE94EEBC2B6E1 /* GeoCore */,
-				B38CDE600147141B8FED979F /* SwiftTerm */,
+				44F662D1F6BB045F5C795E3C /* GeoCore */,
+				A87B23D35747619C792EDEFA /* SwiftTerm */,
 			);
 			productName = Garime;
-			productReference = 485048215C76F3CA093AA3E0 /* Garime.app */;
+			productReference = 8CEC999675996CB448FC6090 /* Garime.app */;
 			productType = "com.apple.product-type.application";
-		};
-		AFF476B78C10EDFBBC64F30A /* GarimeTests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 723247170E45006907621836 /* Build configuration list for PBXNativeTarget "GarimeTests" */;
-			buildPhases = (
-				E9DD7D04D8C37C5AB7E0B744 /* Sources */,
-				50B3BC386C4A542BD7FFE2F3 /* Frameworks */,
-				13A0BA48A69D4106528EA314 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				28242217E752D25B81EE2166 /* PBXTargetDependency */,
-			);
-			name = GarimeTests;
-			productName = GarimeTests;
-			productReference = C48E67C49580E056B04F0A93 /* GarimeTests.xctest */;
-			productType = "com.apple.product-type.bundle.unit-test";
-		};
-		DFB12C294FD3BB4FE940078D /* GarimeUITests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = F486950DFB87768D8BC84058 /* Build configuration list for PBXNativeTarget "GarimeUITests" */;
-			buildPhases = (
-				C641369BBF3698113BC86F75 /* Sources */,
-				87BE6CEB45C0D7552029012D /* Frameworks */,
-				6628A6EF1AF4933A0FA394FD /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				AA778D1EC13B8BEE5B065295 /* PBXTargetDependency */,
-			);
-			name = GarimeUITests;
-			productName = GarimeUITests;
-			productReference = 2D3151FC228D093F055A59D4 /* GarimeUITests.xctest */;
-			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		9393567397331E1E8F6D40D6 /* Project object */ = {
+		9721694998C85DA88444536E /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				LastSwiftUpdateCheck = 1600;
 				LastUpgradeCheck = 1600;
 			};
-			buildConfigurationList = 957B49DC0EECC83EF9EBB0A4 /* Build configuration list for PBXProject "Garime" */;
+			buildConfigurationList = B488277FC6A4A9A5FF8F0E42 /* Build configuration list for PBXProject "Garime" */;
 			compatibilityVersion = "Xcode 3.2";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -389,150 +392,181 @@
 				en,
 				Base,
 			);
-			mainGroup = 1DC756569413AFE801C75BB9;
+			mainGroup = 52A9D0BDEC3FC34E20FF8E3D;
 			minimizedProjectReferenceProxies = 0;
 			packageReferences = (
-				357F8E502DCAECEEAD29D340 /* XCLocalSwiftPackageReference "GeoCore" */,
-				3EC83960EF9ED7D45AA8C8BE /* XCRemoteSwiftPackageReference "SwiftTerm" */,
+				C5BBCF54A2B176606E2287AB /* XCLocalSwiftPackageReference "GeoCore" */,
+				B79B6F085D877889515EEFAB /* XCRemoteSwiftPackageReference "SwiftTerm" */,
 			);
 			preferredProjectObjectVersion = 77;
-			productRefGroup = 43EF389FDDEACECBFA609FCE /* Products */;
+			productRefGroup = AABED882DF00E0412DC0C417 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				3DCCEF25015E44F3600AD2A8 /* Garime */,
-				AFF476B78C10EDFBBC64F30A /* GarimeTests */,
-				DFB12C294FD3BB4FE940078D /* GarimeUITests */,
+				D522A2A602AFC4B7BD29FAD1 /* Garime */,
+				45ABF0FE68EEA16EB777E869 /* GarimeTests */,
+				7DF83FD30053F78A5D21EF80 /* GarimeUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		13A0BA48A69D4106528EA314 /* Resources */ = {
+		668B2860224DA119AA53436F /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3D2E2FF11FF6DB626D55CCD5 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8377F8F3F8AA1231B6DEB0F0 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		6628A6EF1AF4933A0FA394FD /* Resources */ = {
+		BE15FB34C7F32F4C80BDCED6 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		9259D80D3C9801CEF2020122 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				A5C06E78E827B8B015AE3DF5 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		12DCE1D9DDD436ECBD51A766 /* Sources */ = {
+		AFE8BEECF4BD0DE3FF3BB17B /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				BD8E0E7E16AD1420951CC395 /* BodyMapView.swift in Sources */,
-				9A9C93AEA71D6C0CA468EB4C /* BodyPaths.swift in Sources */,
-				73C688B50A1915887E6B9671 /* ExerciseLogSheet.swift in Sources */,
-				BCC31A050164A43EAE0BE002 /* HealthView.swift in Sources */,
-				74C55A0B9379DBD2996D2C4D /* HealthViewModel.swift in Sources */,
-				9FE5BF3ACB696E94BF939FF1 /* OnboardingSheet.swift in Sources */,
-				A242152F2C4EA99DB1D162E9 /* SVGPath.swift in Sources */,
-				D4CE5DCB5AF2EB924104BC28 /* ServiceStatusViewModel.swift in Sources */,
-				BF8476649495394E76BCDB7F /* SettingsView.swift in Sources */,
-				B750D1BC0ADFE07F21785E9F /* SettingsViewModel.swift in Sources */,
-				79F747619F79C590FBF69FD1 /* AgentChatMarkup.swift in Sources */,
-				F2AEB1A2E47EFE447A8BD6ED /* AgentChatView.swift in Sources */,
-				5FF45A9A152D169F4E420939 /* AgentComposer.swift in Sources */,
-				61DBD06B0DFD7E68D162B9A3 /* AgentHomeView.swift in Sources */,
-				941A43D663736113D54D67F7 /* AgentWork.swift in Sources */,
-				7E95FD87ACE85F2AD18DAA3F /* GeoTerminalView.swift in Sources */,
-				57CBE5362AB9E9FE8516C24C /* SessionsHomeView.swift in Sources */,
-				C61FC57EEC6832B2F2026788 /* SessionsSheet.swift in Sources */,
-				07B96384843D425986350EDA /* SmartKeysView.swift in Sources */,
-				DC17A9ECC22F619D4BAF7358 /* SnipsView.swift in Sources */,
-				D23BDD2CF076ADC661F0F64C /* TerminalHostView.swift in Sources */,
-				F68DDAEE0C1C85A2831AFF38 /* TerminalScreen.swift in Sources */,
-				EC687290C651F1154FBBE768 /* TerminalViewModel.swift in Sources */,
-				074ADD3CB4FA24DC1E7E9EC5 /* MonthGridView.swift in Sources */,
-				EFCF5E35106C26031D9524FC /* NewTaskSheet.swift in Sources */,
-				CD081049A0CD2E7522F34336 /* TodayView.swift in Sources */,
-				3ED3631584C7211910FE9355 /* TodayViewModel.swift in Sources */,
-				A497B61CA6330886DF3FCF42 /* WeekStripView.swift in Sources */,
-				560167371B94948D47AA07E7 /* GarimeApp.swift in Sources */,
-				D0B1225D7FB9426B97F55F29 /* RootView.swift in Sources */,
-				E6B543BD95FFF4258924058D /* BridgeClient.swift in Sources */,
-				CBEE68EB87F81723F9D96A13 /* BridgeConfig.swift in Sources */,
-				7594D9A34B63F53CA2051352 /* BridgeEndpoint.swift in Sources */,
-				674BD68F9566973CFCDA1740 /* BridgeTasksRepository.swift in Sources */,
-				86B4642B1EAEEB00E5AA68BD /* BridgeVitalsRepository.swift in Sources */,
-				696463CC3D2D592917156E06 /* EventKitService.swift in Sources */,
-				31CF72089D6EB1E0C88F3D79 /* SSEClient.swift in Sources */,
-				90BF7EDA2D398BA5A9F5F0A5 /* TasksCache.swift in Sources */,
-				7B62D606BC558A82A8D63129 /* AirTheme.swift in Sources */,
-				56CA427A979BFA7ACECAA619 /* Secrets.swift in Sources */,
-				507C8124A22486E6EC61D9B7 /* StatusIndicator.swift in Sources */,
-				9CDF274BBB24451018E9E79B /* GarimeCalendarMirrorService.swift in Sources */,
+				0316BCEDD967EBFAECD0D3D8 /* AgentChatMarkdownTests.swift in Sources */,
+				03D202C8F599CC360D38A49F /* AgentChatTests.swift in Sources */,
+				54A72B6FF71F37B5F9255ACD /* AgentComposerTests.swift in Sources */,
+				12C9F4748FB27B1C910DFED6 /* AgentHomeTests.swift in Sources */,
+				30648A6BBE262DA056F358EE /* AgentTargetRefTests.swift in Sources */,
+				03EBB9DDCE0BEBEE618BF509 /* AgentWorkTests.swift in Sources */,
+				A131533652C49660C916E349 /* BridgeEndpointTests.swift in Sources */,
+				14D2BC478F6C5C2A48544FD0 /* BridgeTasksDecodingTests.swift in Sources */,
+				EB417EE632728C99E8021AE4 /* HealthLogMergeTests.swift in Sources */,
+				2F5956E4FFF0D7D638B8A021 /* SessionsHomeKillTests.swift in Sources */,
+				7BAC8D53CBB40770BA31547C /* SessionsHomeRefreshTests.swift in Sources */,
+				235D00211694C27933FC8D85 /* StatusIndicatorTests.swift in Sources */,
+				61C5DB66894040057C4FAC0E /* TermAgentsDecodingTests.swift in Sources */,
+				25CB7B57978CC8CA1613E73E /* TerminalRulesTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		C641369BBF3698113BC86F75 /* Sources */ = {
+		BD423A735E5AD41FDC3656AC /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F85C215993A2B615F6616FA5 /* ComposerShotsUITests.swift in Sources */,
-				46E6FEF9B9866BCF90D286B2 /* KillShotUITests.swift in Sources */,
-				DEF0F7F93DF4A3346F74F0F1 /* StartAgentShotUITests.swift in Sources */,
-				5385B70972154EDC1A5D0D24 /* TerminalGesturesUITests.swift in Sources */,
+				BD521BCF83A1B5FF14A7A199 /* BodyMapView.swift in Sources */,
+				1426C281B91BFD88AA3BC20E /* BodyPaths.swift in Sources */,
+				F8F1522E9376A1F19410831E /* ExerciseLogSheet.swift in Sources */,
+				BF68D507D23BFC26BBAF4BCC /* HealthView.swift in Sources */,
+				54F285EB34046778CE48F973 /* HealthViewModel.swift in Sources */,
+				D98918BBC53990A166796D2B /* OnboardingSheet.swift in Sources */,
+				55B7B8CFF6CC56018DBCA80D /* SVGPath.swift in Sources */,
+				63ACEBD8E5E9287BF4182097 /* ServiceStatusViewModel.swift in Sources */,
+				02D3213DFD113E1AF2A47C9C /* SettingsView.swift in Sources */,
+				C1E67CF9A5B280E0C1309C76 /* SettingsViewModel.swift in Sources */,
+				E7C90316F2FCF239A20F4AE6 /* AgentChatMarkup.swift in Sources */,
+				50BF64176E7D9F0A77627497 /* AgentChatView.swift in Sources */,
+				0682074D68B35F5EF10F3862 /* AgentComposer.swift in Sources */,
+				E25A9B77D1726F722FEE7037 /* AgentHomeView.swift in Sources */,
+				664DE7FA94896557B2888E99 /* AgentWork.swift in Sources */,
+				5B0B9708A25D3346B4008CC4 /* CameraCaptureView.swift in Sources */,
+				F7CDC95260C1C4C807A49973 /* GeoTerminalView.swift in Sources */,
+				6766D14480BB6246142C3735 /* SessionsHomeView.swift in Sources */,
+				7C10EB5C5E61494EB59D3E4D /* SessionsSheet.swift in Sources */,
+				97E1FAD8FABF341BA087650B /* SmartKeysView.swift in Sources */,
+				8A2A305F2D02F59522A9448E /* SnipsView.swift in Sources */,
+				2A78D8A6A493D31729E647F0 /* TerminalHostView.swift in Sources */,
+				C941658A3D51316FE95B28FB /* TerminalScreen.swift in Sources */,
+				FFFBE6B3C738A3833FA943A9 /* TerminalViewModel.swift in Sources */,
+				5CD465754AE46B633767D63B /* MonthGridView.swift in Sources */,
+				59EC0A1300B6CFF7DB18F084 /* NewTaskSheet.swift in Sources */,
+				67D5F854E37CECBE3431F56F /* TodayView.swift in Sources */,
+				F22768412A644C04B72EBD59 /* TodayViewModel.swift in Sources */,
+				48EFF9424E583F3AB3875B54 /* WeekStripView.swift in Sources */,
+				15B053760BD102AFD9330EBA /* GarimeApp.swift in Sources */,
+				4CEDE04C7AE34F3B0F6FB958 /* RootView.swift in Sources */,
+				B091EA9D579C8213C739D74C /* BridgeClient.swift in Sources */,
+				D793987CEFCA1144D93BB531 /* BridgeConfig.swift in Sources */,
+				C8DCE1DAEEA537616E9B1353 /* BridgeEndpoint.swift in Sources */,
+				8DB79C3F2CBCCD4463D3E2D2 /* BridgeTasksRepository.swift in Sources */,
+				FB07410323BB930997FB388E /* BridgeVitalsRepository.swift in Sources */,
+				297731E8750584ABAFAAB61D /* EventKitService.swift in Sources */,
+				9C6021DC4EE861CE7EA9E41C /* GarimeCalendarMirrorService.swift in Sources */,
+				CA790A41E6DD5859E1BAA8F5 /* SSEClient.swift in Sources */,
+				BF9DBDBB7DE48D4A329945B2 /* TasksCache.swift in Sources */,
+				3151790829466A4392D1ACF5 /* AirTheme.swift in Sources */,
+				7B3A27784F96CC4E29A82344 /* Secrets.swift in Sources */,
+				C2D812D80FC361AAFD5185AD /* StatusIndicator.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		E9DD7D04D8C37C5AB7E0B744 /* Sources */ = {
+		EED07276B00AD9BF03722003 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				B209B2A3E0546AF53DA49CFD /* AgentChatMarkdownTests.swift in Sources */,
-				48BC746C254D447AA7193B17 /* AgentChatTests.swift in Sources */,
-				53D64D37CCF2004A24050F4A /* AgentComposerTests.swift in Sources */,
-				3810207B359ADC50F22F3640 /* AgentHomeTests.swift in Sources */,
-				A54A6792522583892F518ED6 /* AgentTargetRefTests.swift in Sources */,
-				26348A7848F7CD3EF7BB8420 /* AgentWorkTests.swift in Sources */,
-				1764E83764582BC82C9DCBF7 /* BridgeEndpointTests.swift in Sources */,
-				888E18C3C0CD103A037855F1 /* BridgeTasksDecodingTests.swift in Sources */,
-				2643DC9266D7E23F3C10A4F6 /* HealthLogMergeTests.swift in Sources */,
-				68DA040F192CE0FFE64E440A /* SessionsHomeKillTests.swift in Sources */,
-				6F3F9C699FA360E87DF26E99 /* SessionsHomeRefreshTests.swift in Sources */,
-				E7D86257560087E1425D7ADF /* StatusIndicatorTests.swift in Sources */,
-				89B0E7C8595C723C97B94CC9 /* TermAgentsDecodingTests.swift in Sources */,
-				FDDD981F71FE26AEDCD47302 /* TerminalRulesTests.swift in Sources */,
+				24D1D4C58E99CA11332AC6B1 /* ComposerShotsUITests.swift in Sources */,
+				3E40FDD99ABC6AD1B43ED3ED /* KillShotUITests.swift in Sources */,
+				7EAE4DA84856D276FB9EA57B /* StartAgentShotUITests.swift in Sources */,
+				38B5F0F69615F2D2C5F8BCD1 /* TerminalGesturesUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		28242217E752D25B81EE2166 /* PBXTargetDependency */ = {
+		83A9E94EBAE37B329594A514 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			name = Garime;
-			target = 3DCCEF25015E44F3600AD2A8 /* Garime */;
-			targetProxy = BC21E2BE880771176C541CE1 /* PBXContainerItemProxy */;
+			target = D522A2A602AFC4B7BD29FAD1 /* Garime */;
+			targetProxy = 81750FC6E27827FC974FB392 /* PBXContainerItemProxy */;
 		};
-		AA778D1EC13B8BEE5B065295 /* PBXTargetDependency */ = {
+		F86D8FCAE57F9FB14235E260 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			name = Garime;
-			target = 3DCCEF25015E44F3600AD2A8 /* Garime */;
-			targetProxy = 04C0FC59DEB6202D6C0506AC /* PBXContainerItemProxy */;
+			target = D522A2A602AFC4B7BD29FAD1 /* Garime */;
+			targetProxy = 72B99EB16744CFA7BE0041B8 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		2F22EB6D3D66ED31F7F445CA /* Debug */ = {
+		292DC910E26E8D7DF535A3A7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 6RRNRWCXSD;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Garime/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = garime;
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Geo shows your calendar events in the day agenda.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "O garime usa a câmera para você fotografar e mandar pro agente.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "O garime usa o microfone para ditar mensagens ao agente.";
+				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "Geo reads and completes the reminders your Mac mirrors here.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "A fala vira texto no próprio iPhone para você revisar antes de enviar.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = com.gabrielmendonca.garime;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		381A62B3C0330B3F2C34F706 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -547,22 +581,7 @@
 			};
 			name = Debug;
 		};
-		3D478ED21DC6693EC11FA5A3 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CLANG_ENABLE_OBJC_WEAK = NO;
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.gabrielmendonca.garime.uitests;
-				SDKROOT = iphoneos;
-				SWIFT_VERSION = 5.9;
-				TARGETED_DEVICE_FAMILY = 1;
-				TEST_TARGET_NAME = Garime;
-				VALIDATE_PRODUCT = YES;
-			};
-			name = Release;
-		};
-		53185D72352014EE269C735D /* Debug */ = {
+		55E382A3DEA655C0894F5E6F /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -623,66 +642,7 @@
 			};
 			name = Debug;
 		};
-		73247ABBF3877076C7CDF05C /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CLANG_ENABLE_OBJC_WEAK = NO;
-				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = 6RRNRWCXSD;
-				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = Garime/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = garime;
-				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Geo shows your calendar events in the day agenda.";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "O garime usa o microfone para ditar mensagens ao agente.";
-				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "Geo reads and completes the reminders your Mac mirrors here.";
-				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "A fala vira texto no próprio iPhone para você revisar antes de enviar.";
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
-				PRODUCT_BUNDLE_IDENTIFIER = com.gabrielmendonca.garime;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos;
-				SWIFT_VERSION = 5.9;
-				TARGETED_DEVICE_FAMILY = 1;
-				VALIDATE_PRODUCT = YES;
-			};
-			name = Release;
-		};
-		B01357197C452E90EB1F9B63 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CLANG_ENABLE_OBJC_WEAK = NO;
-				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = 6RRNRWCXSD;
-				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = Garime/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = garime;
-				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Geo shows your calendar events in the day agenda.";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "O garime usa o microfone para ditar mensagens ao agente.";
-				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "Geo reads and completes the reminders your Mac mirrors here.";
-				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "A fala vira texto no próprio iPhone para você revisar antes de enviar.";
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
-				PRODUCT_BUNDLE_IDENTIFIER = com.gabrielmendonca.garime;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos;
-				SWIFT_VERSION = 5.9;
-				TARGETED_DEVICE_FAMILY = 1;
-			};
-			name = Debug;
-		};
-		B8E08899C1C9C9220E61E4CA /* Release */ = {
+		72FA2615DC2AEE7DEC4A89BC /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -698,21 +658,7 @@
 			};
 			name = Release;
 		};
-		CC5F91625149F967B4753ECA /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CLANG_ENABLE_OBJC_WEAK = NO;
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.gabrielmendonca.garime.uitests;
-				SDKROOT = iphoneos;
-				SWIFT_VERSION = 5.9;
-				TARGETED_DEVICE_FAMILY = 1;
-				TEST_TARGET_NAME = Garime;
-			};
-			name = Debug;
-		};
-		E83426399EE7FFE178719967 /* Release */ = {
+		8E7EF1781CA922DE83BE5ABC /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -766,41 +712,101 @@
 			};
 			name = Release;
 		};
+		8FC3243CAE0695225684E4D8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 6RRNRWCXSD;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Garime/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = garime;
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Geo shows your calendar events in the day agenda.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "O garime usa a câmera para você fotografar e mandar pro agente.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "O garime usa o microfone para ditar mensagens ao agente.";
+				INFOPLIST_KEY_NSRemindersFullAccessUsageDescription = "Geo reads and completes the reminders your Mac mirrors here.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "A fala vira texto no próprio iPhone para você revisar antes de enviar.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = com.gabrielmendonca.garime;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = 1;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		C938554D716FF0B17A9AC81C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.gabrielmendonca.garime.uitests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = Garime;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		DD017775C6248A51CFCAD7F5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.gabrielmendonca.garime.uitests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = Garime;
+			};
+			name = Debug;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		723247170E45006907621836 /* Build configuration list for PBXNativeTarget "GarimeTests" */ = {
+		65A0EE3B935C694E3EB26B3D /* Build configuration list for PBXNativeTarget "Garime" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				B8E08899C1C9C9220E61E4CA /* Release */,
-				2F22EB6D3D66ED31F7F445CA /* Debug */,
+				8FC3243CAE0695225684E4D8 /* Release */,
+				292DC910E26E8D7DF535A3A7 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		7C0D21F8AEC3E3C5E63D9276 /* Build configuration list for PBXNativeTarget "Garime" */ = {
+		6D0999480F06BA1FFB8307FF /* Build configuration list for PBXNativeTarget "GarimeUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				73247ABBF3877076C7CDF05C /* Release */,
-				B01357197C452E90EB1F9B63 /* Debug */,
+				C938554D716FF0B17A9AC81C /* Release */,
+				DD017775C6248A51CFCAD7F5 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		957B49DC0EECC83EF9EBB0A4 /* Build configuration list for PBXProject "Garime" */ = {
+		AFDAE3BCE7511AC810C99732 /* Build configuration list for PBXNativeTarget "GarimeTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				53185D72352014EE269C735D /* Debug */,
-				E83426399EE7FFE178719967 /* Release */,
+				72FA2615DC2AEE7DEC4A89BC /* Release */,
+				381A62B3C0330B3F2C34F706 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		F486950DFB87768D8BC84058 /* Build configuration list for PBXNativeTarget "GarimeUITests" */ = {
+		B488277FC6A4A9A5FF8F0E42 /* Build configuration list for PBXProject "Garime" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				3D478ED21DC6693EC11FA5A3 /* Release */,
-				CC5F91625149F967B4753ECA /* Debug */,
+				55E382A3DEA655C0894F5E6F /* Debug */,
+				8E7EF1781CA922DE83BE5ABC /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -808,14 +814,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		357F8E502DCAECEEAD29D340 /* XCLocalSwiftPackageReference "GeoCore" */ = {
+		C5BBCF54A2B176606E2287AB /* XCLocalSwiftPackageReference "GeoCore" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../GeoCore;
 		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		3EC83960EF9ED7D45AA8C8BE /* XCRemoteSwiftPackageReference "SwiftTerm" */ = {
+		B79B6F085D877889515EEFAB /* XCRemoteSwiftPackageReference "SwiftTerm" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/migueldeicaza/SwiftTerm";
 			requirement = {
@@ -826,17 +832,17 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		B38CDE600147141B8FED979F /* SwiftTerm */ = {
+		44F662D1F6BB045F5C795E3C /* GeoCore */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 3EC83960EF9ED7D45AA8C8BE /* XCRemoteSwiftPackageReference "SwiftTerm" */;
-			productName = SwiftTerm;
-		};
-		C5C832DD094EE94EEBC2B6E1 /* GeoCore */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 357F8E502DCAECEEAD29D340 /* XCLocalSwiftPackageReference "GeoCore" */;
+			package = C5BBCF54A2B176606E2287AB /* XCLocalSwiftPackageReference "GeoCore" */;
 			productName = GeoCore;
+		};
+		A87B23D35747619C792EDEFA /* SwiftTerm */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B79B6F085D877889515EEFAB /* XCRemoteSwiftPackageReference "SwiftTerm" */;
+			productName = SwiftTerm;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
-	rootObject = 9393567397331E1E8F6D40D6 /* Project object */;
+	rootObject = 9721694998C85DA88444536E /* Project object */;
 }
