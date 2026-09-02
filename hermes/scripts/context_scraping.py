@@ -14,7 +14,7 @@ Pipeline (no gateway, no agent phase):
      read-only, for interpretation) and MENSAGENS NOVAS — only the latter may
      produce proposals. Emails get no replay.
   3. DECIDE via one stateless `pi -p` subprocess — openai-codex /
-     gpt-5.6-sol / thinking medium by default (HERMES_WA_DECIDE_PROVIDER,
+     gpt-5.6-luna / thinking medium by default (HERMES_WA_DECIDE_PROVIDER,
      HERMES_WA_DECIDE_MODEL, HERMES_WA_DECIDE_EFFORT). No session, no tools,
      no skills/extensions/prompt-templates/context-files: the prompt is the
      only input. Runs only when CLASSIFY kept at least one proposal, and
@@ -120,7 +120,7 @@ def _decide_provider() -> str:
 
 
 def _decide_model() -> str:
-    return os.environ.get("HERMES_WA_DECIDE_MODEL") or "gpt-5.6-sol"
+    return os.environ.get("HERMES_WA_DECIDE_MODEL") or "gpt-5.6-luna"
 
 
 def _decide_effort() -> str:
@@ -361,7 +361,7 @@ class PiLaneError(RuntimeError):
 
 
 def _pi_argv(prompt: str, provider: str | None = None, model: str | None = None,
-             effort: str | None = None) -> list[str]:
+             effort: str | None = None, attachments: list[Path] | None = None) -> list[str]:
     return [
         PI_BIN,
         "-p",
@@ -374,13 +374,14 @@ def _pi_argv(prompt: str, provider: str | None = None, model: str | None = None,
         "--provider", provider or _decide_provider(),
         "--model", model or _decide_model(),
         "--thinking", effort or _decide_effort(),
+        *(f"@{path}" for path in (attachments or [])),
     ]
 
 
 async def _pi_complete(prompt: str, timeout_s: float, *, provider: str | None = None,
                        model: str | None = None, effort: str | None = None,
-                       lane: str = "DECIDE") -> str:
-    argv = _pi_argv(prompt, provider, model, effort)
+                       lane: str = "DECIDE", attachments: list[Path] | None = None) -> str:
+    argv = _pi_argv(prompt, provider, model, effort, attachments)
     try:
         proc = await asyncio.create_subprocess_exec(
             *argv,
@@ -814,29 +815,26 @@ def _transcribe_audio(path: Path) -> str:
 
 
 async def _vision_describe(http, headers: dict, path: Path, mime: str, caption: str | None) -> str:
-    import base64
-
-    b64 = base64.b64encode(path.read_bytes()).decode("ascii")
-    blocks = [
-        {"type": "image", "source": {"type": "base64", "media_type": mime or "image/jpeg", "data": b64}},
-        {"type": "text", "text": f"Descreva esta imagem em 1 frase curta em português. Legenda do usuário (contexto): {caption or '(nenhuma)'}. Só a descrição, sem preâmbulo."},
-    ]
-    out = await _call_model(
-        http, headers, HAIKU_MODEL, "", MAX_TOKENS_OUT, PER_CALL_TIMEOUT_S, content_blocks=blocks
+    prompt = f"Descreva esta imagem em 1 frase curta em português. Legenda do usuário (contexto): {caption or '(nenhuma)'}. Só a descrição, sem preâmbulo."
+    out = await _pi_complete(
+        prompt, PER_CALL_TIMEOUT_S, provider=_classify_provider(), model=_classify_model(),
+        effort=_classify_effort(), lane="MEDIA", attachments=[path],
     )
     return (out or "").strip()[:200]
 
 
 async def _pdf_gist(http, headers: dict, path: Path, caption: str | None) -> str:
-    import base64
-
-    b64 = base64.b64encode(path.read_bytes()).decode("ascii")
-    blocks = [
-        {"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": b64}},
-        {"type": "text", "text": f"Resuma o conteúdo deste PDF em 1-2 frases em português (gist). Legenda: {caption or '(nenhuma)'}."},
-    ]
-    out = await _call_model(
-        http, headers, HAIKU_MODEL, "", MAX_TOKENS_OUT, PER_CALL_TIMEOUT_S, content_blocks=blocks
+    extracted = await asyncio.to_thread(
+        subprocess.run, ["pdftotext", str(path), "-"], capture_output=True, text=True,
+        timeout=PER_CALL_TIMEOUT_S,
+    )
+    text = extracted.stdout.strip()[:40_000]
+    if not text:
+        return ""
+    prompt = f"Resuma o conteúdo deste PDF em 1-2 frases em português (gist). Legenda: {caption or '(nenhuma)'}\n\nCONTEÚDO:\n{text}"
+    out = await _pi_complete(
+        prompt, PER_CALL_TIMEOUT_S, provider=_classify_provider(), model=_classify_model(),
+        effort=_classify_effort(), lane="MEDIA",
     )
     return (out or "").strip()[:300]
 
@@ -1169,11 +1167,11 @@ async def bootstrap_summary(http: httpx.AsyncClient, headers: dict, sem: asyncio
 
     async def one(chunk: list[dict]) -> str:
         async with sem:
-            raw = await _call_model(
-                http, headers, HAIKU_MODEL,
+            raw = await _pi_complete(
                 SUMMARY_BOOTSTRAP_CHUNK_PROMPT_TEMPLATE.format(
                     label=label, chat_id=chat_id, is_group=is_group, messages=format_messages(chunk)),
-                MAX_TOKENS_OUT, PER_CALL_TIMEOUT_S,
+                PER_CALL_TIMEOUT_S, provider=_classify_provider(), model=_classify_model(),
+                effort=_classify_effort(), lane="SUMMARY",
             )
         p = parse_json_response(raw) or {}
         return _as_text(p.get("summary")).strip()
@@ -1184,12 +1182,12 @@ async def bootstrap_summary(http: httpx.AsyncClient, headers: dict, sem: asyncio
     if len(partials) == 1:
         return partials[0][:SUMMARY_CHAR_CAP]
     async with sem:
-        raw = await _call_model(
-            http, headers, HAIKU_MODEL,
+        raw = await _pi_complete(
             SUMMARY_UPDATE_PROMPT_TEMPLATE.format(
                 label=label, chat_id=chat_id, is_group=is_group,
                 prev_summary="\n---\n".join(partials), new_messages="(sem novas)"),
-            MAX_TOKENS_OUT, PER_CALL_TIMEOUT_S,
+            PER_CALL_TIMEOUT_S, provider=_classify_provider(), model=_classify_model(),
+            effort=_classify_effort(), lane="SUMMARY",
         )
     p = parse_json_response(raw) or {}
     s = _as_text(p.get("summary")).strip()
@@ -1229,12 +1227,12 @@ async def update_chat_summaries(http: httpx.AsyncClient, headers: dict, sem: asy
                     entry["label"] = b["label"]
                     return
                 async with sem:
-                    raw = await _call_model(
-                        http, headers, HAIKU_MODEL,
+                    raw = await _pi_complete(
                         SUMMARY_UPDATE_PROMPT_TEMPLATE.format(
                             label=b["label"], chat_id=cid, is_group=b["is_group"],
                             prev_summary=entry.get("summary", ""), new_messages=format_messages(delta)),
-                        MAX_TOKENS_OUT, PER_CALL_TIMEOUT_S,
+                        PER_CALL_TIMEOUT_S, provider=_classify_provider(), model=_classify_model(),
+                        effort=_classify_effort(), lane="SUMMARY",
                     )
                 p = parse_json_response(raw) or {}
                 s = _as_text(p.get("summary")).strip()
