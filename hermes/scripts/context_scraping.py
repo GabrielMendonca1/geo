@@ -1776,6 +1776,53 @@ def _prune_proposals(state: dict) -> list[dict]:
     return kept
 
 
+def reconcile_proposals(state: dict) -> int:
+    """Fecha propostas que já viraram uma task de mesmo título por outro ciclo."""
+    items = _prune_proposals(state)
+    task_by_title: dict[str, dict] = {}
+    cutoff = datetime.now(timezone.utc) - timedelta(days=COMPLETED_DEDUP_DAYS)
+    for path in TASKS_DIR.glob("*.json") if TASKS_DIR.is_dir() else []:
+        try:
+            task = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if task.get("status") == "completed":
+            completed = _completed_at(task, fallback_modified=True)
+            if completed is None or completed < cutoff:
+                continue
+        title = _norm_stem(_as_text(task.get("title")))
+        if title:
+            task_by_title[title] = task
+    changed = 0
+    for proposal in items:
+        if proposal.get("status", "pending") != "pending":
+            continue
+        task = task_by_title.get(_norm_stem(_as_text(proposal.get("title"))))
+        if not task:
+            continue
+        proposal["status"] = "superseded"
+        proposal["task_id"] = task.get("id")
+        proposal["resolved_at"] = _now_z()
+        changed += 1
+    newer: list[dict] = []
+    for proposal in sorted(items, key=lambda row: row.get("ts") or "", reverse=True):
+        if proposal.get("status", "pending") != "pending":
+            continue
+        title = _norm_stem(_as_text(proposal.get("title")))
+        duplicate = next((row for row in newer if SequenceMatcher(None, title, row["title"]).ratio() >= 0.96), None)
+        if duplicate:
+            proposal["status"] = "superseded"
+            proposal["duplicate_of"] = duplicate["hash"]
+            proposal["resolved_at"] = _now_z()
+            changed += 1
+        else:
+            newer.append({"title": title, "hash": proposal.get("hash")})
+    if changed:
+        _save_proposals(items)
+        log(f"proposals reconciled with existing tasks: {changed}")
+    return changed
+
+
 def propose_task(title, origem: str, state: dict, due: str = "") -> str | None:
     title = _as_text(title).strip()
     if not title:
@@ -2251,6 +2298,7 @@ async def run_whatsapp() -> int:
     token = load_oauth_token()
 
     state = load_state()
+    reconcile_proposals(state)
     store = load_chats()
     watermark = state.get("last_processed_ts")
     known_chat_ids = set((store.get("chats") or {}).keys())

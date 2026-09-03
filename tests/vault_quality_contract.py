@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib.util
+import json
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -90,6 +91,34 @@ def case_write_guards_and_digest(wa) -> None:
         check("daily compaction persists all existing days", changed and persisted.count("Churrasco") == 1)
 
 
+def case_proposal_reconciliation(wa) -> None:
+    print("\n-- stale proposal reconciliation --")
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        old_tasks, old_proposals = wa.TASKS_DIR, wa.PROPOSALS_PATH
+        wa.TASKS_DIR = root / "tasks"
+        wa.PROPOSALS_PATH = root / "proposals.json"
+        wa.TASKS_DIR.mkdir()
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        (wa.TASKS_DIR / "T1.json").write_text(json.dumps({
+            "id": "T1", "title": "Ligar para Jaciva", "status": "completed", "modifiedAt": now,
+        }), encoding="utf-8")
+        wa.PROPOSALS_PATH.write_text(json.dumps([
+            {"hash": "abc123", "title": "Ligar para Jaciva", "status": "pending", "ts": now},
+            {"hash": "def456", "title": "Outra tarefa", "status": "pending", "ts": now},
+            {"hash": "old789", "title": "Definir o representante da empresa", "status": "pending", "ts": "2026-09-02T10:00:00Z"},
+            {"hash": "new789", "title": "Definir representante da empresa", "status": "pending", "ts": now},
+        ]), encoding="utf-8")
+        try:
+            changed = wa.reconcile_proposals({})
+            proposals = json.loads(wa.PROPOSALS_PATH.read_text())
+        finally:
+            wa.TASKS_DIR, wa.PROPOSALS_PATH = old_tasks, old_proposals
+        check("exact existing task closes stale proposal", proposals[0]["status"] == "superseded")
+        check("unmatched proposal stays pending", proposals[1]["status"] == "pending")
+        check("near-identical older proposal is superseded", changed == 2 and proposals[2]["status"] == "superseded" and proposals[3]["status"] == "pending")
+
+
 def case_alert_and_chat_rollup(wa) -> None:
     print("\n-- existing WhatsApp alert path and chat rollup --")
     with tempfile.TemporaryDirectory() as tmp:
@@ -130,6 +159,7 @@ def main() -> int:
     case_real_moc_discovery()
     wa = _load_extractor(SCRIPTS_DIR)
     case_write_guards_and_digest(wa)
+    case_proposal_reconciliation(wa)
     case_alert_and_chat_rollup(wa)
     print(f"\n{'=' * 48}\n{len(FAILS)} failing case(s): {FAILS or 'none'}")
     return 1 if FAILS else 0
