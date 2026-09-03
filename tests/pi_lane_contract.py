@@ -6,7 +6,7 @@ Encodes the TARGET contract:
     skills/extensions/prompt-templates/context-files. The prompt enters through
     stdin, so it is not limited by ARG_MAX and runs cannot influence each other.
   - CLASSIFY defaults to openai-codex / gpt-5.6-luna / low; DECIDE defaults to
-    openai-codex / gpt-5.6-sol / medium. Both lanes are overridable.
+    openai-codex / gpt-5.6-luna / medium. Both lanes are overridable.
   - The lane runs at most once per cycle, and only when CLASSIFY kept at least
     one proposal.
   - Every failure (timeout, rc!=0, empty stdout, non-JSON) surfaces as
@@ -109,7 +109,7 @@ def _expect_raises(fn, exc):
 def case_argv_default(wa) -> None:
     print("\n-- argv: hermetic + stateless by default --")
     _clear_env()
-    check("DECIDE model is Sol", wa._decide_model(), "gpt-5.6-sol")
+    check("DECIDE model is Luna", wa._decide_model(), "gpt-5.6-luna")
     check("DECIDE provider", wa._decide_provider(), "openai-codex")
     check("DECIDE effort", wa._decide_effort(), "medium")
     argv = wa._pi_argv("PROMPT")
@@ -126,7 +126,7 @@ def case_argv_default(wa) -> None:
             "--no-extensions",
             "--no-prompt-templates",
             "--provider", "openai-codex",
-            "--model", "gpt-5.6-sol",
+            "--model", "gpt-5.6-luna",
             "--thinking", "medium",
         ],
     )
@@ -479,6 +479,7 @@ def case_classify_failures_no_watermark_leak(wa) -> None:
             "blocks_created": 0,
             "blocks_appended": 0,
             "blocks_capped": 0,
+            "blocks_invalid": 0,
             "dedup_skips": 0,
             "tasks_created": 0,
             "tasks_proposed": 0,

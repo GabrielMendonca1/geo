@@ -20,7 +20,7 @@ Pipeline (no gateway, no agent phase):
      only input. Runs only when CLASSIFY kept at least one proposal, and
      emits the final {blocks, tasks, urgent}.
   4. PERSIST (all file-native, works app-closed): facts → block .md files,
-     commitments → Tasks/<UUID>.json task files; only urgent → a Telegram DM.
+     commitments → Tasks/<UUID>.json task files; urgent → the existing WhatsApp outbox.
      Each block weaves [[wikilinks]] + a `Parte de [[MOC — X]]` home from the
      live vault context (geo_context.py) so captures land in the graph.
 
@@ -44,6 +44,7 @@ import sys
 import unicodedata
 import uuid
 from collections import deque
+from difflib import SequenceMatcher
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -51,7 +52,7 @@ from zoneinfo import ZoneInfo
 import httpx
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from geo_context import render_brain_context
+from geo_context import gather_brain_context, render_brain_context
 
 PKG_DIR = Path(__file__).resolve().parent
 GARIME_MOUNT = Path("/mnt/garime")
@@ -60,14 +61,11 @@ JSONL_PATH = GARIME_MOUNT / "state" / "inbox" / "wa_ingest.jsonl"
 EMAIL_JSONL_PATH = GARIME_MOUNT / "state" / "inbox" / "email_ingest.jsonl"
 OUTBOX_DIR = GARIME_MOUNT / "pi" / "wa-outbox"
 AUTH_PATH = Path(os.path.expanduser("~/.prime/agent/auth.json"))
-ENV_PATH = STATE_DIR / ".env"
 STATE_PATH = STATE_DIR / "context_scraping.state.json"
 CHATS_PATH = STATE_DIR / "context_scraping.chats.json"
 PROPOSALS_PATH = STATE_DIR / "task_proposals.json"
 TASK_ARCHIVE_DIR = STATE_DIR / "task_archive"
 ARCHIVE_LOG = TASK_ARCHIVE_DIR / "archive_log.jsonl"
-
-GABRIEL_TELEGRAM_CHAT_ID = "5225262193"
 
 ALIASES: dict[str, list[str]] = {
     "danilo": ["danilo", "danilo oliveira"],
@@ -256,7 +254,7 @@ Como decidir:
   - "ambigua" → NÃO cria; o sistema pergunta ao Gabriel no WhatsApp antes. Reserve para quando falta a INTENÇÃO dele: alguém pediu/cobrou algo e ele não respondeu nem assumiu, o email sugere uma ação mas ninguém a atribuiu a ele, ou é um "talvez" sem dono.
   - Email de robô/marketing/newsletter/notificação automática não vira task nem proposta — descarta.
   - "origem" (obrigatório): de onde veio, curto — nome do chat ou "email <conta>: <remetente/assunto>". É o que o Gabriel vê ao ser perguntado.
-- URGENTE: alguém esperando ele agora, decisão/deadline batendo → urgent (ele recebe no Telegram).
+- URGENTE: alguém esperando ele agora, decisão/deadline batendo → urgent (ele recebe no grupo privado do WhatsApp).
 - Conversa fiada, piada, combinado vago, fofoca, novidade qualquer → descarta.
 - SINAL: só vira bloco ou task se tiver conteúdo acionável ou memorável de verdade. "Bom dia", reação, emoji solto, "tudo bem?", combinado que já era óbvio → sem sinal, descarta (não é bloco nem task).
 - DEDUP CONTRA O VAULT: se o CONTEXTO já tem um bloco ou task sobre o mesmo assunto, NÃO recrie — descarta. Só cria se acrescenta algo genuinamente novo.
@@ -407,24 +405,6 @@ async def _pi_complete(prompt: str, timeout_s: float, *, provider: str | None = 
     if not text:
         raise PiLaneError(f"pi devolveu saida vazia na lane {lane}")
     return text
-
-
-def _read_env_value(key: str) -> str | None:
-    if os.environ.get(key):
-        return os.environ[key]
-    if not ENV_PATH.exists():
-        return None
-    try:
-        for line in ENV_PATH.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            k, _, v = line.partition("=")
-            if k.strip() == key:
-                return v.strip().strip('"').strip("'")
-    except Exception as e:
-        log(f".env unreadable: {e}")
-    return None
 
 
 def _is_empty_record(rec: dict) -> bool:
@@ -1344,8 +1324,14 @@ def write_block_file(title: str, body: str, type_: str, layer: str) -> str:
         writer=WRITER, title=title, body=body or "", type="fleeting", layer=blayer, tags=None
     )
     path = res.get("path") or res.get("id") or ""
+    written = Path(path)
+    if written.is_file() and BLOCKS_DIR.resolve() in written.resolve().parents:
+        text = written.read_text(encoding="utf-8", errors="replace")
+        clean = _strip_date_wikilinks(text)
+        if clean != text:
+            _atomic_write(written, clean)
     try:
-        return _nfc(str(Path(path).relative_to(BLOCKS_DIR)))
+        return _nfc(str(written.relative_to(BLOCKS_DIR)))
     except Exception:
         return _nfc(str(path))
 
@@ -1398,6 +1384,69 @@ def _norm_stem(s: str) -> str:
     s = re.sub(r"\s+", " ", s).strip()
     s = unicodedata.normalize("NFKD", s.casefold())
     return "".join(c for c in s if not unicodedata.combining(c))
+
+
+_PART_OF_RE = re.compile(r"(?m)^Parte de \[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]\s*$")
+_DATE_WIKILINK_RE = re.compile(r"\[\[(\d{4}-\d{2}-\d{2})(?:\|([^\]]+))?\]\]")
+_MONTHS = {
+    "janeiro": "1", "fevereiro": "2", "marco": "3", "abril": "4",
+    "maio": "5", "junho": "6", "julho": "7", "agosto": "8",
+    "setembro": "9", "outubro": "10", "novembro": "11", "dezembro": "12",
+}
+
+
+def _strip_date_wikilinks(text: str) -> str:
+    return _DATE_WIKILINK_RE.sub(lambda m: m.group(2) or m.group(1), text or "")
+
+
+def _canonical_moc(title: str, valid_mocs: set[str] | None = None) -> str | None:
+    valid = valid_mocs or set(gather_brain_context().get("moc_titles") or [])
+    raw = _as_text(title).strip()
+    if raw in valid:
+        return raw
+    wanted = _norm_stem(raw)
+    if not wanted.startswith("moc "):
+        wanted = _norm_stem(f"MOC — {raw}")
+    matches = [moc for moc in valid if _norm_stem(moc) == wanted]
+    return matches[0] if len(matches) == 1 else None
+
+
+def _validated_block_body(body: str, valid_mocs: set[str]) -> tuple[str | None, str | None]:
+    clean = _strip_date_wikilinks(_as_text(body)).strip()
+    match = _PART_OF_RE.search(clean)
+    if not match:
+        return None, "sem linha Parte de [[MOC — X]]"
+    canonical = _canonical_moc(match.group(1), valid_mocs)
+    if canonical is None:
+        return None, f"MOC inexistente: {match.group(1)}"
+    if canonical != match.group(1):
+        clean = clean[:match.start(1)] + canonical + clean[match.end(1):]
+    return clean, None
+
+
+def _digest_norm(text: str) -> str:
+    value = _norm_stem(_strip_date_wikilinks(text))
+    for month, number in _MONTHS.items():
+        value = value.replace(month, number)
+    value = re.sub(r"\b0?(\d{1,2})/0?(\d{1,2})(?:/\d{2,4})?\b", r"\1 \2", value)
+    value = re.sub(r"[^a-z0-9]+", " ", value)
+    return re.sub(r"\s+", " ", value).strip()
+
+
+def _merge_digest_line(lines: list[str], incoming: str) -> list[str]:
+    candidate = ("- " + incoming.strip().lstrip("- ")).rstrip()
+    normalized = _digest_norm(candidate)
+    if not normalized:
+        return lines
+    for index, current in enumerate(lines):
+        current_norm = _digest_norm(current)
+        ratio = SequenceMatcher(None, normalized, current_norm).ratio()
+        if normalized == current_norm or ratio >= 0.68:
+            if len(normalized) > len(current_norm):
+                lines[index] = candidate
+            return lines
+    lines.append(candidate)
+    return lines
 
 
 PERSON_FUZZY_MIN_LEN = 4
@@ -1453,20 +1502,18 @@ def append_person_continuity(target_block: str | None, person: str, note: str, m
     if path is not None and _read_layer(path.read_text(encoding="utf-8")) == "user":
         path = None
     if path is None:
-        body = (f"Parte de [[{moc or 'MOC — Pessoal'}]]\n\n"
+        home = _canonical_moc(moc) or "MOC — Pessoal"
+        body = (f"Parte de [[{home}]]\n\n"
                 f"## Continuidade (recente)\n"
-                f"<!-- geo:cont -->\n§ {date_iso} — {note}\n<!-- /geo:cont -->")
+                f"<!-- geo:cont -->\n§ {date_iso} — {_strip_date_wikilinks(note)}\n<!-- /geo:cont -->")
         return write_block_file(person or target_block or note[:50], body, "fleeting", "review")
     text = path.read_text(encoding="utf-8")
     lines = _fenced_lines(text, "cont")
     if any(_norm(note) == _norm(l) for l in lines):
         return "dup"
-    lines.append(f"§ {date_iso} — {note}")
+    lines.append(f"§ {date_iso} — {_strip_date_wikilinks(note)}")
     lines = lines[-CONT_CAP:]
-    text = _replace_fenced(text, "cont", lines, heading="Continuidade (recente)")
-    token = f"[[{date_iso}]]"
-    if token not in text:
-        text = text.rstrip("\n") + "\n" + token + "\n"
+    text = _strip_date_wikilinks(_replace_fenced(text, "cont", lines, heading="Continuidade (recente)"))
     _atomic_write(path, text)
     return _nfc(str(path.relative_to(BLOCKS_DIR)))
 
@@ -1478,6 +1525,14 @@ _DAY_BLOCK_RE = re.compile(r"<!-- geo:day:(\d{4}-\d{2}-\d{2}) -->\n(.*?)\n<!-- /
 
 def _parse_diary_days(text: str) -> dict[str, str]:
     return {m.group(1): m.group(2) for m in _DAY_BLOCK_RE.finditer(text)}
+
+
+def _compact_diary_day(date_iso: str, day_text: str) -> str:
+    social = _fenced_lines(day_text, f"social:{date_iso}")
+    merged: list[str] = []
+    for line in social:
+        merged = _merge_digest_line(merged, line)
+    return _strip_date_wikilinks(_replace_fenced(day_text, f"social:{date_iso}", merged))
 
 
 def upsert_daily_digest(date_iso: str, people_lines: list[str], social_lines: list[str],
@@ -1495,26 +1550,44 @@ def upsert_daily_digest(date_iso: str, people_lines: list[str], social_lines: li
         f"## {date_iso}\n\n"
         f"### Combinados\n<!-- geo:social:{date_iso} -->\n<!-- /geo:social:{date_iso} -->\n\n"
         f"### Pessoas\n<!-- geo:pessoas:{date_iso} -->\n<!-- /geo:pessoas:{date_iso} -->\n\n"
-        f"### Descartes automáticos\n<!-- geo:descartes:{date_iso} -->\n<!-- /geo:descartes:{date_iso} -->\n\n"
-        f"[[{date_iso}]]"
+        f"### Descartes automáticos\n<!-- geo:descartes:{date_iso} -->\n<!-- /geo:descartes:{date_iso} -->\n"
     )
     for name, new in ((f"social:{date_iso}", social_lines), (f"pessoas:{date_iso}", people_lines),
                       (f"descartes:{date_iso}", descartes_lines)):
         cur = _fenced_lines(day_text, name)
         for ln in new:
-            ln = ("- " + ln.strip().lstrip("- ")).rstrip()
-            if ln.strip("- ").strip() and not any(_norm(ln) == _norm(c) for c in cur):
-                cur.append(ln)
+            if ln.strip().lstrip("- ").strip():
+                cur = _merge_digest_line(cur, _strip_date_wikilinks(ln))
         day_text = _replace_fenced(day_text, name, cur)
     days[date_iso] = day_text.strip("\n")
     cutoff = (datetime.now() - timedelta(days=DIARY_MAX_DAYS)).strftime("%Y-%m-%d")
     kept_dates = sorted((d for d in days if d >= cutoff), reverse=True)
     body = "# Diário de contexto\nParte de [[MOC — Rotina]]\n"
     for d in kept_dates:
-        body += f"\n<!-- geo:day:{d} -->\n{days[d]}\n<!-- /geo:day:{d} -->\n"
+        body += f"\n<!-- geo:day:{d} -->\n{_compact_diary_day(d, days[d])}\n<!-- /geo:day:{d} -->\n"
     fm = f"---\nid: {block_id}\ntype: fleeting\nlayer: review\n---\n"
     _atomic_write(DIARY_PATH, fm + body)
     return DIARY_PATH.name
+
+
+def compact_daily_digest() -> bool:
+    if not DIARY_PATH.exists():
+        return False
+    text = DIARY_PATH.read_text(encoding="utf-8", errors="replace")
+    days = _parse_diary_days(text)
+    if not days:
+        return False
+    match = re.search(r"^id:\s*(\S+)", text, re.MULTILINE)
+    block_id = match.group(1) if match else str(uuid.uuid4()).upper()
+    body = "# Diário de contexto\nParte de [[MOC — Rotina]]\n"
+    for day in sorted(days, reverse=True):
+        body += f"\n<!-- geo:day:{day} -->\n{_compact_diary_day(day, days[day])}\n<!-- /geo:day:{day} -->\n"
+    fm = f"---\nid: {block_id}\ntype: fleeting\nlayer: review\n---\n"
+    updated = fm + body
+    if updated == text:
+        return False
+    _atomic_write(DIARY_PATH, updated)
+    return True
 
 
 TASKS_DIR = Path("/mnt/garime/state/tasks")
@@ -1774,6 +1847,7 @@ def _recent_tasks_context(completed_days: int = 14) -> str:
 
 
 CHAT_LIVE_ACTIVE_DAYS = 14
+CHAT_ROLLUP_PATH = BLOCKS_DIR / "Conversas ativas.md"
 _JID_SHAPE_RE = re.compile(r"@(s\.whatsapp\.net|lid|g\.us)$", re.IGNORECASE)
 
 
@@ -1794,8 +1868,42 @@ def _materialize_if_due(store: dict, state: dict) -> None:
         log(f"materialize skipped — already ran on {today}")
         return
     materialize_chat_summaries(store)
+    if compact_daily_digest():
+        log("daily digest compacted")
     state["last_materialized_on"] = today
     save_state(state)
+
+
+def _write_chat_rollup(rows: list[tuple[str, dict]]) -> None:
+    if CHAT_ROLLUP_PATH.exists():
+        existing = CHAT_ROLLUP_PATH.read_text(encoding="utf-8", errors="replace")
+        match = re.search(r"^id:\s*(\S+)", existing, re.MULTILINE)
+        block_id = match.group(1) if match else str(uuid.uuid4()).upper()
+    else:
+        block_id = str(uuid.uuid4()).upper()
+    updated = datetime.now(MATERIALIZE_TZ).strftime("%Y-%m-%d %H:%M")
+    sections: list[str] = []
+    for chat_id, entry in sorted(rows, key=lambda row: (row[1].get("label") or "").casefold()):
+        raw_label = _as_text(entry.get("label")).strip()
+        label = raw_label if not _label_unusable(raw_label) else f"Conversa sem nome · {hashlib.sha1(chat_id.encode()).hexdigest()[:8]}"
+        label = re.sub(r"[\r\n#]+", " ", label).strip()[:100]
+        summary = _strip_date_wikilinks(_as_text(entry.get("summary"))).replace("\n", " ").strip()
+        last_day = _as_text(entry.get("last_msg_ts"))[:10] or "sem data"
+        sections.append(f"## {label}\nÚltima mensagem: {last_day}\n\n{summary}")
+    body = (
+        "---\n"
+        f"id: {block_id}\n"
+        "type: fleeting\n"
+        "layer: review\n"
+        "created_by: context-scraping\n"
+        "---\n"
+        "# Conversas ativas\n"
+        "Parte de [[MOC — Pessoal]]\n\n"
+        f"> Visão automática das conversas com atividade nos últimos {CHAT_LIVE_ACTIVE_DAYS} dias. Atualizada em {updated}.\n\n"
+        + ("\n\n".join(sections) if sections else "Nenhuma conversa ativa com resumo.")
+        + "\n"
+    )
+    _atomic_write(CHAT_ROLLUP_PATH, body)
 
 
 def materialize_chat_summaries(store: dict) -> int:
@@ -1804,24 +1912,20 @@ def materialize_chat_summaries(store: dict) -> int:
         return 0
     cutoff = (datetime.now(timezone.utc) - timedelta(days=CHAT_LIVE_ACTIVE_DAYS)).strftime("%Y-%m-%dT%H:%M:%SZ")
     date_iso = datetime.now().strftime("%Y-%m-%d")
+    active: list[tuple[str, dict]] = []
     n = 0
     for chat_id, entry in chats.items():
-        if not isinstance(entry, dict):
-            continue
-        if (entry.get("last_msg_ts") or "") < cutoff:
+        if not isinstance(entry, dict) or (entry.get("last_msg_ts") or "") < cutoff:
             continue
         summary = _as_text(entry.get("summary")).strip()
+        if not summary:
+            continue
+        active.append((chat_id, entry))
         label = _as_text(entry.get("label")).strip()
-        if not summary or _label_unusable(label):
-            if summary:
-                log(f"chat summary skipped, unusable label [{chat_id}]: {label!r}")
+        if _label_unusable(label):
             continue
         path = _find_person_block(label)
-        if path is None:
-            log(f"chat summary skipped, no canonical person block [{chat_id}]: {label!r}")
-            continue
-        if _read_layer(path.read_text(encoding="utf-8")) == "user":
-            log(f"chat summary skipped, target is layer:user [{chat_id}]: {path.stem!r}")
+        if path is None or _read_layer(path.read_text(encoding="utf-8")) == "user":
             continue
         try:
             res = append_person_continuity(path.stem, label, summary.replace("\n", " ").strip(), "", date_iso)
@@ -1829,27 +1933,23 @@ def materialize_chat_summaries(store: dict) -> int:
                 n += 1
         except Exception as e:
             log(f"chat summary materialize failed [{label[:30]}]: {e}")
+    _write_chat_rollup(active)
+    log(f"chat summaries materialized: people={n} rollup={len(active)}")
     return n
 
 
-async def send_telegram(text: str) -> bool:
-    token = _read_env_value("TELEGRAM_BOT_TOKEN")
-    if not token:
-        log("no TELEGRAM_BOT_TOKEN — cannot send urgent DM")
+async def send_urgent_alert(text: str) -> bool:
+    """Enfileira o alerta no sidecar WhatsApp já autenticado, sem outra sessão."""
+    if not text.strip():
         return False
-    import httpx
-
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
-    payload = {"chat_id": GABRIEL_TELEGRAM_CHAT_ID, "text": text, "disable_web_page_preview": True}
     try:
-        async with httpx.AsyncClient(timeout=15.0) as c:
-            resp = await c.post(url, json=payload)
-        if resp.status_code != 200:
-            log(f"telegram send {resp.status_code}: {resp.text[:200]}")
-            return False
+        OUTBOX_DIR.mkdir(parents=True, exist_ok=True)
+        path = OUTBOX_DIR / f"curator-urgent-{datetime.now().strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:8]}.txt"
+        _atomic_write(path, text.strip() + "\n")
+        log(f"urgent alert queued: {path.name}")
         return True
     except Exception as e:
-        log(f"telegram send error: {e}")
+        log(f"urgent alert queue failed: {e}")
         return False
 
 
@@ -2023,9 +2123,10 @@ async def persist(decided: dict, state: dict | None = None) -> dict:
     urgent = decided.get("urgent") or []
     date_iso = datetime.now().strftime("%Y-%m-%d")
     stats = {"blocks_created": 0, "blocks_appended": 0, "blocks_capped": 0,
-             "dedup_skips": 0, "tasks_created": 0, "tasks_capped": 0,
+             "blocks_invalid": 0, "dedup_skips": 0, "tasks_created": 0, "tasks_capped": 0,
              "tasks_proposed": 0, "urgent": 0, "task_mutations": 0}
     descartes_lines: list[str] = []
+    valid_mocs = set(gather_brain_context().get("moc_titles") or [])
 
     for b in blocks:
         title = _as_text(b.get("title")).strip()
@@ -2034,7 +2135,12 @@ async def persist(decided: dict, state: dict | None = None) -> dict:
         if _is_generic_title(title):
             log(f"block discarded (generic title): {title[:60]!r}")
             continue
-        body = _as_text(b.get("body"))
+        body, validation_error = _validated_block_body(_as_text(b.get("body")), valid_mocs)
+        if validation_error:
+            stats["blocks_invalid"] += 1
+            descartes_lines.append(f"bloco não criado ({validation_error}): {title}")
+            log(f"block discarded ({validation_error}): {title[:60]!r}")
+            continue
         if stats["blocks_created"] >= MAX_BLOCKS_PER_RUN:
             descartes_lines.append(f"bloco não criado (cap): {title}")
             stats["blocks_capped"] += 1
@@ -2049,6 +2155,12 @@ async def persist(decided: dict, state: dict | None = None) -> dict:
             if kind == "title" and ref:
                 try:
                     ares = geo_write.append_block(writer=WRITER, block_path_or_id=ref, lines=body or title)
+                    appended_path = Path(ares.get("path") or "")
+                    if appended_path.is_file() and BLOCKS_DIR.resolve() in appended_path.resolve().parents:
+                        appended_text = appended_path.read_text(encoding="utf-8", errors="replace")
+                        appended_clean = _strip_date_wikilinks(appended_text)
+                        if appended_clean != appended_text:
+                            _atomic_write(appended_path, appended_clean)
                     stats["blocks_appended"] += 1
                     log(f"block appended (title collision) → {ares.get('path')}")
                 except Exception as ae:
@@ -2101,7 +2213,7 @@ async def persist(decided: dict, state: dict | None = None) -> dict:
             if txt:
                 lines.append(f"- [{chat}] {txt}")
         if len(lines) > 1:
-            await send_telegram("\n".join(lines))
+            await send_urgent_alert("\n".join(lines))
 
     people_lines: list[str] = []
     for p in decided.get("people") or []:
@@ -2279,9 +2391,9 @@ async def run_whatsapp() -> int:
     print(
         f"[context-scraping] persisted blocks_created={stats['blocks_created']} "
         f"blocks_appended={stats['blocks_appended']} blocks_capped={stats['blocks_capped']} "
-        f"dedup_skips={stats['dedup_skips']} tasks_created={stats['tasks_created']} "
+        f"blocks_invalid={stats['blocks_invalid']} dedup_skips={stats['dedup_skips']} tasks_created={stats['tasks_created']} "
         f"tasks_proposed={stats['tasks_proposed']} "
-        f"tasks_capped={stats['tasks_capped']} urgent_dm={stats['urgent']} "
+        f"tasks_capped={stats['tasks_capped']} urgent_alerts={stats['urgent']} "
         f"task_mutations={stats['task_mutations']} expired={ne}"
     )
     return 0

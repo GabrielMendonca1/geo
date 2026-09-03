@@ -24,7 +24,9 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
-BLOCKS_DIR = Path("/mnt/garime/Gabriel") / "40 Conhecimento"
+BRAIN_DIR = Path("/mnt/garime/Gabriel")
+BLOCKS_DIR = BRAIN_DIR / "40 Conhecimento"
+MOC_DIR = BRAIN_DIR / "00 Entrada" / "Mapas"
 TASKS_DIR = Path("/mnt/garime/state/tasks")
 
 _FM_RE = re.compile(r"---\n(.*?)\n---", re.DOTALL)
@@ -64,12 +66,14 @@ def gather_brain_context() -> dict:
                 moc_titles.append(title)
             elif not title.startswith("Contexto do dia"):
                 block_titles.append(title)
-        moc_dir = BLOCKS_DIR / "MOC"
-        if moc_dir.exists():
-            for p in sorted(moc_dir.glob("*.md")):
-                title = _title(_head(p), p.stem)
-                if title not in moc_titles:
-                    moc_titles.append(title)
+    if MOC_DIR.exists():
+        for p in sorted(MOC_DIR.glob("MOC — *.md")):
+            text = _head(p)
+            if _fm_type(text) != "moc":
+                continue
+            title = _title(text, p.stem)
+            if title not in moc_titles:
+                moc_titles.append(title)
 
     open_tasks: list[tuple[str, str]] = []
     if TASKS_DIR.exists():
@@ -135,16 +139,26 @@ def today_str(tz=None) -> str:
     return (datetime.now(tz) if tz else datetime.now()).date().isoformat()
 
 
+def _has_day_provenance(text: str, date_iso: str) -> bool:
+    escaped = re.escape(date_iso)
+    patterns = (
+        rf"\[\[{escaped}(?:\|[^\]]+)?\]\]",
+        rf"(?m)^§\s*{escaped}\b",
+        rf"(?m)^##?\s+{escaped}\s*$",
+        rf"(?m)^(?:date|day):\s*{escaped}\s*$",
+    )
+    return any(re.search(pattern, text) for pattern in patterns)
+
+
 def day_context_today(date_iso: str | None = None) -> str:
     date_iso = date_iso or today_str()
-    token = f"[[{date_iso}]]"
     parts: list[str] = []
     for p in _iter_block_files():
         try:
             text = p.read_text(encoding="utf-8")
         except OSError:
             continue
-        if token in text:
+        if _has_day_provenance(text, date_iso):
             body = _strip_frontmatter(text)
             if body:
                 parts.append(body)

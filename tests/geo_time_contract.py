@@ -50,6 +50,7 @@ def _load_extractor(base: Path):
                 sys.modules[dep] = types.ModuleType(dep)
     if "geo_context" not in sys.modules:
         gc = types.ModuleType("geo_context")
+        gc.gather_brain_context = lambda *a, **k: {"moc_titles": [], "block_titles": [], "open_tasks": []}
         gc.render_brain_context = lambda *a, **k: ""
         sys.modules["geo_context"] = gc
     sys.path.insert(0, str(base))
