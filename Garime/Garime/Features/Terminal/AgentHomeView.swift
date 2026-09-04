@@ -48,7 +48,7 @@ struct AgentHealthPayload: Decodable, Equatable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        ok = ((try? container.decodeIfPresent(Bool.self, forKey: .ok)) ?? nil) ?? true
+        ok = ((try? container.decodeIfPresent(Bool.self, forKey: .ok)) ?? nil) ?? false
         macOnline = ((try? container.decodeIfPresent(Bool.self, forKey: .macOnline)) ?? nil) ?? false
         agent = (try? container.decodeIfPresent(AgentHealthProcess.self, forKey: .agent)) ?? nil
     }
@@ -84,11 +84,16 @@ final class AgentHomeModel: ObservableObject {
         return .link(macOnline)
     }
 
-    var agentNote: String {
-        if !loaded { return "checando" }
-        if !reachable { return "bridge fora do ar" }
-        return agentBusy ? "trabalhando" : (agentRunning ? "agente de pé" : "agente parado")
+    var presence: AgentPresence {
+        if !loaded { return .checking }
+        if !reachable { return .disconnected }
+        if !agentRunning { return .stopped }
+        return agentBusy ? .working : .available
     }
+
+    var agentNote: String { presence.label }
+
+    var agentLevel: StatusLevel { presence.level }
 
     func refresh() async {
         guard !refreshing else { return }
@@ -173,7 +178,7 @@ struct AgentHomeView: View {
         }
         .animation(.spring(response: 0.34, dampingFraction: 1), value: model.reachable)
         .animation(.spring(response: 0.34, dampingFraction: 1), value: model.macOnline)
-        .animation(.spring(response: 0.34, dampingFraction: 1), value: model.agentRunning)
+        .animation(.spring(response: 0.34, dampingFraction: 1), value: model.presence)
     }
 
     private var header: some View {
@@ -234,19 +239,25 @@ struct AgentHomeView: View {
         return VStack(alignment: .leading, spacing: 10) {
             Button { path.append(.chat(prefill: "")) } label: {
             VStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 10) {
+                HStack(spacing: 8) {
                     AgentBadge(agent: GarimeAgent.name)
+                    Text("seu agente")
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .foregroundStyle(Color.slateTextDim)
                     Spacer(minLength: 4)
-                    StatusDot(level: .live(model.agentRunning))
+                    StatusDot(level: model.agentLevel)
+                    Text(model.agentNote)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(Color.slateTextDim)
                 }
                 Spacer(minLength: 18)
-                Text("conversar")
-                    .font(.system(size: 20, weight: .semibold, design: .monospaced))
+                Text("conversar com o Garime")
+                    .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(.primary)
-                Text(model.agentNote)
-                    .font(.system(size: 11, design: .monospaced))
+                Text("Pergunte, acompanhe e responda quando ele precisar de você.")
+                    .font(.footnote)
                     .foregroundStyle(Color.slateTextFaint)
-                    .lineLimit(1)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(16)
             .frame(maxWidth: .infinity, minHeight: 148, alignment: .leading)

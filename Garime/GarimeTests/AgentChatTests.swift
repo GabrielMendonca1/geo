@@ -229,7 +229,7 @@ final class AgentChatClockTests: XCTestCase {
 final class AgentChatEmptyTests: XCTestCase {
     func testStates() {
         XCTAssertEqual(AgentChatEmpty.text(loaded: false, reachable: true, noAgent: false), "carregando…")
-        XCTAssertEqual(AgentChatEmpty.text(loaded: false, reachable: false, noAgent: false), "sem conexão com o mac")
+        XCTAssertEqual(AgentChatEmpty.text(loaded: false, reachable: false, noAgent: false), "sem conexão com o agente")
         XCTAssertEqual(AgentChatEmpty.text(loaded: true, reachable: true, noAgent: true), "esse agente não existe mais")
         XCTAssertEqual(AgentChatEmpty.text(loaded: true, reachable: true, noAgent: false), "sem mensagens ainda")
     }
@@ -283,6 +283,8 @@ final class AgentChatModelTests: XCTestCase {
         await model.refresh()
         XCTAssertEqual(model.messages.count, 2)
         XCTAssertFalse(model.reachable)
+        XCTAssertEqual(model.presence, .disconnected)
+        XCTAssertFalse(model.isWorking)
     }
 
     func testUnavailableKeepsMessages() async {
@@ -303,6 +305,7 @@ final class AgentChatModelTests: XCTestCase {
         await model.refresh()
         XCTAssertTrue(model.reachable)
         XCTAssertTrue(model.noAgent)
+        XCTAssertEqual(model.presence, .stopped)
     }
 
     func testGoodResponseReplacesMessages() async {
@@ -371,7 +374,13 @@ final class AgentChatModelTests: XCTestCase {
 
         fake.getResult = .success(Data(#"{"agent":"claude","status":"idle","messages":[]}"#.utf8))
         await model.refresh()
+        XCTAssertEqual(model.presence, .available)
         XCTAssertEqual(model.pollInterval, AgentChatModel.restingInterval)
+
+        fake.getResult = .success(Data(#"{"agent":"pi","status":"running","messages":[]}"#.utf8))
+        await model.refresh()
+        XCTAssertEqual(model.presence, .available, "running confirma o processo, não trabalho em curso")
+        XCTAssertFalse(model.isWorking)
     }
 }
 
@@ -458,12 +467,12 @@ final class AgentAskDisplayTests: XCTestCase {
         XCTAssertFalse(AgentAskPayload.none.showsCard)
     }
 
-    func testCardAndStopAreMacBlind() {
+    func testCardAndStopSupportBothContractSelectors() {
         let live = payload(asking: true, options: [option])
         XCTAssertTrue(AgentAskDisplay.shows(live, target: .session("claude")))
-        XCTAssertFalse(AgentAskDisplay.shows(live, target: .pane(project: "garime", pane: "w1:p3")))
+        XCTAssertTrue(AgentAskDisplay.shows(live, target: .pane(project: "garime", pane: "w1:p3")))
         XCTAssertTrue(AgentAskDisplay.canInterrupt(working: true, target: .session("claude")))
-        XCTAssertFalse(AgentAskDisplay.canInterrupt(working: true, target: .pane(project: "garime", pane: "w1:p3")))
+        XCTAssertTrue(AgentAskDisplay.canInterrupt(working: true, target: .pane(project: "garime", pane: "w1:p3")))
         XCTAssertFalse(AgentAskDisplay.canInterrupt(working: false, target: .session("claude")))
     }
 
@@ -496,12 +505,12 @@ final class AgentAskEndpointTests: XCTestCase {
             "/term/agent-ask?session=claude"
         )
         XCTAssertEqual(
-            BridgeEndpoint.termAgentAnswer(session: "meu agente").path,
+            BridgeEndpoint.termAgentAnswer(target: .session("meu agente")).path,
             "/term/agent-answer?session=meu%20agente"
         )
         XCTAssertEqual(
-            BridgeEndpoint.termAgentInterrupt(session: "meu agente").path,
-            "/term/agent-interrupt?session=meu%20agente"
+            BridgeEndpoint.termAgentInterrupt(target: .pane(project: "garime", pane: "w1:p3")).path,
+            "/term/agent-interrupt?project=garime&pane=w1%3Ap3"
         )
     }
 
@@ -595,7 +604,22 @@ final class AgentAskModelTests: XCTestCase {
         await model.refresh()
         XCTAssertTrue(model.ask.showsCard)
         XCTAssertEqual(model.ask.options.count, 2)
+        XCTAssertEqual(model.presence, .awaitingResponse)
+        XCTAssertFalse(model.isWorking)
         XCTAssertTrue(fake.calls.contains { $0.hasPrefix("/term/agent-ask") })
+    }
+
+    func testQuestionDoesNotRemainActionableWhileDisconnected() async {
+        let fake = FakeAskBridge()
+        fake.askJSON = asking
+        let model = AgentChatModel(target: target, client: fake)
+        await model.refresh()
+        XCTAssertTrue(model.showsAskCard)
+
+        fake.chatUnreachable = true
+        await model.refresh()
+        XCTAssertEqual(model.presence, .disconnected)
+        XCTAssertFalse(model.showsAskCard)
     }
 
     func testMissingEndpointDegradesSilently() async {
@@ -662,26 +686,30 @@ final class AgentAskModelTests: XCTestCase {
         XCTAssertNil(model.answering)
     }
 
-    func testMacTargetNeverAnswersOrInterrupts() async {
+    func testMacTargetAnswersAndInterruptsThroughPaneSelector() async {
         let fake = FakeAskBridge()
         fake.askJSON = asking
         let macTarget = AgentChatTarget(project: "garime", pane: "w1:p3", agent: "claude", status: "working")
         let model = AgentChatModel(target: macTarget, client: fake)
         await model.refresh()
-        XCTAssertFalse(model.showsAskCard)
-        XCTAssertFalse(model.canInterrupt)
+        XCTAssertTrue(model.showsAskCard)
+        XCTAssertEqual(model.presence, .awaitingResponse)
 
+        fake.askJSON = #"{"asking":false}"#
         await model.answer(1)
+        XCTAssertTrue(fake.calls.contains { $0.hasPrefix("/term/agent-answer?project=garime&pane=w1%3Ap3") })
+
+        await model.refresh()
+        XCTAssertTrue(model.canInterrupt)
         await model.interrupt()
-        XCTAssertTrue(fake.sentBodies.isEmpty)
-        XCTAssertFalse(fake.calls.contains { $0.hasPrefix("/term/agent-answer") })
-        XCTAssertFalse(fake.calls.contains { $0.hasPrefix("/term/agent-interrupt") })
+        XCTAssertTrue(fake.calls.contains { $0.hasPrefix("/term/agent-interrupt?project=garime&pane=w1%3Ap3") })
     }
 
     func testInterruptShowsBusyStateAndDoesNotStack() async {
         let fake = FakeAskBridge()
         fake.postDelay = 40_000_000
         let model = AgentChatModel(target: target, client: fake)
+        await model.refresh()
         XCTAssertFalse(model.interrupting)
         async let first: Void = model.interrupt()
         try? await Task.sleep(nanoseconds: 10_000_000)
@@ -696,6 +724,7 @@ final class AgentAskModelTests: XCTestCase {
     func testInterruptIsHonestAboutDelivery() async {
         let fake = FakeAskBridge()
         let model = AgentChatModel(target: target, client: fake)
+        await model.refresh()
         await model.interrupt()
         XCTAssertTrue(fake.calls.contains { $0.hasPrefix("/term/agent-interrupt") })
         XCTAssertEqual(model.notice, "interrupção enviada")

@@ -2,6 +2,19 @@ import XCTest
 @testable import Garime
 
 final class StatusIndicatorTests: XCTestCase {
+    func testAgentPresenceHasClearLabelsAndLevels() {
+        XCTAssertEqual(AgentPresence.checking.label, "checando…")
+        XCTAssertEqual(AgentPresence.disconnected.label, "desconectado")
+        XCTAssertEqual(AgentPresence.stopped.label, "parado")
+        XCTAssertEqual(AgentPresence.available.label, "disponível")
+        XCTAssertEqual(AgentPresence.working.label, "trabalhando")
+        XCTAssertEqual(AgentPresence.awaitingResponse.label, "aguardando resposta")
+        XCTAssertEqual(AgentPresence.disconnected.level, .failed)
+        XCTAssertEqual(AgentPresence.available.level, .healthy)
+        XCTAssertEqual(AgentPresence.working.level, .working)
+        XCTAssertEqual(AgentPresence.awaitingResponse.level, .idle)
+    }
+
     func testAgentStatusMapping() {
         XCTAssertEqual(StatusLevel.agent(status: "working"), .working)
         XCTAssertEqual(StatusLevel.agent(status: "running"), .working)

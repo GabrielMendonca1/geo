@@ -1,6 +1,36 @@
 import SwiftUI
 import UIKit
 
+enum AgentPresence: Equatable {
+    case checking
+    case disconnected
+    case stopped
+    case available
+    case working
+    case awaitingResponse
+
+    var label: String {
+        switch self {
+        case .checking: return "checando…"
+        case .disconnected: return "desconectado"
+        case .stopped: return "parado"
+        case .available: return "disponível"
+        case .working: return "trabalhando"
+        case .awaitingResponse: return "aguardando resposta"
+        }
+    }
+
+    var level: StatusLevel {
+        switch self {
+        case .checking, .stopped: return .dormant
+        case .disconnected: return .failed
+        case .available: return .healthy
+        case .working: return .working
+        case .awaitingResponse: return .idle
+        }
+    }
+}
+
 enum StatusLevel: Equatable {
     case working
     case healthy

@@ -282,7 +282,7 @@ enum AgentChatClock {
 enum AgentChatEmpty {
     static func text(loaded: Bool, reachable: Bool, noAgent: Bool) -> String {
         if noAgent { return "esse agente não existe mais" }
-        if !reachable { return "sem conexão com o mac" }
+        if !reachable { return "sem conexão com o agente" }
         if !loaded { return "carregando…" }
         return "sem mensagens ainda"
     }

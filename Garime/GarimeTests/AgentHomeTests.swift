@@ -98,6 +98,9 @@ final class AgentHomeTests: XCTestCase {
         XCTAssertEqual(model.vmLevel, .healthy)
         XCTAssertEqual(model.macLevel, .healthy)
         XCTAssertEqual(model.latency, 250)
+        XCTAssertEqual(model.presence, .available)
+        XCTAssertEqual(model.agentNote, "disponível")
+        XCTAssertEqual(model.agentLevel, .healthy)
     }
 
     func testMacOfflineOnlyDimsTheMacDot() async {
@@ -109,7 +112,8 @@ final class AgentHomeTests: XCTestCase {
         XCTAssertEqual(model.vmLevel, .healthy)
         XCTAssertEqual(model.macLevel, .failed)
         XCTAssertFalse(model.agentRunning)
-        XCTAssertEqual(model.agentNote, "agente parado")
+        XCTAssertEqual(model.presence, .stopped)
+        XCTAssertEqual(model.agentNote, "parado")
     }
 
     func testUnreachableBridgeKillsBothDots() async {
@@ -123,7 +127,29 @@ final class AgentHomeTests: XCTestCase {
         XCTAssertEqual(model.vmLevel, .failed)
         XCTAssertEqual(model.macLevel, .dormant)
         XCTAssertNil(model.latency)
-        XCTAssertEqual(model.agentNote, "bridge fora do ar")
+        XCTAssertEqual(model.presence, .disconnected)
+        XCTAssertEqual(model.agentNote, "desconectado")
+        XCTAssertEqual(model.agentLevel, .failed)
+    }
+
+    func testBusyIsOnlyShownFromRealHealthPayload() async {
+        let fake = liveFake()
+        fake.routes["/term/health"] = .success(data(#"{"ok":true,"mac_online":true,"agent":{"running":true,"busy":true}}"#))
+        let model = AgentHomeModel(client: fake)
+        await model.refresh()
+
+        XCTAssertEqual(model.presence, .working)
+        XCTAssertEqual(model.agentLevel, .working)
+    }
+
+    func testMissingOKDoesNotClaimAvailability() async {
+        let fake = liveFake()
+        fake.routes["/term/health"] = .success(data(#"{"mac_online":true,"agent":{"running":true}}"#))
+        let model = AgentHomeModel(client: fake)
+        await model.refresh()
+
+        XCTAssertEqual(model.presence, .disconnected)
+        XCTAssertFalse(model.reachable)
     }
 
     func testMissingAgentBlockDecodesAsStopped() async {

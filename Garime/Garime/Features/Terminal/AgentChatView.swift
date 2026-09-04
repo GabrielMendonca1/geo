@@ -190,17 +190,12 @@ struct AgentAskPayload: Decodable, Equatable {
 }
 
 enum AgentAskDisplay {
-    static func session(_ target: AgentTargetRef) -> String? {
-        guard case .session(let name) = target else { return nil }
-        return name
+    static func shows(_ payload: AgentAskPayload, target _: AgentTargetRef) -> Bool {
+        payload.showsCard
     }
 
-    static func shows(_ payload: AgentAskPayload, target: AgentTargetRef) -> Bool {
-        session(target) != nil && payload.showsCard
-    }
-
-    static func canInterrupt(working: Bool, target: AgentTargetRef) -> Bool {
-        session(target) != nil && working
+    static func canInterrupt(working: Bool, target _: AgentTargetRef) -> Bool {
+        working
     }
 }
 
@@ -301,20 +296,27 @@ final class AgentChatModel: ObservableObject {
         status = target.status
     }
 
-    var isWorking: Bool {
-        status == "working" || status == "running"
+    var presence: AgentPresence {
+        if !reachable { return .disconnected }
+        if !loaded { return .checking }
+        if noAgent { return .stopped }
+        if showsAskCard { return .awaitingResponse }
+        if status.lowercased() == "working" { return .working }
+        return .available
     }
+
+    var isWorking: Bool { presence == .working }
 
     var pollInterval: UInt64 {
         isWorking ? Self.workingInterval : Self.restingInterval
     }
 
     var showsAskCard: Bool {
-        AgentAskDisplay.shows(ask, target: target.ref)
+        reachable && AgentAskDisplay.shows(ask, target: target.ref)
     }
 
     var canInterrupt: Bool {
-        AgentAskDisplay.canInterrupt(working: isWorking, target: target.ref)
+        AgentAskDisplay.canInterrupt(working: presence == .working, target: target.ref)
     }
 
     var feedKey: String {
@@ -450,11 +452,11 @@ final class AgentChatModel: ObservableObject {
     }
 
     func answer(_ index: Int) async {
-        guard answering == nil, let session = AgentAskDisplay.session(target.ref) else { return }
+        guard answering == nil, showsAskCard else { return }
         answering = index
         askSeq += 1
         notice = ""
-        let path = BridgeEndpoint.termAgentAnswer(session: session).path
+        let path = BridgeEndpoint.termAgentAnswer(target: target.ref).path
         let body = Data(#"{"index":\#(index)}"#.utf8)
         do {
             _ = try await client.postData(path, body: body, token: BridgeConfig.termToken)
@@ -481,10 +483,10 @@ final class AgentChatModel: ObservableObject {
     }
 
     func interrupt() async {
-        guard !interrupting, let session = AgentAskDisplay.session(target.ref) else { return }
+        guard !interrupting, canInterrupt else { return }
         interrupting = true
         defer { interrupting = false }
-        let path = BridgeEndpoint.termAgentInterrupt(session: session).path
+        let path = BridgeEndpoint.termAgentInterrupt(target: target.ref).path
         do {
             _ = try await client.postData(path, body: nil, token: BridgeConfig.termToken)
             notice = "interrupção enviada"
@@ -958,12 +960,13 @@ struct AgentChatView: View {
             }
             .buttonStyle(.plain)
             AgentBadge(agent: target.agent)
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(target.agent)
-                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                    .font(.system(size: 14, weight: .semibold))
                     .lineLimit(1)
-                if !subtitle.isEmpty {
-                    Text(subtitle)
+                HStack(spacing: 5) {
+                    StatusDot(level: model.presence.level, size: 6)
+                    Text(headerDetail)
                         .font(.system(size: 10, design: .monospaced))
                         .foregroundStyle(Color.slateTextDim)
                         .lineLimit(1)
@@ -975,7 +978,10 @@ struct AgentChatView: View {
                 stopButton
                     .transition(.opacity)
             }
-            StatusDot(level: model.reachable ? .agent(status: model.status) : .failed)
+            Text(model.presence.label)
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .foregroundStyle(Color.slateTextDim)
+                .lineLimit(1)
                 .padding(.trailing, 14)
         }
         .foregroundStyle(.primary)
@@ -983,6 +989,11 @@ struct AgentChatView: View {
         .frame(minHeight: 48)
         .glassSurface(shape: Capsule())
         .padding(.horizontal, 12)
+    }
+
+    private var headerDetail: String {
+        let context = subtitle
+        return context.isEmpty ? model.presence.label : context
     }
 
     private var subtitle: String {
