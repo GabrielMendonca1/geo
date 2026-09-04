@@ -2,7 +2,7 @@
 
 HTTP daemon on the VM `garime` exposing three local resources to the tailnet for the iPhone app. The bridge is a **dumb pipe over files**: it never re-models data. Reads return file contents **verbatim** (zero re-encode); mutations are minimal field edits; streams are line pass-through. The Mac app (Geo.app) and hermes remain the owners of all state — the bridge only relays it.
 
-Spec version: 4 (v3 + `/vitals/*` health). All facts below were extracted from the live system on 2026-07-01 (real task files, real dispatch dirs, `TaskItem.swift`, `TasksStore.swift`, `HermesKanbanService.swift`, `api_server.py`, `~/.hermes/config.yaml`).
+Spec version: 5 (v4 + versioned training catalog, blocks, and frozen weekly plans). All facts below were extracted from the live system on 2026-07-01 (real task files, real dispatch dirs, `TaskItem.swift`, `TasksStore.swift`, `HermesKanbanService.swift`, `api_server.py`, `~/.hermes/config.yaml`).
 
 ## Deployment
 
@@ -23,13 +23,13 @@ Deploy: `scp` the repo's `geobridge.py` to `/opt/garime/geobridge.py`, then `sys
 
 ## Configuration (env vars)
 
-Defaults below are the code's; the **effective** values come from the `Environment=` lines of `garime-bridge.service` (VM paths: `GEO_TASKS_DIR=/mnt/garime/Vault/Tasks`, `GEO_BRIDGE_BIND=127.0.0.1` behind `tailscale serve`, tokens under `/etc/garime/`, `GEO_TERM_ENABLED=1`, `GEO_TERM_TMUX=/usr/bin/tmux`). `GEO_HEALTH_DIR` is not set in the unit — it resolves from `biel`'s `HOME` to `/home/biel/Vault/Health`.
+Defaults below are the code's; effective values come from `garime-bridge.service`: task and health state live under `/mnt/garime/state`, the bridge binds to `127.0.0.1` behind `tailscale serve`, tokens live under `/etc/garime/`, and the terminal uses `/usr/bin/tmux`.
 
 | Var | Default | Meaning |
 |---|---|---|
-| `GEO_TASKS_DIR` | `~/Vault/Tasks` | One `<id>.json` per task |
+| `GEO_TASKS_DIR` | `/mnt/garime/state/tasks` | One `<id>.json` per task |
 | `GEO_DISPATCHES_DIR` | `~/.hermes/dispatches` | One dir per cc-dispatch worker |
-| `GEO_HEALTH_DIR` | `~/Vault/Health` | `protocol.json`, `state.json`, one `log-YYYY-MM-DD.json` per session |
+| `GEO_HEALTH_DIR` | `/mnt/garime/state/health` | `protocol.json`, `state.json`, one `log-YYYY-MM-DD.json` per session |
 | `GEO_BRIDGE_BIND` | `100.123.44.9` | Tailnet address to bind (never `0.0.0.0`) |
 | `GEO_BRIDGE_PORT` | `8643` | |
 | `GEO_BRIDGE_TOKEN_FILE` | `~/.hermes/geobridge.token` | Bearer token for bridge auth (single line, trimmed) |
@@ -39,7 +39,8 @@ Defaults below are the code's; the **effective** values come from the `Environme
 | `GEO_TERM_TMUX` | `/opt/homebrew/bin/tmux` | Absolute path to `tmux` (launchd `PATH` is minimal) |
 | `GEO_TERM_SHELL` | *(unset)* | If set, exported as `SHELL` to the tmux child (else tmux's default) |
 | `GEO_TERM_PROFILE_MAC` | *(unset)* | If set, the path (tilde-expanded) run as the command of the session literally named `mac` — a dedicated "my Mac" profile script instead of a bare shell. Ignored for every other session name |
-| `GEO_TERM_SESSION` | `mobile` | Default tmux session name (used when `?session=` is absent; also when malformed, but only on the read verbs — see "Session selection") |
+| `GEO_TERM_SESSION` | `mobile` | Default tmux session name (used **only** when `?session=` is absent; a malformed value is `400` on every verb — see "Session selection") |
+| `GEO_AGENT_SESSION` | `garime-agent` | tmux session of the single always-on agent, reported by `/term/health` and ensured by `/term/agent-ensure`. A value that fails `\A[A-Za-z0-9_-]{1,32}\Z` falls back to the default |
 | `GEO_TERM_REPLAY_BYTES` | `262144` | Per-session ring buffer of recent PTY output replayed to each new `/term/stream` |
 | `GEO_BRIDGE_TERM_TOKEN_FILE` | `~/.hermes/geobridge.term.token` | Second, dedicated bearer token for `/term/*` (single line, trimmed) |
 | `GEO_STATUS_UNITS` | `garime-wa syncthing-garime` | Space-separated allowlist of systemd units reported by `/term/agents` |
@@ -63,13 +64,32 @@ Defaults below are the code's; the **effective** values come from the `Environme
 | `GEO_AGENT_WORK_TTL` | `5` | Seconds the parallel-work snapshot of `/term/agent-work` is cached (own cache; deliberately short — this is the fastest-moving state the bridge serves) |
 | `GEO_AGENT_WORK_TIMEOUT` | `12` | Hard timeout (s) of the single ssh of `/term/agent-work` |
 | `GEO_AGENT_WORK_RUNNING_WINDOW` | `120` | Seconds of mtime freshness that make a **direct sub-agent** count as `running:true` (see the heuristic below) |
+| `GEO_AGENT_WORK_STALE_AFTER` | `3600` | Seconds after which a workflow with no activity at all (neither journal nor any sub-agent transcript touched) stops counting its unfinished `started` events as running: `running:0`, `stale:true` |
 | `GEO_AGENT_WORK_WORKFLOWS_MAX` | `10` | Workflows returned by `/term/agent-work` (newest first); a cut sets `truncated:true` |
 | `GEO_AGENT_WORK_SUBAGENTS_MAX` | `20` | Direct sub-agents returned by `/term/agent-work` (newest first); a cut sets `truncated:true` |
 | `GEO_AGENT_WORK_SCAN_MAX` | `200` | Workflow dirs / sub-agent metas the **remote** script looks at before ordering happens on the VM |
 | `GEO_AGENT_WORK_CACHE_MAX` | `64` | Maximum `(project, pane, session-id, cwd)` entries kept by the `/term/agent-work` cache before the oldest is evicted |
 | `GEO_AGENT_UPLOAD_DIR` | `garime-uploads` | Inbox **on the Mac**, always relative to the ssh user's `$HOME`, for `/term/agent-upload` (a bare name, never a path) |
 | `GEO_AGENT_UPLOAD_TIMEOUT` | `120` | Hard timeout (s) of the `/term/agent-upload` ssh (covers streaming up to 32 MiB over stdin) |
+| `GEO_AGENT_ASK_SCAN_LINES` | `60` | How many lines from the **bottom** of the captured pane `/term/agent-ask` scans for a question block; an older block above that window is not reported |
+| `GEO_AGENT_ASK_TIMEOUT` | `5` | Hard timeout (s) of the `tmux capture-pane` of `/term/agent-ask` and `/term/agent-answer` |
+| `GEO_AGENT_ASK_OPTION_GAP` | `6` | Max lines between two consecutive option lines still chained into the same question block (absorbs tmux wrapping and border-only pad lines at narrow pane widths) |
+| `GEO_AGENT_ASK_TAIL_BODY` | `4` | Max non-blank, non-chrome, non-hint lines tolerated **between** the option block and the affordance footer (dialog body lines such as `● High effort (default) ←/→ to adjust` — or its degraded sibling `○ Effort not supported for Haiku` — and the wrap continuation of the last option). Zero are tolerated *after* the footer |
+| `GEO_AGENT_PI_SKILLS_DIR` | `/mnt/garime/pi/skills` | Where the **VM's** pi keeps its skills. Globbed by `/term/agent-commands` in addition to `$HOME/.pi/agent/skills`, which does not exist on the VM |
+| `GEO_AGENT_INTERRUPT_KEY` | `Escape` | tmux key name sent by `/term/agent-interrupt` on the **VM** path (see the rationale there before changing it to `C-c`) |
+| `GEO_AGENT_INTERRUPT_KEY_MAC` | `esc` | herdr logical key name sent by `/term/agent-interrupt` on the **Mac** path. herdr's canonical name is `esc` (`escape` is also accepted); it is *not* the tmux spelling, which is why this is a separate var |
+| `GEO_AGENT_ASK_MAC_TIMEOUT` | `12` | Hard timeout (s) of each `herdr pane` ssh of the Mac path of `/term/agent-ask`, `/term/agent-answer` and `/term/agent-interrupt` (same budget as `/term/agent-chat`: 4 s ssh connect + the herdr socket round-trip) |
+| `GEO_AGENT_WATCH` | `0` | Master switch of the **agent-ask watcher** (below). **Off by default on purpose** — a watcher that comes up armed on a deploy sends WhatsApp the owner never asked for. Arming it is a deliberate act: add `Environment=GEO_AGENT_WATCH=1` to `garime-bridge.service` and `daemon-reload` + `restart`. As of 2026-08-06 that line is **not** in the unit on the VM and the deployed `/opt/garime/geobridge.py` predates the watcher |
+| `GEO_AGENT_WATCH_INTERVAL` | `30` | Seconds between watcher ticks. Floored at `5` |
+| `GEO_AGENT_WATCH_COOLDOWN` | `300` | Minimum seconds between two notifications **for the same tmux session**. A notification suppressed by the cooldown is **dropped, never queued** |
+| `GEO_AGENT_WATCH_MAX_HOUR` | `12` | Global ceiling of notifications per sliding hour across all sessions. Over the ceiling the event is logged and **dropped, never queued** |
+| `GEO_AGENT_WATCH_MIN_COLS` | `40` | Minimum `#{pane_width}` the watcher will judge a pane at. Narrower (or an unreadable width) = "could not find out": the tick skips that session without notifying **and without clearing** |
+| `GEO_AGENT_WATCH_SEEN_TTL` | `86400` | Seconds a seen question fingerprint is remembered after it was last observed. Only this TTL forgets it — an agent missing from a degraded scan never does |
+| `GEO_AGENT_WATCH_STATE` | `~/.garime/agent-watch.json` | Persisted watcher state (seen keys, per-session last-sent, hourly ledger). Survives `Restart=always`, so a restart while an agent is blocked does not re-send |
+| `GEO_WA_OUTBOX` | `/mnt/garime/pi/wa-outbox` | Directory drained by `garime-wa.service`. Writing a `*.txt` there = sending a WhatsApp message to the group |
 | `GEO_AGENT_PI_SESSIONS_DIR` | `/mnt/garime/pi/agent/sessions` | Where the **VM's** pi keeps its transcripts (`<cwd-encoded>/<ts>_<uuid>.jsonl`). Used only by the `session=` selector; a missing dir falls back to `$HOME/.pi/agent/sessions` |
+| `GEO_AGENT_PRIME_SESSIONS_DIR` | *(empty)* | Where the **VM's** `prime-agent` keeps its transcripts (flat `<uuid>.jsonl`, no per-project directory). Used only by the `session=` selector; empty — the default — or a missing dir falls back to `$HOME/.prime/agent/sessions` |
+| `GEO_AGENT_PRIME_SCAN_MAX` | `50` | How many of the newest `*.jsonl` of that flat directory have their first line read while looking for the pane's `cwd`. A session older than that window reads as empty instead of blowing past `GEO_AGENT_CHAT_TIMEOUT` |
 | `GEO_AGENT_VM_DEPTH` | `3` | How many process generations below a tmux pane are inspected when detecting which agent runs in a VM session (the pane's own command is generation 0) |
 
 ## Auth
@@ -241,7 +261,7 @@ Bridge request:
 
 ## Vitals — `/vitals/*` (added in v4)
 
-The health module of the phone, over `GEO_HEALTH_DIR` (default `~/Vault/Health`). Dumb pipe as in principle 1: reads are verbatim bytes, writes are validate-then-atomic-write of the exact JSON the phone sent. The bridge never computes anything — in particular it does **not** derive today's session; the phone does that from `state.json` (`(anchorIndex + days_since(anchorDate)) mod 6`). Main bridge token, same as `/tasks`.
+The health module of the phone, over `GEO_HEALTH_DIR` (default `/mnt/garime/state/health`). Dumb pipe as in principle 1: reads are verbatim bytes, writes are validate-then-atomic-write of the exact JSON the phone sent. The legacy routes never compute anything — in particular the bridge does **not** derive today's session; the phone does that from `state.json` (`(anchorIndex + days_since(anchorDate)) mod 6`). Main bridge token, same as `/tasks`.
 
 ### GET /vitals/protocol
 
@@ -281,20 +301,127 @@ Same splice as `GET /tasks`: `[ <bytes of log-A.json>, <bytes of log-B.json>, �
 
 ### POST /vitals/log
 
+Legacy identity remains accepted:
+
 ```json
 {"id":"6D2A7F10-4C3B-4E5A-9F81-0B7C2D3E4F50","date":"2026-08-04","sessionIndex":3,
  "exercises":[{"id":"supino","sets":[{"reps":12,"kg":40.0}]}],"note":""}
 ```
 
-1. Validate: object with `id` matching the id regex, `date` matching `^\d{4}-\d{2}-\d{2}$`, `sessionIndex` an int in `0..5`, `exercises` a list whose entries are objects with an id-regex `id` and a list `sets`. Deeper shape (`reps`/`kg`, `note`) is not validated — dumb pipe. Anything else → `400 {"error":"invalid_body"}`.
-2. Write atomically over `log-<date>.json`. **Overwrite allowed** (unlike `POST /tasks`): the day's log is edited during the session, so there is no `409`.
-3. `200` with the exact bytes written.
+A frozen-plan log uses plan provenance instead of `sessionIndex`:
+
+```json
+{"id":"6D2A7F10-4C3B-4E5A-9F81-0B7C2D3E4F50","date":"2026-08-24",
+ "planId":"plan-2026-W35.r1","planDayId":"2026-08-24",
+ "exercises":[{"id":"remada-baixa","sets":[{"reps":12,"kg":40.0}]}],"note":""}
+```
+
+1. Validate the common shape: object with an id-regex `id`, a real calendar `date` in `YYYY-MM-DD`, and `exercises` as a list whose entries have an id-regex `id` and a list `sets`. Deeper shape (`reps`/`kg`, `note`) is not validated — dumb pipe.
+2. Require exactly one identity mode: either `sessionIndex` as an int in `0..5`, or both `planId` (`plan-<ISO-week>.r<positive revision>`) and `planDayId`. Mixed and missing identities are rejected. In plan mode, `planDayId` must equal `date`, and the date's ISO week must equal the week in `planId`.
+3. Write atomically over `log-<date>.json`. **Overwrite allowed** (unlike `POST /tasks`): only today's log is edited during the session, so there is no `409`. Clients must never use this route to rewrite a past day's log.
+4. `200` with the compact JSON bytes written. Unknown compatible fields are preserved. `GET /vitals/logs` returns legacy and plan-provenance logs together without migration or rewriting.
+
+## Versioned training library and frozen week (added in v5)
+
+These routes are additive at the bridge boundary. They do not read or mutate `protocol.json` or `state.json`; old clients and the legacy logging flow continue unchanged. Current clients treat a valid frozen plan for the current ISO week as the primary Health source and use the legacy protocol/state only when that plan is missing or unusable. Plan replacement is a new append-only revision, never re-anchoring `state.json`. Missing new files return `404`, which is the normal pre-publication/rollback state. Every route uses the main bridge token.
+
+Stable IDs match `[A-Za-z0-9._-]+`, are immutable after publication, are never reused, and are retired rather than deleted. Demo IDs use the `demo.` namespace. Catalog and block files carry monotonically increasing integer versions. Unknown JSON fields may be added in compatible schema revisions. `GeoBridge/training/` is the repository's canonical source for the real static `catalog.json`, `blocks.json`, and `safety.json`; it is not a deployment or seed directory and intentionally contains no plan, `protocol.json`, or `state.json`.
+
+### GET /vitals/catalog
+
+Returns the verbatim bytes of `catalog.json`; missing/unreadable → `404`. Catalog v1 is:
+
+```json
+{
+  "schema": "vitals.catalog/1",
+  "id": "demo-catalog",
+  "version": 1,
+  "updatedAt": "2026-08-03T18:00:00Z",
+  "exercises": [{
+    "id": "demo.remada-maquina",
+    "name": "Remada na máquina (demo)",
+    "status": "active",
+    "muscles": ["upper-back"],
+    "equipment": "machine",
+    "tags": ["pull", "demo"]
+  }]
+}
+```
+
+`status` is `active` or `retired`. `muscles` uses the existing body vocabulary. Compatible catalog entries may add `pattern`, `goals`, `riskFlags`, `shoulderTier`, `substitutes`, `doseType`, `variantNote`, `reviewState`, and gate references; current app decoders ignore these unknown keys. Safety governance remains in the separate sidecar rather than changing the closed status enum.
+
+### GET /vitals/blocks
+
+Returns verbatim `blocks.json`; missing/unreadable → `404`. Blocks are versioned reusable templates:
+
+```json
+{
+  "schema": "vitals.blocks/1",
+  "version": 1,
+  "blocks": [{
+    "id": "demo.corpo-inteiro-a",
+    "version": 1,
+    "name": "Corpo inteiro A (demo)",
+    "items": [{"exerciseId":"demo.remada-maquina","sets":[[10,12],[10,12]],"restSec":90}]
+  }]
+}
+```
+
+Each `sets` entry is the same inclusive `[min,max]` range used by the legacy protocol. Blocks may add publication and safety metadata. A block marked `publishable: true` must not reference an exercise whose current review is locked or conditional; the canonical personalized source is stricter and also excludes pending tier B items while overhead discomfort remains reported.
+
+### GET /vitals/safety
+
+Reserved for a separately governed `safety.json`. Returns verbatim bytes when present and `404` when absent. The demo fixtures intentionally ship no `safety.json`. The canonical real sidecar records user-reported history rather than diagnosis, never describes strengthening as treatment or cure, and keeps overhead load, specific cuff/scapular work, and tier C behind professional gates that self-report alone cannot unlock.
+
+### GET /vitals/plan?week=YYYY-Www
+
+Validates a real ISO week; malformed/nonexistent weeks → `400 {"error":"invalid_week"}`. It returns verbatim bytes of the highest revision matching `plan-<week>.r<N>.json`, ignoring names containing `.sync-conflict-`; no revision → `404`.
+
+A frozen plan is denormalized so later catalog/template changes cannot alter the prescribed snapshot:
+
+```json
+{
+  "schema": "vitals.plan/1",
+  "id": "plan-2026-W32.r1",
+  "week": "2026-W32",
+  "revision": 1,
+  "frozenAt": "2026-08-03T18:00:00Z",
+  "source": {
+    "catalogId": "demo-catalog",
+    "catalogVersion": 1,
+    "blocks": [{"blockId":"demo.corpo-inteiro-a","blockVersion":1}],
+    "generator": "manual"
+  },
+  "days": [{
+    "date": "2026-08-03",
+    "label": "Corpo inteiro A (demo)",
+    "rest": false,
+    "items": [{
+      "exerciseId": "demo.remada-maquina",
+      "name": "Remada na máquina (demo)",
+      "muscles": ["upper-back"],
+      "sets": [[10,12],[10,12]],
+      "restSec": 90
+    }]
+  }]
+}
+```
+
+The complete payload has exactly seven days, Monday through Sunday of `week`, in order. `source` pins catalog and block provenance. `generator` is `manual` or `conversation`; the bridge itself does not generate plans. The repository tool `GeoBridge/tools/generate_week_plan.py` deterministically builds 4- or 5-day test artifacts from canonical catalog, blocks, and safety data. It fails closed on denied review/gate states, blocked templates, invalid references, and session duration outside 40–70 minutes, and never writes `protocol.json` or `state.json`.
+
+### POST /vitals/plan
+
+Validates schema tag, stable IDs, positive versions/revision, source shape, set ranges, and exactly seven consecutive ISO-week dates. `id` must equal `plan-<week>.r<revision>`.
+
+Plans are append-only and write-once. The first revision is 1; each later POST must be exactly the current maximum + 1. A replay/existing revision → `409 {"error":"revision_exists"}`; a gap or stale non-existing revision → `400 {"error":"invalid_revision"}`; malformed payload → `400 {"error":"invalid_body"}`. Accepted bytes are compact JSON written atomically without overwrite as `plan-<week>.r<revision>.json`; success → `200` with those bytes.
+
+`catalog.json`, `blocks.json`, `safety.json`, and `plan-*` can never enter `GET /vitals/logs`, whose filename filter remains exactly `log-*.json`.
 
 ## Terminal — `/term/*` (added in v3)
 
 A real interactive terminal for the phone. **Not** a dumb pipe over files (see the principle-4 carve-out above for the blast-radius warning). Eleven endpoints (`stream`, `input`, `resize`, `winsize`, `list`, `preview`, `agents`, `panes`, `kill`, `rename`, `upload`), all gated and separately authed. `preview`, `agents` and `panes` are strictly read-only and never spawn a session.
 
-**Session selection.** Every `/term/*` endpoint takes `?session=<name>`, matched against `\A[A-Za-z0-9_-]{1,32}\Z` (anchored so a trailing newline is rejected, not accepted as `$` would). A **missing** value falls back to `GEO_TERM_SESSION` (default `mobile`) on every endpoint. A **present but malformed** value falls back to that default only on the read verbs (`stream`, `input`, `resize`, `winsize`, `list`, `preview`); on the mutating verbs (`kill`, `rename`) it is `400 {"error":"bad_name"}` — silently redirecting a kill or a rename onto the default session would mutate a session the caller never asked for. The name `mac` is special: if `GEO_TERM_PROFILE_MAC` is set, that script is run as the session's command.
+**Session selection.** Every `/term/*` endpoint takes `?session=<name>`, matched against `\A[A-Za-z0-9_-]{1,32}\Z` (anchored so a trailing newline is rejected, not accepted as `$` would). A **missing** value falls back to `GEO_TERM_SESSION` (default `mobile`) on every endpoint. A **present but malformed** value is `400 {"error":"bad_name"}` on **every** verb, reading or mutating (`stream`, `input`, `resize`, `winsize`, `list`, `preview`, `kill`, `rename`, and the `agent-*` verbs). One validator, no silent fallback: redirecting a request onto the default session — a stream just as much as a kill — answers about a session the caller never asked for. `/term/list` ignores the value but still validates it. The name `mac` is special: if `GEO_TERM_PROFILE_MAC` is set, that script is run as the session's command.
 
 **Targets are exact.** tmux resolves `-t <name>` by exact → fnmatch → **prefix** → substring, so `-t ma` would hit the session `mac`. Every session target the bridge passes to tmux is prefixed with `=` (`=<name>` for session targets, `=<name>:` for pane targets like `capture-pane`/`display-message`), which forces exact matching. Consequence: a name that only *prefixes* a live session resolves to nothing — `rename`/`preview` answer `404 no_session`, `winsize` answers `409 no_session`, `kill` is a no-op, and `has-session` no longer reports a false `409 exists`. Spawning (`new-session -A -s <name>`) is exact by construction and is not prefixed.
 
@@ -379,10 +506,27 @@ Reports the tmux window geometry for the session (`display-message -p`).
 
 Read-only snapshot of a session's tail, for the sessions home on the phone. **Never spawns anything**: it is `tmux capture-pane` only — no `new-session -A`, no attach, no registry entry. A preview of a session that does not exist leaves the tmux server exactly as it was.
 
-- `?session=<name>` follows the usual rule (malformed → falls back to `GEO_TERM_SESSION`). `?lines=<n>` is clamped to `1..40`, default `12`, unparseable → default.
+- `?session=<name>` follows the usual rule (absent → `GEO_TERM_SESSION`; malformed → `400 {"error":"bad_name"}`). `?lines=<n>` is clamped to `1..40`, default `12`, unparseable → default.
 - `tmux capture-pane -p -e -t <session> -S -<n>` (subprocess timeout 5 s). `-e` **keeps the ANSI escapes**, so a client that wants plain text must strip them (the iOS home does, v1 is colorless).
 - `200 {"text":"<lines>"}`. The text is the whole visible pane plus `n` lines of scrollback, so it can be longer than `n` lines and usually ends in blank lines — trimming is the client's job.
 - No such session (non-zero exit) or tmux missing/timeout → `404 {"error":"no_session"}`.
+
+### GET /term/health
+
+Combined status for the single-agent home: is the Mac up, and is the always-on agent alive. Cheap by design — **no ssh herdr scan, no session cache**: one TCP probe of the Mac (the same 1 s `status_mac_online`) plus one local `tmux list-panes` on `GEO_AGENT_SESSION`. Read-only: it never spawns a session.
+
+- `200 {"ok":true,"mac_online":true,"agent":{"session":"garime-agent","running":true,"agent":"pi"}}`.
+- `running` is `true` only when the session exists **and** its active pane runs one of the known agents (same detection as `/term/agent-chat`); the detected name is echoed in `agent.agent` (`""` when idle or absent).
+- "VM online" is not a field: the bridge runs on the VM, so a `200` here *is* the VM signal. A transport failure is the client's red dot.
+- No such session, tmux down, or a scan error → `200` with `running:false` — this route never 5xxs. Same gate as the rest of `/term/*`: `404` when disabled, `401` on a bad term token.
+
+### POST /term/agent-ensure
+
+Makes sure the fixed agent session exists, so the phone's chat is one tap away even if the tmux server was restarted. Idempotent: `term_get_or_spawn` on `GEO_AGENT_SESSION` (`tmux new-session -A`) — an existing session is attached, never duplicated or restarted.
+
+- No params, no body. The session name is **always** `GEO_AGENT_SESSION`; the client cannot choose it.
+- It only guarantees the *session*, never the `pi` inside it: the agent process is owned by `garime-agent.service` (see `deploy/README.md`). A freshly spawned session answers `running:false` until systemd's launcher fills it.
+- `200 {"ok":true,"agent":{"session":"garime-agent","running":false,"agent":""}}` · `503 {"error":"unavailable"}` when the spawn fails (no tmux binary, pty exhaustion).
 
 ### GET /term/agents
 
@@ -401,12 +545,12 @@ Read-only service/host status for the "agentes" section of the sessions home. To
             "cwd":"/Users/biel/Garime"}]}
 ```
 
-- Per entry: `host` is `mac`|`vm`; `agent` is the agent binary (`claude`, `pi`, `codex`, `kimi`, `opencode`); `status` is `idle`|`working`|`unknown` on the Mac and always `running` on the VM; `title` is the herdr `terminal_title_stripped` (fallback `terminal_title`, else `""`); `project` is the herdr session the pane belongs to (empty on the VM); `cwd` when herdr reports one.
+- Per entry: `host` is `mac`|`vm`; `agent` is the agent binary (`claude`, `pi`, `prime-agent`, `codex`, `kimi`, `opencode`); `status` is `idle`|`working`|`unknown` on the Mac and always `running` on the VM; `title` is the herdr `terminal_title_stripped` (fallback `terminal_title`, else `""`); `project` is the herdr session the pane belongs to (empty on the VM); `cwd` when herdr reports one.
 - `pane` is the herdr `pane_id` of the entry (`w<n>:p<n>`), `""` when herdr does not report one and always `""` on the VM. Together with `project` it is the exact pair `/term/attach-agent` takes — the client never builds it, it echoes what this endpoint gave it.
 - **Mac side**: one `ssh -o BatchMode=yes -o ConnectTimeout=4 <GEO_STATUS_MAC_USER>@<GEO_STATUS_MAC_HOST>` (argv list, never `shell=True`, hard timeout `GEO_STATUS_AGENTS_TIMEOUT`). The remote script lists the `running` herdr sessions and, per session, prints a `##session <name>` marker followed by the single-line JSON of `herdr --session <name> agent list` **and** of `herdr --session <name> pane list`; the marker is what makes `project` exact instead of guessed. Each stdout line is parsed independently — unparseable lines are skipped. The `agent list` half feeds `agents` here: panes without an `agent` key (`agent_status:"unknown"`, no agent attached) are not agents and are discarded. The `pane list` half is the whole workspace and is served by `/term/panes`; it never enters the `/term/agents` payload, whose per-entry shape is unchanged.
 - **The Mac side fails silently**: ssh down, host unreachable, timeout, no herdr, garbage output → it contributes an empty list. `/term/agents` never 5xxs because of it, and `units`/`mac_online` are unaffected.
-- **VM side**: a `ps -eo pid= -o ppid= -o comm=` scan for local `pi`/`claude`/`codex`/`kimi`/`opencode` processes, `status:"running"`, `project`/`title`/`cwd` empty (that data is not available cheaply and is not invented), ordered by pid. The WhatsApp bot runs as `node` and is *not* listed here — it is already the `garime-wa` unit.
-- **`session` (VM entries only)**: the name of the **tmux session** the process lives in, `""` when it runs outside tmux. It is the selector the client hands back to `/term/agent-chat`, `/term/agent-prompt` and `/term/agent-work` (`?session=<name>`) — the VM has no herdr, so `project`/`pane` stay empty there and an entry with an empty `session` is **not** openable. Mapping comes from one `tmux list-panes -a -F '#{session_name}\t#{pane_pid}…'` plus the same `ps` tree, walking up to `GEO_AGENT_VM_DEPTH` (3) generations below each pane pid; a failing/absent tmux degrades to `""`, never to a 5xx.
+- **VM side**: a `ps -eo pid= -o ppid= -o comm=` scan for local `pi`/`prime-agent`/`claude`/`codex`/`kimi`/`opencode` processes, `status:"running"`, `project`/`title`/`cwd` empty (that data is not available cheaply and is not invented), ordered by pid. The WhatsApp bot runs as `node` and is *not* listed here — it is already the `garime-wa` unit.
+- **`session` (VM entries only)**: the name of the **tmux session** the process lives in, `""` when it runs outside tmux. It is the selector the client hands back to `/term/agent-chat`, `/term/agent-prompt` and `/term/agent-work` (`?session=<name>`) — the VM has no herdr, so `project`/`pane` stay empty there and an entry with an empty `session` is **not** openable. Mapping comes from one `tmux list-panes -a -F '#{session_name}\t#{pane_pid}…'` plus the same `ps` tree, walking up to `GEO_AGENT_VM_DEPTH` (3) generations below each pane pid; a failing/absent tmux degrades to `""`, never to a 5xx. **Only panes that are both `#{pane_active}` and `#{window_active}` are mapped**, so this listing agrees with the whole `/term/agent-*` family, which reads and writes the active pane of the session's current window and nothing else: an agent sitting in a background pane or window used to be advertised here with a `session` on which every `agent-chat`/`agent-answer`/`agent-interrupt` call then answered `404 no_agent` (or, worse before the fix, typed into the shell next to it). Such an agent is still listed — it is really running — but with `session:""`, i.e. explicitly not openable.
 
 ```json
 {"host":"vm","agent":"claude","status":"running","title":"","project":"","pane":"","cwd":"","session":"claude"}
@@ -526,10 +670,11 @@ The **agent GUI** read side: the recent conversation of one Mac agent as structu
 Agents that run **on the VM itself** have no herdr, so no `project`/`pane` exists for them. Their natural identity is the **tmux session name** they live in, which is what `/term/agents` now reports as `session`. The three agent endpoints (`/term/agent-chat`, `/term/agent-prompt`, `/term/agent-work`) accept `?session=<name>` **instead of** `project`+`pane`:
 
 - `session` is validated by the same anchored session regex as the rest of `/term/*` (`\A[A-Za-z0-9_-]{1,32}\Z`, never `$`) → `400 {"error":"bad_target"}`. Sending `session` **together with** `project` and/or `pane` (or repeating `session`) is also `400`: the two selectors are mutually exclusive, never merged.
-- **Agent detection is local** (this is the same machine — no ssh anywhere on this path): `tmux list-panes -t '=<session>:' -F '#{pane_pid}\t#{pane_current_command}\t#{pane_current_path}'` — **always the exact target** `=<name>:`, never a prefix match — then, per pane, the pane command; if it is not an agent (it usually is the shell), the pane pid's descendants up to `GEO_AGENT_VM_DEPTH` (3) generations, from one `ps -eo pid= -o ppid= -o comm=` snapshot. The first pane whose command *or* descendant basename is in `pi`/`claude`/`codex`/`kimi`/`opencode` wins, and that pane's `#{pane_current_path}` is the `cwd` everything else is scoped by.
-- **Transcript** — the resolver and the `cwd` scoping are the Mac ones, reused: claude reads the newest `*.jsonl` of `$HOME/.claude/projects/<cwd with every char outside [A-Za-z0-9-] replaced by ->`; pi reads the newest `*.jsonl` of `<GEO_AGENT_PI_SESSIONS_DIR>/-<same encoding>-` (`/mnt/garime` → `--mnt-garime--`), falling back to `$HOME/.pi/agent/sessions/` when that root does not exist. Any other agent → `200` with `messages: []`. Same single `/bin/sh -c '…'` script as the Mac, run locally instead of over ssh, same `tail -c` cap, same parser.
+- **Agent detection is local** (this is the same machine — no ssh anywhere on this path): `tmux list-panes -t '=<session>:' -F '#{pane_pid}\t#{pane_current_command}\t#{pane_current_path}'` — **always the exact target** `=<name>:`, never a prefix match — then, per pane, the pane command; if it is not an agent (it usually is the shell), the pane pid's descendants up to `GEO_AGENT_VM_DEPTH` (3) generations, from one `ps -eo pid= -o ppid= -o comm=` snapshot. The first pane whose command *or* descendant basename is in `pi`/`prime-agent`/`claude`/`codex`/`kimi`/`opencode` wins, and that pane's `#{pane_current_path}` is the `cwd` everything else is scoped by.
+- **Transcript** — the resolver and the `cwd` scoping are the Mac ones, reused: claude reads the newest `*.jsonl` of `$HOME/.claude/projects/<cwd with every char outside [A-Za-z0-9-] replaced by ->`; pi reads the newest `*.jsonl` of `<GEO_AGENT_PI_SESSIONS_DIR>/-<same encoding>-` (`/mnt/garime` → `--mnt-garime--`), falling back to `$HOME/.pi/agent/sessions/` when that root does not exist. `prime-agent` has **no per-project directory at all** — it writes every session flat into `<GEO_AGENT_PRIME_SESSIONS_DIR>` (unset — the default — or a non-existent root falls back to `$HOME/.prime/agent/sessions`), so the scoping is done by **content**: the newest `*.jsonl` whose **first line** (the `{"type":"session",…}` header) contains the literal `"cwd":"<pane cwd>"` — the closing quote is part of the match, so `/a/b` never selects `/a/b2`. The literal is matched in **both** its raw form and its `\uXXXX`-escaped form (prime serializes the header ASCII-only), so an accented project dir still resolves. Any other agent → `200` with `messages: []`. Same single `/bin/sh -c '…'` script as the Mac, run locally instead of over ssh, same `tail -c` cap, same parser — prime's assistant blocks are camelCase `toolCall`, read as tool entries exactly like claude's `tool_use`; `thinking` blocks are dropped on both.
 - **`resolved` on the VM is always `"fallback"`** — and that is honest, not cosmetic: there is no herdr to report a session id, so the newest transcript of that `cwd` is *by construction* a heuristic. `""` still means nothing was resolved (no transcript on disk yet, or an agent with no readable transcript). **`"reported"` can never appear on this path.**
-- **The fallback never crosses projects here either**: it is scoped to the single directory derived from that pane's `cwd`; another `cwd`'s newer transcript is never served (asserted in the smoke).
+- **The fallback never crosses projects here either**: it is scoped to the single directory derived from that pane's `cwd`; another `cwd`'s newer transcript is never served (asserted in the smoke). For `prime-agent` the same invariant holds through the header match instead of a directory: **no header match → nothing is emitted** (`resolved:""`, `messages: []`); the flat directory's newest file is *never* served as a blind fallback. An empty `cwd` skips the lookup entirely (empty script).
+- **The `prime-agent` scan is bounded**: `ls -1t` of that directory is cut to `GEO_AGENT_PRIME_SCAN_MAX` (50) newest files, and only the first line of each is read (`head -n 1 | grep -qF`), so the cost stays flat as the flat directory grows — a session older than the 50 newest reads as empty rather than blowing past `GEO_AGENT_CHAT_TIMEOUT` on an endpoint that has no cache. Measured with 1000 files: ~0.11 s worst case.
 - `status` is always `"running"` (same as `/term/agents` for VM entries — the VM has no idle/working signal).
 - Codes: `200` (possibly `[]`) · `400 bad_target` · `404 {"error":"no_session"}` (no tmux session by that name) · `404 {"error":"no_agent"}` (the session exists but no agent process was found in it — we never invent a conversation) · `503 {"error":"unavailable"}` when the **local** lookup itself blew up (tmux binary missing, `tmux`/`ps` timeout, transcript script non-zero). On this path `503` never means "the Mac is down"; it still means "we could not find out".
 
@@ -562,6 +707,65 @@ Same selector rules as `/term/agent-chat` (`400 bad_target` for a malformed name
 - **Multi-line is normalized, not sent as multiple keystrokes**: `\n` is the one control character allowed, and each line is stripped, empty lines dropped, and the lines joined with a **single space** — one line, one Enter. Agent TUIs treat a bare `\n` as "send now", so passing a 5-line prompt through would fire 5 half-prompts at the agent; collapsing is the only behaviour that keeps a pasted paragraph one prompt. Clients that need real line breaks must not use this endpoint.
 - `200 {"ok":true}` means the bytes were written to the session's pty — the same guarantee `/term/input` gives, no more. `409 {"error":"no_attach"}` if the pty write failed; `503 {"error":"unavailable"}` if the local lookup/attach blew up (no tmux, `ps` timeout).
 
+### GET /term/agent-ask
+
+**Is the agent blocked waiting for a human?** A Claude Code permission prompt (`❯ 1. Yes / 2. No`) is unanswerable from the phone by design: `/term/agent-prompt` rejects every control byte below `0x20` except `\n`, so arrow keys and `Esc` cannot be smuggled through a prompt body — and that policy is not loosened. This endpoint plus `/term/agent-answer` are the **closed-vocabulary verbs** that unblock it instead.
+
+- Auth: the terminal token (`_term_gate`). Selector: the same two mutually-exclusive forms as `/term/agent-chat` — `?session=<tmux>` (VM) or `?project=&pane=` (Mac). Malformed, or the two mixed → `400 {"error":"bad_target"}`.
+
+```json
+{"agent":"claude","asking":true,"kind":"permission","question":"Do you want to proceed?",
+ "options":[{"index":1,"label":"Yes","selected":true},{"index":2,"label":"No","selected":false}],
+ "raw_hint":"Do you want to proceed?\n❯ 1. Yes\n2. No"}
+```
+
+- **VM path**: `tmux capture-pane -p -t '=<session>:'` — the **exact** pane target (`=` + `:`), never a prefix, like everywhere else in `/term/*`. No `-e`: the parser wants plain text, not ANSI. The agent is resolved first with the same local detection as `/term/agent-chat`, so `404 no_session` / `404 no_agent` keep their meanings — an agent that is not there cannot be asking anything.
+- **Mac path** (v5 — it used to always answer `asking:false`): one ssh running `herdr --session <project> pane read <pane> --source visible --format text`, fed to the **same** parser as the VM. herdr's `pane read` is the exact analogue of `tmux capture-pane -p`: `--source visible` is the current screen, `--format text` strips ANSI. The agent is resolved first through the memoized `/term/agents` scan, so `503` (Mac unreachable / scan failed) and `404 no_agent` keep their meanings, and a non-zero herdr exit is `503`, never `asking:false`.
+  - The response carries one extra field on this path: **`blocked`** — herdr's own lifecycle state for the pane (`agent_status == "blocked"`, documented upstream as "Herdr recognized an approval or question UI"), taken from the same `/term/agents` scan that resolved the agent. It is **not** used to compute `asking`: it says *that* the agent is waiting, never *what* it is waiting for, and a question with no options is unanswerable by `/term/agent-answer`. It exists so the client can tell "idle" from "blocked but the dialog did not parse" and offer the terminal instead of a wrong "free" badge. The field is **absent on the VM path** — tmux has no lifecycle signal and reporting `false` there would be an invention.
+  - **Known false negative on hosts with a Claude Code `statusLine`.** The parser demands the option block be the *last real content* of the pane (zero tolerance after the affordance footer). A configured `statusLine` (`~/.claude/settings.json`) renders **below** the dialog — on this Mac: `▲ omni ▸ ⌥ main`, a context/cost meter, `⏵⏵ bypass permissions on (shift+tab to cycle)`, an agent-count line — and the first of those lines that is not a key hint kills the detection. Verified against a real `herdr pane read` capture: the same permission dialog parses to 3 options bare and to `asking:false` with that tail appended. This is a **false negative, never a false positive** — the bridge under-reports, it never answers something that was not asked. Two escape hatches, in this order: `blocked:true` still flags the pane, and removing/shortening `statusLine` on the host restores full detection. It was deliberately **not** fixed by teaching the parser to strip a statusline: there is exactly one detector for both hosts, and a chrome-stripping heuristic is how a false positive gets in.
+- **Parser** (tested against a real Claude Code permission prompt rendered through `tmux capture-pane` at 60/80/100 columns — wrapping included — byte-for-byte against the non-wrapping paste, and against two verbatim live captures: the Codex CLI directory-trust prompt and a Claude Code v2.1.219 composer holding an unsent numbered draft):
+  - The **last** option block of the pane wins — scanning starts at the bottom, so an already-answered prompt higher up is never reported. Only the last `GEO_AGENT_ASK_SCAN_LINES` (60) lines are considered.
+  - An option line is `[<cursor> ]<n>. <label>` after stripping whitespace and box-drawing borders (`│`, `|`). Cursor characters: `❯` (U+276F, Claude Code), `›` (U+203A, **Codex CLI** — its first, fully blocking screen is the directory-trust prompt `› 1. Yes, continue / 2. No, quit`; leaving U+203A out made `asking:false` on a 100% blocked agent that `/term/agent-start` is allowed to start), `▶`, `»`. Plain ASCII `>` is **not** a cursor: it is the quote/diff prefix in ordinary agent output (`> 1. x`), where nothing is being asked.
+  - **Positive dialog signal — the load-bearing guard.** In Claude Code v2.x `❯` marks **every user message in the transcript**, not just a menu cursor: cursor + numbered lines match equally well on a live prompt, on scrollback where the user once typed `1. … / 2. …`, and on an **unsent numbered draft** sitting in the composer. The earlier frame heuristic (a bare `─` rule above *and* below the block) was defeated by all three — scrollback has no rule at all, a draft can carry prose after the list, and ≥ 3 blank lines push the rule out of the 2-line probe — and a false `asking:true` is not cosmetic: it makes `/term/agent-answer` type a digit + `\r` into a *working* agent, submitting whatever was in the composer. So framing was dropped for a **positive signal from the dialog component itself**: after the option block, the only thing allowed in the pane is (a) blank lines, (b) pure box-drawing chrome (`─`–`╿`, e.g. `╰────╯`), (c) **key-hint lines** — a key token (`esc`, `enter`, `return`, `tab`, `space`, `ctrl+x`/`shift+x`, an arrow run like `←/→`, or a single-character key) followed by `to <word>`, e.g. `◐ Medium effort ←/→ to adjust` in Claude's `/model` picker — and (d) at least **one** affordance footer: the same `(press )?(esc|escape|enter|return) to <word>` shape, matched **anywhere in the line** (not `\A`-anchored) because real footers are ` Esc to cancel · Tab to amend · ctrl+e to explain` (Claude permission), `Enter to set as default · s to use this session only · Esc to cancel` (Claude `/model`), `Press enter to continue` (codex update / trust-folder) and `Press enter to confirm or esc to go back` (codex hooks). **`to interrupt` is deliberately excluded from (d)** and demoted to a key hint: `esc to interrupt` is the affordance a *working* agent prints in its spinner (`✻ Churning… (12s · esc to interrupt)`), never a dialog footer in any captured screen — accepting it would re-open exactly the false positive this guard exists for, since a just-sent numbered user message plus the spinner is the whole tail of the pane. **No footer → `asking:false`.** The remaining tail is read in two halves, because tolerating "any unknown line" anywhere would re-open the false positive: **before** the footer up to `GEO_AGENT_ASK_TAIL_BODY` (4) unknown lines are dialog *body* and are skipped — the `/model` picker prints, right below the option block, an effort line whose **default and overwhelmingly common** form is `● High effort (default) ←/→ to adjust` (a key hint, so it is skipped by (c)); only for Haiku — the single model whose effort setting degrades — does it become `○ Effort not supported for Haiku`, which is *not* of the form `<key> to <x>` and is what consumes the body budget. **Any `/model` fixture captured with Haiku selected hides the `●` state entirely**, which is how `●` came to be listed as a fatal transcript glyph and made every `/model` dialog on a normal model read `asking:false`; `●` is therefore **not** a fatal glyph — see below. At 60 columns the wrap continuation of the **last** option (`quick answers`) also lands below the block, where `GEO_AGENT_ASK_OPTION_GAP` cannot reach it; **after** the footer nothing unknown is allowed at all, which is what kills a transcript that merely *printed* a footer and then kept rendering. Independent of both halves, a line that starts with a transcript/status glyph (`❯ ✻ ⎿ ⏸ • ▎ > $ # %` or a bare `<n>. `) is fatal wherever it appears in the tail — that is the composer prompt, the spinner and the shell prompt, i.e. proof the block is *not* the last real content. **`●` (U+25CF) is deliberately absent from that set**: it opens the `/model` effort line in its default state, so treating it as fatal is a guaranteed false *negative* on `/model`. Dropping it costs no coverage — a real transcript tail that carries a `● Read(file)` tool line always also ends in `❯` (composer), `✻` (spinner) or `⏸` (status line), each fatal on its own, and a `●` line *after* the footer is already killed by the zero-tolerance post-footer rule. The option block must be the last real content of the pane, which is exactly what a modal dialog is and what a transcript/composer never is. Chrome is skipped instead of rejected on purpose: the old rule (`≥ 8 ─` and no `│`) also matched the `╭───╮`/`╰───╯` of a **boxed** dialog and would turn a real prompt into a false negative. Cost of the trade: an agent that draws a *footerless* menu reads as `asking:false` and has to be answered from a real terminal — accepted, because a false negative wastes a trip and a false positive answers for you.
+  - The block does **not** have to be physically contiguous: the phone drives the pane width (`/term/resize`), so at 60–80 columns tmux wraps long labels onto continuation lines and pads between options. Consecutive option lines are chained while their indices descend by exactly 1 and they are at most `GEO_AGENT_ASK_OPTION_GAP` (6) lines apart; everything in between (wrap continuations, border-only pad lines) is ignored. Consequence: a wrapped `label` is **truncated at the pane width** — clients should answer by `index`, not by `option` label.
+  - `asking:true` requires **≥ 2** options, indices exactly `1..n` in order, **and exactly one cursor** in the block. The cursor is the load-bearing signal: without it a numbered list in ordinary agent output would read as a prompt, and with two of them it is not a single-select TUI at all. Both cases are reported as `asking:false` — a false negative is preferred over answering something that was never a question.
+  - `question` = the nearest non-empty line above the block (within 5 lines) **that ends in `?`**, capped at 240 chars; `""` when there is none. `selected` mirrors the cursor. `label` is capped at 120 chars, `raw_hint` (question + option lines, verbatim modulo trimming) at 1200.
+  - `kind` is `"permission"` when question/labels match `proceed|permission|allow|trust|do you want|prosseguir|permit`, else `"choice"`; `""` only when `asking:false`.
+- Codes: `200` · `400 bad_target` · `404 no_session` · `404 no_agent` · `503 {"error":"unavailable"}` when the capture failed, timed out or tmux is missing. **A read failure is `503`, never `asking:false`** — the invariant of the whole bridge: "could not find out" ≠ "not asking".
+
+### POST /term/agent-answer
+
+Answers the question `/term/agent-ask` detected. Same two mutually-exclusive selectors as `/term/agent-ask` — `?session=` (VM) or `?project=&pane=` (Mac); absent, malformed, or mixed → `400 {"error":"bad_target"}`. (v5: the Mac path used to be `400 bad_target` because `/term/agent-ask` never reported a question there.)
+
+- Body: JSON, ≤ 1024 bytes, **exactly one** of `{"index": <int>}` (1-based) or `{"option": "<label>"}` (case-insensitive exact match of the label). Both, neither, a non-object, a bool `index`, an empty `option`, an unreadable body → `400 {"error":"invalid_body"}`.
+- **What is written to the pty is only the digit + Enter** (`b"1"`, 50 ms pause, `b"\r"`), through the same durable attach `/term/input` and `/term/agent-prompt` use. In Claude Code's permission dialog the digit alone already selects **and** submits — the `\r` is a defensive no-op for TUIs that require confirmation, and lands in whatever the agent renders next (in practice an empty composer, where it is a bare Enter). It is not required by Claude Code. No arrows, no `Esc`, no escape sequence — the digit is inside the vocabulary `/term/agent-prompt` already allows, which is exactly why this verb exists instead of a loosened control-byte policy.
+- Consequence of "digit only": options above **9** are not answerable (typing `10` would select `1` then `0`) → `400 {"error":"bad_option"}`. Same code for an index outside the currently detected range and for a label that matches nothing.
+- **The pane is re-read immediately before writing** and the choice is validated against *that* snapshot, so an index computed from a stale `/term/agent-ask` cannot answer a different question. The race window is not zero: between this capture and the write (~ms) the TUI can still change. `200` therefore means "the digit was delivered to the pty", never "the option you named was selected" — the client must re-poll `/term/agent-ask`/`/term/agent-chat` to confirm.
+- **Mac path**: identical contract, different channel — the re-read is the same `herdr pane read` as `/term/agent-ask`, and the write is `herdr pane send-text <pane> <digit> && herdr pane send-keys <pane> enter` in **one** ssh (chained with `&&`, so a failed `send-text` never leaves a bare Enter behind). `send-text` is literal text, not a key sequence, and every fragment is `shlex.quote`d. Consequences of the shared parser apply unchanged, including the `statusLine` false negative documented above: a Mac dialog the parser cannot see answers `409 not_asking` and must be handled from the terminal. `404 no_session` does not exist here; a missing agent is `404 no_agent`, an unreachable Mac or a non-zero herdr exit is `503`.
+- Codes: `200 {"ok":true,"index":<n>}` · `400 bad_target` / `invalid_body` / `bad_option` · `404 no_session` (VM) / `404 no_agent` · `409 {"error":"not_asking"}` when the fresh capture shows no question (nothing is written) · `409 {"error":"no_attach"}` if the pty write itself failed (VM) · `503 {"error":"unavailable"}` when the lookup/capture/send blew up.
+
+### POST /term/agent-interrupt
+
+Interrupts the agent. No body.
+
+- Same two mutually-exclusive selectors as `/term/agent-ask` — `?session=` (VM) or `?project=&pane=` (Mac); anything else → `400 {"error":"bad_target"}`. (v5: the Mac path used to be `400 bad_target`.)
+- **The key is `Escape`, sent as `tmux send-keys -t '=<session>:' Escape`** — a tmux *key name*, so the byte never travels in a request body and never meets the control-character filter of `/term/agent-prompt`. **Why `Escape` and not `C-c`**: in Claude Code `Esc` interrupts the current turn and keeps the session alive, while `Ctrl-C` (twice) kills the process and loses the context — the phone's "parar" button must be the recoverable one. `GEO_AGENT_INTERRUPT_KEY` exists for agents that expect otherwise; changing it is a deliberate act.
+- **The gate reads the same pane the key reaches.** `send-keys -t '=<session>:'` (and the pty write of `/term/agent-answer`, `/term/agent-prompt`, `/term/agent-start`, and the `capture-pane` of `/term/agent-ask`) always lands on the window's **active** pane, but the agent detection used to accept *any* pane of the window: a split with a shell active and the agent in the sibling pane passed the gate and sent `Escape` to the shell — reproducing the very `odex: command not found` this section calls impossible. The detection therefore only ever considers the pane with `#{pane_active}` = `1`. Consequence: an agent running in a non-active pane is `404 no_agent` for the whole `/term/agent-*` family — honest, since none of those verbs can talk to it.
+- **An agent must be running**: the same local detection as `/term/agent-chat` runs first → `404 no_session` / `404 no_agent` / `503`. `Esc` is **not** inert in a bare shell: in interactive bash and zsh it opens a meta/vi-command sequence that swallows the next character, so an interrupt on a shell-backed pane followed by `/term/agent-start` produced `odex: command not found` (ESC ate the leading `c`, ESC+c = `capitalize-word`) with both calls reporting success. Refusing to send the key when there is no agent to interrupt is the fix; the phone's "parar" is only offered where there is something to stop.
+- **Mac path**: one ssh running `herdr --session <project> pane send-keys <pane> esc` — a herdr **logical key name**, so exactly like the tmux path the byte never travels in a request body and never meets the control-character filter. Same gate first (the memoized `/term/agents` resolution → `404 no_agent` / `503`), for the same reason: `Esc` into a bare shell is not inert. `GEO_AGENT_INTERRUPT_KEY_MAC` exists because herdr's spelling (`esc`) is not tmux's (`Escape`).
+- **`200 {"ok":true}` means the key was delivered to tmux/herdr, not that the agent stopped.** There is no acknowledgement from a TUI; the client confirms by polling (`/term/agent-chat`, `/term/agent-work`).
+- Codes: `200` · `400 bad_target` · `404 {"error":"no_session"}` (VM) · `404 {"error":"no_agent"}` · `503 {"error":"unavailable"}` when tmux/herdr is missing, timed out, or `send-keys` failed.
+
+### POST /term/agent-start
+
+Starts an agent in a tmux session that currently runs only a shell.
+
+- `?session=` **required** (VM only) → `400 {"error":"bad_target"}`.
+- Body: JSON `{"agent":"claude"|"pi"|"codex"}` — a **closed vocabulary**, never a command line. Any other value → `400 {"error":"bad_agent"}`; a non-object/unparseable/oversized body → `400 {"error":"invalid_body"}`. Commands are fixed in the bridge: `claude` → `~/.local/bin/claude`, `pi` → `/usr/bin/pi`, `codex` → `codex`. The client can never influence the string that is typed.
+- **Preconditions, in order**: the session must exist (`404 {"error":"no_session"}`) and must **not** already run an agent — same local detection as `/term/agent-chat` (pane command, then descendants up to `GEO_AGENT_VM_DEPTH`) → `409 {"error":"already_running"}`, nothing typed. Two phones racing can still both pass the check; the second one types into a session that is already booting an agent (visible in `/term/stream`), which is why the check is documented as a guard, not a lock.
+- The command is written to the session's pty (durable attach), then `\r` after 50 ms — same path and same guarantee as `/term/agent-prompt` on the VM.
+- Codes: `200 {"ok":true,"agent":"claude"}` — **the command was typed**, not "the agent is up" (a missing binary shows up as a shell error inside the terminal stream) · `400 bad_target` / `invalid_body` / `bad_agent` · `404 no_session` · `409 already_running` / `no_attach` · `503 {"error":"unavailable"}`.
+
 ### POST /term/upload
 
 Drops a file into a fixed inbox on the Mac so the phone can paste its path into a shell. **It never executes anything and never sets the executable bit.**
@@ -580,7 +784,7 @@ Drops a file into a fixed inbox on the Mac so the phone can paste its path into 
 The `/` menu of the chat composer: which slash commands **that** agent can actually run, so the phone offers a list instead of the user typing from memory.
 
 - Auth: the terminal token (`_term_gate`). Main bridge token → `401`. Terminal disabled → `404`.
-- Params — the same `project`/`pane` pair as `/term/agent-chat`, validated by the same anchored regexes (`\A[A-Za-z0-9_-]{1,24}\Z`, `\Aw[0-9]{1,3}:p[0-9]{1,3}\Z`, never `$`). Both required; anything else → `400 {"error":"bad_target"}` and no ssh happens.
+- Params — **either** the `project`/`pane` pair (Mac) **or** `?session=` (VM), never both, exactly like `/term/agent-chat`, `/term/agent-ask` and `/term/agent-work`; same anchored regexes (`\A[A-Za-z0-9_-]{1,24}\Z`, `\Aw[0-9]{1,3}:p[0-9]{1,3}\Z`, `\A[A-Za-z0-9_-]{1,32}\Z`, never `$`). Anything else → `400 {"error":"bad_target"}` and no ssh happens. This endpoint was the only member of the family without the VM branch: `?session=` answered `400 bad_target`, the app swallowed it, and the `/` menu of a VM session came up **empty — `/clear` and `/compact` never reached the VM at all**.
 
 ```json
 {"agent":"claude","commands":[
@@ -589,16 +793,18 @@ The `/` menu of the chat composer: which slash commands **that** agent can actua
 ]}
 ```
 
-- **Resolution** costs zero extra ssh: same memoized scan as `/term/agents` (`host=="mac"` + exact `project` + exact `pane`). No agent in a pane that exists → `409 {"error":"no_agent_in_pane"}`; pane not in the scan at all → `404 {"error":"no_agent"}`; scan failed → `503`.
+- **VM path (`?session=`)**: the agent and its `cwd` come from the same local active-pane detection as `/term/agent-chat` (`404 no_session` / `404 no_agent` / `503`), the identical skill script runs **locally** (`/bin/sh -c`, no ssh) under its own cache key `("vm", session, agent, cwd)`, and the built-ins are merged the same way. An agent with no known skill layout (codex) still gets `200` with its built-ins (none declared → `[]`) — nothing is invented, and a failed local scan is `503`, never an empty list.
+- **Resolution** on the Mac path costs zero extra ssh: same memoized scan as `/term/agents` (`host=="mac"` + exact `project` + exact `pane`). No agent in a pane that exists → `409 {"error":"no_agent_in_pane"}`; pane not in the scan at all → `404 {"error":"no_agent"}`; scan failed → `503`.
 - **`cwd` comes from the scan, never from the client.** There is no `cwd` param and none would be honoured: the project scope is rooted at the `cwd` herdr reported for that pane, `shlex.quote`d.
 - **Sources** (one single ssh, whatever the agent):
   - `claude` — `$HOME/.claude/skills/*/SKILL.md` (`scope:"user"`), plus `<cwd>/.claude/skills/*/SKILL.md` and `<cwd>/.claude/commands/*.md` (`scope:"project"`). This Mac has **no** `~/.claude/commands/`; the user-level slash commands *are* the skills.
-  - `pi` — `$HOME/.pi/agent/skills/*/SKILL.md` and `$HOME/.pi/agent/skills/*.md` (`scope:"user"`).
-  - Any other agent (codex, kimi, opencode…) → `200` with `commands: []`, **no ssh at all**. Not knowing an agent's skill layout is not an error.
+  - `pi` — `$HOME/.pi/agent/skills/*/SKILL.md` and `$HOME/.pi/agent/skills/*.md` (`scope:"user"`), **plus `GEO_AGENT_PI_SKILLS_DIR` (default `/mnt/garime/pi/skills`)** with the same two patterns. On the VM the pi agent's home is not where its skills live — `$HOME/.pi/agent/skills` does not exist there and globbing only it returned `commands: []` for every VM pi session, the exact hole the endpoint's VM branch was added to close. The same asymmetry is already handled for transcripts by `GEO_AGENT_PI_SESSIONS_DIR`. Both roots are globbed unconditionally on both paths (`[ -d ]`-guarded, an absent root is not an error) and duplicates collapse by `name`.
+  - Any other agent (prime-agent, codex, kimi, opencode…) → `200` with `commands: []`, **no ssh at all**. Not knowing an agent's skill layout is not an error.
 - **`name`** = the skill directory's name, or the `.md` file's basename without the extension. It is re-validated on the VM against `\A[A-Za-z0-9._-]{1,64}\Z` (and never `.`/`..`); a directory whose name carries shell metacharacters is dropped from the list rather than shipped to the phone.
 - **`description`** = the first `description:` line of the frontmatter, trimmed and **truncated to 160 characters** (the payload travels on 4G). No description, empty directory, no frontmatter at all → `""`, never an error and never a missing key.
 - **The `SKILL.md` bodies never cross the network.** The remote side lists the files with the shell's `printf` builtin and extracts descriptions with **one** `awk` over the whole list, which stops at line `GEO_AGENT_COMMANDS_HEAD_LINES` (12) of each file and emits at most 400 bytes per description. A 400 KB skill costs the same handful of bytes as a 400 B one (proven in the smoke: 400 048 B on disk → 2 261 B on the wire for the whole list). A `description:` further down than line 12 is reported as `""` on purpose — that is the price of the cheap read.
-- **Ordering and precedence**: alphabetical by `name`. If the same name exists in both scopes, **`project` wins and the entry appears once** (more specific overrides; no duplicates).
+- **Built-ins are added by the bridge.** `/clear` and `/compact` are commands of Claude Code itself, not skills — nothing on disk lists them, so scanning could never find them and the phone had no way to offer them. For `agent == "claude"` the bridge appends two synthetic entries `{"name":"clear"|"compact","description":"…","scope":"builtin","builtin":true}`. The **`builtin` key exists only on those entries** and `scope:"builtin"` is a new value of an existing field, so a client that reads `name`/`description`/`scope` keeps working unchanged; a client that wants to group them reads `builtin`. A skill with the same name is dropped in favour of the built-in (in Claude Code the built-in is what `/clear` actually runs). Built-ins are merged **after** the cache, so the list can change without invalidating any memoized scan, and they cost no ssh. No other agent has built-ins declared — inventing them for `pi`/`codex` would be guessing.
+- **Ordering and precedence**: alphabetical by `name`, built-ins included in the same ordering. If the same name exists in both scopes, **`project` wins and the entry appears once** (more specific overrides; no duplicates).
 - **The remote side never runs under the Mac's login shell.** ssh hands the command to the login shell, which on this Mac is `/bin/zsh`, where an unmatched glob is a **fatal** error (`NOMATCH` is on even for `zsh -c`) that would abort the listing before it printed anything — and no project here has `.claude/skills`, `.claude/commands` nor a loose `~/.pi/agent/skills/*.md`, so that is the normal case, not the exception. The listing is therefore always wrapped as `/bin/sh -c '<script>'` (single argument, `shlex.quote`d), and POSIX `sh` passes an unmatched pattern through as a literal word that `[ -f "$f" ]` discards. Each glob is additionally guarded by `[ -d ]` on its directory.
 - **"Empty" is proven, never assumed.** The script does not force `exit 0`. It fails loudly instead: no `$HOME` → `6`, a skills directory that exists but is not readable/searchable → `7`, `awk` missing or unable to read a file → `8`; and when it does reach the end it prints a final `Z` line. The VM only accepts the result when the ssh exit code is `0` **and** the last output line is `Z`; anything else is `503 unavailable`. A remote error can therefore never be rendered as `commands: []`.
 - **Cache**: own cache keyed by `(project, pane, agent, cwd)` with TTL `GEO_AGENT_COMMANDS_TTL` (120 s), much longer than the 10 s agent scan. Serialization is **per key**, not global: two concurrent calls for the same pane = **one** ssh, while a slow pane never blocks another pane's list. The cache (and its lock table) is bounded to `GEO_AGENT_COMMANDS_CACHE_MAX` (64) entries, oldest evicted first — `cwd` is part of the key and changes on every `cd`, so it must not grow forever. Only successes are cached; a failure is never memoized as an empty list.
@@ -612,27 +818,30 @@ What one Mac agent is doing **in parallel right now**: its workflows and its dir
 
 ```json
 {"agent":"claude","supported":true,"resolved":"reported",
- "workflows":[{"id":"wf_12ec19ba-56f","running":2,"done":6,"since":"2026-08-05T13:22:31Z"}],
+ "workflows":[{"id":"wf_12ec19ba-56f","running":2,"done":6,"since":"2026-08-05T13:22:31Z","stale":false}],
  "subagents":[{"id":"a1b5a89ea","type":"worker","running":true,"since":"2026-08-05T13:40:02Z"}],
  "truncated":false}
 ```
 
-- **Where the truth lives** — the same session id `/term/agent-chat` uses (`agent_session` `kind:"id"`), resolved to `$HOME/.claude/projects/<dir>/<session-id>/subagents/` (for this first step the project dir is never derived from `cwd`; it is found by name). Inside it: `agent-<id>.jsonl` + `agent-<id>.meta.json` for **direct** sub-agents, and `workflows/wf_<id>/journal.jsonl` for each workflow.
-- **Same stale-id fallback as `/term/agent-chat`, same single ssh.** herdr's id goes stale when Claude Code rotates the session (resume, compaction) and the whole tree then reads as "nada rodando". When `find` locates no `<session-id>/` directory, the script takes the **newest `*.jsonl` of the pane's own project dir** (`cwd` with every char outside `[A-Za-z0-9-]` replaced by `-`) and uses that transcript's id as the session directory — accepted only if that directory actually exists. Scoped to that one project dir, so another `cwd`'s work is never reported here either; no `cwd`/no such dir → the current empty answer, unchanged.
-- **`resolved`** mirrors `/term/agent-chat`: `"reported"` (herdr's id was live), `"fallback"` (newest transcript of the pane's project dir was used), `""` (nothing resolved — `supported:false`, or no subagents tree). Always present.
+- **Where the truth lives** — the same session id `/term/agent-chat` uses (`agent_session` `kind:"id"`), resolved to `$HOME/.claude/projects/<dir>/<session-id>/subagents/`. The project dir of the pane's own `cwd` is tried **first** (`<cwd-encoded>/<session-id>/`); only if that directory does not exist is the id looked up by name across project dirs, and then only a match that already carries a `subagents/` tree counts. Inside it: `agent-<id>.jsonl` + `agent-<id>.meta.json` for **direct** sub-agents, and `workflows/wf_<id>/journal.jsonl` for each workflow.
+- **The answer is scoped to the queried session, never to its neighbours.** There is **no newest-`*.jsonl` fallback on the reported-id path** — several agents share one `cwd`, so the newest transcript of a project dir routinely belongs to *another* session, and using it made one agent's strip show every agent's workflows (reproduced on real data: session `3d18a72b…` was served the two workflows of `53f957b9…`). When the id resolves to no session directory the script does not guess: if `<session-id>.jsonl` exists anywhere under `~/.claude/projects` the session is **proven** to exist with no work tree → `200` with empty lists; if not even that exists the id is unresolvable → exit `9` → `503 {"error":"unavailable"}`. A stale id (Claude Code rotates it on resume/compaction) therefore reads as "sem conexão", never as another session's counts.
+- **`resolved`**: `"reported"` (herdr's id — the only value the `project`+`pane` path can produce now), `"fallback"` (the `cwd`/VM path, where no id exists and the newest transcript of that one project dir names the session dir), `""` (nothing resolved — `supported:false`, or no subagents tree). Always present.
 - **`supported:false` means "this shape of agent has no parallel-work tree we can read"** — a non-claude agent (pi keeps only `~/.pi/agent/sessions/**.jsonl`, with no sub-agent directory), or a claude agent herdr reported without an id-shaped session. It is always `200` with empty lists and **no ssh at all**; the client must render "não disponível", not an empty work list.
 - **Workflow counts come from the journal, not from guesses**: `running` = `started` events whose `agentId` has no matching `result`; `done` = those that have one. A `result` without its `started` counts as neither. Unparseable/foreign lines are skipped.
+- **An interrupted workflow does not count as running forever.** A killed run leaves `started` with no `result`, which would read as "rodando" until the directory is deleted. Cut by age: if the workflow has shown **no activity at all** for `GEO_AGENT_WORK_STALE_AFTER` (3600 s), its `running` is reported as `0` and `stale:true` is set (additive field; a workflow already fully `done` is never flagged). "Activity" is `max(mtime journal.jsonl, newest mtime of the wf dir's own `agent-*.jsonl`)` — the journal is only touched on `started`/`result`, so while a sub-agent works the journal is silent and the transcript is the live signal. Using the journal alone would cut workflows that are demonstrably progressing. That same max is the `since` of the row.
 - **The journal never crosses the network.** A `result` line carries the sub-agent's whole answer (kilobytes each); the aggregation runs **on the Mac** in `awk`, which only ever looks at the first 400 bytes of each line (enough for `type` and `agentId`, which are the first keys) and prints two integers. A real session with a 4-step workflow costs **86 bytes** on the wire.
 - **"Running" for a direct sub-agent is a heuristic, and it is documented as one**: `running:true` iff its `agent-<id>.jsonl` was modified in the last `GEO_AGENT_WORK_RUNNING_WINDOW` seconds (120), measured against the **Mac's own clock** (the script emits `date -u +%s` in the same call, so VM/Mac clock skew cannot affect it). There is no end-of-transcript marker in those files to key off — the last record of a finished sub-agent is an ordinary `assistant`/`tool_result` line. Margin of error, both directions:
   - a sub-agent that finished less than 120 s ago still reads `running:true` (false positive, self-corrects on the next poll);
   - a live sub-agent blocked >120 s on one long tool call (a slow build, a big download) reads `running:false` (false negative).
-  The window is the knob: shorter = fewer stale "rodando", more flapping on slow steps. **Workflow counts are not affected by any of this** — they come from real events, so a workflow's `running` is exact.
-- **`since`** is the mtime of the file the row is derived from (`journal.jsonl` for a workflow, `agent-<id>.jsonl` for a sub-agent — the `.meta.json` when the transcript is missing), ISO-8601 UTC to the second. It answers "since when has this been in this state", not "when did it start".
+  The window is the knob: shorter = fewer stale "rodando", more flapping on slow steps.
+  **Corroborated by a live process when that is possible.** Before the `find`s, the script emits `L\t<alive|unknown|dead>` from one `ps -Ao pid=,ppid=,args=`, ignoring its own process chain (`$$`/`$PPID`, and any line carrying the script's own `subagents` text). `dead` is emitted **only** when `ps` produced output and *no* process on the host looks like claude at all — a host with no claude cannot be running a sub-agent, so every sub-agent is `running:false` regardless of mtime. Deliberately **not** keyed on the resolved session id: Claude Code rotates the id in `--resume` (that rotation is why the fallback exists), so "the id is not in the args" would say `dead` about a live agent — a false negative, worse than the mtime's false positive. `ps` missing, failing or silent → `unknown`, and an absent/unrecognised `L` line parses as `unknown`; `alive` and `unknown` both leave the mtime window as the only signal. Uncertainty is never converted into "nothing running". **Workflow counts are not affected by any of this** — they come from real events, so a workflow's `running` is exact.
+- **`since`** is the mtime of the file the row is derived from (for a workflow, the newest of `journal.jsonl` and the wf dir's `agent-*.jsonl`; `agent-<id>.jsonl` for a sub-agent — the `.meta.json` when the transcript is missing), ISO-8601 UTC to the second. It answers "since when has this been in this state", not "when did it start".
 - **Ordering and caps**: newest first by that same mtime. At most `GEO_AGENT_WORK_WORKFLOWS_MAX` (10) workflows and `GEO_AGENT_WORK_SUBAGENTS_MAX` (20) sub-agents; if either list was cut, the top-level `truncated` is `true` (it is a single flag for the whole payload). The remote script itself stops at `GEO_AGENT_WORK_SCAN_MAX` (200) of each kind, so a pathological session cannot produce an unbounded response either.
 - **zsh-safe by construction.** The Mac's login shell is `zsh`, where an unmatched glob is a **fatal** error that aborts the whole command — this class of bug already shipped once here. Directory and file discovery is `find -mindepth/-maxdepth ... 2>/dev/null`; the one glob in the script (the fallback's `ls -1t "$d"/*.jsonl`) is guarded by `2>/dev/null` **and** by the `/bin/sh -c '<script>'` wrapper the whole thing runs inside, so an unmatched glob degrades to an empty string instead of aborting. It is smoke-tested end to end under **both** `zsh -c` and `sh -c` with byte-identical results, including a session whose `subagents/` has neither `workflows/` nor any `agent-*` file.
+- **Locale-proof, and empty is never assumed.** Every `awk` runs under `LC_ALL=C`: a journal carrying one non-UTF-8 byte makes a UTF-8-locale `awk` abort with `towc: multibyte conversion failure` (rc `2`) — 9.6% of real journals here, 8 sessions losing *all* their workflows — and the aggregation only ever needs bytes, never characters. The locale is not ours to control (it arrives through sshd `AcceptEnv LANG LC_*`, and the local VM path inherits the environment), so the endpoint refuses to depend on it. Paired with that: a workflow that **exists on disk but could not be read** is an error, not an absence — an unreadable `subagents/`, `workflows/` or `wf_*/` directory and a failing `stat` exit `7`, a failing/silent `awk` exits `8` (the `/term/agent-commands` convention), both surfacing as `503`. Only a *proven* empty tree is `200` with empty lists.
 - **Completion marker**, like `/term/agent-commands`: the script's last line is `Z`. The VM accepts the answer only when the ssh exit code is `0` **and** that line is present; a truncated or failed run can never be rendered as "no parallel work".
 - **Cache**: own cache keyed by `(project, pane, session-id, cwd)` — `cwd` is part of the key because it is what scopes the fallback, so a pane that moved cannot serve another project's snapshot — TTL `GEO_AGENT_WORK_TTL` (5 s) — short on purpose, this is the fastest-moving state here. Serialization is **per key**: two concurrent polls of the same pane = **one** ssh (proven in the smoke), while a slow pane never blocks another. Bounded to `GEO_AGENT_WORK_CACHE_MAX` (64) entries, oldest evicted. Only successes are cached; a failure is never memoized as "nothing running".
-- Codes: `200` (possibly empty lists — a session that never spawned anything is **not** an error) · `400 bad_target` · `404 no_agent` · `409 no_agent_in_pane` · `503 {"error":"unavailable"}` when the scan or the work ssh failed/timed out. `503` means **"we could not find out"** and is never collapsed into `200` with empty lists: the client must show "sem conexão", never "nada rodando".
+- Codes: `200` (possibly empty lists — a session that never spawned anything is **not** an error) · `400 bad_target` · `404 no_agent` · `409 no_agent_in_pane` · `503 {"error":"unavailable"}` when the scan or the work ssh failed/timed out, when part of the tree exists but is unreadable (`7`/`8`), or when the reported id matches nothing on disk (`9`). `503` means **"we could not find out"** and is never collapsed into `200` with empty lists: the client must show "sem conexão", never "nada rodando".
 
 #### VM agents — `?session=<tmux-session>`
 
@@ -654,6 +863,38 @@ Sends a photo/file **to the Mac where the agent runs** (not to the VM), so the p
 - Success → `200 {"path":"/Users/<user>/garime-uploads/<final-name>"}` — the **final** name after collision handling, validated against `\A/[^\x00-\x1f]{1,500}\Z` before being echoed. The client cites that path in the next `/term/agent-prompt`; running anything with it is the user's decision.
 - `503 {"error":"unavailable"}` — Mac unreachable at either step, ssh timeout, or the remote script failed (`mkdir`, collision ceiling, write error). Nothing landed, or we cannot tell: the client must not assume the file exists.
 - **The body is never logged** (only method+path reach the log, like `/term/input`, `/term/upload` and `/term/agent-prompt`). The connection is closed after the response.
+
+## Agent-ask watcher → WhatsApp (added in v5)
+
+A daemon thread inside the bridge that answers the one question the API cannot: *the owner is not looking at the app, and an agent just stopped to ask something.* It turns that into a WhatsApp message.
+
+**Off by default.** `GEO_AGENT_WATCH=1` arms it; without it `agent_watch_start()` returns before the thread exists (no thread, no tick, no file). A watcher that came up armed on a deploy would be an unrequested WhatsApp burst.
+
+- **Channel — the file outbox, not a new integration.** `garime-wa.service` (`/mnt/garime/pi/wa-bot/bot.js`) drains `*.txt` from `GEO_WA_OUTBOX` (`/mnt/garime/pi/wa-outbox`), posts the content to the group and unlinks the file. The bridge only writes files; it never opens a Baileys session (which would fight the bot for the WhatsApp connection). The dir already exists and is owned by `biel`, the user the bridge runs as.
+- **Writes are atomic**: the payload goes to `<name>.txt.tmp` **in the same directory** (fsync'd), then `os.rename` into place. Rename within a filesystem is atomic, so the bot never reads a half-written message — and `*.txt.tmp` does not match the bot's `*.txt` glob, so the temp file is invisible to it even mid-write.
+- **Filename**: `agent-ask-<epoch>-<session>-<key>.txt`. Epoch first so lexicographic order = chronological order (the bot's own drain order). `<key>` is `sha256` of the merged question+labels observation, 16 hex, present so two notifications landing in the same second cannot overwrite each other.
+- **Message** (short and actionable — WhatsApp, not a log):
+
+```
+🤖 claude (grill-claude) precisa de você:
+
+"Do you want to proceed?"
+1. Yes
+2. No
+
+Responda pelo app garime.
+```
+
+  The question line is omitted when the parser found none (a menu with no `?` line above it); options are capped at `AGENT_ASK_MAX_OPTIONS` (9), the same ceiling `/term/agent-answer` can act on, and each label at 80 chars. The `.txt` is posted by the bot to a **WhatsApp group**, so the message carries only the question and the option labels — never the raw pane, never `raw_hint`, never the transcript above the dialog. On top of that, every whitespace-delimited token containing `/` is replaced by `…` in both the question and the labels (`AGENT_WATCH_PATH_RE`), because Claude Code writes absolute paths into permission labels (`2. Yes, and don't ask again for rm commands in /Users/biel/Omni`) and URLs into web-fetch ones. What survives is what makes the message actionable; what leaks the machine's layout does not. The scrub is cosmetic-only — the dedupe fingerprint is computed on the **unscrubbed** text.
+
+- **VM only.** Enumeration is exactly what `/term/agents` does — `status_vm_agents()` → the tmux session of every live agent process — filtered through the same `\A[A-Za-z0-9_-]{1,32}\Z` name regex, then `vm_session_agent()` (active pane only) and `agent_ask_capture()` + `agent_ask_parse()`: **the same single detector `/term/agent-ask` uses**, not a copy. Mac panes are out of scope: watching them costs an ssh per tick per pane and the parser under-reports there (see the `statusLine` note above).
+- **Reflow-proof fingerprint.** The remembered state per session is not a hash but the observation itself: `{question, labels}`, whitespace-collapsed and lowercased. Two observations are **the same dialog** when they have the same number of options, each label pair is prefix-compatible (one is a prefix of the other), and the questions are suffix-compatible. That tolerance is not cosmetic: `agent_ask_parse` takes each label from **one physical row**, so a narrower pane silently truncates it, and the question, when it wraps, is found by its last row. The pane width is not stable — `/term/attach` + `/term/resize` reflow the tmux window to the phone's width (commonly 40–60 cols) and `TERM_IDLE_SECONDS` puts it back — so an exact hash of the parsed text made one unanswered dialog notify on every attach/detach cycle. The stored observation is **merged** with each new one (longest wins per field), so the record only gets richer. Below `GEO_AGENT_WATCH_MIN_COLS` (40 cols) the parse is not trusted at all: the tick reads `#{pane_width}` first and skips the session, which is why a phone attached to a blocked agent neither re-notifies nor falsely clears.
+- **Edge, not level.** A notification fires only when the observed dialog **changes**: the same dialog sitting there for an hour notifies once; changing the question is a new event; leaving the asking state clears the key, so the *same* question asked again later is a new event too. **A confirmed `asking:false` is the only thing that clears** — a failed capture, a `None` capture, *or an agent that merely disappeared from the enumeration* leave the state untouched. Absence from the scan is a "could not find out", not a "not asking": `vm_pid_sessions()` swallowing a `tmux list-panes` timeout returns `{}`, which makes `status_vm_agents()` report the live agent with `session: ""`, and a `ps -eo` timeout empties the list wholesale — clearing on absence would re-notify an unanswered dialog after any transient hiccup.
+- **State survives the process.** The three maps (seen observations, per-session last-sent, hourly ledger) are persisted as JSON in `GEO_AGENT_WATCH_STATE` (`~/.garime/agent-watch.json`), written with the same tmp+`os.rename` atomicity and re-read on the first tick. Without this, the unit's `Restart=always` / `RestartSec=2` turns any crash loop or deploy performed while an agent is blocked into one identical WhatsApp every 2 s: the brakes are per-process, and the bot dedupes by `path:size:mtime`, so N files = N messages. Timestamps are wall clock (`time.time()`) precisely so they stay meaningful across a restart. If the state file cannot be written the failure is logged (`state save failed`) and the watcher keeps running — degraded to the old, re-notifying behaviour, never dead.
+- **Anti-flood, drop-never-queue.** Two independent brakes: (1) per session, at most one notification per `GEO_AGENT_WATCH_COOLDOWN` (300 s); (2) globally, at most `GEO_AGENT_WATCH_MAX_HOUR` (12) notifications per sliding hour. Both log and drop, and the state key is burned on a drop, so a suppressed event is genuinely discarded and cannot re-fire on the next tick. **A failed outbox write is not a drop**: the key is *not* burned, so the alert is retried on the next tick instead of being lost — `GEO_WA_OUTBOX` lives under the LUKS mount `/mnt/garime`, so "bridge up before the outbox exists" is the ordinary boot order and everything asked in that window would otherwise be swallowed for good. A write that fails after `open()` unlinks its own `.txt.tmp`.
+- **It cannot take the bridge down.** Every tick is wrapped: a raised tick is caught and logged, a per-session tmux/read failure is caught and skips that session only, an `OSError` writing to the outbox is caught and logged. A **missing outbox directory is logged once at startup and the thread still starts** — the mount may appear later; each write then fails as an ordinary logged `OSError` and the pending alert is retried once the mount is there.
+- **Log**: appended to `~/Library/Logs/geobridge.log` (same file, same lock as the request log), lines shaped `<iso> watch <session> notified|dropped cooldown|dropped hourly cap|capture failed|outbox failed|skipped narrow pane` plus `state load failed|state save failed`.
+- **Memory is bounded**: seen observations expire `GEO_AGENT_WATCH_SEEN_TTL` (24 h) after they were last observed — not on absence from the scan — the cooldown map drops entries older than the cooldown, and the hourly ledger keeps only the last hour.
 
 ## Mac-app integration facts (why writing the file is enough)
 
@@ -693,8 +934,8 @@ The exact config field is `platforms.api_server.extra.key`; the env-var equivale
 
 ## Error shape
 
-All bridge-originated errors: `{"error":"<snake_case_code>"}` with the appropriate status (`400` invalid_id/invalid_body/bad_target, `401` unauthorized, `404` not_found/no_agent, `409` task_exists/no_attach, `502` hermes_unreachable, `503` unavailable, `500` internal). Proxied hermes errors pass through untouched.
+All bridge-originated errors: `{"error":"<snake_case_code>"}` with the appropriate status (`400` invalid_id/invalid_body/bad_target/bad_option/bad_agent, `401` unauthorized, `404` not_found/no_agent/no_session, `409` task_exists/no_attach/not_asking/already_running, `502` hermes_unreachable, `503` unavailable, `500` internal). Proxied hermes errors pass through untouched.
 
-`503 {"error":"unavailable"}` exists only on `/term/agent-chat`, `/term/agent-prompt`, `/term/agent-work` and `/term/agent-commands` and means **the bridge could not find out** — over ssh on the Mac path (host unreachable, timeout, no herdr), locally on the VM `?session=` path (no tmux binary, `tmux`/`ps` timeout, transcript script non-zero). It is never interchangeable with an empty `200`. Every other route keeps its historical behaviour of degrading silently to empty/false.
+`503 {"error":"unavailable"}` exists only on `/term/agent-chat`, `/term/agent-prompt`, `/term/agent-work`, `/term/agent-commands`, `/term/agent-ask`, `/term/agent-answer`, `/term/agent-interrupt` and `/term/agent-start` and means **the bridge could not find out** — over ssh on the Mac path (host unreachable, timeout, no herdr), locally on the VM `?session=` path (no tmux binary, `tmux`/`ps` timeout, transcript script non-zero). It is never interchangeable with an empty `200`. Every other route keeps its historical behaviour of degrading silently to empty/false.
 
 `404 {"error":"no_session"}` is exclusive to the VM `?session=` path and means the tmux session does not exist; `404 {"error":"no_agent"}` there means it exists but runs no agent.

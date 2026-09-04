@@ -1,0 +1,13 @@
+[Unit]
+Description=garime curador de contexto (WhatsApp -> Vault)
+OnFailure=garime-alert@%n.service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=biel
+Environment=HOME=/home/biel
+ExecStartPre=/usr/bin/mountpoint -q /mnt/garime
+WorkingDirectory=/opt/garime-curator
+ExecStart=/usr/bin/python3 /opt/garime-curator/context_scraping.py

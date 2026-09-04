@@ -1,0 +1,9 @@
+[Unit]
+Description=garime agente: push de fim de task via whatsapp
+
+[Service]
+Type=oneshot
+User=biel
+Environment=HOME=/home/biel
+Environment=GARIME_AGENT_ENV=/opt/garime/agent/agent.env
+ExecStart=/usr/bin/python3 /opt/garime/agent/garime-agent-notify.py

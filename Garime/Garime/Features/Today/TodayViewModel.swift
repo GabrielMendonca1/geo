@@ -56,8 +56,10 @@ final class TodayViewModel: ObservableObject {
     @Published private(set) var isOffline = false
     @Published private(set) var cacheDate: Date?
     @Published private(set) var hasItemsByDate: [Date: Bool] = [:]
+    @Published private(set) var calendarSyncError: String?
 
     private var allTasks: [TaskItem] = []
+    private var mirrorTasks: [TaskItem] = []
     private var today: [TaskItem] = []
     private var eventEntries: [AgendaEntry] = []
 
@@ -71,6 +73,7 @@ final class TodayViewModel: ObservableObject {
         self.selectedDate = Date()
         if let cached = self.repository.cached() {
             allTasks = cached.tasks
+            mirrorTasks = cached.tasks
             cacheDate = cached.fetchedAt
             computeHasItemsByDate()
             rebuildForSelectedDate()
@@ -128,6 +131,8 @@ final class TodayViewModel: ObservableObject {
             errorMessage = nil
             isOffline = false
             cacheDate = Date()
+            mirrorTasks = tasks
+            syncMirror(with: mirrorTasks)
             guard tasks != allTasks else { return }
             allTasks = tasks
         } catch {
@@ -146,6 +151,7 @@ final class TodayViewModel: ObservableObject {
         let pendingNow = pending.filter { $0.id != task.id }
         updateAllTasks { _ in pendingNow }
         completedToday.insert(done, at: 0)
+        mirrorUpsert(done)
         Task {
             do {
                 try await repository.completeTask(id: task.id)
@@ -154,6 +160,7 @@ final class TodayViewModel: ObservableObject {
                 completedToday.removeAll { $0.id == task.id }
                 let pendingNow = pending.filter { $0.id != task.id } + [task]
                 updateAllTasks { _ in pendingNow }
+                mirrorUpsert(task)
                 errorMessage = error.localizedDescription
             }
         }
@@ -166,6 +173,7 @@ final class TodayViewModel: ObservableObject {
         completedToday.removeAll { $0.id == task.id }
         let pendingNow = pending.filter { $0.id != task.id } + [reopened]
         updateAllTasks { _ in pendingNow }
+        mirrorUpsert(reopened)
         Task {
             do {
                 try await repository.reopenTask(id: task.id)
@@ -175,6 +183,7 @@ final class TodayViewModel: ObservableObject {
                 updateAllTasks { _ in pendingNow }
                 completedToday.removeAll { $0.id == task.id }
                 completedToday.insert(task, at: 0)
+                mirrorUpsert(task)
                 errorMessage = error.localizedDescription
             }
         }
@@ -185,6 +194,7 @@ final class TodayViewModel: ObservableObject {
         let pendingNow = pending.filter { $0.id != task.id }
         updateAllTasks { _ in pendingNow }
         completedToday.removeAll { $0.id == task.id }
+        mirrorRemove(id: task.id)
         Task {
             do {
                 try await repository.delete(id: task.id)
@@ -197,6 +207,7 @@ final class TodayViewModel: ObservableObject {
                     let pendingNow = pending.filter { $0.id != task.id } + [task]
                     updateAllTasks { _ in pendingNow }
                 }
+                mirrorUpsert(task)
                 errorMessage = error.localizedDescription
             }
         }
@@ -222,6 +233,8 @@ final class TodayViewModel: ObservableObject {
                 let created = try await repository.create(provisional)
                 let pendingNow = pending.filter { $0.id != provisional.id && $0.id != created.id } + [created]
                 updateAllTasks { _ in pendingNow }
+                mirrorTasks.removeAll { $0.id == provisional.id || $0.id == created.id }
+                mirrorUpsert(created)
                 errorMessage = nil
             } catch {
                 let pendingNow = pending.filter { $0.id != provisional.id }
@@ -236,6 +249,25 @@ final class TodayViewModel: ObservableObject {
     private func updateAllTasks(_ transform: ([TaskItem]) -> [TaskItem]) {
         allTasks = transform(allTasks)
         rebuildForSelectedDate()
+    }
+
+    private func mirrorUpsert(_ task: TaskItem) {
+        if let index = mirrorTasks.firstIndex(where: { $0.id == task.id }) {
+            mirrorTasks[index] = task
+        } else {
+            mirrorTasks.append(task)
+        }
+        syncMirror(with: mirrorTasks)
+    }
+
+    private func mirrorRemove(id: String) {
+        mirrorTasks.removeAll { $0.id == id }
+        syncMirror(with: mirrorTasks)
+    }
+
+    private func syncMirror(with tasks: [TaskItem]) {
+        service.syncMirror(tasks: tasks)
+        calendarSyncError = service.mirrorErrorMessage
     }
 
     func shiftDisplayedMonth(by months: Int) {

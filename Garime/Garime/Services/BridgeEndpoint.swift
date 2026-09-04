@@ -1,5 +1,10 @@
 import Foundation
 
+enum AgentTargetRef: Hashable {
+    case pane(project: String, pane: String)
+    case session(String)
+}
+
 enum BridgeEndpoint {
     case health
     case termInput(session: String)
@@ -9,14 +14,19 @@ enum BridgeEndpoint {
     case termKill(session: String)
     case termRename(session: String, to: String)
     case termList
-    case termPreview(session: String, lines: Int)
+    case termHealth
     case termAgents
     case termAttachAgent(project: String, pane: String)
     case termAttachHerdr(project: String)
-    case termAgentChat(project: String, pane: String, limit: Int)
-    case termAgentPrompt(project: String, pane: String)
-    case termAgentCommands(project: String, pane: String)
-    case termAgentUpload(project: String, pane: String)
+    case termAgentChat(target: AgentTargetRef, limit: Int)
+    case termAgentWork(target: AgentTargetRef)
+    case termAgentPrompt(target: AgentTargetRef)
+    case termAgentCommands(target: AgentTargetRef)
+    case termAgentUpload(target: AgentTargetRef)
+    case termAgentAsk(target: AgentTargetRef)
+    case termAgentAnswer(session: String)
+    case termAgentInterrupt(session: String)
+    case termAgentStart(session: String)
     case termUpload
     case tasksList
     case tasksCreate
@@ -27,6 +37,9 @@ enum BridgeEndpoint {
     case vitalsState
     case vitalsLogs
     case vitalsLog
+    case vitalsCatalog
+    case vitalsBlocks
+    case vitalsPlan(week: String)
 
     var path: String {
         switch self {
@@ -46,22 +59,32 @@ enum BridgeEndpoint {
             return "/term/rename?session=\(Self.encode(session))&to=\(Self.encode(to))"
         case .termList:
             return "/term/list"
-        case .termPreview(let session, let lines):
-            return "/term/preview?session=\(Self.encode(session))&lines=\(max(1, min(40, lines)))"
+        case .termHealth:
+            return "/term/health"
         case .termAgents:
             return "/term/agents"
         case .termAttachAgent(let project, let pane):
             return "/term/attach-agent?project=\(Self.encode(project))&pane=\(Self.encode(pane))"
         case .termAttachHerdr(let project):
             return "/term/attach-herdr?project=\(Self.encode(project))"
-        case .termAgentChat(let project, let pane, let limit):
-            return "/term/agent-chat?project=\(Self.encode(project))&pane=\(Self.encode(pane))&limit=\(max(1, min(200, limit)))"
-        case .termAgentPrompt(let project, let pane):
-            return "/term/agent-prompt?project=\(Self.encode(project))&pane=\(Self.encode(pane))"
-        case .termAgentCommands(let project, let pane):
-            return "/term/agent-commands?project=\(Self.encode(project))&pane=\(Self.encode(pane))"
-        case .termAgentUpload(let project, let pane):
-            return "/term/agent-upload?project=\(Self.encode(project))&pane=\(Self.encode(pane))"
+        case .termAgentChat(let target, let limit):
+            return "/term/agent-chat?\(Self.selector(target))&limit=\(max(1, min(200, limit)))"
+        case .termAgentWork(let target):
+            return "/term/agent-work?\(Self.selector(target))"
+        case .termAgentPrompt(let target):
+            return "/term/agent-prompt?\(Self.selector(target))"
+        case .termAgentCommands(let target):
+            return "/term/agent-commands?\(Self.selector(target))"
+        case .termAgentUpload(let target):
+            return "/term/agent-upload?\(Self.selector(target))"
+        case .termAgentAsk(let target):
+            return "/term/agent-ask?\(Self.selector(target))"
+        case .termAgentAnswer(let session):
+            return "/term/agent-answer?session=\(Self.encode(session))"
+        case .termAgentInterrupt(let session):
+            return "/term/agent-interrupt?session=\(Self.encode(session))"
+        case .termAgentStart(let session):
+            return "/term/agent-start?session=\(Self.encode(session))"
         case .termUpload:
             return "/term/upload"
         case .tasksList, .tasksCreate:
@@ -80,6 +103,21 @@ enum BridgeEndpoint {
             return "/vitals/logs"
         case .vitalsLog:
             return "/vitals/log"
+        case .vitalsCatalog:
+            return "/vitals/catalog"
+        case .vitalsBlocks:
+            return "/vitals/blocks"
+        case .vitalsPlan(let week):
+            return "/vitals/plan?week=\(Self.encode(week))"
+        }
+    }
+
+    private static func selector(_ target: AgentTargetRef) -> String {
+        switch target {
+        case .pane(let project, let pane):
+            return "project=\(encode(project))&pane=\(encode(pane))"
+        case .session(let session):
+            return "session=\(encode(session))"
         }
     }
 

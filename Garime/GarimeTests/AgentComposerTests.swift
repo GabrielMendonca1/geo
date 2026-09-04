@@ -112,14 +112,14 @@ final class AgentUploadFailureTests: XCTestCase {
 final class AgentComposerEndpointTests: XCTestCase {
     func testCommandsPathEncodesPaneColon() {
         XCTAssertEqual(
-            BridgeEndpoint.termAgentCommands(project: "garime", pane: "w1:p3").path,
+            BridgeEndpoint.termAgentCommands(target: .pane(project: "garime", pane: "w1:p3")).path,
             "/term/agent-commands?project=garime&pane=w1%3Ap3"
         )
     }
 
     func testUploadPathEncodesPaneColon() {
         XCTAssertEqual(
-            BridgeEndpoint.termAgentUpload(project: "meu projeto", pane: "w1:p3").path,
+            BridgeEndpoint.termAgentUpload(target: .pane(project: "meu projeto", pane: "w1:p3")).path,
             "/term/agent-upload?project=meu%20projeto&pane=w1%3Ap3"
         )
     }
@@ -157,6 +157,20 @@ final class AgentComposerModelTests: XCTestCase {
         XCTAssertNil(path)
         XCTAssertEqual(model.notice, "arquivo grande demais")
         XCTAssertTrue(fake.calls.isEmpty)
+    }
+
+    func testCommandsLoadingIsVisibleWhileFetching() async {
+        let fake = FakeComposerBridge()
+        fake.getDelay = 40_000_000
+        fake.getResult = .success(Data(#"{"agent":"claude","commands":[{"name":"g-omni"}]}"#.utf8))
+        let model = AgentComposerModel(target: target, client: fake)
+        XCTAssertFalse(model.loadingCommands)
+        async let load: Void = model.loadCommands()
+        try? await Task.sleep(nanoseconds: 10_000_000)
+        XCTAssertTrue(model.loadingCommands)
+        await load
+        XCTAssertFalse(model.loadingCommands)
+        XCTAssertEqual(model.commands.map(\.name), ["g-omni"])
     }
 
     func testCommandsAreFetchedOnceAndCached() async {
@@ -265,6 +279,7 @@ private final class FakeComposerBridge: BridgeAPI, @unchecked Sendable {
 
     var getResult: Result<Data, Error> = .failure(BridgeError.unreachable("unset"))
     var uploadResult: Result<Data, Error> = .failure(BridgeError.unreachable("unset"))
+    var getDelay: UInt64 = 0
 
     var calls: [String] {
         lock.lock()
@@ -275,7 +290,9 @@ private final class FakeComposerBridge: BridgeAPI, @unchecked Sendable {
     func getData(_ path: String, token: String?) async throws -> Data {
         lock.lock()
         log.append(path)
+        let wait = getDelay
         lock.unlock()
+        if wait > 0 { try? await Task.sleep(nanoseconds: wait) }
         return try getResult.get()
     }
 
@@ -307,4 +324,40 @@ private final class FakeComposerBridge: BridgeAPI, @unchecked Sendable {
     }
 
     func health() async throws {}
+}
+
+final class AgentBuiltinCommandTests: XCTestCase {
+    func testBuiltinFlagDecodesAndDefaultsToFalse() throws {
+        let payload = try JSONDecoder().decode(AgentCommandsPayload.self, from: Data(#"""
+        {"agent":"claude","commands":[
+         {"name":"clear","description":"limpa o contexto","builtin":true},
+         {"name":"compact","description":"compacta","builtin":true},
+         {"name":"g-omni","description":"conduz"}
+        ]}
+        """#.utf8))
+        XCTAssertEqual(payload.commands.map(\.builtin), [true, true, false])
+    }
+
+    func testSplitKeepsBuiltinsFirstAndPreservesOrder() {
+        let commands = [
+            AgentCommand(name: "g-omni", description: "", scope: "user"),
+            AgentCommand(name: "clear", description: "", scope: "", builtin: true),
+            AgentCommand(name: "review", description: "", scope: "project"),
+            AgentCommand(name: "compact", description: "", scope: "", builtin: true),
+        ]
+        let sections = AgentCommandMenu.split(commands)
+        XCTAssertEqual(sections.builtin.map(\.name), ["clear", "compact"])
+        XCTAssertEqual(sections.rest.map(\.name), ["g-omni", "review"])
+    }
+
+    func testSplitOfFilteredMenuKeepsSections() {
+        let commands = [
+            AgentCommand(name: "clear", description: "", scope: "", builtin: true),
+            AgentCommand(name: "compact", description: "", scope: "", builtin: true),
+            AgentCommand(name: "commit", description: "", scope: "project"),
+        ]
+        let sections = AgentCommandMenu.split(AgentCommandMenu.filter(commands, query: "c"))
+        XCTAssertEqual(sections.builtin.map(\.name), ["clear", "compact"])
+        XCTAssertEqual(sections.rest.map(\.name), ["commit"])
+    }
 }

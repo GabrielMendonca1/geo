@@ -1,54 +1,47 @@
-# Geo
+# Garime Spirit
 
-Personal, local-first knowledge system. The vault is **`~/Vault/`** — plain Markdown, edited via Obsidian — and every component reaches it **only through the native filesystem**: no MCP, no HTTP API, no socket between components. The former macOS app was retired 2026-07-04 (code lives in git history); `~/Library/Application Support/Geo/` is a frozen backup that nothing reads or writes.
+Personal, local-first knowledge system split into **`~/Gabriel/`** (human Obsidian vault), **`~/Sistema/`** (editable operational vault), and **`/mnt/garime/state/`** (generated machine state outside Obsidian). Components use the native filesystem. The former macOS app was retired 2026-07-04; `~/Library/Application Support/Geo/` is a frozen backup.
 
 ```
-~/Vault/
-  Blocks/**.md         ← single source of truth (Zettelkasten)
-  Tasks/<id>.json      one file per task
-  Captures/YYYY-MM-DD/ screenshot+OCR pairs (geocapture writes, others read)
-  Index/blocks.sqlite  rebuildable FTS cache (geo_indexer) — NEVER authoritative
+~/Gabriel/                    human Markdown and attachments
+~/Sistema/Pi/                 system prompt, skills and Omni prompts
+/mnt/garime/state/tasks/      one JSON per task
+/mnt/garime/state/index/      rebuildable FTS cache
+/mnt/garime/state/{inbox,health}/ generated operational state
         ▲ filesystem only
-hermes (LaunchAgent)  WhatsApp · Gmail · Telegram · cron · cc-dispatch
-GeoBridge (launchd)   tasks/terminal/chat → GeoMobile over Tailscale
-GeoCalendar/GeoCapture daemons  ·  GeoMobile (iOS)  ·  GeoCore (shared Swift pkg)
+geo_indexer (VM garime)  indexes the human tree into state/index
+GeoBridge             task/health state + terminal → Garime over Tailscale
+GarimeCapture daemon  ·  Garime (iOS)  ·  GeoCore (shared Swift pkg)
 ```
 
-This file is the source of truth for architecture and rules. Deep dives: mobile↔bridge surface → `GeoBridge/CONTRACT.md`; hermes runtime → `hermes/config.yaml` + `hermes/SOUL.md`; fork patches over upstream → `hermes/PATCHES.md`.
+This file is the source of truth for architecture and rules. Deep dives: mobile↔bridge surface → `GeoBridge/CONTRACT.md`; agent identity → `hermes/SOUL.md`.
 
 ## Hard rules
 
-- **Files are truth.** A block *is* its `.md` file (frontmatter `id/type/status/layer/tags` + inline `[[wikilinks]]` and `[[YYYY-MM-DD]]` day-links). `Index/blocks.sqlite` is a rebuildable cache — corruption is fixed by re-running `hermes/scripts/geo_indexer.py`, never by hand-editing the DB.
-- **hermes writes only its layers.** Raw-FS writes allowed on `agent`/`review`/`shared` blocks, **never `user`** — enforced by `hermes-extensions/geo-tools/guard.py`.
-- **The old vault path is forbidden.** Nothing may read or write `~/Library/Application Support/Geo/`; `GeoCapture` carries an explicit guard against it.
+- **Files are truth.** Human knowledge is its Markdown under `~/Gabriel`; `/mnt/garime/state/index/blocks.sqlite` is rebuildable and never edited by hand.
+- **The old vault path is forbidden.** Nothing may read or write `~/Library/Application Support/Geo/`; `GarimeCapture` carries an explicit guard against it.
+- **GarimeCapture é 100% local e não gera markdown.** Nada sai do Mac: o daemon não linka biblioteca de rede nem gera subprocesso. O texto do OCR vive só na memória e no **clipboard** — nunca em disco, nem no log (que registra apenas a contagem de caracteres). A imagem fica em `…/GarimeCapture/archive/<day>/` — onde `<day>` é o dia do *arquivamento*, não o da captura — e é purgada 30 dias depois, apagando só os artefatos que o próprio daemon gerou. O original só é apagado depois do archive durável (`F_FULLFSYNC`) **e** do clipboard aceito. Escrever em qualquer lugar sob `~/Gabriel/` ou `~/Sistema/` é guardado e recusado — ver `GarimeCapture/README.md`.
 - **Sync-conflict files are dead.** Syncthing `.sync-conflict-*` files are skipped by the indexer and all readers — never index or resurrect them.
-- **Two live copies of the hermes layer.** `hermes/` in this repo is source; `~/.hermes/` is the installed runtime (synced via `install.sh` / manual copy). Check drift (md5) before editing either side.
+- **`hermes/` is source, not runtime.** The local hermes daemon was retired on 2026-08-04; what survives is `hermes/SOUL.md` (target of the `~/.hermes/SOUL.md` symlink) and `hermes/scripts/`, whose deployed copy runs on the VM garime. Edit the repo, never a copy.
 - **Commit format:** `<type>(<scope>): <description>` — `feat fix docs style refactor test chore`.
 
 ## Components
 
 | Dir | What |
 |---|---|
-| `hermes/` | Geo layer over upstream hermes-agent: `SOUL.md` (identity), `PATCHES.md` (fork patches — reapply after each upstream update), `hooks/geo-context` (context auto-injection), `scripts/` (`geo_indexer.py` → FTS index; `context_scraping.py` → WhatsApp→vault life-context pipeline), `whatsapp-ingest/` (Baileys sidecar + media download), `launch-agents/` |
-| `hermes-extensions/` | Plugins: `geo-tools` (file-native `geo_*` tools; reads via the sqlite index with file-scan fallback, writes native FS under the layer guard), geo-search-tool, whatsapp-confirm, brain-vault |
+| `hermes/` | `SOUL.md` (identity, symlinked from `~/.hermes/SOUL.md`) e `scripts/` (`geo_indexer.py` → FTS index, fonte do que roda na VM garime; `context_scraping.py` → WhatsApp→vault life-context pipeline) |
 | `GeoBridge/` | `geobridge.py` + plist `ai.geo.bridge` — serves `/tasks`, `/term/*` (tmux), `/chat` to GeoMobile, tailnet-only bind + bearer tokens. Blast-radius rules in `CONTRACT.md` |
-| `GeoMobile/` | iOS app (SwiftUI). Project generated by `ruby gen_project.rb` (never hand-edit the pbxproj). `Shared/Secrets.swift` is gitignored |
-| `GeoCore/` | Swift package shared with GeoMobile |
-| `GeoCalendar/` | Daemon: vault tasks → EKEvents, 4 calendars by type (Tarefas/Hábitos/Eventos/Marcos) |
-| `GeoCapture/` | Daemon: screenshot dir watch + Vision OCR → `Captures/` |
-| `tests/` | `geo_time_contract.py` — time/tz contract for geo-tools (run: `python3 tests/geo_time_contract.py`) |
+| `Garime/` | iOS app (SwiftUI). Project generated by `ruby gen_project.rb` (never hand-edit the pbxproj). `Shared/Secrets.swift` is gitignored |
+| `GeoCore/` | Swift package shared with the iOS app |
+| `GarimeCapture/` | Daemon local: screenshot dir watch + Vision OCR → texto no clipboard, imagem no archive local de 30 dias. Sem rede, sem markdown (tests: `GarimeCapture/tests/run.sh`) |
+| `GarimeWhisper/` | **Hub de menu bar do Mac** (centro das infos): ditado ⌥Space, gravar reunião/call (call via `rec.sh` do `/record`), Manter acordado (Caps Lock ligado = Mac não dorme, igual ao Capsomnia; IOPMAssertion nativo), observador read-only do GarimeCapture, tasks do Vault via ssh (cache offline) e todos por projeto dos `STATUS.md`. Build/install/smoke scripts in-tree; `build/` is not versioned |
+| `tests/` | `geo_time_contract.py` — time/tz contract for `context_scraping._resolve_due`; `pi_lane_contract.py` — DECIDE lane contract; `test_vitals_plan_contract.py` — GeoBridge catalog/blocks/frozen-week contract; `test_real_training_catalog.py` — invariants of the canonical real static catalog. Run: `python3 tests/<name>.py` |
 
-## GeoMobile build (device)
+## iOS app build (device)
 
 ```bash
-cd GeoMobile && ruby gen_project.rb
-xcodebuild -project GeoMobile.xcodeproj -scheme GeoMobile \
+cd Garime && ruby gen_project.rb
+xcodebuild -project Garime.xcodeproj -scheme Garime \
   -destination 'platform=iOS,id=<device-id>' -allowProvisioningUpdates build
 ```
 Install via `devicectl`. The bridge is reached over HTTPS (`tailscale serve`) — iOS ATS ignores `NSAllowsArbitraryLoads`.
-
-## hermes inference lanes
-
-Chat lane runs **`gpt-5.5` via `openai-codex`** (latency/tool-reliability-bound). Heavy/coding work goes to **Claude via `cc-dispatch`** (`~/.hermes/bin/cc-dispatch "<brief>" --dir <abs>` → detached workers under `~/.hermes/dispatches/<id>/`). `model.default` must stay non-empty. Current rationale lives in `hermes/config.yaml` `model:` block.
-
-Runtime state (managed by hermes, NOT in repo): `~/.hermes/` — `.env`, `SOUL.md` (symlink to repo), `state.db`, `logs/gateway.log`, `status.json`, `dispatches/`, `wa_media/`.

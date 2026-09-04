@@ -100,6 +100,9 @@ struct TodayView: View {
             if let error = viewModel.errorMessage {
                 banner(error, icon: "exclamationmark.triangle")
             }
+            if let calendarError = viewModel.calendarSyncError {
+                banner(calendarError, icon: "calendar.badge.exclamationmark")
+            }
         }
         .padding(.bottom, 10)
     }
@@ -232,6 +235,7 @@ struct TodayView: View {
         .scrollContentBackground(.hidden)
         .background(Color.slateCanvas)
         .refreshable { await viewModel.reload() }
+        .dockScrollTracking()
     }
 
     private var rowTransition: AnyTransition {

@@ -3,28 +3,57 @@ import SwiftUI
 import UIKit
 
 struct AgentChatTarget: Hashable {
+    let ref: AgentTargetRef
     let project: String
-    let pane: String
     let agent: String
     let status: String
     let title: String
 
-    init(project: String, pane: String, agent: String, status: String = "", title: String = "") {
+    init(ref: AgentTargetRef, project: String, agent: String, status: String = "", title: String = "") {
+        self.ref = ref
         self.project = project
-        self.pane = pane
         self.agent = agent
         self.status = status
         self.title = title
     }
 
-    init(_ process: TermAgentProcess) {
+    init(project: String, pane: String, agent: String, status: String = "", title: String = "") {
         self.init(
+            ref: .pane(project: project, pane: pane),
+            project: project,
+            agent: agent,
+            status: status,
+            title: title
+        )
+    }
+
+    init(session: String, agent: String, status: String = "", title: String = "") {
+        self.init(ref: .session(session), project: "", agent: agent, status: status, title: title)
+    }
+
+    init?(_ process: TermAgentProcess) {
+        guard let ref = process.chatRef else { return nil }
+        self.init(
+            ref: ref,
             project: process.project,
-            pane: process.pane,
             agent: process.agent,
             status: process.status,
             title: process.title
         )
+    }
+}
+
+enum AgentPromptFailure {
+    static func text(_ error: Error) -> String {
+        guard case BridgeError.server(let status, _) = error else {
+            return "não enviou — toque para tentar de novo"
+        }
+        switch status {
+        case 400: return "texto com caractere inválido"
+        case 404: return "agente sumiu da sessão"
+        case 503: return "host fora do ar"
+        default: return "não enviou — toque para tentar de novo"
+        }
     }
 }
 
@@ -49,6 +78,7 @@ struct AgentChatPayload: Decodable {
     let agent: String
     let status: String
     let messages: [AgentChatMessage]
+    var hasMore: Bool = false
 
     private struct Raw: Decodable {
         let role: String?
@@ -59,13 +89,14 @@ struct AgentChatPayload: Decodable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case agent, status, messages
+        case agent, status, messages, hasMore
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         agent = ((try? container.decodeIfPresent(String.self, forKey: .agent)) ?? nil) ?? ""
         status = ((try? container.decodeIfPresent(String.self, forKey: .status)) ?? nil) ?? ""
+        hasMore = ((try? container.decodeIfPresent(Bool.self, forKey: .hasMore)) ?? nil) ?? false
         let raw = ((try? container.decodeIfPresent([Raw].self, forKey: .messages)) ?? nil) ?? []
         messages = raw.enumerated().compactMap { index, item in
             guard let name = item.role, let role = AgentChatRole(rawValue: name) else { return nil }
@@ -82,6 +113,94 @@ struct AgentChatPayload: Decodable {
                 ts: item.ts ?? ""
             )
         }
+    }
+}
+
+struct AgentAskOption: Decodable, Identifiable, Equatable {
+    let index: Int
+    let label: String
+    let selected: Bool
+
+    var id: Int { index }
+
+    init(index: Int, label: String, selected: Bool) {
+        self.index = index
+        self.label = label
+        self.selected = selected
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case index, label, selected
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        index = ((try? container.decodeIfPresent(Int.self, forKey: .index)) ?? nil) ?? -1
+        label = (((try? container.decodeIfPresent(String.self, forKey: .label)) ?? nil) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        selected = ((try? container.decodeIfPresent(Bool.self, forKey: .selected)) ?? nil) ?? false
+    }
+}
+
+struct AgentAskPayload: Decodable, Equatable {
+    static let answerableMax = 9
+
+    let asking: Bool
+    let kind: String
+    let question: String
+    let options: [AgentAskOption]
+    let rawHint: String
+    let truncated: Bool
+
+    static let none = AgentAskPayload(asking: false, kind: "", question: "", options: [], rawHint: "")
+
+    init(asking: Bool, kind: String, question: String, options: [AgentAskOption], rawHint: String) {
+        let answerable = options.filter { $0.index <= AgentAskPayload.answerableMax }
+        self.asking = asking
+        self.kind = kind
+        self.question = question
+        self.options = answerable
+        self.rawHint = rawHint
+        self.truncated = answerable.count != options.count
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case asking, kind, question, options
+        case rawHint = "raw_hint"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        asking = ((try? container.decodeIfPresent(Bool.self, forKey: .asking)) ?? nil) ?? false
+        kind = ((try? container.decodeIfPresent(String.self, forKey: .kind)) ?? nil) ?? ""
+        question = ((try? container.decodeIfPresent(String.self, forKey: .question)) ?? nil) ?? ""
+        rawHint = ((try? container.decodeIfPresent(String.self, forKey: .rawHint)) ?? nil) ?? ""
+        var seen = Set<Int>()
+        let decoded = (((try? container.decodeIfPresent([AgentAskOption].self, forKey: .options)) ?? nil) ?? [])
+            .filter { $0.index >= 0 && !$0.label.isEmpty && seen.insert($0.index).inserted }
+        options = decoded.filter { $0.index <= AgentAskPayload.answerableMax }
+        truncated = options.count != decoded.count
+    }
+
+    var showsCard: Bool { asking && !options.isEmpty }
+
+    var prompt: String { question.isEmpty ? rawHint : question }
+
+    var title: String { kind.isEmpty ? "aguardando resposta" : kind }
+}
+
+enum AgentAskDisplay {
+    static func session(_ target: AgentTargetRef) -> String? {
+        guard case .session(let name) = target else { return nil }
+        return name
+    }
+
+    static func shows(_ payload: AgentAskPayload, target: AgentTargetRef) -> Bool {
+        session(target) != nil && payload.showsCard
+    }
+
+    static func canInterrupt(working: Bool, target: AgentTargetRef) -> Bool {
+        session(target) != nil && working
     }
 }
 
@@ -145,11 +264,16 @@ final class AgentChatModel: ObservableObject {
     @Published private(set) var loaded = false
     @Published private(set) var noAgent = false
     @Published private(set) var sending = false
+    @Published private(set) var work = AgentWorkPayload.none
+    @Published private(set) var ask = AgentAskPayload.none
+    @Published private(set) var answering: Int?
+    @Published private(set) var interrupting = false
+    @Published private(set) var notice = ""
     @Published var errorMessage: String?
 
     static let limit = 80
     static let workingInterval: UInt64 = 3_000_000_000
-    static let restingInterval: UInt64 = 6_000_000_000
+    static let restingInterval: UInt64 = 3_000_000_000
 
     private struct Draft {
         let id: String
@@ -162,6 +286,14 @@ final class AgentChatModel: ObservableObject {
     private var server: [AgentChatMessage] = []
     private var drafts: [Draft] = []
     private var refreshing = false
+    private var askSeq = 0
+    @Published private(set) var streamConnected = false
+    @Published private(set) var hasMore = false
+    @Published private(set) var loadingOlder = false
+    private var skipCount = 0
+    private var streamTask: Task<Void, Never>?
+    private var lastStreamStatus = ""
+    private var lastStreamCount = -1
 
     init(target: AgentChatTarget, client: any BridgeAPI = BridgeClient.shared) {
         self.target = target
@@ -177,15 +309,102 @@ final class AgentChatModel: ObservableObject {
         isWorking ? Self.workingInterval : Self.restingInterval
     }
 
+    var showsAskCard: Bool {
+        AgentAskDisplay.shows(ask, target: target.ref)
+    }
+
+    var canInterrupt: Bool {
+        AgentAskDisplay.canInterrupt(working: isWorking, target: target.ref)
+    }
+
+    var feedKey: String {
+        let asking = showsAskCard ? "1" : "0"
+        guard let last = messages.last else { return "0|\(asking)" }
+        return "\(messages.count)|\(last.id)|\(last.text.count)|\(asking)"
+    }
+
+    func apply(_ payload: AgentChatPayload) async {
+        if !loadingOlder {
+            skipCount = 0
+            hasMore = false
+        }
+        server = payload.messages
+        status = payload.status
+        noAgent = false
+        reachable = true
+        loaded = true
+        reconcile()
+        if payload.status != lastStreamStatus || payload.messages.count != lastStreamCount {
+            lastStreamStatus = payload.status
+            lastStreamCount = payload.messages.count
+            await refreshWork()
+            await refreshAsk()
+        }
+    }
+
+    func loadOlder() async {
+        guard !loadingOlder, !server.isEmpty else { return }
+        loadingOlder = true
+        defer { loadingOlder = false }
+        let before = skipCount + server.count
+        let path = BridgeEndpoint.termAgentChat(target: target.ref, limit: Self.limit).path + "&before=\(before)"
+        do {
+            let data = try await client.getData(path, token: BridgeConfig.termToken)
+            let payload = try JSONDecoder().decode(AgentChatPayload.self, from: data)
+            guard !payload.messages.isEmpty else {
+                hasMore = false
+                return
+            }
+            skipCount = before
+            hasMore = payload.hasMore
+            let known = Set(server.map(\.id))
+            server = payload.messages.filter { !known.contains($0.id) } + server
+            reconcile()
+        } catch {
+            reachable = false
+        }
+    }
+
+    func startStream() {
+        guard streamTask == nil, case .session(let name) = target.ref else { return }
+        streamTask = Task {
+            var backoff: UInt64 = 2_000_000_000
+            while !Task.isCancelled {
+                do {
+                    var req = URLRequest(url: URL(string: BridgeConfig.baseURLString + "/term/agent-stream?session=\(name)&limit=\(Self.limit)")!)
+                    req.setValue("Bearer \(BridgeConfig.termToken ?? "")", forHTTPHeaderField: "Authorization")
+                    req.timeoutInterval = 330
+                    let (bytes, response) = try await URLSession.shared.bytes(for: req)
+                    guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw URLError(.badServerResponse) }
+                    backoff = 2_000_000_000
+                    await MainActor.run { streamConnected = true }
+                    for try await line in bytes.lines {
+                        if Task.isCancelled { break }
+                        guard line.hasPrefix("data: ") else { continue }
+                        if let payload = try? JSONDecoder().decode(AgentChatPayload.self, from: Data(line.dropFirst(6).utf8)) {
+                            await self.apply(payload)
+                        }
+                    }
+                } catch { }
+                guard !Task.isCancelled else { break }
+                await MainActor.run { streamConnected = false }
+                try? await Task.sleep(nanoseconds: backoff)
+                backoff = min(backoff * 2, 30_000_000_000)
+            }
+        }
+    }
+
+    func stopStream() {
+        streamTask?.cancel()
+        streamTask = nil
+        streamConnected = false
+    }
+
     func refresh() async {
         guard !refreshing else { return }
         refreshing = true
         defer { refreshing = false }
-        let path = BridgeEndpoint.termAgentChat(
-            project: target.project,
-            pane: target.pane,
-            limit: Self.limit
-        ).path
+        let path = BridgeEndpoint.termAgentChat(target: target.ref, limit: Self.limit).path
         do {
             let data = try await client.getData(path, token: BridgeConfig.termToken)
             let payload = try JSONDecoder().decode(AgentChatPayload.self, from: data)
@@ -195,13 +414,87 @@ final class AgentChatModel: ObservableObject {
             reachable = true
             loaded = true
             reconcile()
+            await refreshWork()
+            await refreshAsk()
         } catch BridgeError.server(let status, _) where status == 404 {
             noAgent = true
             reachable = true
             loaded = true
+            work = .none
+            ask = .none
         } catch {
             reachable = false
         }
+    }
+
+    private func refreshWork() async {
+        let path = BridgeEndpoint.termAgentWork(target: target.ref).path
+        guard let data = try? await client.getData(path, token: BridgeConfig.termToken),
+              let payload = try? JSONDecoder().decode(AgentWorkPayload.self, from: data)
+        else { return }
+        work = payload
+    }
+
+    private func refreshAsk() async {
+        guard answering == nil else { return }
+        let seq = askSeq
+        let path = BridgeEndpoint.termAgentAsk(target: target.ref).path
+        guard let data = try? await client.getData(path, token: BridgeConfig.termToken),
+              let payload = try? JSONDecoder().decode(AgentAskPayload.self, from: data)
+        else {
+            if seq == askSeq { ask = .none }
+            return
+        }
+        guard seq == askSeq else { return }
+        ask = payload
+    }
+
+    func answer(_ index: Int) async {
+        guard answering == nil, let session = AgentAskDisplay.session(target.ref) else { return }
+        answering = index
+        askSeq += 1
+        notice = ""
+        let path = BridgeEndpoint.termAgentAnswer(session: session).path
+        let body = Data(#"{"index":\#(index)}"#.utf8)
+        do {
+            _ = try await client.postData(path, body: body, token: BridgeConfig.termToken)
+        } catch BridgeError.server(let status, let code) where status == 409 {
+            answering = nil
+            askSeq += 1
+            if code == "not_asking" {
+                ask = .none
+                notice = "a pergunta expirou"
+            } else {
+                notice = "não deu pra entregar a resposta"
+            }
+            return
+        } catch {
+            answering = nil
+            askSeq += 1
+            notice = "não deu pra responder"
+            return
+        }
+        ask = .none
+        answering = nil
+        askSeq += 1
+        await refresh()
+    }
+
+    func interrupt() async {
+        guard !interrupting, let session = AgentAskDisplay.session(target.ref) else { return }
+        interrupting = true
+        defer { interrupting = false }
+        let path = BridgeEndpoint.termAgentInterrupt(session: session).path
+        do {
+            _ = try await client.postData(path, body: nil, token: BridgeConfig.termToken)
+            notice = "interrupção enviada"
+        } catch {
+            notice = "não deu pra interromper"
+        }
+    }
+
+    func clearNotice() {
+        notice = ""
     }
 
     func send(_ raw: String) async {
@@ -228,12 +521,12 @@ final class AgentChatModel: ObservableObject {
         sending = true
         defer { sending = false }
         mark(id, failed: false)
-        let path = BridgeEndpoint.termAgentPrompt(project: target.project, pane: target.pane).path
+        let path = BridgeEndpoint.termAgentPrompt(target: target.ref).path
         do {
             _ = try await client.postData(path, body: Data(draft.text.utf8), token: BridgeConfig.termToken)
         } catch {
             mark(id, failed: true)
-            errorMessage = "não enviou — toque para tentar de novo"
+            errorMessage = AgentPromptFailure.text(error)
             return
         }
         await refresh()
@@ -282,7 +575,7 @@ struct AgentChatCodeBlock: View {
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             Text(code)
-                .font(.system(size: 12, design: .monospaced))
+                .font(.system(.callout, design: .monospaced))
                 .foregroundStyle(.primary)
                 .textSelection(.enabled)
                 .fixedSize(horizontal: true, vertical: true)
@@ -306,44 +599,23 @@ struct AgentChatCodeBlock: View {
 }
 
 struct AgentChatWorkingRow: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
     var body: some View {
-        Group {
-            if reduceMotion {
-                marks(active: -1)
-            } else {
-                TimelineView(.periodic(from: .now, by: 0.3)) { context in
-                    marks(active: Int(context.date.timeIntervalSinceReferenceDate / 0.3) % 3)
-                }
-            }
-        }
-        .accessibilityElement()
-        .accessibilityLabel(StatusLevel.working.label)
-    }
-
-    private func marks(active: Int) -> some View {
         HStack(spacing: 6) {
-            HStack(spacing: 3) {
-                ForEach(0..<3, id: \.self) { index in
-                    RoundedRectangle(cornerRadius: 1, style: .continuous)
-                        .fill(Color.slateTextDim)
-                        .frame(width: 4, height: 4)
-                        .opacity(active < 0 ? 0.55 : (active == index ? 1 : 0.2))
-                        .animation(.easeInOut(duration: 0.28), value: active)
-                }
-            }
-            Text(StatusLevel.working.label)
+            AgentPulseMarks()
+            Text("escrevendo…")
                 .font(.system(size: 10, design: .monospaced))
                 .foregroundStyle(Color.slateTextDim)
             Spacer(minLength: 0)
         }
         .padding(.vertical, 2)
+        .accessibilityElement()
+        .accessibilityLabel(StatusLevel.working.label)
     }
 }
 
 struct AgentChatView: View {
     let target: AgentChatTarget
+    var initialDraft: String = ""
     var onBack: () -> Void = {}
 
     @StateObject private var model: AgentChatModel
@@ -351,17 +623,25 @@ struct AgentChatView: View {
     @StateObject private var dictation = AgentDictationModel()
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @EnvironmentObject private var dock: DockState
+    @State private var showCamera = false
     @State private var draft = AgentChatView.initialDraft()
     @State private var ticker: Task<Void, Never>?
+    @State private var settle: Task<Void, Never>?
     @State private var atBottom = true
+    @State private var pendingNew = false
     @State private var showPhotoPicker = false
     @State private var showFileImporter = false
     @State private var photoItem: PhotosPickerItem?
     @State private var dictationBase = ""
+    @State private var workExpanded = false
     @FocusState private var composerFocused: Bool
+    @AppStorage("chat.mode") private var chatModeRaw = ""
 
-    init(target: AgentChatTarget, onBack: @escaping () -> Void = {}) {
+
+    init(target: AgentChatTarget, initialDraft: String = "", onBack: @escaping () -> Void = {}) {
         self.target = target
+        self.initialDraft = initialDraft
         self.onBack = onBack
         _model = StateObject(wrappedValue: AgentChatModel(target: target))
         _composerModel = StateObject(wrappedValue: AgentComposerModel(target: target))
@@ -371,8 +651,31 @@ struct AgentChatView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 14) {
+                    if model.hasMore {
+                        Button {
+                            let anchor = AgentChatFeed.items(model.messages).first?.id
+                            Task {
+                                await model.loadOlder()
+                                if let anchor { proxy.scrollTo(anchor, anchor: .top) }
+                            }
+                        } label: {
+                            HStack(spacing: 6) {
+                                if model.loadingOlder {
+                                    ProgressView().controlSize(.small)
+                                }
+                                Text("carregar mais antigas")
+                                    .font(.system(size: 10, design: .monospaced))
+                            }
+                            .foregroundStyle(Color.slateTextDim)
+                            .frame(maxWidth: .infinity, minHeight: 32)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(model.loadingOlder)
+                    }
                     ForEach(AgentChatFeed.items(model.messages)) { item in
                         row(item)
+                            .transition(.opacity)
                     }
                     if model.messages.isEmpty {
                         placeholder
@@ -380,6 +683,9 @@ struct AgentChatView: View {
                     if model.isWorking {
                         AgentChatWorkingRow()
                             .transition(.opacity)
+                    }
+                    if model.showsAskCard {
+                        askCard
                     }
                     Color.clear
                         .frame(height: 1)
@@ -392,21 +698,41 @@ struct AgentChatView: View {
                 .padding(.bottom, 12)
             }
             .scrollDismissesKeyboard(.interactively)
-            .animation(.spring(response: 0.34, dampingFraction: 1), value: model.isWorking)
-            .onChange(of: model.messages.count) { _, _ in
-                guard atBottom else { return }
-                withAnimation(.spring(response: 0.34, dampingFraction: 1)) {
-                    proxy.scrollTo(Self.bottomAnchor, anchor: .bottom)
+            .animation(enter, value: model.isWorking)
+            .animation(enter, value: model.ask)
+            .animation(enter, value: model.messages.count)
+            .onChange(of: model.feedKey) { _, _ in
+                guard atBottom else {
+                    pendingNew = true
+                    return
+                }
+                glideToBottom(proxy)
+            }
+            .onChange(of: atBottom) { _, value in
+                if value { pendingNew = false }
+            }
+            .onChange(of: composerFocused) { _, focused in
+                if focused { glideToBottom(proxy) }
+            }
+            .overlay(alignment: .bottom) {
+                if pendingNew {
+                    newMessagesPill {
+                        pendingNew = false
+                        glideToBottom(proxy)
+                    }
                 }
             }
+            .animation(enter, value: pendingNew)
+            .overlay(alignment: .top) { topScrim }
+            .safeAreaInset(edge: .top) { header }
+            .safeAreaInset(edge: .bottom) { composer }
             .task {
                 await model.refresh()
+                model.startStream()
                 proxy.scrollTo(Self.bottomAnchor, anchor: .bottom)
             }
         }
         .background(Color.slateCanvas.ignoresSafeArea())
-        .safeAreaInset(edge: .top) { header }
-        .safeAreaInset(edge: .bottom) { composer }
         .navigationBarHidden(true)
         .toolbar(.hidden, for: .tabBar)
         .alert(
@@ -415,9 +741,23 @@ struct AgentChatView: View {
         ) {
             Button("ok", role: .cancel) { model.errorMessage = nil }
         }
-        .onAppear { startTicker() }
+        .task(id: model.notice) {
+            guard !model.notice.isEmpty else { return }
+            try? await Task.sleep(nanoseconds: 4_000_000_000)
+            model.clearNotice()
+        }
+        .onAppear {
+            dock.hidden = true
+            startTicker()
+            if draft.isEmpty, !initialDraft.isEmpty {
+                draft = initialDraft
+            }
+        }
         .onDisappear {
+            dock.hidden = false
+            model.stopStream()
             stopTicker()
+            settle?.cancel()
             dictation.stop()
         }
         .onChange(of: scenePhase) { _, phase in
@@ -425,6 +765,7 @@ struct AgentChatView: View {
                 startTicker()
                 Task { await model.refresh() }
             } else {
+                model.stopStream()
                 stopTicker()
                 dictation.stop()
             }
@@ -432,55 +773,230 @@ struct AgentChatView: View {
     }
 
     private static let bottomAnchor = "agent-chat-bottom"
+    private static let scrimFade: CGFloat = 16
+
+    private var enter: Animation? {
+        reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 1)
+    }
+
+    private func glideToBottom(_ proxy: ScrollViewProxy) {
+        withAnimation(enter) {
+            proxy.scrollTo(Self.bottomAnchor, anchor: .bottom)
+        }
+        settle?.cancel()
+        settle = Task {
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            guard !Task.isCancelled else { return }
+            withAnimation(enter) {
+                proxy.scrollTo(Self.bottomAnchor, anchor: .bottom)
+            }
+        }
+    }
+
+    private func newMessagesPill(_ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: "arrow.down")
+                    .font(.system(size: 10, weight: .semibold))
+                Text("novas mensagens")
+                    .font(.footnote)
+            }
+            .foregroundStyle(.primary)
+            .padding(.horizontal, 12)
+            .frame(height: 32)
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .glassSurface(shape: Capsule(), interactive: true)
+        .padding(.bottom, 10)
+        .transition(.opacity)
+    }
+
+    private var askCard: some View {
+        let shape = RoundedRectangle(cornerRadius: SlateRadius.card, style: .continuous)
+        return VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 6) {
+                    Image(systemName: "questionmark.circle")
+                        .font(.footnote.weight(.semibold))
+                    Text(model.ask.title)
+                        .font(.footnote.weight(.medium))
+                        .monospaced()
+                    Spacer(minLength: 0)
+                }
+                .foregroundStyle(Color.slateTextDim)
+                if !model.ask.prompt.isEmpty {
+                    prose(model.ask.prompt, onGlass: true)
+                }
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(model.ask.title). \(model.ask.prompt)")
+            .accessibilityAddTraits(.isHeader)
+            if model.ask.truncated {
+                Text("só as \(AgentAskPayload.answerableMax) primeiras dá pra responder aqui — o resto, pelo terminal")
+                    .font(.footnote.weight(.medium))
+                    .monospaced()
+                    .foregroundStyle(Color.slateTextDim)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            VStack(spacing: 6) {
+                ForEach(Array(model.ask.options.enumerated()), id: \.element.id) { position, option in
+                    askButton(option, position: position + 1, total: model.ask.options.count)
+                }
+            }
+        }
+        .padding(12)
+        .glassSurface(shape: shape)
+        .overlay(shape.stroke(Color.slateStroke.opacity(0.8), lineWidth: 1))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("pergunta do agente")
+        .transition(.opacity)
+    }
+
+    private func askButton(_ option: AgentAskOption, position: Int, total: Int) -> some View {
+        let shape = RoundedRectangle(cornerRadius: SlateRadius.cell, style: .continuous)
+        let busy = model.answering == option.index
+        return Button { Task { await model.answer(option.index) } } label: {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(option.label)
+                    .font(.callout.weight(option.selected ? .semibold : .regular))
+                    .monospaced()
+                    .foregroundStyle(.primary)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 4)
+                if busy {
+                    ProgressView().controlSize(.mini)
+                } else if option.selected {
+                    Image(systemName: "return")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(Color.slateTextDim)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .background(shape.fill(Color.slateInk(option.selected ? 0.16 : 0.07)))
+            .overlay(shape.stroke(Color.slateStroke.opacity(option.selected ? 0.9 : 0.35), lineWidth: 0.5))
+            .contentShape(shape)
+        }
+        .buttonStyle(.plain)
+        .disabled(model.answering != nil)
+        .opacity(model.answering == nil || busy ? 1 : 0.4)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("opção \(position) de \(total): \(option.label)")
+        .accessibilityValue(busy ? "enviando" : (option.selected ? "sugerida" : ""))
+        .accessibilityHint("responde a pergunta do agente")
+        .accessibilityAddTraits(.isButton)
+    }
+
+    private var stopButton: some View {
+        Button { Task { await model.interrupt() } } label: {
+            Group {
+                if model.interrupting {
+                    ProgressView().controlSize(.mini)
+                } else {
+                    Image(systemName: "stop.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color.red)
+                }
+            }
+            .frame(width: 44, height: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(model.interrupting)
+        .accessibilityLabel("interromper agente")
+        .accessibilityValue(model.interrupting ? "enviando" : "")
+        .accessibilityHint("para o que o agente está fazendo agora")
+    }
+
+    private var topScrim: some View {
+        GeometryReader { proxy in
+            let top = max(proxy.safeAreaInsets.top, 1)
+            LinearGradient(
+                stops: [
+                    .init(color: Color.slateCanvas, location: 0),
+                    .init(color: Color.slateCanvas, location: top / (top + Self.scrimFade)),
+                    .init(color: Color.slateCanvas.opacity(0), location: 1)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: top + Self.scrimFade)
+            .offset(y: -top)
+        }
+        .allowsHitTesting(false)
+    }
 
     private var header: some View {
         GlassChrome {
-            HStack(spacing: 10) {
-                Button { onBack() } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 14, weight: .semibold))
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
+            VStack(spacing: 4) {
+                headerBar
+                if model.work.hasWork {
+                    AgentWorkBand(work: model.work, expanded: $workExpanded)
+                        .padding(.horizontal, 12)
+                        .transition(.opacity)
                 }
-                .buttonStyle(.plain)
-                AgentBadge(agent: target.agent)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(target.agent)
-                        .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                        .lineLimit(1)
-                    if !subtitle.isEmpty {
-                        Text(subtitle)
-                            .font(.system(size: 10, design: .monospaced))
-                            .foregroundStyle(Color.slateTextDim)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                    }
-                }
-                Spacer(minLength: 4)
-                StatusDot(level: model.reachable ? .agent(status: model.status) : .failed)
-                    .padding(.trailing, 14)
             }
-            .foregroundStyle(.primary)
-            .padding(.leading, 2)
-            .frame(minHeight: 48)
-            .glassSurface(shape: Capsule())
-            .padding(.horizontal, 12)
             .padding(.bottom, 4)
         }
-        .animation(.spring(response: 0.34, dampingFraction: 1), value: model.reachable)
-        .animation(.spring(response: 0.34, dampingFraction: 1), value: model.status)
+        .animation(enter, value: model.reachable)
+        .animation(enter, value: model.status)
+        .animation(enter, value: model.work)
+        .animation(enter, value: model.interrupting)
+        .animation(enter, value: workExpanded)
+    }
+
+    private var headerBar: some View {
+        HStack(spacing: 10) {
+            Button { onBack() } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 14, weight: .semibold))
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            AgentBadge(agent: target.agent)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(target.agent)
+                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                    .lineLimit(1)
+                if !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(Color.slateTextDim)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+            }
+            Spacer(minLength: 4)
+            if model.canInterrupt {
+                stopButton
+                    .transition(.opacity)
+            }
+            StatusDot(level: model.reachable ? .agent(status: model.status) : .failed)
+                .padding(.trailing, 14)
+        }
+        .foregroundStyle(.primary)
+        .padding(.leading, 2)
+        .frame(minHeight: 48)
+        .glassSurface(shape: Capsule())
+        .padding(.horizontal, 12)
     }
 
     private var subtitle: String {
         let title = target.title.trimmingCharacters(in: .whitespaces)
         if !title.isEmpty { return title }
-        return target.project
+        if !target.project.isEmpty { return target.project }
+        if case .session(let session) = target.ref { return session }
+        return ""
     }
 
     @ViewBuilder
     private var placeholder: some View {
         Text(AgentChatEmpty.text(loaded: model.loaded, reachable: model.reachable, noAgent: model.noAgent))
-            .font(.system(size: 11, design: .monospaced))
+            .font(.footnote)
             .foregroundStyle(Color.slateTextFaint)
             .frame(maxWidth: .infinity, alignment: .center)
             .padding(.top, 28)
@@ -490,10 +1006,42 @@ struct AgentChatView: View {
     private func row(_ item: AgentChatItem) -> some View {
         switch item {
         case .message(let message):
-            if message.role == .user {
-                userRow(message)
+            if message.optimistic || message.text.isEmpty {
+                if message.role == .user { userRow(message) } else { assistantRow(message) }
+            } else if message.role == .user {
+                userRow(message).contextMenu {
+                    Button {
+                        UIPasteboard.general.string = message.text
+                    } label: {
+                        Label("copiar", systemImage: "doc.on.doc")
+                    }
+                    Button {
+                        draft = "explica melhor isso: \"\(String(message.text.prefix(280)))\""
+                        composerFocused = true
+                    } label: {
+                        Label("explicar melhor", systemImage: "questionmark.bubble")
+                    }
+                    Button {
+                        draft = message.text
+                        composerFocused = true
+                    } label: {
+                        Label("reenviar", systemImage: "arrow.uturn.backward")
+                    }
+                }
             } else {
-                assistantRow(message)
+                assistantRow(message).contextMenu {
+                    Button {
+                        UIPasteboard.general.string = message.text
+                    } label: {
+                        Label("copiar", systemImage: "doc.on.doc")
+                    }
+                    Button {
+                        draft = "explica melhor isso: \"\(String(message.text.prefix(280)))\""
+                        composerFocused = true
+                    } label: {
+                        Label("explicar melhor", systemImage: "questionmark.bubble")
+                    }
+                }
             }
         case .tools(_, let names):
             toolRow(names)
@@ -506,12 +1054,13 @@ struct AgentChatView: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
                 Text("você")
-                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                    .font(.footnote.weight(.semibold))
+                    .monospaced()
                     .foregroundStyle(Color.slateTextDim)
                 if message.failed {
                     Button { Task { await model.retry(message.id) } } label: {
                         Label("não enviou", systemImage: "arrow.clockwise")
-                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                            .font(.footnote.weight(.medium))
                             .foregroundStyle(.red)
                             .frame(minHeight: 44)
                             .contentShape(Rectangle())
@@ -519,7 +1068,7 @@ struct AgentChatView: View {
                     .buttonStyle(.plain)
                 } else if message.optimistic {
                     Text("enviando…")
-                        .font(.system(size: 10, design: .monospaced))
+                        .font(.footnote)
                         .foregroundStyle(Color.slateTextFaint)
                 }
             }
@@ -535,12 +1084,13 @@ struct AgentChatView: View {
     private func assistantRow(_ message: AgentChatMessage) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(target.agent)
-                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .font(.footnote.weight(.semibold))
+                .monospaced()
                 .foregroundStyle(Color.slateTextDim)
             prose(message.text, onGlass: false)
             if message.truncated {
                 Text("cortado")
-                    .font(.system(size: 9, design: .monospaced))
+                    .font(.footnote)
                     .foregroundStyle(Color.slateTextFaint)
             }
         }
@@ -552,20 +1102,59 @@ struct AgentChatView: View {
     @ViewBuilder
     private func prose(_ text: String, onGlass: Bool) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            ForEach(Array(AgentChatMarkup.chunks(text).enumerated()), id: \.offset) { _, chunk in
-                switch chunk {
-                case .prose(let value):
-                    Text(AgentChatMarkup.attributed(value))
-                        .font(.system(size: 13, design: .monospaced))
-                        .foregroundStyle(.primary)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                case .code(let value):
-                    AgentChatCodeBlock(code: value, onGlass: onGlass)
-                }
+            ForEach(Array(AgentChatMarkup.blocks(text).enumerated()), id: \.offset) { _, block in
+                blockView(block, onGlass: onGlass)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private func blockView(_ block: AgentChatBlock, onGlass: Bool) -> some View {
+        switch block {
+        case .paragraph(let value):
+            bodyText(AgentChatMarkup.attributed(value))
+        case .heading(let level, let value):
+            let font = Self.headingFont(level)
+            Text(AgentChatMarkup.attributed(value, base: font))
+                .font(font)
+                .foregroundStyle(.primary)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 2)
+        case .bullet(let value):
+            listRow(marker: "•", value: value)
+        case .ordered(let marker, let value):
+            listRow(marker: marker, value: value)
+        case .code(let value):
+            AgentChatCodeBlock(code: value, onGlass: onGlass)
+        }
+    }
+
+    private func bodyText(_ value: AttributedString) -> some View {
+        Text(value)
+            .font(.body)
+            .lineSpacing(3)
+            .foregroundStyle(.primary)
+            .textSelection(.enabled)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func listRow(marker: String, value: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(marker)
+                .font(.body)
+                .foregroundStyle(Color.slateTextDim)
+            bodyText(AgentChatMarkup.attributed(value))
+        }
+    }
+
+    private static func headingFont(_ level: Int) -> Font {
+        switch level {
+        case 1: return .title3.bold()
+        case 2: return .headline
+        default: return .subheadline.bold()
+        }
     }
 
     @ViewBuilder
@@ -583,7 +1172,7 @@ struct AgentChatView: View {
 
     private func stampRow(_ ts: String) -> some View {
         Text(AgentChatClock.label(ts))
-            .font(.system(size: 9, design: .monospaced))
+            .font(.footnote)
             .foregroundStyle(Color.slateTextFaint)
             .frame(maxWidth: .infinity, alignment: .center)
             .padding(.vertical, 2)
@@ -612,19 +1201,47 @@ struct AgentChatView: View {
     private var composer: some View {
         GlassChrome {
             VStack(alignment: .leading, spacing: 6) {
-                if !menuCommands.isEmpty {
+                if !model.showsAskCard && !AgentChatMode.all.isEmpty && (composerFocused || !chatModeRaw.isEmpty) {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            ForEach(AgentChatMode.all) { mode in
+                                Button {
+                                    chatModeRaw = (chatModeRaw == mode.rawValue) ? "" : mode.rawValue
+                                } label: {
+                                    Text(mode.label)
+                                        .font(.system(size: 10, design: .monospaced))
+                                        .foregroundStyle(.primary)
+                                        .padding(.horizontal, 10)
+                                        .frame(minHeight: 26)
+                                        .background(chatModeRaw == mode.rawValue ? Color.accentColor.opacity(0.22) : .clear, in: Capsule())
+                                        .overlay(Capsule().strokeBorder(Color.slateStroke.opacity(0.5)))
+                                        .contentShape(Capsule())
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.horizontal, 4)
+                    }
+                    .transition(.opacity)
+                    .accessibilityLabel("modo de conversa")
+                }
+                if showsCommandMenu {
                     commandMenu
                 }
                 if !statusLine.isEmpty {
                     Text(statusLine)
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundStyle(Color.slateTextDim)
+                        .font(.footnote)
+                        .monospaced()
+                        .foregroundStyle(model.notice.isEmpty ? Color.slateTextDim : Color.slateText)
+                        .fixedSize(horizontal: false, vertical: true)
                         .padding(.leading, 16)
+                        .transition(.opacity)
+                        .accessibilityAddTraits(.updatesFrequently)
                 }
                 HStack(alignment: .bottom, spacing: 0) {
                     attachButton
                     TextField("mensagem", text: $draft, axis: .vertical)
-                        .font(.system(size: 13, design: .monospaced))
+                        .font(.body)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .lineLimit(1...6)
@@ -643,13 +1260,25 @@ struct AgentChatView: View {
                 }
                 .foregroundStyle(.primary)
                 .glassSurface(shape: RoundedRectangle(cornerRadius: 22, style: .continuous), interactive: true)
+                .opacity(model.showsAskCard ? 0.5 : 1)
             }
             .padding(.horizontal, 12)
             .padding(.bottom, 8)
         }
-        .animation(.spring(response: 0.3, dampingFraction: 1), value: menuCommands.count)
-        .animation(.spring(response: 0.3, dampingFraction: 1), value: statusLine)
+        .animation(enter, value: showsCommandMenu)
+        .animation(enter, value: menuCommands.count)
+        .animation(enter, value: chatModeRaw)
+        .animation(enter, value: composerFocused)
+        .animation(enter, value: statusLine)
+        .animation(enter, value: model.showsAskCard)
         .photosPicker(isPresented: $showPhotoPicker, selection: $photoItem, matching: .images)
+        .fullScreenCover(isPresented: $showCamera) {
+            CameraCaptureView { data, ext in
+                let name = UploadName.sanitized("foto-\(Self.stamp()).\(ext)", fallback: "foto")
+                Task { await deliverUpload(data, filename: name) }
+            }
+            .ignoresSafeArea()
+        }
         .fileImporter(isPresented: $showFileImporter, allowedContentTypes: [.item]) { result in
             importFile(result)
         }
@@ -683,28 +1312,41 @@ struct AgentChatView: View {
         return AgentCommandMenu.filter(composerModel.commands, query: query)
     }
 
+    private var showsCommandMenu: Bool {
+        guard AgentCommandMenu.query(draft) != nil else { return false }
+        return composerModel.loadingCommands || !menuCommands.isEmpty
+    }
+
     private var commandMenu: some View {
-        ScrollView {
+        let sections = AgentCommandMenu.split(menuCommands)
+        return ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                ForEach(menuCommands) { command in
-                    Button {
-                        draft = AgentCommandMenu.inserted(command.name)
-                    } label: {
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text("/\(command.name)")
-                                .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                            if !command.description.isEmpty {
-                                Text(command.description)
-                                    .font(.system(size: 10, design: .monospaced))
-                                    .foregroundStyle(Color.slateTextDim)
-                                    .lineLimit(1)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                if menuCommands.isEmpty {
+                    commandsLoadingRow
+                }
+                if !sections.builtin.isEmpty {
+                    Text("do agente")
+                        .font(.system(size: 9, weight: .medium, design: .monospaced))
+                        .foregroundStyle(Color.slateTextFaint)
                         .padding(.horizontal, 14)
-                        .contentShape(Rectangle())
+                        .padding(.top, 4)
+                        .padding(.bottom, 2)
+                    ForEach(sections.builtin) { command in
+                        commandRow(command)
                     }
-                    .buttonStyle(.plain)
+                    if !sections.rest.isEmpty {
+                        Divider()
+                            .overlay(Color.slateStroke.opacity(0.4))
+                            .padding(.vertical, 4)
+                        Text("skills")
+                            .font(.system(size: 9, weight: .medium, design: .monospaced))
+                            .foregroundStyle(Color.slateTextFaint)
+                            .padding(.horizontal, 14)
+                            .padding(.bottom, 2)
+                    }
+                }
+                ForEach(sections.rest) { command in
+                    commandRow(command)
                 }
             }
             .padding(.vertical, 4)
@@ -715,8 +1357,44 @@ struct AgentChatView: View {
         .glassSurface(shape: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
+    private var commandsLoadingRow: some View {
+        HStack(spacing: 8) {
+            ProgressView().controlSize(.mini)
+            Text("buscando comandos…")
+                .font(.footnote)
+                .monospaced()
+                .foregroundStyle(Color.slateTextDim)
+        }
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+        .padding(.horizontal, 14)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("buscando comandos")
+    }
+
+    private func commandRow(_ command: AgentCommand) -> some View {
+        Button {
+            draft = AgentCommandMenu.inserted(command.name)
+        } label: {
+            VStack(alignment: .leading, spacing: 1) {
+                Text("/\(command.name)")
+                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                if !command.description.isEmpty {
+                    Text(command.description)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(Color.slateTextDim)
+                        .lineLimit(1)
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .padding(.horizontal, 14)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
     private var attachButton: some View {
         Menu {
+            Button { showCamera = true } label: { Label("câmera", systemImage: "camera") }
             Button { showPhotoPicker = true } label: { Label("foto", systemImage: "photo") }
             Button { showFileImporter = true } label: { Label("arquivo", systemImage: "doc") }
         } label: {
@@ -755,6 +1433,7 @@ struct AgentChatView: View {
     }
 
     private var statusLine: String {
+        if !model.notice.isEmpty { return model.notice }
         if dictation.recording { return "ouvindo…" }
         if !dictation.notice.isEmpty { return dictation.notice }
         return composerModel.notice
@@ -802,8 +1481,10 @@ struct AgentChatView: View {
 
     private func deliverUpload(_ data: Data, filename: String) async {
         guard let path = await composerModel.upload(data, filename: filename) else { return }
+        let isImage = ["png", "jpg", "jpeg", "gif", "webp", "heic"].contains(filename.lowercased().split(separator: ".").last.map(String.init) ?? "")
+        let lead = isImage ? "olhe a imagem em " : ""
         let separator = draft.isEmpty || draft.hasSuffix(" ") ? "" : " "
-        draft += separator + path + " "
+        draft += separator + lead + path + (isImage ? " e me diga o que você vê." : " ")
         composerFocused = true
     }
 
@@ -818,8 +1499,10 @@ struct AgentChatView: View {
     }
 
     private func submit() {
-        let text = draft
         guard canSend else { return }
+        let mode = AgentChatMode(rawValue: chatModeRaw)?.directive ?? ""
+        let text = mode + draft
+        chatModeRaw = ""
         dictation.stop()
         composerModel.clearNotice()
         draft = ""
@@ -833,7 +1516,9 @@ struct AgentChatView: View {
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: model.pollInterval)
                 guard !Task.isCancelled else { return }
-                await model.refresh()
+                if !model.streamConnected {
+                    await model.refresh()
+                }
             }
         }
     }
@@ -841,5 +1526,34 @@ struct AgentChatView: View {
     private func stopTicker() {
         ticker?.cancel()
         ticker = nil
+    }
+}
+
+enum AgentChatMode: String, CaseIterable, Identifiable {
+    static let all: [AgentChatMode] = [.rapido, .pesquisa, .executar]
+
+    case rapido
+    case pesquisa
+    case executar
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .rapido: return "rápido"
+        case .pesquisa: return "pesquisa"
+        case .executar: return "executar"
+        }
+    }
+
+    var directive: String {
+        switch self {
+        case .rapido:
+            return "[modo rápido] Responda de forma enxuta e direta, sem rodeios.\n\n"
+        case .pesquisa:
+            return "[modo pesquisa] Pesquise na web antes de responder e cite as fontes.\n\n"
+        case .executar:
+            return "[modo executar] Execute sem pedir confirmação; só me avise do resultado. Ações destrutivas continuam proibidas.\n\n"
+        }
     }
 }

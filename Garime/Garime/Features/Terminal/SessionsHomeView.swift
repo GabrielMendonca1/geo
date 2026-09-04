@@ -1,9 +1,5 @@
 import SwiftUI
 
-struct TermPreviewPayload: Decodable {
-    let text: String
-}
-
 struct TermAgentUnit: Decodable, Identifiable, Equatable {
     let name: String
     let active: Bool
@@ -20,17 +16,33 @@ struct TermAgentProcess: Decodable, Identifiable, Equatable {
     let project: String
     let cwd: String
     let pane: String
+    let session: String
 
     var id: String {
-        pane.isEmpty ? "\(host)|\(project)|\(agent)|\(title)" : "\(host)|\(project)|\(agent)|\(pane)"
+        let key = pane.isEmpty ? (session.isEmpty ? title : session) : pane
+        return "\(host)|\(project)|\(agent)|\(key)"
     }
 
     var isBusy: Bool { status == "working" || status == "running" }
     var isIdle: Bool { status == "idle" }
     var isAttachable: Bool { host == "mac" && !pane.isEmpty && !project.isEmpty }
 
+    var chatRef: AgentTargetRef? {
+        if host == "mac" {
+            return isAttachable ? .pane(project: project, pane: pane) : nil
+        }
+        return session.isEmpty ? nil : .session(session)
+    }
+
+    var isChattable: Bool { chatRef != nil }
+
+    var place: String {
+        let name = cwd.split(separator: "/").last.map(String.init) ?? ""
+        return name == project ? "" : name
+    }
+
     enum CodingKeys: String, CodingKey {
-        case host, agent, status, title, project, cwd, pane
+        case host, agent, status, title, project, cwd, pane, session
     }
 
     init(from decoder: Decoder) throws {
@@ -45,6 +57,7 @@ struct TermAgentProcess: Decodable, Identifiable, Equatable {
         project = text(.project)
         cwd = text(.cwd)
         pane = text(.pane)
+        session = text(.session)
     }
 }
 
@@ -150,6 +163,11 @@ enum TermAgentOrder {
         return result
     }
 
+    static func adopting(layout: [TermAgentGroup], live: [TermAgentProcess]) -> [TermAgentGroup] {
+        let known = Set(layout.map(\.project))
+        return merged(layout: layout, live: live).filter { !known.contains($0.project) }
+    }
+
     static func sorted(_ agents: [TermAgentProcess]) -> [TermAgentProcess] {
         agents.enumerated().sorted { lhs, rhs in
             if lhs.element.project.isEmpty != rhs.element.project.isEmpty {
@@ -176,41 +194,22 @@ enum TermAgentOrder {
     }
 }
 
-enum ANSIText {
-    private static let escapes = try? NSRegularExpression(
-        pattern: "\u{1B}\\[[0-9;?]*[ -/]*[@-~]|\u{1B}\\][^\u{07}\u{1B}]*(\u{07}|\u{1B}\\\\)|\u{1B}[@-Z\\\\-_]"
-    )
-
-    static func stripped(_ raw: String) -> String {
-        let range = NSRange(raw.startIndex..., in: raw)
-        let clean = escapes?.stringByReplacingMatches(in: raw, range: range, withTemplate: "") ?? raw
-        var lines = clean.components(separatedBy: "\n")
-        while let last = lines.last, last.trimmingCharacters(in: .whitespaces).isEmpty {
-            lines.removeLast()
-        }
-        while let first = lines.first, first.trimmingCharacters(in: .whitespaces).isEmpty {
-            lines.removeFirst()
-        }
-        return lines.joined(separator: "\n")
-    }
-}
-
 @MainActor
 final class SessionsHomeModel: ObservableObject {
     @Published private(set) var serverSessions: [String] = []
     @Published private(set) var serverListLoaded = false
-    @Published private(set) var previews: [String: String] = [:]
     @Published private(set) var units: [TermAgentUnit] = []
     @Published private(set) var agents: [TermAgentProcess] = []
     @Published private(set) var macOnline = false
     @Published private(set) var reachable = true
+    @Published private(set) var work: [String: Int] = [:]
 
-    static let previewEveryNCycles = 3
+    static let workProbeLimit = 6
 
     private let client: any BridgeAPI
     private var refreshing = false
+    private var starting = false
     private var coalesced = false
-    private var previewCycle = 0
 
     init(client: any BridgeAPI = BridgeClient.shared) {
         self.client = client
@@ -221,54 +220,82 @@ final class SessionsHomeModel: ObservableObject {
         return !serverSessions.contains(TerminalSessionList.endpoint(for: name))
     }
 
-    func refresh(_ names: [String], force: Bool = true) async {
+    func refresh(force: Bool = true) async {
         guard !refreshing else {
             coalesced = coalesced || force
             return
         }
         refreshing = true
         defer { refreshing = false }
-        await cycle(names, force: force)
+        await cycle()
         if coalesced {
             coalesced = false
-            await cycle(names, force: true)
+            await cycle()
         }
     }
 
-    private func cycle(_ names: [String], force: Bool) async {
+    private func cycle() async {
+        let client = self.client
+        async let listed = Self.fetch(client, BridgeEndpoint.termList.path, as: TermSessions.self)
+        async let probed = Self.fetch(client, BridgeEndpoint.termAgents.path, as: TermAgentsPayload.self)
+
         var ok = false
-        if let data = try? await client.getData(BridgeEndpoint.termList.path, token: BridgeConfig.termToken),
-           let list = try? JSONDecoder().decode(TermSessions.self, from: data).sessions {
-            serverSessions = list
-            serverListLoaded = true
-            ok = true
-        }
-        if let data = try? await client.getData(BridgeEndpoint.termAgents.path, token: BridgeConfig.termToken),
-           let payload = try? JSONDecoder().decode(TermAgentsPayload.self, from: data) {
+        if let payload = await probed {
             units = payload.units
             macOnline = payload.macOnline
             agents = TermAgentOrder.sorted(payload.agents)
             ok = true
         }
-        for name in previewTargets(names, force: force) {
-            let path = BridgeEndpoint.termPreview(session: TerminalSessionList.endpoint(for: name), lines: 12).path
-            guard let data = try? await client.getData(path, token: BridgeConfig.termToken),
-                  let payload = try? JSONDecoder().decode(TermPreviewPayload.self, from: data)
-            else {
-                if isDead(name) { previews[name] = nil }
-                continue
-            }
-            previews[name] = ANSIText.stripped(payload.text)
+        async let worked: Void = cycleWork()
+        if let list = await listed?.sessions {
+            serverSessions = list
+            serverListLoaded = true
             ok = true
         }
+        await worked
         reachable = ok
     }
 
-    private func previewTargets(_ names: [String], force: Bool) -> [String] {
-        guard !force else { return names }
-        let due = previewCycle == 0
-        previewCycle = (previewCycle + 1) % Self.previewEveryNCycles
-        return due ? names : names.filter { previews[$0] == nil }
+    private func cycleWork() async {
+        let client = self.client
+        let targets = Array(agents.filter { $0.isBusy && $0.isChattable }.prefix(Self.workProbeLimit))
+        let probes = targets.compactMap { agent in
+            agent.chatRef.map { (agent.id, BridgeEndpoint.termAgentWork(target: $0).path) }
+        }
+        var live = work
+        for (id, payload) in await Self.fetchWork(client, probes) {
+            live[id] = payload.hasWork ? payload.runningAgents : nil
+        }
+        let ids = Set(targets.map(\.id))
+        work = live.filter { ids.contains($0.key) }
+    }
+
+    private nonisolated static func fetch<T: Decodable & Sendable>(
+        _ client: any BridgeAPI,
+        _ path: String,
+        as type: T.Type
+    ) async -> T? {
+        guard let data = try? await client.getData(path, token: BridgeConfig.termToken) else { return nil }
+        return try? JSONDecoder().decode(T.self, from: data)
+    }
+
+    private nonisolated static func fetchWork(
+        _ client: any BridgeAPI,
+        _ probes: [(String, String)]
+    ) async -> [(String, AgentWorkPayload)] {
+        guard !probes.isEmpty else { return [] }
+        return await withTaskGroup(of: (String, AgentWorkPayload?).self) { group in
+            for (id, path) in probes {
+                group.addTask {
+                    (id, await fetch(client, path, as: AgentWorkPayload.self))
+                }
+            }
+            var results: [(String, AgentWorkPayload)] = []
+            for await (id, payload) in group {
+                if let payload { results.append((id, payload)) }
+            }
+            return results
+        }
     }
 
     func kill(_ name: String) async {
@@ -292,6 +319,22 @@ final class SessionsHomeModel: ObservableObject {
         return session
     }
 
+    func startAgent(_ name: String, agent: String) async -> AgentStartOutcome? {
+        guard !starting else { return nil }
+        starting = true
+        defer { starting = false }
+        let path = BridgeEndpoint.termAgentStart(session: TerminalSessionList.endpoint(for: name)).path
+        let body = Data(#"{"agent":"\#(agent)"}"#.utf8)
+        do {
+            _ = try await client.postData(path, body: body, token: BridgeConfig.termToken)
+            return .ok
+        } catch BridgeError.server(let status, let code) where status == 409 {
+            return code == "already_running" ? .running : .failed
+        } catch {
+            return .failed
+        }
+    }
+
     func rename(_ name: String, to: String) async -> Bool {
         let path = BridgeEndpoint.termRename(session: TerminalSessionList.endpoint(for: name), to: to).path
         do {
@@ -300,6 +343,53 @@ final class SessionsHomeModel: ObservableObject {
         } catch {
             return false
         }
+    }
+}
+
+enum AgentStartOutcome {
+    case ok
+    case running
+    case failed
+}
+
+enum SessionsHomeStart {
+    static let agents = ["claude", "pi", "codex"]
+
+    static func startable(session name: String) -> Bool {
+        TerminalSessionList.origin(for: name) != "mac" && !TerminalSessionList.label(for: name).isEmpty
+    }
+
+    static func notice(_ outcome: AgentStartOutcome) -> String? {
+        switch outcome {
+        case .ok: return nil
+        case .running: return "já tem agente nessa sessão"
+        case .failed: return "falha ao iniciar agente"
+        }
+    }
+}
+
+enum SessionsHomeDisplay {
+    static func agentSessions(_ agents: [TermAgentProcess]) -> Set<String> {
+        Set(agents.filter { $0.host != "mac" && !$0.session.isEmpty }.map { "vm:\($0.session)" })
+    }
+
+    static func rows(_ sessions: [String], agents: [TermAgentProcess]) -> [String] {
+        let promoted = agentSessions(agents)
+        return sessions.filter { !promoted.contains($0) }
+    }
+}
+
+enum SessionsHomeKill {
+    static func killable(session name: String) -> Bool {
+        TerminalSessionList.origin(for: name) != "mac"
+            && name != TerminalSessionList.reserved
+            && !TerminalSessionList.label(for: name).isEmpty
+    }
+
+    static func target(_ agent: TermAgentProcess) -> String? {
+        guard case .session(let session)? = agent.chatRef else { return nil }
+        let name = "vm:\(session)"
+        return killable(session: name) ? name : nil
     }
 }
 
@@ -317,6 +407,7 @@ struct SessionsHomeView: View {
     @State private var renameText = ""
     @State private var renameError: String?
     @State private var attaching: String?
+    @State private var killing: String?
     @State private var layout: [TermAgentGroup] = []
     @State private var expanded: Set<String> = []
     @Environment(\.scenePhase) private var scenePhase
@@ -331,12 +422,16 @@ struct SessionsHomeView: View {
         TerminalSessionList.homeList(sessionsRaw)
     }
 
+    private var visibleSessions: [String] {
+        SessionsHomeDisplay.rows(allSessions, agents: model.agents)
+    }
+
     var body: some View {
         NavigationStack(path: $path) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    grid
-                    agents
+                    hostCards
+                    inventory
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
@@ -369,6 +464,16 @@ struct SessionsHomeView: View {
             Button("cancelar", role: .cancel) { renaming = nil }
             Button("renomear") { confirmRename() }
         }
+        .confirmationDialog(
+            "matar \(TerminalSessionList.label(for: killing ?? ""))?",
+            isPresented: Binding(get: { killing != nil }, set: { if !$0 { killing = nil } }),
+            titleVisibility: .visible
+        ) {
+            Button("matar sessão", role: .destructive) { confirmKill() }
+            Button("cancelar", role: .cancel) { killing = nil }
+        } message: {
+            Text("a sessão e o que estiver rodando nela morrem. não dá pra desfazer.")
+        }
         .alert(
             renameError ?? "",
             isPresented: Binding(get: { renameError != nil }, set: { if !$0 { renameError = nil } })
@@ -379,6 +484,7 @@ struct SessionsHomeView: View {
             await refreshAll()
             resetLayout()
         }
+        .onChange(of: model.agents) { _, _ in adoptNewGroups() }
         .onAppear { startTicker() }
         .onDisappear { stopTicker() }
         .onChange(of: scenePhase) { _, phase in
@@ -393,6 +499,7 @@ struct SessionsHomeView: View {
         .animation(.spring(response: 0.34, dampingFraction: 1), value: sessionsRaw)
         .animation(.spring(response: 0.34, dampingFraction: 1), value: model.units)
         .animation(.spring(response: 0.34, dampingFraction: 1), value: model.agents)
+        .animation(.spring(response: 0.34, dampingFraction: 1), value: model.work)
         .animation(.spring(response: 0.34, dampingFraction: 1), value: attaching)
     }
 
@@ -403,14 +510,6 @@ struct SessionsHomeView: View {
                     .font(.system(size: 13, weight: .semibold, design: .monospaced))
                 Spacer(minLength: 4)
                 connectionDot
-                Button { create() } label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 14, weight: .semibold))
-                        .frame(width: 40, height: 40)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .glassSurface(shape: Circle(), interactive: true)
             }
             .foregroundStyle(.primary)
             .padding(.horizontal, 16)
@@ -419,85 +518,68 @@ struct SessionsHomeView: View {
         .animation(.spring(response: 0.34, dampingFraction: 1), value: model.reachable)
     }
 
+    private var hostCards: some View {
+        HStack(spacing: 12) {
+            hostCard(host: "vm", verb: "nova sessão") { create() }
+            hostCard(host: "mac", verb: "abrir mac") { path.append(.session(Self.macSession)) }
+        }
+    }
+
+    private func hostCard(host: String, verb: String, action: @escaping () -> Void) -> some View {
+        let shape = RoundedRectangle(cornerRadius: SlateRadius.card, style: .continuous)
+        return Button(action: action) {
+            VStack(alignment: .leading, spacing: 0) {
+                Image(systemName: HostMark.symbol(for: host))
+                    .font(.system(size: 28, weight: .regular))
+                    .foregroundStyle(.primary)
+                Spacer(minLength: 10)
+                Text(verb)
+                    .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                Text("no \(HostMark.label(for: host))")
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(Color.slateTextFaint)
+                    .lineLimit(1)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .aspectRatio(1, contentMode: .fit)
+            .contentShape(shape)
+        }
+        .buttonStyle(.plain)
+        .glassSurface(shape: shape, interactive: true)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(verb)
+        .accessibilityHint("abre um terminal no \(HostMark.label(for: host))")
+        .accessibilityAddTraits(.isButton)
+    }
+
     private var connectionDot: some View {
         StatusDot(level: .link(model.reachable))
     }
 
-    private var grid: some View {
-        LazyVGrid(
-            columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)],
-            spacing: 12
-        ) {
-            ForEach(allSessions, id: \.self) { name in
-                Button { path.append(.session(name)) } label: { card(name) }
-                    .buttonStyle(.plain)
-                    .contextMenu {
-                        if name != Self.macSession {
-                            Button { startRename(name) } label: {
-                                Label("renomear", systemImage: "pencil")
-                            }
-                            Button(role: .destructive) { kill(name) } label: {
-                                Label("matar sessão", systemImage: "xmark")
-                            }
-                        }
-                    }
-            }
-        }
-    }
-
-    private func card(_ name: String) -> some View {
-        let dead = model.isDead(name)
-        let preview = model.previews[name]
-        return VStack(alignment: .leading, spacing: 10) {
-            Group {
-                if let preview, !preview.isEmpty {
-                    Text(preview)
-                        .font(.system(size: 7, design: .monospaced))
-                        .foregroundStyle(Color.slateTextDim)
-                        .lineSpacing(1)
-                        .multilineTextAlignment(.leading)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                } else {
-                    Text(dead ? "toque para conectar" : "sem saída")
-                        .font(.system(size: 9, design: .monospaced))
-                        .foregroundStyle(Color.slateTextFaint)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                }
-            }
-            .frame(height: 84, alignment: .topLeading)
-            .clipped()
-
-            HStack(spacing: 7) {
-                StatusDot(level: .live(!dead))
-                Text(TerminalSessionList.label(for: name))
-                    .font(.system(size: 12, weight: .medium, design: .monospaced))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                    .opacity(dead ? 0.45 : 1)
-                Spacer(minLength: 4)
-                HostBadge(host: TerminalSessionList.origin(for: name))
-            }
-        }
-        .padding(12)
-        .glassSurface(shape: RoundedRectangle(cornerRadius: SlateRadius.card, style: .continuous), interactive: true)
-        .contentShape(RoundedRectangle(cornerRadius: SlateRadius.card, style: .continuous))
-    }
-
-    private var agents: some View {
+    private var inventory: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("agentes")
+            Text("instâncias")
                 .font(.system(size: 11, weight: .medium, design: .monospaced))
                 .foregroundStyle(Color.slateTextFaint)
                 .padding(.leading, 4)
             VStack(spacing: 0) {
-                let groups = TermAgentOrder.merged(layout: layout, live: model.agents)
-                if groups.isEmpty {
-                    emptyAgents
-                }
-                ForEach(Array(groups.enumerated()), id: \.element.id) { index, group in
+                ForEach(Array(visibleSessions.enumerated()), id: \.element) { index, name in
                     if index > 0 {
                         Divider().overlay(Color.slateStroke.opacity(0.4))
                     }
+                    sessionRow(name)
+                }
+                let groups = TermAgentOrder.merged(layout: layout, live: model.agents)
+                if groups.isEmpty {
+                    Divider().overlay(Color.slateStroke.opacity(0.4))
+                    emptyAgents
+                }
+                ForEach(groups) { group in
+                    Divider().overlay(Color.slateStroke.opacity(0.4))
                     projectHeader(group)
                     if isExpanded(group) {
                         ForEach(group.agents) { agent in
@@ -519,10 +601,63 @@ struct SessionsHomeView: View {
                     agentRow(name: unit.name, active: unit.active, detail: Self.relative(unit.since))
                     Divider().overlay(Color.slateStroke.opacity(0.4))
                 }
-                agentRow(name: "mac", active: model.macOnline, detail: nil)
+                agentRow(name: "host mac", active: model.macOnline, detail: nil)
             }
             .glassSurface(shape: RoundedRectangle(cornerRadius: SlateRadius.card, style: .continuous))
         }
+    }
+
+    private func sessionRow(_ name: String) -> some View {
+        Button { path.append(.session(name)) } label: { sessionRowBody(name) }
+            .buttonStyle(.plain)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("sessão \(TerminalSessionList.label(for: name)) no \(TerminalSessionList.origin(for: name))")
+            .accessibilityValue(model.isDead(name) ? StatusLevel.dormant.label : StatusLevel.healthy.label)
+            .accessibilityHint("abre o terminal")
+            .accessibilityAddTraits(.isButton)
+            .contextMenu {
+                if SessionsHomeStart.startable(session: name) {
+                    Menu {
+                        ForEach(SessionsHomeStart.agents, id: \.self) { agent in
+                            Button { startAgent(name, agent: agent) } label: {
+                                Label(agent, systemImage: AgentMark.symbol(for: agent) ?? "sparkle")
+                            }
+                        }
+                    } label: {
+                        Label("iniciar agente", systemImage: "play")
+                    }
+                }
+                if name != Self.macSession {
+                    Button { startRename(name) } label: {
+                        Label("renomear", systemImage: "pencil")
+                    }
+                }
+                if SessionsHomeKill.killable(session: name) {
+                    Button(role: .destructive) { killing = name } label: {
+                        Label("matar sessão", systemImage: "xmark")
+                    }
+                }
+            }
+    }
+
+    private func sessionRowBody(_ name: String) -> some View {
+        let dead = model.isDead(name)
+        return HStack(spacing: 10) {
+            StatusDot(level: .live(!dead))
+            HostBadge(host: TerminalSessionList.origin(for: name))
+            Text(TerminalSessionList.label(for: name))
+                .font(.system(size: 13, design: .monospaced))
+                .foregroundStyle(.primary)
+                .opacity(dead ? 0.45 : 1)
+                .lineLimit(1)
+            Spacer(minLength: 4)
+            Image(systemName: "chevron.right")
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(Color.slateTextFaint)
+        }
+        .padding(.horizontal, 14)
+        .frame(minHeight: 44)
+        .contentShape(Rectangle())
     }
 
     private var emptyAgents: some View {
@@ -635,14 +770,32 @@ struct SessionsHomeView: View {
         expanded = TermAgentOrder.autoExpanded(groups)
     }
 
+    private func adoptNewGroups() {
+        let fresh = TermAgentOrder.adopting(layout: layout, live: model.agents)
+        guard !fresh.isEmpty else { return }
+        layout += fresh
+        expanded.formUnion(fresh.map(\.project))
+    }
+
     @ViewBuilder
     private func processRow(_ agent: TermAgentProcess) -> some View {
-        if agent.isAttachable {
-            Button { path.append(.chat(AgentChatTarget(agent))) } label: { processRowBody(agent) }
+        if let target = AgentChatTarget(agent) {
+            Button { path.append(.chat(target)) } label: { processRowBody(agent) }
                 .buttonStyle(.plain)
                 .contextMenu {
-                    Button { attachAgent(agent) } label: {
-                        Label("abrir no terminal", systemImage: "terminal")
+                    if agent.isAttachable {
+                        Button { attachAgent(agent) } label: {
+                            Label("abrir no terminal", systemImage: "terminal")
+                        }
+                    } else if !agent.session.isEmpty {
+                        Button { path.append(.session("vm:\(agent.session)")) } label: {
+                            Label("abrir no terminal", systemImage: "terminal")
+                        }
+                    }
+                    if let target = SessionsHomeKill.target(agent) {
+                        Button(role: .destructive) { killing = target } label: {
+                            Label("matar sessão", systemImage: "xmark")
+                        }
                     }
                 }
         } else {
@@ -665,6 +818,14 @@ struct SessionsHomeView: View {
                 .foregroundStyle(.primary)
                 .opacity(agent.isBusy ? 1 : 0.55)
                 .layoutPriority(1)
+            if !agent.place.isEmpty {
+                Text(agent.place)
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(Color.slateTextDim)
+                    .lineLimit(1)
+                    .truncationMode(.head)
+                    .layoutPriority(1)
+            }
             if !agent.title.isEmpty {
                 Text(agent.title)
                     .font(.system(size: 11, design: .monospaced))
@@ -673,9 +834,12 @@ struct SessionsHomeView: View {
                     .truncationMode(.tail)
             }
             Spacer(minLength: 4)
+            if let count = model.work[agent.id], count > 0 {
+                AgentWorkMark(count: count)
+            }
             HostBadge(host: agent.host)
                 .layoutPriority(1)
-            if agent.isAttachable {
+            if agent.isChattable {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(Color.slateTextFaint)
@@ -704,10 +868,13 @@ struct SessionsHomeView: View {
         }
         .padding(.horizontal, 14)
         .frame(minHeight: 44)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(name)
+        .accessibilityValue(active ? StatusLevel.healthy.label : StatusLevel.dormant.label)
     }
 
     private func refreshAll(force: Bool = true) async {
-        await model.refresh(allSessions, force: force)
+        await model.refresh(force: force)
         let known = Set(vmSessions)
         let extras = model.serverSessions
             .filter { $0 != "mac" }
@@ -715,7 +882,7 @@ struct SessionsHomeView: View {
             .filter { !known.contains($0) }
         guard !extras.isEmpty else { return }
         sessionsRaw = (vmSessions + extras).joined(separator: ",")
-        await model.refresh(allSessions, force: force)
+        await model.refresh(force: force)
     }
 
     private func create() {
@@ -762,6 +929,17 @@ struct SessionsHomeView: View {
         "herdr|\(project)"
     }
 
+    private func startAgent(_ name: String, agent: String) {
+        Task {
+            guard let outcome = await model.startAgent(name, agent: agent) else { return }
+            guard let notice = SessionsHomeStart.notice(outcome) else {
+                await refreshAll()
+                return
+            }
+            await presentRenameError(notice)
+        }
+    }
+
     private func startRename(_ name: String) {
         renameText = TerminalSessionList.label(for: name)
         renaming = name
@@ -795,7 +973,14 @@ struct SessionsHomeView: View {
         renameError = message
     }
 
+    private func confirmKill() {
+        guard let name = killing else { return }
+        killing = nil
+        kill(name)
+    }
+
     private func kill(_ name: String) {
+        guard SessionsHomeKill.killable(session: name) else { return }
         var list = vmSessions.filter { $0 != name }
         if list.isEmpty { list = ["vm:mobile"] }
         sessionsRaw = list.joined(separator: ",")
@@ -843,6 +1028,14 @@ struct SessionsHomeView: View {
         if let index = CommandLine.arguments.firstIndex(of: "-geoChat"),
            index + 1 < CommandLine.arguments.count {
             let parts = CommandLine.arguments[index + 1].split(separator: "|", omittingEmptySubsequences: false).map(String.init)
+            if parts.count >= 3, parts[0] == "session" {
+                return [.chat(AgentChatTarget(
+                    session: parts[1],
+                    agent: parts[2],
+                    status: parts.count > 3 ? parts[3] : "",
+                    title: parts.count > 4 ? parts[4] : ""
+                ))]
+            }
             if parts.count >= 3 {
                 return [.chat(AgentChatTarget(
                     project: parts[0],

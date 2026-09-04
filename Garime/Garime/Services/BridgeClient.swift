@@ -4,6 +4,7 @@ import GeoCore
 enum BridgeError: LocalizedError {
     case unreachable(String)
     case unauthorized
+    case tokenMissing
     case server(status: Int, code: String)
     case unsupported(String)
 
@@ -13,6 +14,8 @@ enum BridgeError: LocalizedError {
             return "Bridge unreachable: \(detail)"
         case .unauthorized:
             return "Unauthorized — check the bridge token in Settings"
+        case .tokenMissing:
+            return "token não configurado — abra Ajustes e cole o token do bridge"
         case .server(let status, let code):
             return code.isEmpty ? "Bridge error (\(status))" : "Bridge error (\(status)): \(code)"
         case .unsupported(let operation):
@@ -79,6 +82,14 @@ struct BridgeClient: BridgeAPI, Sendable {
         self.streamTimeout = streamTimeout
     }
 
+    static let session: URLSession = {
+        let configuration = URLSessionConfiguration.default
+        configuration.waitsForConnectivity = false
+        configuration.timeoutIntervalForRequest = 15
+        configuration.timeoutIntervalForResource = 60
+        return URLSession(configuration: configuration)
+    }()
+
     static let iso8601Decoder: JSONDecoder = {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = LenientDate.decodingStrategy
@@ -115,7 +126,7 @@ struct BridgeClient: BridgeAPI, Sendable {
         request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
         request.setValue(filename, forHTTPHeaderField: "X-Geo-Filename")
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await Self.session.data(for: request)
             try Self.check(response, data: data)
             return data
         } catch let error as BridgeError {
@@ -144,7 +155,7 @@ struct BridgeClient: BridgeAPI, Sendable {
                         request.httpBody = body
                         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
                     }
-                    let (bytes, response) = try await URLSession.shared.bytes(for: request)
+                    let (bytes, response) = try await Self.session.bytes(for: request)
                     if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
                         var body = Data()
                         for try await byte in bytes.prefix(2048) { body.append(byte) }
@@ -184,7 +195,7 @@ struct BridgeClient: BridgeAPI, Sendable {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await Self.session.data(for: request)
             try Self.check(response, data: data)
             return data
         } catch let error as BridgeError {
@@ -202,7 +213,10 @@ struct BridgeClient: BridgeAPI, Sendable {
         request.httpMethod = method
         request.timeoutInterval = requestTimeout
         if authorized {
-            request.setValue("Bearer \(token ?? BridgeConfig.token)", forHTTPHeaderField: "Authorization")
+            guard let bearer = token ?? BridgeConfig.token, !bearer.isEmpty else {
+                throw BridgeError.tokenMissing
+            }
+            request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
         }
         return request
     }

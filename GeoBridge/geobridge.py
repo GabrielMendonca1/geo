@@ -22,12 +22,12 @@ import tempfile
 import termios
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
 
-TASKS_DIR = os.path.expanduser(os.environ.get("GEO_TASKS_DIR", "~/Vault/Tasks"))
-HEALTH_DIR = os.path.expanduser(os.environ.get("GEO_HEALTH_DIR", "~/Vault/Health"))
+TASKS_DIR = os.path.expanduser(os.environ.get("GEO_TASKS_DIR", "/mnt/garime/state/tasks"))
+HEALTH_DIR = os.path.expanduser(os.environ.get("GEO_HEALTH_DIR", "/mnt/garime/state/health"))
 DISPATCHES_DIR = os.path.expanduser(os.environ.get("GEO_DISPATCHES_DIR", "~/.hermes/dispatches"))
 BIND = os.environ.get("GEO_BRIDGE_BIND", "100.123.44.9")
 PORT = int(os.environ.get("GEO_BRIDGE_PORT", "8643"))
@@ -42,6 +42,9 @@ GEO_TERM_PROFILE_MAC = os.environ.get("GEO_TERM_PROFILE_MAC", "")
 TERM_SHELL = os.environ.get("GEO_TERM_SHELL", "")
 TERM_SESSION = os.environ.get("GEO_TERM_SESSION", "mobile")
 TERM_SESSION_RE = re.compile(r"\A[A-Za-z0-9_-]{1,32}\Z")
+AGENT_SESSION = os.environ.get("GEO_AGENT_SESSION", "garime-agent")
+if not TERM_SESSION_RE.match(AGENT_SESSION):
+    AGENT_SESSION = "garime-agent"
 TERM_TOKEN_FILE = os.path.expanduser(os.environ.get("GEO_BRIDGE_TERM_TOKEN_FILE", "~/.hermes/geobridge.term.token"))
 TERM_IDLE_SECONDS = 600
 TERM_REPLAY_BYTES = int(os.environ.get("GEO_TERM_REPLAY_BYTES", "262144"))
@@ -60,15 +63,23 @@ STATUS_MAC_ADDR = (os.environ.get("GEO_STATUS_MAC_HOST", "100.123.44.9"), 22)
 STATUS_MAC_USER = os.environ.get("GEO_STATUS_MAC_USER", "biel")
 STATUS_HERDR = os.environ.get("GEO_STATUS_HERDR", "/opt/homebrew/bin/herdr")
 STATUS_SSH = os.environ.get("GEO_STATUS_SSH", "ssh")
+SSH_CONTROL_DIR = os.path.expanduser("~/.garime/ssh")
+SSH_CONTROL_PATH = os.path.join(SSH_CONTROL_DIR, "%r@%h:%p")
+try:
+    os.makedirs(SSH_CONTROL_DIR, mode=0o700, exist_ok=True)
+except OSError:
+    pass
 STATUS_AGENTS_TTL = float(os.environ.get("GEO_STATUS_AGENTS_TTL", "10"))
 STATUS_AGENTS_TIMEOUT = float(os.environ.get("GEO_STATUS_AGENTS_TIMEOUT", "12"))
-STATUS_VM_AGENTS = ("pi", "claude", "codex", "kimi", "opencode")
+STATUS_VM_AGENTS = ("pi", "prime-agent", "claude", "codex", "kimi", "opencode")
 STATUS_SESSION_MARK = "##session "
 AGENT_CHAT_LIMIT = int(os.environ.get("GEO_AGENT_CHAT_LIMIT", "40"))
 AGENT_CHAT_MAX_LIMIT = int(os.environ.get("GEO_AGENT_CHAT_MAX_LIMIT", "200"))
 AGENT_CHAT_TEXT_MAX = int(os.environ.get("GEO_AGENT_CHAT_TEXT_MAX", "2000"))
 AGENT_CHAT_TAIL_BYTES = int(os.environ.get("GEO_AGENT_CHAT_TAIL_BYTES", "131072"))
 AGENT_CHAT_TIMEOUT = float(os.environ.get("GEO_AGENT_CHAT_TIMEOUT", "12"))
+AGENT_STREAM_TICK_S = float(os.environ.get("GEO_AGENT_STREAM_TICK_S", "0.5"))
+AGENT_STREAM_MAX_S = float(os.environ.get("GEO_AGENT_STREAM_MAX_S", "300"))
 AGENT_PROMPT_MAX = 8192
 AGENT_PROMPT_TIMEOUT = float(os.environ.get("GEO_AGENT_PROMPT_TIMEOUT", "15"))
 AGENT_COMMANDS_TTL = float(os.environ.get("GEO_AGENT_COMMANDS_TTL", "120"))
@@ -79,6 +90,18 @@ AGENT_COMMANDS_WIRE_MAX = 400
 AGENT_COMMANDS_CACHE_MAX = int(os.environ.get("GEO_AGENT_COMMANDS_CACHE_MAX", "64"))
 AGENT_COMMANDS_END = "Z"
 AGENT_COMMAND_NAME_RE = re.compile(r"\A[A-Za-z0-9._-]{1,64}\Z")
+AGENT_WORK_TTL = float(os.environ.get("GEO_AGENT_WORK_TTL", "5"))
+AGENT_WORK_TIMEOUT = float(os.environ.get("GEO_AGENT_WORK_TIMEOUT", "12"))
+AGENT_WORK_RUNNING_WINDOW = float(os.environ.get("GEO_AGENT_WORK_RUNNING_WINDOW", "120"))
+AGENT_WORK_STALE_AFTER = float(os.environ.get("GEO_AGENT_WORK_STALE_AFTER", "3600"))
+AGENT_WORK_WORKFLOWS_MAX = int(os.environ.get("GEO_AGENT_WORK_WORKFLOWS_MAX", "10"))
+AGENT_WORK_SUBAGENTS_MAX = int(os.environ.get("GEO_AGENT_WORK_SUBAGENTS_MAX", "20"))
+AGENT_WORK_SCAN_MAX = int(os.environ.get("GEO_AGENT_WORK_SCAN_MAX", "200"))
+AGENT_WORK_CACHE_MAX = int(os.environ.get("GEO_AGENT_WORK_CACHE_MAX", "64"))
+AGENT_WORK_LINE_SCAN = 400
+AGENT_WORK_END = "Z"
+AGENT_WORK_ID_RE = re.compile(r"\A[A-Za-z0-9._-]{1,80}\Z")
+AGENT_WORK_TYPE_RE = re.compile(r"\A[A-Za-z0-9._:-]{1,64}\Z")
 AGENT_UPLOAD_DIR = os.environ.get("GEO_AGENT_UPLOAD_DIR", "garime-uploads")
 AGENT_UPLOAD_MAX = 32 * 1024 * 1024
 AGENT_UPLOAD_TIMEOUT = float(os.environ.get("GEO_AGENT_UPLOAD_TIMEOUT", "120"))
@@ -86,11 +109,75 @@ AGENT_UPLOAD_PATH_RE = re.compile(r"\A/[^\x00-\x1f]{1,500}\Z")
 AGENT_SESSION_ID_RE = re.compile(r"\A[A-Za-z0-9._-]{1,80}\Z")
 AGENT_SESSION_PATH_RE = re.compile(r"\A/[^\x00-\x1f]{1,500}\.jsonl\Z")
 AGENT_CHAT_DROP_TYPES = ("attachment", "custom-title", "mode", "last-prompt", "summary", "system")
+AGENT_RESOLVED_MARK = "R\t"
+AGENT_RESOLVED_KINDS = ("reported", "fallback")
+AGENT_WORK_LIVE_KINDS = ("alive", "unknown", "dead")
+AGENT_PROJECT_DIR_RE = re.compile(r"[^A-Za-z0-9-]")
+AGENT_PI_SESSIONS_DIR = os.environ.get("GEO_AGENT_PI_SESSIONS_DIR", "/mnt/garime/pi/agent/sessions")
+AGENT_PRIME_SESSIONS_DIR = os.environ.get("GEO_AGENT_PRIME_SESSIONS_DIR", "")
+AGENT_PRIME_SCAN_MAX = int(os.environ.get("GEO_AGENT_PRIME_SCAN_MAX", "50"))
+AGENT_PI_SKILLS_DIR = os.environ.get("GEO_AGENT_PI_SKILLS_DIR", "/mnt/garime/pi/skills")
+AGENT_VM_DEPTH = int(os.environ.get("GEO_AGENT_VM_DEPTH", "3"))
+AGENT_PROMPT_CONTROL_RE = re.compile(r"[\x00-\x09\x0b-\x1f\x7f]")
+AGENT_ASK_SCAN_LINES = int(os.environ.get("GEO_AGENT_ASK_SCAN_LINES", "60"))
+AGENT_ASK_TIMEOUT = float(os.environ.get("GEO_AGENT_ASK_TIMEOUT", "5"))
+AGENT_ASK_OPTION_RE = re.compile("\\A(?P<cursor>[\u276f\u25b6\u00bb\u203a]\\s+)?(?P<index>[0-9]{1,2})\\.\\s+(?P<label>\\S.*)\\Z")
+AGENT_ASK_OPTION_GAP = int(os.environ.get("GEO_AGENT_ASK_OPTION_GAP", "6"))
+AGENT_ASK_BORDER = "\u2502|"
+AGENT_ASK_CHROME_RE = re.compile("\\A[\u2500-\u257f\\s]+\\Z")
+AGENT_ASK_AFFORD_RE = re.compile(
+    "(?i)(?:\\A|[\\s·|(])(?:press\\s+)?(?:esc(?:ape)?|enter|return)\\s+to\\s+(?!interrupt\\b)\\S"
+)
+AGENT_ASK_HINT_RE = re.compile(
+    "(?i)(?:\\A|[\\s·|(])"
+    "(?:[←-⇿/]+|(?:ctrl|alt|opt|option|shift|cmd|meta)\\+\\S+"
+    "|esc(?:ape)?|enter|return|tab|space|arrows?|[a-z0-9])"
+    "\\s+to\\s+\\S"
+)
+AGENT_ASK_TAIL_BODY = int(os.environ.get("GEO_AGENT_ASK_TAIL_BODY", "4"))
+AGENT_ASK_TRANSCRIPT_RE = re.compile(
+    "\\A[\u276f\u25b6\u00bb\u203a\u273b\u23bf\u23f8\u2022\u258e>$#%]|\\A[0-9]{1,2}\\.\\s"
+)
+AGENT_ASK_QUESTION_LOOKBACK = 5
+AGENT_ASK_QUESTION_MAX = 240
+AGENT_ASK_LABEL_MAX = 120
+AGENT_ASK_HINT_MAX = 1200
+AGENT_ASK_MAX_OPTIONS = 9
+AGENT_ASK_PERMISSION_RE = re.compile(r"(?i)proceed|permission|allow|trust|do you want|prosseguir|permit")
+AGENT_ANSWER_BODY_MAX = 1024
+AGENT_INTERRUPT_KEY = os.environ.get("GEO_AGENT_INTERRUPT_KEY", "Escape")
+AGENT_INTERRUPT_KEY_MAC = os.environ.get("GEO_AGENT_INTERRUPT_KEY_MAC", "esc")
+AGENT_ASK_MAC_TIMEOUT = float(os.environ.get("GEO_AGENT_ASK_MAC_TIMEOUT", "12"))
+AGENT_ASK_MAC_READ = (("read", ("--source", "visible", "--format", "text")),)
+AGENT_WATCH_ENABLED = os.environ.get("GEO_AGENT_WATCH", "0") == "1"
+AGENT_WATCH_INTERVAL = max(5.0, float(os.environ.get("GEO_AGENT_WATCH_INTERVAL", "30")))
+AGENT_WATCH_COOLDOWN = float(os.environ.get("GEO_AGENT_WATCH_COOLDOWN", "300"))
+AGENT_WATCH_MAX_HOUR = int(os.environ.get("GEO_AGENT_WATCH_MAX_HOUR", "12"))
+AGENT_WATCH_HOUR_WINDOW = 3600.0
+AGENT_WATCH_SEEN_TTL = float(os.environ.get("GEO_AGENT_WATCH_SEEN_TTL", "86400"))
+AGENT_WATCH_MIN_COLS = int(os.environ.get("GEO_AGENT_WATCH_MIN_COLS", "40"))
+AGENT_WATCH_LABEL_MAX = 80
+AGENT_WATCH_SPACE_RE = re.compile(r"\s+")
+AGENT_WATCH_PATH_RE = re.compile(r"\S*/\S*")
+AGENT_WATCH_STATE_PATH = os.path.expanduser(
+    os.environ.get("GEO_AGENT_WATCH_STATE", "~/.garime/agent-watch.json")
+)
+WA_OUTBOX_DIR = os.environ.get("GEO_WA_OUTBOX", "/mnt/garime/pi/wa-outbox")
+AGENT_START_COMMANDS = {"claude": "~/.local/bin/claude", "pi": "/usr/bin/pi", "codex": "codex"}
+AGENT_COMMANDS_BUILTIN = {
+    "claude": (
+        ("clear", "limpa o contexto da conversa"),
+        ("compact", "compacta o contexto da conversa"),
+    ),
+}
 AGENT_PUBLIC_KEYS = ("host", "agent", "status", "title", "project", "pane", "cwd")
 PANE_PUBLIC_KEYS = ("pane", "agent", "status", "title", "cwd", "tab")
 
 ID_RE = re.compile(r"\A[A-Za-z0-9._-]+\Z")
 DATE_RE = re.compile(r"\A\d{4}-\d{2}-\d{2}\Z")
+WEEK_RE = re.compile(r"\A\d{4}-W\d{2}\Z")
+PLAN_ID_RE = re.compile(r"\Aplan-(\d{4}-W\d{2})\.r([1-9]\d*)\Z")
+PLAN_FILE_RE = re.compile(r"\Aplan-(\d{4}-W\d{2})\.r([1-9]\d*)\.json\Z")
 TASK_ROUTE = re.compile(r"^/tasks/([^/]+)/(complete|reopen)$")
 TASK_DELETE_ROUTE = re.compile(r"^/tasks/([^/]+)$")
 DISPATCH_STREAM_ROUTE = re.compile(r"^/dispatches/([^/]+)/stream$")
@@ -98,6 +185,7 @@ DISPATCH_STREAM_ROUTE = re.compile(r"^/dispatches/([^/]+)/stream$")
 TOKEN = ""
 TERM_TOKEN = ""
 LOG_LOCK = threading.Lock()
+HEALTH_PLAN_LOCK = threading.Lock()
 TERM_REGISTRY = {}
 TERM_REGISTRY_LOCK = threading.Lock()
 AGENTS_CACHE = {"at": 0.0, "value": [], "panes": [], "mac_ok": False}
@@ -106,6 +194,13 @@ AGENTS_REFRESH_LOCK = threading.Lock()
 COMMANDS_CACHE = {}
 COMMANDS_CACHE_LOCK = threading.Lock()
 COMMANDS_REFRESH_LOCKS = {}
+WORK_CACHE = {}
+WORK_CACHE_LOCK = threading.Lock()
+WORK_REFRESH_LOCKS = {}
+WATCH_SEEN = {}
+WATCH_SENT_AT = {}
+WATCH_HOUR = []
+WATCH_LOADED = [False]
 
 
 class TermSubscriber:
@@ -415,6 +510,7 @@ def status_mac_scan():
         proc = subprocess.run(
             [
                 STATUS_SSH, "-o", "BatchMode=yes", "-o", "ConnectTimeout=4",
+                "-o", "ControlMaster=auto", "-o", "ControlPath=" + SSH_CONTROL_PATH, "-o", "ControlPersist=120",
                 "%s@%s" % (STATUS_MAC_USER, STATUS_MAC_ADDR[0]),
                 herdr_remote_script(),
             ],
@@ -426,20 +522,123 @@ def status_mac_scan():
     return proc.returncode == 0 or bool(agents) or bool(panes), agents, panes
 
 
+def vm_process_tree():
+    out = subprocess.run(
+        ["ps", "-eo", "pid=", "-o", "ppid=", "-o", "comm="], capture_output=True, timeout=5
+    ).stdout.decode("utf-8", "replace")
+    names = {}
+    children = {}
+    for line in out.split("\n"):
+        fields = line.split(None, 2)
+        if len(fields) < 3:
+            continue
+        try:
+            pid = int(fields[0])
+            ppid = int(fields[1])
+        except ValueError:
+            continue
+        names[pid] = os.path.basename(fields[2].strip().split()[0])
+        children.setdefault(ppid, []).append(pid)
+    return names, children
+
+
+def vm_descendants(pid, children, depth=AGENT_VM_DEPTH):
+    seen = set()
+    level = [pid]
+    for _ in range(depth):
+        nxt = []
+        for parent in level:
+            for child in children.get(parent, []):
+                if child in seen or child == parent:
+                    continue
+                seen.add(child)
+                nxt.append(child)
+        if not nxt:
+            break
+        level = nxt
+    return seen
+
+
+def vm_pane_agent(pid, command, names, children):
+    if os.path.basename(command) in STATUS_VM_AGENTS:
+        return os.path.basename(command)
+    for child in sorted(vm_descendants(pid, children)):
+        name = names.get(child, "")
+        if name in STATUS_VM_AGENTS:
+            return name
+    return ""
+
+
+def vm_panes(args):
+    proc = subprocess.run(
+        [TERM_TMUX, "list-panes"] + args + [
+            "-F", "#{session_name}\t#{pane_pid}\t#{pane_current_command}\t#{pane_current_path}"
+                  "\t#{pane_active}\t#{window_active}",
+        ],
+        capture_output=True, timeout=5,
+    )
+    if proc.returncode != 0:
+        return None
+    panes = []
+    for line in proc.stdout.decode("utf-8", "replace").split("\n"):
+        fields = line.split("\t")
+        if len(fields) != 6:
+            continue
+        try:
+            pid = int(fields[1])
+        except ValueError:
+            continue
+        panes.append((fields[0], pid, fields[2], fields[3], fields[4], fields[5]))
+    return panes
+
+
+def vm_session_agent(session):
+    panes = vm_panes(["-t", term_pane_target(session)])
+    if panes is None:
+        return None
+    names, children = vm_process_tree()
+    for _, pid, command, path, active, _win in panes:
+        if active != "1":
+            continue
+        agent = vm_pane_agent(pid, command, names, children)
+        if agent:
+            return agent, path
+    return "", ""
+
+
+def vm_pid_sessions(children):
+    try:
+        panes = vm_panes(["-a"])
+    except Exception:
+        return {}
+    if not panes:
+        return {}
+    sessions = {}
+    for name, pid, _, _, active, window in panes:
+        if active != "1" or window != "1":
+            continue
+        sessions.setdefault(pid, name)
+        for child in vm_descendants(pid, children):
+            sessions.setdefault(child, name)
+    return sessions
+
+
 def status_vm_agents():
     try:
-        out = subprocess.run(
-            ["ps", "-eo", "comm="], capture_output=True, timeout=5
-        ).stdout.decode("utf-8", "replace")
+        names, children = vm_process_tree()
     except Exception:
         return []
+    sessions = vm_pid_sessions(children)
+    parents = {}
+    for parent, kids in children.items():
+        for child in kids:
+            parents[child] = parent
     agents = []
-    for line in out.split("\n"):
-        line = line.strip()
-        if not line:
-            continue
-        name = os.path.basename(line.split()[0])
+    for pid in sorted(names):
+        name = names[pid]
         if name not in STATUS_VM_AGENTS:
+            continue
+        if names.get(parents.get(pid)) == name:
             continue
         agents.append({
             "host": "vm",
@@ -449,8 +648,45 @@ def status_vm_agents():
             "project": "",
             "pane": "",
             "cwd": "",
+            "session": sessions.get(pid, ""),
         })
     return agents
+
+
+def agent_chat_status(cwd, fresh_seconds=25):
+    """Status real do agente: 'working' se o transcript foi escrito há pouco, 'idle' caso contrário."""
+    try:
+        name = agent_pi_dir(cwd)
+        if not name:
+            return "unknown"
+        candidates = (
+            os.path.join(AGENT_PI_SESSIONS_DIR, name),
+            os.path.expanduser("~/.pi/agent/sessions/" + name),
+        )
+        for d in candidates:
+            try:
+                names = [n for n in os.listdir(d) if n.endswith(".jsonl")]
+            except OSError:
+                continue
+            if not names:
+                continue
+            newest = max(os.path.getmtime(os.path.join(d, n)) for n in names)
+            return "working" if time.time() - newest <= fresh_seconds else "idle"
+    except Exception:
+        pass
+    return "unknown"
+
+
+def agent_session_state():
+    try:
+        found = vm_session_agent(AGENT_SESSION)
+    except Exception:
+        found = None
+    agent = found[0] if found else ""
+    state = {"session": AGENT_SESSION, "running": bool(agent), "agent": agent}
+    if agent and found[1]:
+        state["busy"] = agent_chat_status(found[1]) == "working"
+    return state
 
 
 def status_scan_full():
@@ -477,7 +713,11 @@ def status_agents():
 
 
 def agent_public(entry):
-    return {key: entry.get(key, "") for key in AGENT_PUBLIC_KEYS}
+    body = {key: entry.get(key, "") for key in AGENT_PUBLIC_KEYS}
+    if entry.get("host") == "vm":
+        session = entry.get("session")
+        body["session"] = session if isinstance(session, str) else ""
+    return body
 
 
 def agent_find(agents, project, pane):
@@ -498,24 +738,118 @@ def pane_find(panes, project, pane):
     return None
 
 
-def agent_transcript_script(session):
+def agent_project_dir(cwd):
+    if not isinstance(cwd, str) or not cwd.startswith("/"):
+        return ""
+    return AGENT_PROJECT_DIR_RE.sub("-", cwd)
+
+
+def agent_pi_dir(cwd):
+    project = agent_project_dir(cwd)
+    # convenção do pi: /mnt/garime/Gabriel → --mnt-garime-Gabriel-- (traço duplo nas duas pontas)
+    return ("-" + project + "--") if project else ""
+
+
+def vm_agent_session(agent):
+    if agent == "claude":
+        return {"kind": "cwd", "value": ""}
+    if agent == "pi":
+        return {"kind": "pi", "value": ""}
+    if agent == "prime-agent":
+        return {"kind": "prime", "value": ""}
+    return None
+
+
+def agent_transcript_script(session, cwd=""):
     if not isinstance(session, dict):
         return ""
     kind = session.get("kind")
     value = session.get("value")
+    if kind == "cwd":
+        project = agent_project_dir(cwd)
+        if not project:
+            return ""
+        inner = (
+            'd="$HOME"/.claude/projects/%s; '
+            'c=$(ls -1t "$d"/*.jsonl 2>/dev/null | head -n 1); '
+            'if [ -f "$c" ]; then printf "R\\tfallback\\n"; tail -c %d "$c"; fi; exit 0'
+        ) % (shlex.quote(project), AGENT_CHAT_TAIL_BYTES)
+        return "/bin/sh -c " + shlex.quote(inner)
+    if kind == "pi":
+        name = agent_pi_dir(cwd)
+        if not name:
+            return ""
+        inner = (
+            'd=%s/%s; [ -d "$d" ] || d="$HOME"/.pi/agent/sessions/%s; '
+            'c=$(ls -1t "$d"/*.jsonl 2>/dev/null | head -n 1); '
+            'if [ -f "$c" ]; then printf "R\\tfallback\\n"; tail -c %d "$c"; fi; exit 0'
+        ) % (
+            shlex.quote(AGENT_PI_SESSIONS_DIR), shlex.quote(name),
+            shlex.quote(name), AGENT_CHAT_TAIL_BYTES,
+        )
+        return "/bin/sh -c " + shlex.quote(inner)
+    if kind == "prime":
+        if not isinstance(cwd, str) or not cwd.startswith("/"):
+            return ""
+        needles = ['"cwd":"' + cwd + '"']
+        escaped = '"cwd":' + json.dumps(cwd)
+        if escaped not in needles:
+            needles.append(escaped)
+        match = " ".join(["-e " + shlex.quote(n) for n in needles])
+        parts = [
+            "d=%s" % shlex.quote(AGENT_PRIME_SESSIONS_DIR),
+            '[ -d "$d" ] || d="$HOME"/.prime/agent/sessions',
+            'l=$(ls -1t "$d"/*.jsonl 2>/dev/null | head -n %d)' % AGENT_PRIME_SCAN_MAX,
+            'f=$(printf "%%s\\n" "$l" | while IFS= read -r c; do '
+            '[ -f "$c" ] || continue; '
+            'if head -n 1 "$c" | grep -qF %s; then printf "%%s\\n" "$c"; break; fi; done)'
+            % match,
+            'if [ -f "$f" ]; then printf "R\\tfallback\\n"; tail -c %d "$f"; fi'
+            % AGENT_CHAT_TAIL_BYTES,
+            "exit 0",
+        ]
+        return "/bin/sh -c " + shlex.quote("; ".join(parts))
     if not isinstance(value, str):
         return ""
     if kind == "id" and AGENT_SESSION_ID_RE.match(value):
-        return "/bin/sh -c " + shlex.quote(
-            (
-                'for f in "$HOME"/.claude/projects/*/%s.jsonl; do '
-                'if [ -f "$f" ]; then tail -c %d "$f"; break; fi; done; exit 0'
-            ) % (shlex.quote(value), AGENT_CHAT_TAIL_BYTES)
+        parts = [
+            'f=""',
+            "r=reported",
+            'for c in "$HOME"/.claude/projects/*/%s.jsonl; do '
+            'if [ -f "$c" ]; then f="$c"; break; fi; done' % shlex.quote(value),
+        ]
+        project = agent_project_dir(cwd)
+        if project:
+            parts.append(
+                'if [ -z "$f" ]; then d="$HOME"/.claude/projects/%s; '
+                'c=$(ls -1t "$d"/*.jsonl 2>/dev/null | head -n 1); '
+                'if [ -f "$c" ]; then f="$c"; r=fallback; fi; fi' % shlex.quote(project)
+            )
+        parts.append(
+            'if [ -n "$f" ]; then printf "R\\t%%s\\n" "$r"; tail -c %d "$f"; fi'
+            % AGENT_CHAT_TAIL_BYTES
         )
+        parts.append("exit 0")
+        return "/bin/sh -c " + shlex.quote("; ".join(parts))
     if kind == "path" and AGENT_SESSION_PATH_RE.match(value):
-        quoted = shlex.quote(value)
-        return 'if [ -f %s ]; then tail -c %d %s; fi; exit 0' % (quoted, AGENT_CHAT_TAIL_BYTES, quoted)
+        inner = (
+            'f=%s; r=reported; '
+            'if [ ! -f "$f" ]; then d=${f%%/*}; [ -n "$d" ] || d=/; '
+            'c=$(ls -1t "$d"/*.jsonl 2>/dev/null | head -n 1); '
+            'if [ -f "$c" ]; then f="$c"; r=fallback; fi; fi; '
+            'if [ -f "$f" ]; then printf "R\\t%%s\\n" "$r"; tail -c %d "$f"; fi; exit 0'
+        ) % (shlex.quote(value), AGENT_CHAT_TAIL_BYTES)
+        return "/bin/sh -c " + shlex.quote(inner)
     return ""
+
+
+def agent_chat_resolved(text):
+    head, sep, rest = text.partition("\n")
+    if sep and head.startswith(AGENT_RESOLVED_MARK):
+        tag = head[len(AGENT_RESOLVED_MARK):].strip()
+        if tag in AGENT_RESOLVED_KINDS:
+            return tag, rest
+    return "", text
 
 
 def agent_prompt_script(project, pane, text):
@@ -528,14 +862,34 @@ def agent_prompt_script(project, pane, text):
     )
 
 
+def herdr_pane_script(project, pane, commands):
+    parts = []
+    for verb, args in commands:
+        parts.append(" ".join([
+            shlex.quote(STATUS_HERDR), "--session", shlex.quote(project),
+            "pane", verb, shlex.quote(pane),
+        ] + [shlex.quote(arg) for arg in args]))
+    return "export PATH=%s:$PATH; %s" % (
+        shlex.quote(os.path.dirname(STATUS_HERDR) or "/usr/bin"),
+        " && ".join(parts),
+    )
+
+
 def agent_ssh(script, timeout, data=None):
     return subprocess.run(
         [
             STATUS_SSH, "-o", "BatchMode=yes", "-o", "ConnectTimeout=" + TERM_ATTACH_SSH_TIMEOUT,
+            "-o", "ControlMaster=auto", "-o", "ControlPath=" + SSH_CONTROL_PATH, "-o", "ControlPersist=120",
             "%s@%s" % (STATUS_MAC_USER, STATUS_MAC_ADDR[0]),
             script,
         ],
         input=data, capture_output=True, timeout=timeout,
+    )
+
+
+def agent_local(script, timeout, data=None):
+    return subprocess.run(
+        ["/bin/sh", "-c", script], input=data, capture_output=True, timeout=timeout,
     )
 
 
@@ -560,6 +914,8 @@ def agent_commands_script(agent, cwd):
     elif agent == "pi":
         globs.append(("user", '"$HOME"/.pi/agent/skills', "*/SKILL.md"))
         globs.append(("user", '"$HOME"/.pi/agent/skills', "*.md"))
+        globs.append(("user", shlex.quote(AGENT_PI_SKILLS_DIR), "*/SKILL.md"))
+        globs.append(("user", shlex.quote(AGENT_PI_SKILLS_DIR), "*.md"))
     else:
         return ""
     parts = ['[ -n "$HOME" ] || exit 6', "set --"]
@@ -637,7 +993,7 @@ def agent_commands_store(key, commands):
             del COMMANDS_CACHE[oldest]
 
 
-def agent_commands_fetch(key, script):
+def agent_commands_fetch(key, script, runner=agent_ssh):
     now = time.monotonic()
     with COMMANDS_CACHE_LOCK:
         hit = COMMANDS_CACHE.get(key)
@@ -648,7 +1004,7 @@ def agent_commands_fetch(key, script):
             hit = COMMANDS_CACHE.get(key)
             if hit is not None and time.monotonic() - hit["at"] < AGENT_COMMANDS_TTL:
                 return list(hit["value"])
-        proc = agent_ssh(script, AGENT_COMMANDS_TIMEOUT)
+        proc = runner(script, AGENT_COMMANDS_TIMEOUT)
         if proc.returncode != 0:
             return None
         out = proc.stdout.decode("utf-8", "replace")
@@ -669,6 +1025,650 @@ def agent_upload_script(name):
     ) % (shlex.quote(AGENT_UPLOAD_DIR), shlex.quote(name), shlex.quote(stem), shlex.quote(ext))
 
 
+def local_upload_write(name, data, home=None):
+    """Grava um upload no proprio host do bridge (agente de sessao na VM).
+
+    Espelha agent_upload_script: diretorio 0700, arquivo 0600, nome unico,
+    nunca sobrescreve nem segue link. Devolve o caminho absoluto ou "".
+    """
+    base = home or os.path.expanduser("~")
+    directory = os.path.join(base, AGENT_UPLOAD_DIR)
+    try:
+        os.makedirs(directory, mode=0o700, exist_ok=True)
+    except Exception:
+        return ""
+    stem, ext = os.path.splitext(name)
+    candidate = os.path.join(directory, name)
+    index = 0
+    while os.path.exists(candidate) or os.path.islink(candidate):
+        index += 1
+        if index > 1000:
+            return ""
+        candidate = os.path.join(directory, "%s-%d%s" % (stem, index, ext))
+    try:
+        fd = os.open(candidate, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(data)
+    except Exception:
+        return ""
+    return candidate
+
+
+def agent_work_session_id(session):
+    if not isinstance(session, dict) or session.get("kind") != "id":
+        return ""
+    value = session.get("value")
+    if not isinstance(value, str) or not AGENT_SESSION_ID_RE.match(value):
+        return ""
+    return value
+
+
+def agent_work_journal_awk():
+    return (
+        '{ s = substr($0, 1, %d); gsub(/[ \\t]*:[ \\t]*/, ":", s); '
+        'if (!match(s, /"type":"[a-z_]+"/)) next; '
+        't = substr(s, RSTART + 8, RLENGTH - 9); '
+        'if (!match(s, /"agentId":"[A-Za-z0-9._-]+"/)) next; '
+        'a = substr(s, RSTART + 11, RLENGTH - 12); '
+        'if (t == "started") st[a] = 1; else if (t == "result") rs[a] = 1 } '
+        'END { r = 0; d = 0; for (a in st) { if (a in rs) d++; else r++ } printf "%%d\\t%%d", r, d }'
+    ) % AGENT_WORK_LINE_SCAN
+
+
+def agent_work_meta_awk():
+    return (
+        '{ s = $0; gsub(/[ \\t]*:[ \\t]*/, ":", s); '
+        'if (match(s, /"agentType":"[A-Za-z0-9._:-]+"/)) '
+        '{ print substr(s, RSTART + 13, RLENGTH - 14); exit } }'
+    )
+
+
+def agent_work_ps_awk():
+    return (
+        '$1 == me || $2 == me || $1 == pa || $2 == pa { next } '
+        'index($0, "subagents") { next } '
+        'index($0, "claude") { a = 1 } '
+        'END { if (a) print "alive"; else if (NR == 0) print "unknown"; else print "dead" }'
+    )
+
+
+def agent_work_script(session, cwd=""):
+    project = agent_project_dir(cwd)
+    if isinstance(session, dict) and session.get("kind") == "cwd":
+        if not project:
+            return ""
+        parts = [
+            '[ -n "$HOME" ] || exit 6',
+            "r=fallback",
+            'b=""',
+            'd="$HOME"/.claude/projects/%s; '
+            'c=$(ls -1t "$d"/*.jsonl 2>/dev/null | head -n 1); '
+            'if [ -f "$c" ]; then n=${c##*/}; n=${n%%.jsonl}; '
+            'if [ -d "$d/$n" ]; then b="$d/$n"; fi; fi' % shlex.quote(project),
+        ]
+    else:
+        value = agent_work_session_id(session)
+        if not value:
+            return ""
+        parts = ['[ -n "$HOME" ] || exit 6', "r=reported", 'b=""']
+        if project:
+            parts.append(
+                'd="$HOME"/.claude/projects/%s/%s; if [ -d "$d" ]; then b="$d"; fi'
+                % (shlex.quote(project), shlex.quote(value))
+            )
+        parts.append(
+            'if [ -z "$b" ]; then '
+            'b=$(find "$HOME/.claude/projects" -mindepth 2 -maxdepth 2 -type d -name %s 2>/dev/null '
+            '| while IFS= read -r c; do if [ -d "$c/subagents" ]; then printf %%s "$c"; break; fi; done); fi'
+            % shlex.quote(value)
+        )
+        parts.append(
+            'if [ -z "$b" ]; then '
+            'k=$(find "$HOME/.claude/projects" -mindepth 2 -maxdepth 2 -type f -name %s 2>/dev/null '
+            '| head -n 1); [ -n "$k" ] || exit 9; fi' % shlex.quote(value + ".jsonl")
+        )
+    inner = "; ".join(parts) + "; " + (
+        's="$b/subagents"; '
+        'if [ -n "$b" ] && [ -d "$s" ]; then '
+        '[ -r "$s" ] && [ -x "$s" ] || exit 7; '
+        'printf "R\\t%%s\\n" "$r"; '
+        'printf "N\\t%%s\\n" "$(date -u +%%s)"; '
+        'l=$(ps -Ao pid=,ppid=,args= 2>/dev/null '
+        '| LC_ALL=C awk -v me="$$" -v pa="$PPID" %s 2>/dev/null); '
+        '[ -n "$l" ] || l=unknown; printf "L\\t%%s\\n" "$l"; '
+        'if [ -d "$s/workflows" ]; then [ -r "$s/workflows" ] && [ -x "$s/workflows" ] || exit 7; fi; '
+        'find "$s/workflows" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | head -n %d '
+        '| while IFS= read -r w; do '
+        'j="$w/journal.jsonl"; '
+        'if [ ! -f "$j" ]; then [ -r "$w" ] && [ -x "$w" ] || exit 7; continue; fi; '
+        'm=$(stat -f %%m "$j" 2>/dev/null) || m=$(stat -c %%Y "$j" 2>/dev/null) || exit 7; '
+        'q=$(ls -1t "$w"/agent-*.jsonl 2>/dev/null | head -n 1); '
+        'if [ -f "$q" ]; then '
+        'k=$(stat -f %%m "$q" 2>/dev/null) || k=$(stat -c %%Y "$q" 2>/dev/null); '
+        'case "$k" in ""|*[!0-9]*) ;; *) [ "$k" -gt "$m" ] && m=$k ;; esac; fi; '
+        'c=$(LC_ALL=C awk %s "$j" 2>/dev/null) || exit 8; '
+        '[ -n "$c" ] || exit 8; '
+        'n=${w##*/}; printf "W\\t%%s\\t%%s\\t%%s\\n" "$n" "$m" "$c"; done || exit $?; '
+        'find "$s" -mindepth 1 -maxdepth 1 -name "agent-*.meta.json" 2>/dev/null | head -n %d '
+        '| while IFS= read -r f; do '
+        'n=${f##*/}; n=${n#agent-}; n=${n%%.meta.json}; '
+        'p=${f%%.meta.json}.jsonl; [ -f "$p" ] || p="$f"; '
+        'm=$(stat -f %%m "$p" 2>/dev/null) || m=$(stat -c %%Y "$p" 2>/dev/null) || exit 7; '
+        't=$(LC_ALL=C awk %s "$f" 2>/dev/null); '
+        'printf "A\\t%%s\\t%%s\\t%%s\\n" "$n" "$m" "$t"; done || exit $?; '
+        'fi; printf "%s\\n"'
+    ) % (
+        shlex.quote(agent_work_ps_awk()),
+        AGENT_WORK_SCAN_MAX, shlex.quote(agent_work_journal_awk()),
+        AGENT_WORK_SCAN_MAX, shlex.quote(agent_work_meta_awk()), AGENT_WORK_END,
+    )
+    return "/bin/sh -c " + shlex.quote(inner)
+
+
+def agent_work_epoch(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def agent_work_iso(epoch):
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(epoch))
+
+
+def agent_work_stale(item, now):
+    return item["running"] > 0 and now - item["at"] > AGENT_WORK_STALE_AFTER
+
+
+def agent_work_parse(text):
+    lines = [line for line in text.replace("\r", "").split("\n") if line != ""]
+    if not lines or lines[-1] != AGENT_WORK_END:
+        return None
+    now = None
+    resolved = ""
+    live = "unknown"
+    workflows = []
+    subagents = []
+    for line in lines[:-1]:
+        fields = line.split("\t")
+        kind = fields[0]
+        if kind == "R" and len(fields) == 2 and fields[1] in AGENT_RESOLVED_KINDS:
+            resolved = fields[1]
+        elif kind == "L" and len(fields) == 2 and fields[1] in AGENT_WORK_LIVE_KINDS:
+            live = fields[1]
+        elif kind == "N" and len(fields) == 2:
+            now = agent_work_epoch(fields[1])
+        elif kind == "W" and len(fields) == 5:
+            at = agent_work_epoch(fields[2])
+            running = agent_work_epoch(fields[3])
+            done = agent_work_epoch(fields[4])
+            if at is None or running is None or done is None:
+                continue
+            if not AGENT_WORK_ID_RE.match(fields[1]):
+                continue
+            workflows.append({"id": fields[1], "at": at, "running": running, "done": done})
+        elif kind == "A" and len(fields) == 4:
+            at = agent_work_epoch(fields[2])
+            if at is None or not AGENT_WORK_ID_RE.match(fields[1]):
+                continue
+            kind_name = fields[3] if AGENT_WORK_TYPE_RE.match(fields[3]) else "unknown"
+            subagents.append({"id": fields[1], "at": at, "type": kind_name})
+    if now is None:
+        now = int(time.time())
+    workflows.sort(key=lambda item: item["at"], reverse=True)
+    subagents.sort(key=lambda item: item["at"], reverse=True)
+    truncated = (
+        len(workflows) > AGENT_WORK_WORKFLOWS_MAX
+        or len(subagents) > AGENT_WORK_SUBAGENTS_MAX
+    )
+    body = {
+        "resolved": resolved,
+        "workflows": [
+            {
+                "id": item["id"],
+                "running": 0 if agent_work_stale(item, now) else item["running"],
+                "done": item["done"],
+                "since": agent_work_iso(item["at"]),
+                "stale": agent_work_stale(item, now),
+            }
+            for item in workflows[:AGENT_WORK_WORKFLOWS_MAX]
+        ],
+        "subagents": [
+            {
+                "id": item["id"],
+                "type": item["type"],
+                "running": live != "dead" and now - item["at"] <= AGENT_WORK_RUNNING_WINDOW,
+                "since": agent_work_iso(item["at"]),
+            }
+            for item in subagents[:AGENT_WORK_SUBAGENTS_MAX]
+        ],
+        "truncated": truncated,
+    }
+    return body
+
+
+def agent_work_lock(key):
+    with WORK_CACHE_LOCK:
+        lock = WORK_REFRESH_LOCKS.get(key)
+        if lock is None:
+            if len(WORK_REFRESH_LOCKS) >= AGENT_WORK_CACHE_MAX:
+                for stale in [k for k in WORK_REFRESH_LOCKS if k not in WORK_CACHE]:
+                    del WORK_REFRESH_LOCKS[stale]
+            lock = threading.Lock()
+            WORK_REFRESH_LOCKS[key] = lock
+        return lock
+
+
+def agent_work_store(key, value):
+    with WORK_CACHE_LOCK:
+        WORK_CACHE[key] = {"at": time.monotonic(), "value": value}
+        while len(WORK_CACHE) > AGENT_WORK_CACHE_MAX:
+            oldest = min(WORK_CACHE, key=lambda k: WORK_CACHE[k]["at"])
+            del WORK_CACHE[oldest]
+
+
+def agent_work_fetch(key, script, runner=None):
+    runner = runner or agent_ssh
+    now = time.monotonic()
+    with WORK_CACHE_LOCK:
+        hit = WORK_CACHE.get(key)
+        if hit is not None and now - hit["at"] < AGENT_WORK_TTL:
+            return json.loads(hit["value"])
+    with agent_work_lock(key):
+        with WORK_CACHE_LOCK:
+            hit = WORK_CACHE.get(key)
+            if hit is not None and time.monotonic() - hit["at"] < AGENT_WORK_TTL:
+                return json.loads(hit["value"])
+        proc = runner(script, AGENT_WORK_TIMEOUT)
+        if proc.returncode != 0:
+            return None
+        body = agent_work_parse(proc.stdout.decode("utf-8", "replace"))
+        if body is None:
+            return None
+        agent_work_store(key, json.dumps(body))
+        return body
+
+
+def agent_prompt_line(text):
+    if AGENT_PROMPT_CONTROL_RE.search(text):
+        return ""
+    return " ".join(part.strip() for part in text.split("\n") if part.strip())
+
+
+def agent_ask_empty():
+    return {"asking": False, "kind": "", "question": "", "options": [], "raw_hint": ""}
+
+
+def agent_ask_line(line):
+    return line.strip().strip(AGENT_ASK_BORDER).strip()
+
+
+def agent_ask_signal(lines, end):
+    found = False
+    body = 0
+    for probe in range(end + 1, len(lines)):
+        candidate = agent_ask_line(lines[probe])
+        if not candidate or AGENT_ASK_CHROME_RE.match(candidate):
+            continue
+        if AGENT_ASK_TRANSCRIPT_RE.match(candidate):
+            return False
+        if AGENT_ASK_AFFORD_RE.search(candidate):
+            found = True
+            continue
+        if AGENT_ASK_HINT_RE.search(candidate):
+            continue
+        if found:
+            return False
+        body += 1
+        if body > AGENT_ASK_TAIL_BODY:
+            return False
+    return found
+
+
+def agent_ask_capture(session):
+    proc = subprocess.run(
+        [TERM_TMUX, "capture-pane", "-p", "-t", term_pane_target(session)],
+        capture_output=True, timeout=AGENT_ASK_TIMEOUT,
+    )
+    if proc.returncode != 0:
+        return None
+    return proc.stdout.decode("utf-8", "replace")
+
+
+def agent_ask_block(lines):
+    floor = max(0, len(lines) - AGENT_ASK_SCAN_LINES)
+    hits = []
+    for index in range(floor, len(lines)):
+        m = AGENT_ASK_OPTION_RE.match(agent_ask_line(lines[index]))
+        if m is not None:
+            hits.append((index, m))
+    if not hits:
+        return []
+    matches = [hits[-1]]
+    for index, m in reversed(hits[:-1]):
+        head_index, head_m = matches[-1]
+        if head_index - index > AGENT_ASK_OPTION_GAP:
+            break
+        if int(m.group("index")) != int(head_m.group("index")) - 1:
+            break
+        matches.append((index, m))
+    matches.reverse()
+    return matches
+
+
+def agent_ask_parse(text):
+    body = agent_ask_empty()
+    lines = [line.rstrip() for line in text.split("\n")]
+    matches = agent_ask_block(lines)
+    if len(matches) < 2 or sum(1 for _, m in matches if m.group("cursor")) != 1:
+        return body
+    if not agent_ask_signal(lines, matches[-1][0]):
+        return body
+    options = []
+    for position, (_, m) in enumerate(matches, 1):
+        if int(m.group("index")) != position:
+            return body
+        options.append({
+            "index": position,
+            "label": m.group("label").strip()[:AGENT_ASK_LABEL_MAX],
+            "selected": bool(m.group("cursor")),
+        })
+    start = matches[0][0]
+    question = ""
+    probe = start - 1
+    while probe >= 0 and start - probe <= AGENT_ASK_QUESTION_LOOKBACK:
+        candidate = agent_ask_line(lines[probe])
+        if candidate:
+            if candidate.endswith("?"):
+                question = candidate[:AGENT_ASK_QUESTION_MAX]
+                start = probe
+            break
+        probe -= 1
+    labels = " ".join(option["label"] for option in options)
+    body["asking"] = True
+    body["kind"] = "permission" if AGENT_ASK_PERMISSION_RE.search(question + " " + labels) else "choice"
+    body["question"] = question
+    body["options"] = options
+    body["raw_hint"] = "\n".join(
+        agent_ask_line(line) for line in lines[start:matches[-1][0] + 1]
+    )[:AGENT_ASK_HINT_MAX]
+    return body
+
+
+def agent_ask_choice(options, choice):
+    kind, value = choice
+    for option in options:
+        if option["index"] > AGENT_ASK_MAX_OPTIONS:
+            continue
+        if kind == "index" and option["index"] == value:
+            return option["index"]
+        if kind == "option" and option["label"].strip().lower() == value.lower():
+            return option["index"]
+    return None
+
+
+def watch_log(message):
+    line = "%s watch %s\n" % (now_iso(), message)
+    try:
+        with LOG_LOCK:
+            with open(LOG_PATH, "a") as f:
+                f.write(line)
+    except OSError:
+        pass
+
+
+def wa_outbox_write(name, text):
+    path = os.path.join(WA_OUTBOX_DIR, name)
+    tmp = path + ".tmp"
+    try:
+        with open(tmp, "w") as f:
+            f.write(text)
+            f.flush()
+            os.fsync(f.fileno())
+        os.rename(tmp, path)
+    except OSError:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+    return path
+
+
+def watch_state_load():
+    if WATCH_LOADED[0]:
+        return
+    WATCH_LOADED[0] = True
+    try:
+        with open(AGENT_WATCH_STATE_PATH) as f:
+            data = json.load(f)
+        seen = data.get("seen") if isinstance(data, dict) else None
+        sent = data.get("sent") if isinstance(data, dict) else None
+        hour = data.get("hour") if isinstance(data, dict) else None
+        if isinstance(seen, dict):
+            for session, entry in seen.items():
+                fp = entry.get("fp") if isinstance(entry, dict) else None
+                if not isinstance(fp, dict):
+                    continue
+                question = fp.get("question")
+                labels = fp.get("labels")
+                if not isinstance(question, str) or not isinstance(labels, list):
+                    continue
+                if not all(isinstance(label, str) for label in labels):
+                    continue
+                WATCH_SEEN[session] = {
+                    "fp": {"question": question, "labels": labels},
+                    "at": float(entry.get("at") or 0),
+                }
+        if isinstance(sent, dict):
+            for session, at in sent.items():
+                WATCH_SENT_AT[session] = float(at)
+        if isinstance(hour, list):
+            WATCH_HOUR[:] = [float(at) for at in hour]
+    except (OSError, ValueError, TypeError, AttributeError) as exc:
+        watch_log("state load failed %r" % (exc,))
+
+
+def watch_state_save():
+    tmp = AGENT_WATCH_STATE_PATH + ".tmp"
+    try:
+        os.makedirs(os.path.dirname(AGENT_WATCH_STATE_PATH), mode=0o700, exist_ok=True)
+        with open(tmp, "w") as f:
+            json.dump({"seen": WATCH_SEEN, "sent": WATCH_SENT_AT, "hour": WATCH_HOUR}, f)
+            f.flush()
+            os.fsync(f.fileno())
+        os.rename(tmp, AGENT_WATCH_STATE_PATH)
+    except (OSError, ValueError) as exc:
+        watch_log("state save failed %r" % (exc,))
+
+
+def agent_watch_norm(text):
+    return AGENT_WATCH_SPACE_RE.sub(" ", text.strip()).lower()
+
+
+def agent_watch_fingerprint(ask):
+    return {
+        "question": agent_watch_norm(ask["question"]),
+        "labels": [agent_watch_norm(option["label"]) for option in ask["options"]],
+    }
+
+
+def agent_watch_same(old, new):
+    if not old or not new:
+        return False
+    if len(old["labels"]) != len(new["labels"]):
+        return False
+    for left, right in zip(old["labels"], new["labels"]):
+        if not left.startswith(right) and not right.startswith(left):
+            return False
+    left, right = old["question"], new["question"]
+    return left.endswith(right) or right.endswith(left)
+
+
+def agent_watch_merge(old, new):
+    return {
+        "question": max(old["question"], new["question"], key=len),
+        "labels": [max(left, right, key=len) for left, right in zip(old["labels"], new["labels"])],
+    }
+
+
+def agent_watch_tag(fp):
+    raw = "\n".join([fp["question"]] + fp["labels"])
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
+
+
+def agent_watch_scrub(text):
+    return AGENT_WATCH_PATH_RE.sub("…", text).strip()
+
+
+def agent_watch_message(agent, session, ask):
+    lines = ["\U0001f916 %s (%s) precisa de você:" % (agent, session), ""]
+    question = agent_watch_scrub(ask["question"])
+    if question:
+        lines.append('"%s"' % question)
+    for option in ask["options"][:AGENT_ASK_MAX_OPTIONS]:
+        lines.append("%d. %s" % (option["index"], agent_watch_scrub(option["label"])[:AGENT_WATCH_LABEL_MAX]))
+    lines += ["", "Responda pelo app garime."]
+    return "\n".join(lines)
+
+
+def agent_watch_width(session):
+    proc = subprocess.run(
+        [TERM_TMUX, "display-message", "-p", "-t", term_pane_target(session), "#{pane_width}"],
+        capture_output=True, timeout=AGENT_ASK_TIMEOUT,
+    )
+    if proc.returncode != 0:
+        return None
+    raw = proc.stdout.decode("utf-8", "replace").strip()
+    return int(raw) if raw.isdigit() else None
+
+
+def agent_watch_notify(session, agent, ask, key, now):
+    last = WATCH_SENT_AT.get(session)
+    if last is not None and 0 <= now - last < AGENT_WATCH_COOLDOWN:
+        watch_log("%s dropped cooldown" % session)
+        return "dropped"
+    WATCH_HOUR[:] = [at for at in WATCH_HOUR if 0 <= now - at < AGENT_WATCH_HOUR_WINDOW]
+    if len(WATCH_HOUR) >= AGENT_WATCH_MAX_HOUR:
+        watch_log("%s dropped hourly cap %d" % (session, AGENT_WATCH_MAX_HOUR))
+        return "dropped"
+    name = "agent-ask-%d-%s-%s.txt" % (int(now), session, key)
+    try:
+        wa_outbox_write(name, agent_watch_message(agent, session, ask))
+    except OSError as exc:
+        watch_log("%s outbox failed %r" % (session, exc))
+        return "failed"
+    WATCH_SENT_AT[session] = now
+    WATCH_HOUR.append(now)
+    watch_log("%s notified %s" % (session, name))
+    return "sent"
+
+
+def agent_watch_sessions():
+    names = set()
+    for entry in status_vm_agents():
+        session = entry.get("session")
+        if isinstance(session, str) and TERM_SESSION_RE.match(session):
+            names.add(session)
+    return sorted(names)
+
+
+def agent_watch_tick():
+    watch_state_load()
+    now = time.time()
+    dirty = False
+    for session in agent_watch_sessions():
+        try:
+            found = vm_session_agent(session)
+            if not found or not found[0]:
+                continue
+            width = agent_watch_width(session)
+            if width is None or width < AGENT_WATCH_MIN_COLS:
+                watch_log("%s skipped narrow pane %s" % (session, width))
+                continue
+            text = agent_ask_capture(session)
+        except Exception as exc:
+            watch_log("%s capture failed %r" % (session, exc))
+            continue
+        if text is None:
+            continue
+        ask = agent_ask_parse(text)
+        if not ask["asking"]:
+            if WATCH_SEEN.pop(session, None) is not None:
+                dirty = True
+            continue
+        fp = agent_watch_fingerprint(ask)
+        entry = WATCH_SEEN.get(session)
+        seen = entry.get("fp") if entry else None
+        if agent_watch_same(seen, fp):
+            merged = agent_watch_merge(seen, fp)
+            if merged != seen or now - entry.get("at", 0) >= AGENT_WATCH_HOUR_WINDOW:
+                dirty = True
+            entry["fp"] = merged
+            entry["at"] = now
+            continue
+        if agent_watch_notify(session, found[0], ask, agent_watch_tag(fp), now) != "failed":
+            WATCH_SEEN[session] = {"fp": fp, "at": now}
+            dirty = True
+    for stale in [s for s, e in WATCH_SEEN.items() if now - e.get("at", 0) >= AGENT_WATCH_SEEN_TTL]:
+        WATCH_SEEN.pop(stale, None)
+        dirty = True
+    for stale in [s for s, at in WATCH_SENT_AT.items() if now - at >= AGENT_WATCH_COOLDOWN]:
+        WATCH_SENT_AT.pop(stale, None)
+        dirty = True
+    if dirty:
+        watch_state_save()
+
+
+def agent_watch_loop():
+    while True:
+        try:
+            agent_watch_tick()
+        except Exception as exc:
+            watch_log("tick failed %r" % (exc,))
+        time.sleep(AGENT_WATCH_INTERVAL)
+
+
+def agent_watch_start():
+    if not AGENT_WATCH_ENABLED:
+        return
+    if not os.path.isdir(WA_OUTBOX_DIR):
+        watch_log("outbox missing %s" % WA_OUTBOX_DIR)
+    watch_state_load()
+    watch_log("started interval=%gs outbox=%s state=%s" % (
+        AGENT_WATCH_INTERVAL, WA_OUTBOX_DIR, AGENT_WATCH_STATE_PATH))
+    threading.Thread(target=agent_watch_loop, daemon=True).start()
+
+
+def term_has_session(session):
+    proc = subprocess.run(
+        [TERM_TMUX, "has-session", "-t", term_target(session)],
+        capture_output=True, timeout=5,
+    )
+    return proc.returncode == 0
+
+
+def term_send_key(session, key):
+    proc = subprocess.run(
+        [TERM_TMUX, "send-keys", "-t", term_pane_target(session), key],
+        capture_output=True, timeout=5,
+    )
+    return proc.returncode == 0
+
+
+def agent_commands_with_builtins(agent, commands):
+    builtins = AGENT_COMMANDS_BUILTIN.get(agent, ())
+    if not builtins:
+        return list(commands)
+    names = {name for name, _ in builtins}
+    merged = [entry for entry in commands if entry.get("name") not in names]
+    merged += [
+        {"name": name, "description": description, "scope": "builtin", "builtin": True}
+        for name, description in builtins
+    ]
+    return sorted(merged, key=lambda entry: entry.get("name", ""))
+
+
 def agent_chat_parts(content):
     parts = []
     if isinstance(content, str):
@@ -686,7 +1686,7 @@ def agent_chat_parts(content):
             value = block.get("text")
             if isinstance(value, str):
                 parts.append(("text", value))
-        elif kind == "tool_use":
+        elif kind in ("tool_use", "toolCall"):
             name = block.get("name")
             parts.append(("tool", name if isinstance(name, str) and name else "tool"))
         elif kind is None:
@@ -732,7 +1732,7 @@ def agent_chat_record(record):
     return out
 
 
-def agent_chat_messages(text, limit):
+def agent_chat_messages(text, limit, skip=0):
     messages = []
     for line in text.split("\n"):
         line = line.strip()
@@ -743,6 +1743,9 @@ def agent_chat_messages(text, limit):
         except ValueError:
             continue
         messages += agent_chat_record(record)
+    skip = max(0, int(skip))
+    if skip:
+        messages = messages[:-skip]
     return messages[-limit:]
 
 
@@ -755,7 +1758,95 @@ def valid_id(value):
 
 
 def valid_date(value):
-    return isinstance(value, str) and DATE_RE.match(value) is not None
+    if not isinstance(value, str) or DATE_RE.match(value) is None:
+        return False
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").strftime("%Y-%m-%d") == value
+    except ValueError:
+        return False
+
+
+def valid_week(value):
+    if not isinstance(value, str) or WEEK_RE.match(value) is None:
+        return False
+    try:
+        datetime.strptime(value + "-1", "%G-W%V-%u")
+    except ValueError:
+        return False
+    return True
+
+
+def valid_plan(plan):
+    if not isinstance(plan, dict):
+        return False
+    revision = plan.get("revision")
+    week = plan.get("week")
+    source = plan.get("source")
+    days = plan.get("days")
+    if (
+        plan.get("schema") != "vitals.plan/1"
+        or not valid_week(week)
+        or type(revision) is not int
+        or revision < 1
+        or plan.get("id") != "plan-%s.r%d" % (week, revision)
+        or not isinstance(plan.get("frozenAt"), str)
+        or not plan["frozenAt"]
+        or not isinstance(source, dict)
+        or not isinstance(days, list)
+        or len(days) != 7
+    ):
+        return False
+    catalog_version = source.get("catalogVersion")
+    block_sources = source.get("blocks")
+    if (
+        not valid_id(source.get("catalogId"))
+        or type(catalog_version) is not int
+        or catalog_version < 1
+        or source.get("generator") not in ("manual", "conversation")
+        or not isinstance(block_sources, list)
+    ):
+        return False
+    for block in block_sources:
+        if (
+            not isinstance(block, dict)
+            or not valid_id(block.get("blockId"))
+            or type(block.get("blockVersion")) is not int
+            or block["blockVersion"] < 1
+        ):
+            return False
+    monday = datetime.strptime(week + "-1", "%G-W%V-%u")
+    expected_dates = [(monday + timedelta(days=offset)).strftime("%Y-%m-%d") for offset in range(7)]
+    if [day.get("date") if isinstance(day, dict) else None for day in days] != expected_dates:
+        return False
+    for day in days:
+        if (
+            not isinstance(day.get("label"), str)
+            or type(day.get("rest")) is not bool
+            or not isinstance(day.get("items"), list)
+        ):
+            return False
+        for item in day["items"]:
+            if (
+                not isinstance(item, dict)
+                or not valid_id(item.get("exerciseId"))
+                or not isinstance(item.get("name"), str)
+                or not isinstance(item.get("muscles"), list)
+                or not all(isinstance(muscle, str) for muscle in item["muscles"])
+                or not isinstance(item.get("sets"), list)
+                or item.get("doseType", "reps") not in ("reps", "time-min", "time-sec")
+                or type(item.get("restSec")) is not int
+                or item["restSec"] < 0
+            ):
+                return False
+            for value_range in item["sets"]:
+                if (
+                    not isinstance(value_range, list)
+                    or len(value_range) != 2
+                    or not all(type(value) is int and value > 0 for value in value_range)
+                    or value_range[0] > value_range[1]
+                ):
+                    return False
+    return True
 
 
 def read_hermes_key():
@@ -767,7 +1858,9 @@ def read_hermes_key():
 
 
 class Handler(BaseHTTPRequestHandler):
-    timeout = 30
+    protocol_version = "HTTP/1.1"
+    timeout = 120
+    _body_read = False
 
     def log_request(self, code="-", size="-"):
         line = "%s %s %s %s %s\n" % (now_iso(), self.client_address[0], self.command, self.path, code)
@@ -778,10 +1871,25 @@ class Handler(BaseHTTPRequestHandler):
         except OSError:
             pass
 
+    def _undrained(self):
+        encoding = (self.headers.get("Transfer-Encoding") or "").strip().lower()
+        if encoding and encoding != "identity":
+            return True
+        try:
+            pending = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            return True
+        if pending < 0:
+            return True
+        return bool(pending) and not self._body_read
+
     def _json(self, status, body):
+        close = self._undrained() or self.close_connection
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
+        if close:
+            self.send_header("Connection", "close")
         self.end_headers()
         self.wfile.write(body)
 
@@ -803,9 +1911,10 @@ class Handler(BaseHTTPRequestHandler):
         return True
 
     def _term_session_name(self):
-        q = parse_qs(urlsplit(self.path).query)
-        name = (q.get("session") or [TERM_SESSION])[0]
-        return name if TERM_SESSION_RE.match(name) else TERM_SESSION
+        name = self._term_session_name_strict()
+        if name is None:
+            self._json(400, b'{"error":"bad_name"}')
+        return name
 
     def _term_session_name_strict(self):
         q = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
@@ -843,10 +1952,13 @@ class Handler(BaseHTTPRequestHandler):
         if not self._term_gate():
             return
         session = self._term_session_name()
+        if session is None:
+            return
         sess = self._term_session(session)
         sub = TermSubscriber()
         snapshot = sess.subscribe(sub)
         try:
+            self.close_connection = True
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream")
             self.send_header("Cache-Control", "no-cache")
@@ -888,13 +2000,17 @@ class Handler(BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length") or 0)
         except ValueError:
             length = 0
+        self._body_read = True
         raw = self.rfile.read(length) if length else b""
         try:
             data = base64.b64decode(raw, validate=True)
         except ValueError:
             self._json(400, b'{"error":"invalid_body"}')
             return
-        sess = self._term_session(self._term_session_name())
+        session = self._term_session_name()
+        if session is None:
+            return
+        sess = self._term_session(session)
         try:
             sess.write(data)
         except OSError:
@@ -910,6 +2026,7 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             length = 0
         try:
+            self._body_read = True
             body = json.loads(self.rfile.read(length)) if length else None
         except ValueError:
             body = None
@@ -924,7 +2041,10 @@ class Handler(BaseHTTPRequestHandler):
         ):
             self._json(400, b'{"error":"invalid_body"}')
             return
-        sess = self._term_session(self._term_session_name())
+        session = self._term_session_name()
+        if session is None:
+            return
+        sess = self._term_session(session)
         try:
             sess.set_winsize(rows, cols)
         except OSError:
@@ -936,6 +2056,8 @@ class Handler(BaseHTTPRequestHandler):
         if not self._term_gate():
             return
         session = self._term_session_name()
+        if session is None:
+            return
         try:
             out = subprocess.run(
                 [TERM_TMUX, "display-message", "-p", "-t", term_pane_target(session), "#{window_width} #{window_height}"],
@@ -951,6 +2073,8 @@ class Handler(BaseHTTPRequestHandler):
     def _term_list(self):
         if not self._term_gate():
             return
+        if self._term_session_name() is None:
+            return
         try:
             out = subprocess.run(
                 [TERM_TMUX, "list-sessions", "-F", "#{session_name}"],
@@ -965,6 +2089,8 @@ class Handler(BaseHTTPRequestHandler):
         if not self._term_gate():
             return
         session = self._term_session_name()
+        if session is None:
+            return
         q = parse_qs(urlsplit(self.path).query)
         try:
             lines = int((q.get("lines") or [str(TERM_PREVIEW_LINES)])[0])
@@ -984,6 +2110,27 @@ class Handler(BaseHTTPRequestHandler):
             return
         text = proc.stdout.decode("utf-8", "replace")
         self._json(200, json.dumps({"text": text}).encode())
+
+    def _term_health(self):
+        if not self._term_gate():
+            return
+        body = {
+            "ok": True,
+            "mac_online": status_mac_online(),
+            "agent": agent_session_state(),
+        }
+        self._json(200, json.dumps(body).encode())
+
+    def _term_agent_ensure(self):
+        if not self._term_gate():
+            return
+        self.close_connection = True
+        try:
+            self._term_session(AGENT_SESSION)
+        except Exception:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        self._json(200, json.dumps({"ok": True, "agent": agent_session_state()}).encode())
 
     def _term_agents(self):
         if not self._term_gate():
@@ -1022,6 +2169,55 @@ class Handler(BaseHTTPRequestHandler):
             self._json(400, b'{"error":"bad_target"}')
             return None, None
         return project, pane
+
+    def _term_vm_target(self):
+        q = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
+        raw = q.get("session")
+        if raw is None:
+            return ""
+        if q.get("project") is not None or q.get("pane") is not None or len(raw) != 1:
+            self._json(400, b'{"error":"bad_target"}')
+            return None
+        if not TERM_SESSION_RE.match(raw[0]):
+            self._json(400, b'{"error":"bad_target"}')
+            return None
+        return raw[0]
+
+    def _term_vm_session_required(self):
+        q = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
+        raw = q.get("session")
+        if (
+            raw is None or len(raw) != 1
+            or q.get("project") is not None or q.get("pane") is not None
+            or not TERM_SESSION_RE.match(raw[0])
+        ):
+            self._json(400, b'{"error":"bad_target"}')
+            return None
+        return raw[0]
+
+    def _term_vm_agent(self, session):
+        try:
+            found = vm_session_agent(session)
+        except Exception:
+            self._json(503, b'{"error":"unavailable"}')
+            return None
+        if found is None:
+            self._json(404, b'{"error":"no_session"}')
+            return None
+        agent, cwd = found
+        if not agent:
+            self._json(404, b'{"error":"no_agent"}')
+            return None
+        return agent, cwd
+
+    def _term_chat_limit(self, q=None):
+        if q is None:
+            q = parse_qs(urlsplit(self.path).query)
+        try:
+            limit = int((q.get("limit") or [str(AGENT_CHAT_LIMIT)])[0])
+        except ValueError:
+            limit = AGENT_CHAT_LIMIT
+        return max(1, min(AGENT_CHAT_MAX_LIMIT, limit))
 
     def _term_agent_resolve(self, project, pane, pane_conflict=False):
         try:
@@ -1063,23 +2259,106 @@ class Handler(BaseHTTPRequestHandler):
         }
         self._json(200, json.dumps(body, ensure_ascii=False).encode())
 
+    def _agent_chat_payload(self, session, limit=None, skip=0):
+        """Monta o payload do chat de uma sessão VM; retorna dict ou None (sem sessão/agente)."""
+        found = self._term_vm_agent(session)
+        if found is None:
+            return None
+        agent, cwd = found
+        if limit is None:
+            limit = self._term_chat_limit()
+        body = {"agent": agent, "status": agent_chat_status(cwd), "resolved": "", "messages": []}
+        script = agent_transcript_script(vm_agent_session(agent), cwd)
+        if not script:
+            return body
+        try:
+            proc = agent_local(script, AGENT_CHAT_TIMEOUT)
+        except Exception:
+            return body
+        if proc.returncode != 0:
+            return body
+        resolved, out = agent_chat_resolved(proc.stdout.decode("utf-8", "replace"))
+        body["resolved"] = resolved
+        body["messages"] = agent_chat_messages(out, limit, skip)
+        return body
+
+    def _term_agent_stream(self):
+        """SSE: empurra o payload do chat a cada mudança (~0.5s). Fecho após AGENT_STREAM_MAX_S."""
+        if not self._term_gate():
+            return
+        q = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
+        session = self._term_session_name()
+        if not session:
+            return
+        limit = self._term_chat_limit(q)
+        try:
+            deadline = time.monotonic() + AGENT_STREAM_MAX_S
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Connection", "close")
+            self.end_headers()
+            self._streaming = True
+            last_hash = None
+            while time.monotonic() < deadline:
+                payload = self._agent_chat_payload(session, limit)
+                if payload is None:
+                    break
+                data = json.dumps(payload, ensure_ascii=False).encode()
+                digest = hashlib.sha256(data).digest()
+                if digest != last_hash:
+                    last_hash = digest
+                    self.wfile.write(b"data: " + data + b"\n\n")
+                    self.wfile.flush()
+                elif int((AGENT_STREAM_MAX_S - (deadline - time.monotonic())) * 2) % 30 == 0:
+                    pass  # heartbeat implícito: mudanças no hash chegam logo
+                time.sleep(AGENT_STREAM_TICK_S)
+            self.wfile.write(b"event: bye\ndata: {}\n\n")
+            self.wfile.flush()
+        except (ConnectionError, BrokenPipeError, socket.timeout, OSError):
+            pass
+        finally:
+            self.close_connection = True
+
+    def _term_agent_chat_vm(self, session):
+        body = self._agent_chat_payload(session)
+        if body is None:
+            return
+        self._json(200, json.dumps(body, ensure_ascii=False).encode())
+
     def _term_agent_chat(self):
         if not self._term_gate():
+            return
+        q = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
+        try:
+            before = max(0, int((q.get("before") or ["0"])[0]))
+        except ValueError:
+            before = 0
+        vm = self._term_vm_target()
+        if vm is None:
+            return
+        if vm:
+            limit = self._term_chat_limit(q)
+            body = self._agent_chat_payload(vm, limit, skip=before)
+            if body is None:
+                return
+            body["hasMore"] = len(body["messages"]) >= max(1, limit)
+            self._json(200, json.dumps(body, ensure_ascii=False).encode())
             return
         project, pane = self._term_agent_target()
         if project is None:
             return
-        q = parse_qs(urlsplit(self.path).query)
-        try:
-            limit = int((q.get("limit") or [str(AGENT_CHAT_LIMIT)])[0])
-        except ValueError:
-            limit = AGENT_CHAT_LIMIT
-        limit = max(1, min(AGENT_CHAT_MAX_LIMIT, limit))
+        limit = self._term_chat_limit()
         entry = self._term_agent_resolve(project, pane)
         if entry is None:
             return
-        body = {"agent": entry.get("agent", ""), "status": entry.get("status", "unknown"), "messages": []}
-        script = agent_transcript_script(entry.get("session"))
+        body = {
+            "agent": entry.get("agent", ""),
+            "status": entry.get("status", "unknown"),
+            "resolved": "",
+            "messages": [],
+        }
+        script = agent_transcript_script(entry.get("session"), entry.get("cwd", ""))
         if not script:
             self._json(200, json.dumps(body, ensure_ascii=False).encode())
             return
@@ -1091,31 +2370,70 @@ class Handler(BaseHTTPRequestHandler):
         if proc.returncode != 0:
             self._json(503, b'{"error":"unavailable"}')
             return
-        body["messages"] = agent_chat_messages(proc.stdout.decode("utf-8", "replace"), limit)
+        resolved, out = agent_chat_resolved(proc.stdout.decode("utf-8", "replace"))
+        body["resolved"] = resolved
+        body["messages"] = agent_chat_messages(out, limit)
         self._json(200, json.dumps(body, ensure_ascii=False).encode())
 
-    def _term_agent_prompt(self):
-        if not self._term_gate():
-            return
-        self.close_connection = True
-        project, pane = self._term_agent_target()
-        if project is None:
-            return
+    def _term_agent_prompt_body(self):
         try:
             length = int(self.headers.get("Content-Length") or 0)
         except ValueError:
             length = -1
         if length <= 0 or length > AGENT_PROMPT_MAX:
             self._json(400, b'{"error":"invalid_body"}')
-            return
+            return None
+        self._body_read = True
         raw = self.rfile.read(length)
         try:
             text = raw.decode("utf-8")
         except UnicodeDecodeError:
             self._json(400, b'{"error":"invalid_body"}')
-            return
+            return None
         if len(raw) != length or not text.strip():
             self._json(400, b'{"error":"invalid_body"}')
+            return None
+        return text
+
+    def _term_agent_prompt_vm(self, session):
+        text = self._term_agent_prompt_body()
+        if text is None:
+            return
+        line = agent_prompt_line(text)
+        if not line:
+            self._json(400, b'{"error":"invalid_body"}')
+            return
+        if self._term_vm_agent(session) is None:
+            return
+        try:
+            sess = self._term_session(session)
+        except Exception:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        try:
+            sess.write(line.encode())
+            time.sleep(0.05)
+            sess.write(b"\r")
+        except OSError:
+            self._json(409, b'{"error":"no_attach"}')
+            return
+        self._json(200, b'{"ok":true}')
+
+    def _term_agent_prompt(self):
+        if not self._term_gate():
+            return
+        self.close_connection = True
+        vm = self._term_vm_target()
+        if vm is None:
+            return
+        if vm:
+            self._term_agent_prompt_vm(vm)
+            return
+        project, pane = self._term_agent_target()
+        if project is None:
+            return
+        text = self._term_agent_prompt_body()
+        if text is None:
             return
         if self._term_agent_resolve(project, pane) is None:
             return
@@ -1129,8 +2447,292 @@ class Handler(BaseHTTPRequestHandler):
             return
         self._json(200, b'{"ok":true}')
 
+    def _term_agent_ask_vm(self, session):
+        found = self._term_vm_agent(session)
+        if found is None:
+            return
+        agent, _ = found
+        try:
+            text = agent_ask_capture(session)
+        except Exception:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        if text is None:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        body = {"agent": agent}
+        body.update(agent_ask_parse(text))
+        self._json(200, json.dumps(body, ensure_ascii=False).encode())
+
+    def _term_agent_ask(self):
+        if not self._term_gate():
+            return
+        vm = self._term_vm_target()
+        if vm is None:
+            return
+        if vm:
+            self._term_agent_ask_vm(vm)
+            return
+        project, pane = self._term_agent_target()
+        if project is None:
+            return
+        entry = self._term_agent_resolve(project, pane)
+        if entry is None:
+            return
+        text = self._term_agent_ask_mac_read(project, pane)
+        if text is None:
+            return
+        body = {"agent": entry.get("agent", ""), "blocked": entry.get("status") == "blocked"}
+        body.update(agent_ask_parse(text))
+        self._json(200, json.dumps(body, ensure_ascii=False).encode())
+
+    def _term_agent_ask_mac_read(self, project, pane):
+        try:
+            proc = agent_ssh(
+                herdr_pane_script(project, pane, AGENT_ASK_MAC_READ), AGENT_ASK_MAC_TIMEOUT
+            )
+        except Exception:
+            self._json(503, b'{"error":"unavailable"}')
+            return None
+        if proc.returncode != 0:
+            self._json(503, b'{"error":"unavailable"}')
+            return None
+        return proc.stdout.decode("utf-8", "replace")
+
+    def _term_answer_body(self):
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            length = -1
+        if length <= 0 or length > AGENT_ANSWER_BODY_MAX:
+            self._json(400, b'{"error":"invalid_body"}')
+            return None
+        self._body_read = True
+        raw = self.rfile.read(length)
+        try:
+            body = json.loads(raw) if len(raw) == length else None
+        except ValueError:
+            body = None
+        if not isinstance(body, dict):
+            self._json(400, b'{"error":"invalid_body"}')
+            return None
+        index = body.get("index")
+        option = body.get("option")
+        if (index is None) == (option is None):
+            self._json(400, b'{"error":"invalid_body"}')
+            return None
+        if index is not None:
+            if not isinstance(index, int) or isinstance(index, bool):
+                self._json(400, b'{"error":"invalid_body"}')
+                return None
+            return "index", index
+        if not isinstance(option, str) or not option.strip():
+            self._json(400, b'{"error":"invalid_body"}')
+            return None
+        return "option", option.strip()
+
+    def _term_agent_answer(self):
+        if not self._term_gate():
+            return
+        self.close_connection = True
+        vm = self._term_vm_target()
+        if vm is None:
+            return
+        if vm:
+            self._term_agent_answer_vm(vm)
+            return
+        project, pane = self._term_agent_target()
+        if project is None:
+            return
+        choice = self._term_answer_body()
+        if choice is None:
+            return
+        if self._term_agent_resolve(project, pane) is None:
+            return
+        text = self._term_agent_ask_mac_read(project, pane)
+        if text is None:
+            return
+        ask = agent_ask_parse(text)
+        if not ask["asking"]:
+            self._json(409, b'{"error":"not_asking"}')
+            return
+        index = agent_ask_choice(ask["options"], choice)
+        if index is None:
+            self._json(400, b'{"error":"bad_option"}')
+            return
+        commands = (("send-text", (str(index),)), ("send-keys", ("enter",)))
+        try:
+            proc = agent_ssh(herdr_pane_script(project, pane, commands), AGENT_ASK_MAC_TIMEOUT)
+        except Exception:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        if proc.returncode != 0:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        self._json(200, json.dumps({"ok": True, "index": index}).encode())
+
+    def _term_agent_answer_vm(self, session):
+        choice = self._term_answer_body()
+        if choice is None:
+            return
+        if self._term_vm_agent(session) is None:
+            return
+        try:
+            text = agent_ask_capture(session)
+        except Exception:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        if text is None:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        ask = agent_ask_parse(text)
+        if not ask["asking"]:
+            self._json(409, b'{"error":"not_asking"}')
+            return
+        index = agent_ask_choice(ask["options"], choice)
+        if index is None:
+            self._json(400, b'{"error":"bad_option"}')
+            return
+        try:
+            sess = self._term_session(session)
+        except Exception:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        try:
+            sess.write(str(index).encode())
+            time.sleep(0.05)
+            sess.write(b"\r")
+        except OSError:
+            self._json(409, b'{"error":"no_attach"}')
+            return
+        self._json(200, json.dumps({"ok": True, "index": index}).encode())
+
+    def _term_agent_interrupt(self):
+        if not self._term_gate():
+            return
+        vm = self._term_vm_target()
+        if vm is None:
+            return
+        if vm:
+            self._term_agent_interrupt_vm(vm)
+            return
+        project, pane = self._term_agent_target()
+        if project is None:
+            return
+        if self._term_agent_resolve(project, pane) is None:
+            return
+        commands = (("send-keys", (AGENT_INTERRUPT_KEY_MAC,)),)
+        try:
+            proc = agent_ssh(herdr_pane_script(project, pane, commands), AGENT_ASK_MAC_TIMEOUT)
+        except Exception:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        if proc.returncode != 0:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        self._json(200, b'{"ok":true}')
+
+    def _term_agent_interrupt_vm(self, session):
+        if self._term_vm_agent(session) is None:
+            return
+        try:
+            sent = term_send_key(session, AGENT_INTERRUPT_KEY)
+        except Exception:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        if not sent:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        self._json(200, b'{"ok":true}')
+
+    def _term_start_body(self):
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            length = -1
+        if length <= 0 or length > AGENT_ANSWER_BODY_MAX:
+            self._json(400, b'{"error":"invalid_body"}')
+            return None
+        self._body_read = True
+        raw = self.rfile.read(length)
+        try:
+            body = json.loads(raw) if len(raw) == length else None
+        except ValueError:
+            body = None
+        if not isinstance(body, dict):
+            self._json(400, b'{"error":"invalid_body"}')
+            return None
+        agent = body.get("agent")
+        if not isinstance(agent, str) or agent not in AGENT_START_COMMANDS:
+            self._json(400, b'{"error":"bad_agent"}')
+            return None
+        return agent
+
+    def _term_agent_start(self):
+        if not self._term_gate():
+            return
+        self.close_connection = True
+        session = self._term_vm_session_required()
+        if session is None:
+            return
+        agent = self._term_start_body()
+        if agent is None:
+            return
+        try:
+            found = vm_session_agent(session)
+        except Exception:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        if found is None:
+            self._json(404, b'{"error":"no_session"}')
+            return
+        if found[0]:
+            self._json(409, b'{"error":"already_running"}')
+            return
+        try:
+            sess = self._term_session(session)
+        except Exception:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        try:
+            sess.write(AGENT_START_COMMANDS[agent].encode())
+            time.sleep(0.05)
+            sess.write(b"\r")
+        except OSError:
+            self._json(409, b'{"error":"no_attach"}')
+            return
+        self._json(200, json.dumps({"ok": True, "agent": agent}).encode())
+
+    def _term_agent_commands_vm(self, session):
+        found = self._term_vm_agent(session)
+        if found is None:
+            return
+        agent, cwd = found
+        body = {"agent": agent, "commands": []}
+        script = agent_commands_script(agent, cwd)
+        if not script:
+            body["commands"] = agent_commands_with_builtins(agent, [])
+            self._json(200, json.dumps(body, ensure_ascii=False).encode())
+            return
+        try:
+            commands = agent_commands_fetch(("vm", session, agent, cwd), script, agent_local)
+        except Exception:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        if commands is None:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        body["commands"] = agent_commands_with_builtins(agent, commands)
+        self._json(200, json.dumps(body, ensure_ascii=False).encode())
+
     def _term_agent_commands(self):
         if not self._term_gate():
+            return
+        vm = self._term_vm_target()
+        if vm is None:
+            return
+        if vm:
+            self._term_agent_commands_vm(vm)
             return
         project, pane = self._term_agent_target()
         if project is None:
@@ -1153,16 +2755,81 @@ class Handler(BaseHTTPRequestHandler):
         if commands is None:
             self._json(503, b'{"error":"unavailable"}')
             return
-        body["commands"] = commands
+        body["commands"] = agent_commands_with_builtins(agent, commands)
         self._json(200, json.dumps(body, ensure_ascii=False).encode())
 
-    def _term_agent_upload(self):
+    def _term_agent_work_vm(self, session):
+        found = self._term_vm_agent(session)
+        if found is None:
+            return
+        agent, cwd = found
+        body = {
+            "agent": agent,
+            "supported": False,
+            "resolved": "",
+            "workflows": [],
+            "subagents": [],
+            "truncated": False,
+        }
+        script = agent_work_script({"kind": "cwd", "value": ""}, cwd) if agent == "claude" else ""
+        if not script:
+            self._json(200, json.dumps(body, ensure_ascii=False).encode())
+            return
+        try:
+            work = agent_work_fetch(("vm", session, agent, cwd), script, agent_local)
+        except Exception:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        if work is None:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        body["supported"] = True
+        body.update(work)
+        self._json(200, json.dumps(body, ensure_ascii=False).encode())
+
+    def _term_agent_work(self):
         if not self._term_gate():
             return
-        self.close_connection = True
+        vm = self._term_vm_target()
+        if vm is None:
+            return
+        if vm:
+            self._term_agent_work_vm(vm)
+            return
         project, pane = self._term_agent_target()
         if project is None:
             return
+        entry = self._term_agent_resolve(project, pane, True)
+        if entry is None:
+            return
+        agent = entry.get("agent", "")
+        session = entry.get("session")
+        cwd = entry.get("cwd", "")
+        body = {
+            "agent": agent,
+            "supported": False,
+            "resolved": "",
+            "workflows": [],
+            "subagents": [],
+            "truncated": False,
+        }
+        script = agent_work_script(session, cwd) if agent == "claude" else ""
+        if not script:
+            self._json(200, json.dumps(body, ensure_ascii=False).encode())
+            return
+        try:
+            work = agent_work_fetch((project, pane, agent_work_session_id(session), cwd), script)
+        except Exception:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        if work is None:
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        body["supported"] = True
+        body.update(work)
+        self._json(200, json.dumps(body, ensure_ascii=False).encode())
+
+    def _term_upload_name(self):
         name = (self.headers.get("X-Geo-Filename") or "").strip()
         if (
             not TERM_UPLOAD_NAME_RE.match(name)
@@ -1170,20 +2837,60 @@ class Handler(BaseHTTPRequestHandler):
             or name.startswith(".")
         ):
             self._json(400, b'{"error":"invalid_filename"}')
-            return
+            return None
+        return name
+
+    def _term_upload_body(self):
         try:
             length = int(self.headers.get("Content-Length") or 0)
         except ValueError:
             length = -1
         if length > AGENT_UPLOAD_MAX:
             self._json(413, b'{"error":"too_large"}')
-            return
+            return None
         if length <= 0:
             self._json(400, b'{"error":"invalid_body"}')
-            return
+            return None
+        self._body_read = True
         data = self.rfile.read(length)
         if len(data) != length:
             self._json(400, b'{"error":"invalid_body"}')
+            return None
+        return data
+
+    def _term_agent_upload_vm(self, session):
+        name = self._term_upload_name()
+        if name is None:
+            return
+        data = self._term_upload_body()
+        if data is None:
+            return
+        if self._term_vm_agent(session) is None:
+            return
+        path = local_upload_write(name, data)
+        if not path or not AGENT_UPLOAD_PATH_RE.match(path):
+            self._json(503, b'{"error":"unavailable"}')
+            return
+        self._json(200, json.dumps({"path": path}, ensure_ascii=False).encode())
+
+    def _term_agent_upload(self):
+        if not self._term_gate():
+            return
+        self.close_connection = True
+        vm = self._term_vm_target()
+        if vm is None:
+            return
+        if vm:
+            self._term_agent_upload_vm(vm)
+            return
+        project, pane = self._term_agent_target()
+        if project is None:
+            return
+        name = self._term_upload_name()
+        if name is None:
+            return
+        data = self._term_upload_body()
+        if data is None:
             return
         if self._term_agent_resolve(project, pane, True) is None:
             return
@@ -1308,6 +3015,7 @@ class Handler(BaseHTTPRequestHandler):
         if length <= 0:
             self._json(400, b'{"error":"invalid_body"}')
             return
+        self._body_read = True
         data = self.rfile.read(length)
         if len(data) != length:
             self._json(400, b'{"error":"invalid_body"}')
@@ -1341,6 +3049,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         self._streaming = False
+        self._body_read = False
         try:
             path = urlsplit(self.path).path
             if path == "/health":
@@ -1355,12 +3064,20 @@ class Handler(BaseHTTPRequestHandler):
                 self._term_preview()
             elif path == "/term/agents":
                 self._term_agents()
+            elif path == "/term/health":
+                self._term_health()
             elif path == "/term/panes":
                 self._term_panes()
+            elif path == "/term/agent-stream":
+                self._term_agent_stream()
             elif path == "/term/agent-chat":
                 self._term_agent_chat()
+            elif path == "/term/agent-ask":
+                self._term_agent_ask()
             elif path == "/term/agent-commands":
                 self._term_agent_commands()
+            elif path == "/term/agent-work":
+                self._term_agent_work()
             elif not self._authed():
                 self._json(401, b'{"error":"unauthorized"}')
             elif path == "/tasks":
@@ -1371,6 +3088,14 @@ class Handler(BaseHTTPRequestHandler):
                 self._get_health_file("state.json")
             elif path == "/vitals/logs":
                 self._get_vitals_logs()
+            elif path == "/vitals/catalog":
+                self._get_health_file("catalog.json")
+            elif path == "/vitals/blocks":
+                self._get_health_file("blocks.json")
+            elif path == "/vitals/safety":
+                self._get_health_file("safety.json")
+            elif path == "/vitals/plan":
+                self._get_vitals_plan()
             elif path == "/dispatches":
                 self._get_dispatches()
             else:
@@ -1390,6 +3115,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         self._streaming = False
+        self._body_read = False
         try:
             path = urlsplit(self.path).path
             if path == "/term/input":
@@ -1419,6 +3145,18 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/term/agent-prompt":
                 self._term_agent_prompt()
                 return
+            if path == "/term/agent-answer":
+                self._term_agent_answer()
+                return
+            if path == "/term/agent-interrupt":
+                self._term_agent_interrupt()
+                return
+            if path == "/term/agent-start":
+                self._term_agent_start()
+                return
+            if path == "/term/agent-ensure":
+                self._term_agent_ensure()
+                return
             if not self._authed():
                 self._json(401, b'{"error":"unauthorized"}')
                 return
@@ -1431,6 +3169,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._put_vitals_state()
             elif path == "/vitals/log":
                 self._put_vitals_log()
+            elif path == "/vitals/plan":
+                self._put_vitals_plan()
             elif path == "/chat/stream":
                 self._chat_stream()
             else:
@@ -1446,6 +3186,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_DELETE(self):
         self._streaming = False
+        self._body_read = False
         try:
             path = urlsplit(self.path).path
             if not self._authed():
@@ -1524,7 +3265,7 @@ class Handler(BaseHTTPRequestHandler):
                 os.fsync(fd)
                 os.close(fd)
                 fd = -1
-                os.chmod(tmp, 0o644)
+                os.chmod(tmp, 0o600)
                 current = os.stat(path)
                 if attempt == 0 and (current.st_mtime_ns, current.st_size) != (before.st_mtime_ns, before.st_size):
                     os.unlink(tmp)
@@ -1551,6 +3292,7 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             length = 0
         try:
+            self._body_read = True
             task = json.loads(self.rfile.read(length)) if length else None
         except ValueError:
             task = None
@@ -1581,7 +3323,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
         path = os.path.join(TASKS_DIR, task["id"] + ".json")
         try:
-            marker = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
+            marker = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
         except FileExistsError:
             self._json(409, b'{"error":"task_exists"}')
             return
@@ -1596,7 +3338,7 @@ class Handler(BaseHTTPRequestHandler):
             os.fsync(fd)
             os.close(fd)
             fd = -1
-            os.chmod(tmp, 0o644)
+            os.chmod(tmp, 0o600)
             os.replace(tmp, path)
         except OSError:
             if fd != -1:
@@ -1638,7 +3380,7 @@ class Handler(BaseHTTPRequestHandler):
             os.fsync(fd)
             os.close(fd)
             fd = -1
-            os.chmod(tmp, 0o644)
+            os.chmod(tmp, 0o600)
             os.replace(tmp, path)
         except OSError:
             if fd != -1:
@@ -1654,12 +3396,43 @@ class Handler(BaseHTTPRequestHandler):
             return False
         return True
 
+    def _create_health_file(self, name, data):
+        path = os.path.join(HEALTH_DIR, name)
+        try:
+            os.makedirs(HEALTH_DIR, exist_ok=True)
+            fd, tmp = tempfile.mkstemp(dir=HEALTH_DIR, prefix=".geobridge-")
+            os.write(fd, data)
+            os.fsync(fd)
+            os.close(fd)
+            fd = -1
+            os.chmod(tmp, 0o600)
+            os.link(tmp, path)
+        except FileExistsError:
+            self._json(409, b'{"error":"revision_exists"}')
+            return False
+        except OSError:
+            if "fd" in locals() and fd != -1:
+                try:
+                    os.close(fd)
+                except OSError:
+                    pass
+            self._json(500, b'{"error":"internal"}')
+            return False
+        finally:
+            if "tmp" in locals():
+                try:
+                    os.unlink(tmp)
+                except OSError:
+                    pass
+        return True
+
     def _read_json_body(self):
         try:
             length = int(self.headers.get("Content-Length") or 0)
         except ValueError:
             length = 0
         try:
+            self._body_read = True
             return json.loads(self.rfile.read(length)) if length else None
         except ValueError:
             return None
@@ -1688,6 +3461,51 @@ class Handler(BaseHTTPRequestHandler):
             parts.append(data)
         self._json(200, b"[" + b",".join(parts) + b"]")
 
+    def _plan_revisions(self, week):
+        try:
+            names = os.listdir(HEALTH_DIR)
+        except OSError:
+            return []
+        revisions = []
+        for name in names:
+            if ".sync-conflict-" in name:
+                continue
+            match = PLAN_FILE_RE.match(name)
+            if match and match.group(1) == week:
+                revisions.append((int(match.group(2)), name))
+        return sorted(revisions)
+
+    def _get_vitals_plan(self):
+        query = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
+        values = query.get("week")
+        if not values or len(values) != 1 or not valid_week(values[0]):
+            self._json(400, b'{"error":"invalid_week"}')
+            return
+        revisions = self._plan_revisions(values[0])
+        if not revisions:
+            self._json(404, b'{"error":"not_found"}')
+            return
+        self._get_health_file(revisions[-1][1])
+
+    def _put_vitals_plan(self):
+        plan = self._read_json_body()
+        if not valid_plan(plan):
+            self._json(400, b'{"error":"invalid_body"}')
+            return
+        data = json.dumps(plan, separators=(",", ":"), ensure_ascii=False).encode()
+        with HEALTH_PLAN_LOCK:
+            revisions = self._plan_revisions(plan["week"])
+            expected = revisions[-1][0] + 1 if revisions else 1
+            if plan["revision"] != expected:
+                if any(revision == plan["revision"] for revision, _ in revisions):
+                    self._json(409, b'{"error":"revision_exists"}')
+                else:
+                    self._json(400, b'{"error":"invalid_revision"}')
+                return
+            name = "plan-%s.r%d.json" % (plan["week"], plan["revision"])
+            if self._create_health_file(name, data):
+                self._json(200, data)
+
     def _put_vitals_state(self):
         state = self._read_json_body()
         if not isinstance(state, dict):
@@ -1712,18 +3530,39 @@ class Handler(BaseHTTPRequestHandler):
         if not isinstance(log, dict):
             self._json(400, b'{"error":"invalid_body"}')
             return
-        index = log.get("sessionIndex")
         exercises = log.get("exercises")
         if (
             not valid_id(log.get("id"))
             or not valid_date(log.get("date"))
-            or not isinstance(index, int)
-            or isinstance(index, bool)
-            or not 0 <= index <= 5
             or not isinstance(exercises, list)
         ):
             self._json(400, b'{"error":"invalid_body"}')
             return
+        has_session = "sessionIndex" in log
+        has_plan = "planId" in log or "planDayId" in log
+        if has_session and has_plan:
+            self._json(400, b'{"error":"mixed_identity"}')
+            return
+        if not has_session and not has_plan:
+            self._json(400, b'{"error":"missing_identity"}')
+            return
+        if has_session:
+            index = log.get("sessionIndex")
+            if not isinstance(index, int) or isinstance(index, bool) or not 0 <= index <= 5:
+                self._json(400, b'{"error":"invalid_body"}')
+                return
+        else:
+            plan_match = PLAN_ID_RE.match(log.get("planId", "")) if isinstance(log.get("planId"), str) else None
+            if not plan_match or not valid_date(log.get("planDayId")):
+                self._json(400, b'{"error":"invalid_plan_identity"}')
+                return
+            if log["planDayId"] != log["date"]:
+                self._json(400, b'{"error":"invalid_plan_day"}')
+                return
+            log_week = datetime.strptime(log["date"], "%Y-%m-%d").strftime("%G-W%V")
+            if plan_match.group(1) != log_week:
+                self._json(400, b'{"error":"invalid_plan_week"}')
+                return
         for exercise in exercises:
             if not isinstance(exercise, dict) or not valid_id(exercise.get("id")) or not isinstance(exercise.get("sets"), list):
                 self._json(400, b'{"error":"invalid_body"}')
@@ -1776,6 +3615,7 @@ class Handler(BaseHTTPRequestHandler):
         if not os.path.isfile(os.path.join(dispatch_dir, "meta.json")):
             self._json(404, b'{"error":"not_found"}')
             return
+        self.close_connection = True
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream")
         self.send_header("Cache-Control", "no-cache")
@@ -1838,9 +3678,12 @@ class Handler(BaseHTTPRequestHandler):
         return conn, conn.getresponse()
 
     def _relay_error(self, resp, body):
+        close = self._undrained() or self.close_connection
         self.send_response(resp.status)
         self.send_header("Content-Type", resp.getheader("Content-Type", "application/json"))
         self.send_header("Content-Length", str(len(body)))
+        if close:
+            self.send_header("Connection", "close")
         self.end_headers()
         self.wfile.write(body)
 
@@ -1850,6 +3693,7 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             length = 0
         try:
+            self._body_read = True
             body = json.loads(self.rfile.read(length)) if length else None
         except ValueError:
             body = None
@@ -1886,6 +3730,7 @@ class Handler(BaseHTTPRequestHandler):
             conn.close()
             self._relay_error(resp, error_body)
             return
+        self.close_connection = True
         self.send_response(resp.status)
         self.send_header("Content-Type", resp.getheader("Content-Type", "text/event-stream"))
         session_header = resp.getheader("X-Hermes-Session-Id")
@@ -1922,6 +3767,7 @@ def main():
     except OSError:
         TERM_TOKEN = ""
     os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
+    agent_watch_start()
     server = ThreadingHTTPServer((BIND, PORT), Handler)
     signal.signal(signal.SIGTERM, lambda signum, frame: threading.Thread(target=server.shutdown).start())
     try:

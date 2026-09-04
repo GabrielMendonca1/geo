@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""Standalone indexer do garime: scans ~/Vault/Blocks/*.md into ~/Vault/Index/blocks.sqlite,
-the schema geo-tools/reads.py expects (blocks, blocks_fts, block_tags, block_days)."""
+"""Indexa o cérebro humano em state/index e gera o dashboard de tarefas."""
 
 from __future__ import annotations
 
@@ -11,12 +10,14 @@ import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
-GEO_HOME = Path.home() / "Vault"
-BLOCKS_DIR = GEO_HOME / "Blocks"
-INDEX_DIR = GEO_HOME / "Index"
+BRAIN_DIR = Path("/mnt/garime/Gabriel")
+STATE_DIR = Path("/mnt/garime/state")
+BLOCKS_DIR = BRAIN_DIR / "40 Conhecimento"  # destino de novos blocos pela caneta
+SEARCH_DIRS = tuple(BRAIN_DIR / name for name in ("10 Diário", "20 Vida", "30 Projetos", "40 Conhecimento", "90 Arquivo"))
+INDEX_DIR = STATE_DIR / "index"
 INDEX_DB = INDEX_DIR / "blocks.sqlite"
-TASKS_DIR = GEO_HOME / "Tasks"
-TAREFAS_MD = GEO_HOME / "Tarefas.md"
+TASKS_DIR = STATE_DIR / "tasks"
+TAREFAS_MD = BRAIN_DIR / "00 Entrada" / "Tarefas.md"
 PRIORITY_ORDER = {"urgent": 0, "high": 1, "medium": 2, "low": 3, "unset": 4}
 
 _LINK_RE = re.compile(r"\[\[([^\]\[]+)\]\]")
@@ -96,18 +97,21 @@ def extract_days(content: str) -> list[str]:
 
 
 def iter_block_files():
-    for root, dirs, files in os.walk(BLOCKS_DIR):
-        dirs[:] = [d for d in dirs if d != "Attachments"]
-        for fn in files:
-            if fn.endswith(".md"):
-                yield Path(root) / fn
+    for search_dir in SEARCH_DIRS:
+        if not search_dir.exists():
+            continue
+        for root, dirs, files in os.walk(search_dir):
+            dirs[:] = [d for d in dirs if not d.startswith(".")]
+            for fn in files:
+                if fn.endswith(".md"):
+                    yield Path(root) / fn
 
 
 def build_row(path: Path) -> dict:
     text = path.read_text(encoding="utf-8")
     _, body = split_frontmatter(text)
     fm = parse_frontmatter(text)
-    rel = str(path.relative_to(BLOCKS_DIR))
+    rel = str(path.relative_to(BRAIN_DIR))
     mtime = path.stat().st_mtime
     return {
         "id": rel,
@@ -292,6 +296,7 @@ def render_tarefas(tasks: list[dict]) -> str:
 
 
 def write_tarefas() -> None:
+    TAREFAS_MD.parent.mkdir(parents=True, exist_ok=True)
     tasks = load_tasks()
     content = render_tarefas(tasks)
     if TAREFAS_MD.exists() and TAREFAS_MD.read_text(encoding="utf-8") == content:
@@ -319,7 +324,7 @@ def run() -> None:
     seen: set[str] = set()
     n_written = 0
     for path in iter_block_files():
-        rel = str(path.relative_to(BLOCKS_DIR))
+        rel = str(path.relative_to(BRAIN_DIR))
         seen.add(rel)
         mtime = path.stat().st_mtime
         if not full_rebuild and known_mtime.get(rel) == mtime:

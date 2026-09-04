@@ -1,0 +1,819 @@
+{
+  "days": [
+    {
+      "date": "2026-08-24",
+      "items": [
+        {
+          "exerciseId": "esteira-caminhada",
+          "muscles": [
+            "quadriceps",
+            "hamstring",
+            "calves"
+          ],
+          "name": "Caminhada na esteira",
+          "restSec": 0,
+          "sets": [
+            [
+              5,
+              8
+            ]
+          ]
+        },
+        {
+          "exerciseId": "remada-baixa",
+          "muscles": [
+            "upper-back",
+            "biceps"
+          ],
+          "name": "Remada baixa",
+          "restSec": 75,
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ]
+        },
+        {
+          "exerciseId": "remada-cavalinho",
+          "muscles": [
+            "upper-back",
+            "biceps"
+          ],
+          "name": "Remada cavalinho",
+          "restSec": 75,
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ]
+        },
+        {
+          "exerciseId": "rosca-alternada-inclinada",
+          "muscles": [
+            "biceps",
+            "forearm"
+          ],
+          "name": "Rosca alternada inclinada",
+          "restSec": 60,
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ]
+        },
+        {
+          "exerciseId": "triceps-corda",
+          "muscles": [
+            "triceps"
+          ],
+          "name": "Tríceps corda",
+          "restSec": 60,
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ]
+        },
+        {
+          "exerciseId": "abdominal-infra",
+          "muscles": [
+            "abs"
+          ],
+          "name": "Abdominal infra",
+          "restSec": 45,
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ]
+        }
+      ],
+      "label": "Treino 1",
+      "rest": false
+    },
+    {
+      "date": "2026-08-25",
+      "items": [
+        {
+          "exerciseId": "esteira-caminhada",
+          "muscles": [
+            "quadriceps",
+            "hamstring",
+            "calves"
+          ],
+          "name": "Caminhada na esteira",
+          "restSec": 0,
+          "sets": [
+            [
+              5,
+              8
+            ]
+          ]
+        },
+        {
+          "exerciseId": "cadeira-extensora",
+          "muscles": [
+            "quadriceps"
+          ],
+          "name": "Cadeira extensora",
+          "restSec": 90,
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ]
+        },
+        {
+          "exerciseId": "agachamento-sumo",
+          "muscles": [
+            "quadriceps",
+            "gluteal",
+            "adductors"
+          ],
+          "name": "Agachamento sumô",
+          "restSec": 120,
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ]
+        },
+        {
+          "exerciseId": "leg-press",
+          "muscles": [
+            "quadriceps",
+            "gluteal"
+          ],
+          "name": "Leg press",
+          "restSec": 90,
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ]
+        },
+        {
+          "exerciseId": "passada",
+          "muscles": [
+            "quadriceps",
+            "gluteal"
+          ],
+          "name": "Passada",
+          "restSec": 90,
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ]
+        },
+        {
+          "exerciseId": "panturrilha-em-pe",
+          "muscles": [
+            "calves"
+          ],
+          "name": "Panturrilha em pé",
+          "restSec": 60,
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ]
+        }
+      ],
+      "label": "Treino 2",
+      "rest": false
+    },
+    {
+      "date": "2026-08-26",
+      "items": [],
+      "label": "Descanso",
+      "rest": true
+    },
+    {
+      "date": "2026-08-27",
+      "items": [
+        {
+          "exerciseId": "esteira-caminhada",
+          "muscles": [
+            "quadriceps",
+            "hamstring",
+            "calves"
+          ],
+          "name": "Caminhada na esteira",
+          "restSec": 0,
+          "sets": [
+            [
+              5,
+              8
+            ]
+          ]
+        },
+        {
+          "exerciseId": "remada-cavalinho",
+          "muscles": [
+            "upper-back",
+            "biceps"
+          ],
+          "name": "Remada cavalinho",
+          "restSec": 75,
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ]
+        },
+        {
+          "exerciseId": "remada-baixa",
+          "muscles": [
+            "upper-back",
+            "biceps"
+          ],
+          "name": "Remada baixa",
+          "restSec": 75,
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ]
+          ]
+        },
+        {
+          "exerciseId": "rosca-w",
+          "muscles": [
+            "biceps",
+            "forearm"
+          ],
+          "name": "Rosca W",
+          "restSec": 60,
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ]
+        },
+        {
+          "exerciseId": "triceps-polia-alta",
+          "muscles": [
+            "triceps"
+          ],
+          "name": "Tríceps na polia alta",
+          "restSec": 60,
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ]
+        },
+        {
+          "exerciseId": "prancha",
+          "muscles": [
+            "abs",
+            "obliques"
+          ],
+          "name": "Prancha",
+          "restSec": 45,
+          "sets": [
+            [
+              30,
+              45
+            ],
+            [
+              30,
+              45
+            ],
+            [
+              30,
+              45
+            ]
+          ]
+        },
+        {
+          "exerciseId": "pallof-press",
+          "muscles": [
+            "abs",
+            "obliques"
+          ],
+          "name": "Pallof press",
+          "restSec": 60,
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ]
+        }
+      ],
+      "label": "Treino 3",
+      "rest": false
+    },
+    {
+      "date": "2026-08-28",
+      "items": [
+        {
+          "exerciseId": "esteira-caminhada",
+          "muscles": [
+            "quadriceps",
+            "hamstring",
+            "calves"
+          ],
+          "name": "Caminhada na esteira",
+          "restSec": 0,
+          "sets": [
+            [
+              5,
+              8
+            ]
+          ]
+        },
+        {
+          "exerciseId": "mesa-flexora",
+          "muscles": [
+            "hamstring"
+          ],
+          "name": "Mesa flexora",
+          "restSec": 75,
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ]
+        },
+        {
+          "exerciseId": "cadeira-flexora-unilateral",
+          "muscles": [
+            "hamstring"
+          ],
+          "name": "Cadeira flexora unilateral",
+          "restSec": 75,
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ]
+        },
+        {
+          "exerciseId": "stiff",
+          "muscles": [
+            "hamstring",
+            "gluteal",
+            "lower-back"
+          ],
+          "name": "Stiff",
+          "restSec": 90,
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ]
+        },
+        {
+          "exerciseId": "elevacao-pelvica",
+          "muscles": [
+            "gluteal",
+            "hamstring"
+          ],
+          "name": "Elevação pélvica",
+          "restSec": 90,
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ]
+        },
+        {
+          "exerciseId": "panturrilha-em-pe",
+          "muscles": [
+            "calves"
+          ],
+          "name": "Panturrilha em pé",
+          "restSec": 60,
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ]
+        },
+        {
+          "exerciseId": "abdominal-infra",
+          "muscles": [
+            "abs"
+          ],
+          "name": "Abdominal infra",
+          "restSec": 45,
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ]
+        }
+      ],
+      "label": "Treino 4",
+      "rest": false
+    },
+    {
+      "date": "2026-08-29",
+      "items": [
+        {
+          "exerciseId": "esteira-caminhada",
+          "muscles": [
+            "quadriceps",
+            "hamstring",
+            "calves"
+          ],
+          "name": "Caminhada na esteira",
+          "restSec": 0,
+          "sets": [
+            [
+              5,
+              8
+            ]
+          ]
+        },
+        {
+          "exerciseId": "remada-baixa",
+          "muscles": [
+            "upper-back",
+            "biceps"
+          ],
+          "name": "Remada baixa",
+          "restSec": 75,
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ]
+        },
+        {
+          "exerciseId": "remada-cavalinho",
+          "muscles": [
+            "upper-back",
+            "biceps"
+          ],
+          "name": "Remada cavalinho",
+          "restSec": 75,
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ]
+        },
+        {
+          "exerciseId": "rosca-concentrada",
+          "muscles": [
+            "biceps",
+            "forearm"
+          ],
+          "name": "Rosca concentrada",
+          "restSec": 60,
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ]
+        },
+        {
+          "exerciseId": "triceps-testa",
+          "muscles": [
+            "triceps"
+          ],
+          "name": "Tríceps testa",
+          "restSec": 60,
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ]
+        },
+        {
+          "exerciseId": "abdominal-infra",
+          "muscles": [
+            "abs"
+          ],
+          "name": "Abdominal infra",
+          "restSec": 45,
+          "sets": [
+            [
+              12,
+              15
+            ],
+            [
+              10,
+              12
+            ],
+            [
+              6,
+              8
+            ]
+          ]
+        }
+      ],
+      "label": "Treino 5",
+      "rest": false
+    },
+    {
+      "date": "2026-08-30",
+      "items": [],
+      "label": "Descanso",
+      "rest": true
+    }
+  ],
+  "frozenAt": "2026-08-24T00:00:00Z",
+  "id": "plan-2026-W35.r1",
+  "revision": 1,
+  "schema": "vitals.plan/1",
+  "source": {
+    "blocks": [
+      {
+        "blockId": "bl.aquecimento",
+        "blockVersion": 1
+      },
+      {
+        "blockId": "bl.costas-a.gate",
+        "blockVersion": 1
+      },
+      {
+        "blockId": "bl.bracos-a",
+        "blockVersion": 1
+      },
+      {
+        "blockId": "bl.abdomen",
+        "blockVersion": 1
+      },
+      {
+        "blockId": "bl.quadriceps",
+        "blockVersion": 1
+      },
+      {
+        "blockId": "bl.panturrilha",
+        "blockVersion": 1
+      },
+      {
+        "blockId": "bl.costas-b.gate",
+        "blockVersion": 1
+      },
+      {
+        "blockId": "bl.bracos-b1",
+        "blockVersion": 1
+      },
+      {
+        "blockId": "bl.core-surf",
+        "blockVersion": 1
+      },
+      {
+        "blockId": "bl.posterior",
+        "blockVersion": 1
+      },
+      {
+        "blockId": "bl.bracos-b2",
+        "blockVersion": 1
+      }
+    ],
+    "catalogId": "gabriel-catalog",
+    "catalogVersion": 1,
+    "generator": "conversation"
+  },
+  "week": "2026-W35"
+}
