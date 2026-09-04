@@ -609,16 +609,45 @@ final class AgentAskModelTests: XCTestCase {
         XCTAssertTrue(fake.calls.contains { $0.hasPrefix("/term/agent-ask") })
     }
 
-    func testQuestionDoesNotRemainActionableWhileDisconnected() async {
+    func testSameSSEPayloadRequiresFreshQuestionAfterReconnect() async throws {
         let fake = FakeAskBridge()
         fake.askJSON = asking
         let model = AgentChatModel(target: target, client: fake)
-        await model.refresh()
+        let payload = try JSONDecoder().decode(AgentChatPayload.self, from: Data(#"{"agent":"claude","status":"working","messages":[{"role":"user","text":"oi","ts":"1"}]}"#.utf8))
+
+        await model.apply(payload)
         XCTAssertTrue(model.showsAskCard)
 
         fake.chatUnreachable = true
         await model.refresh()
         XCTAssertEqual(model.presence, .disconnected)
+        XCTAssertFalse(model.showsAskCard)
+        XCTAssertEqual(model.ask, .none)
+
+        fake.chatUnreachable = false
+        fake.askJSON = #"{"asking":false}"#
+        let asksBeforeReconnect = fake.calls.filter { $0.hasPrefix("/term/agent-ask") }.count
+        await model.apply(payload)
+
+        XCTAssertTrue(model.reachable)
+        XCTAssertEqual(model.presence, .working)
+        XCTAssertFalse(model.showsAskCard)
+        XCTAssertEqual(fake.calls.filter { $0.hasPrefix("/term/agent-ask") }.count, asksBeforeReconnect + 1)
+    }
+
+    func testStreamEOFInvalidatesQuestionButPollDecidesConnectivity() async throws {
+        let fake = FakeAskBridge()
+        fake.askJSON = asking
+        let model = AgentChatModel(target: target, client: fake)
+        let payload = try JSONDecoder().decode(AgentChatPayload.self, from: Data(#"{"agent":"claude","status":"working","messages":[{"role":"user","text":"oi","ts":"1"}]}"#.utf8))
+        await model.apply(payload)
+        XCTAssertTrue(model.showsAskCard)
+
+        fake.askJSON = #"{"asking":false}"#
+        await model.handleStreamEnd()
+
+        XCTAssertTrue(model.reachable, "EOF normal não prova que o bridge está offline")
+        XCTAssertEqual(model.presence, .working)
         XCTAssertFalse(model.showsAskCard)
     }
 

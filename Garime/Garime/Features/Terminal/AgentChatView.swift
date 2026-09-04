@@ -330,6 +330,7 @@ final class AgentChatModel: ObservableObject {
             skipCount = 0
             hasMore = false
         }
+        if !reachable { invalidateAsk() }
         server = payload.messages
         status = payload.status
         noAgent = false
@@ -340,8 +341,10 @@ final class AgentChatModel: ObservableObject {
             lastStreamStatus = payload.status
             lastStreamCount = payload.messages.count
             await refreshWork()
-            await refreshAsk()
         }
+        // Cada payload SSE confirma o chat, não a pergunta. Revalide a ação
+        // mesmo quando status e contagem são idênticos aos de antes da queda.
+        await refreshAsk()
     }
 
     func loadOlder() async {
@@ -363,7 +366,7 @@ final class AgentChatModel: ObservableObject {
             server = payload.messages.filter { !known.contains($0.id) } + server
             reconcile()
         } catch {
-            reachable = false
+            markDisconnected()
         }
     }
 
@@ -389,7 +392,7 @@ final class AgentChatModel: ObservableObject {
                     }
                 } catch { }
                 guard !Task.isCancelled else { break }
-                await MainActor.run { streamConnected = false }
+                await handleStreamEnd()
                 try? await Task.sleep(nanoseconds: backoff)
                 backoff = min(backoff * 2, 30_000_000_000)
             }
@@ -400,6 +403,14 @@ final class AgentChatModel: ObservableObject {
         streamTask?.cancel()
         streamTask = nil
         streamConnected = false
+    }
+
+    // EOF é perda apenas do canal SSE: não marca o agente como desconectado.
+    // A pergunta deixa de ser acionável e um poll imediato decide a presença.
+    func handleStreamEnd() async {
+        streamConnected = false
+        invalidateAsk()
+        await refresh()
     }
 
     func refresh() async {
@@ -423,10 +434,20 @@ final class AgentChatModel: ObservableObject {
             reachable = true
             loaded = true
             work = .none
-            ask = .none
+            invalidateAsk()
         } catch {
-            reachable = false
+            markDisconnected()
         }
+    }
+
+    private func markDisconnected() {
+        reachable = false
+        invalidateAsk()
+    }
+
+    private func invalidateAsk() {
+        askSeq += 1
+        ask = .none
     }
 
     private func refreshWork() async {
@@ -962,12 +983,12 @@ struct AgentChatView: View {
             AgentBadge(agent: target.agent)
             VStack(alignment: .leading, spacing: 2) {
                 Text(target.agent)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.headline)
                     .lineLimit(1)
                 HStack(spacing: 5) {
                     StatusDot(level: model.presence.level, size: 6)
                     Text(headerDetail)
-                        .font(.system(size: 10, design: .monospaced))
+                        .font(.caption2.monospaced())
                         .foregroundStyle(Color.slateTextDim)
                         .lineLimit(1)
                         .truncationMode(.tail)
@@ -979,7 +1000,7 @@ struct AgentChatView: View {
                     .transition(.opacity)
             }
             Text(model.presence.label)
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .font(.caption2.weight(.medium).monospaced())
                 .foregroundStyle(Color.slateTextDim)
                 .lineLimit(1)
                 .padding(.trailing, 14)
