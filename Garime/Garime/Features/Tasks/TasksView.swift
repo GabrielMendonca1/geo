@@ -239,7 +239,27 @@ struct TasksView: View {
             } label: {
                 Label("Excluir", systemImage: "trash")
             }
+        } preview: {
+            titlePreview(task)
         }
+    }
+
+    /// Cartão mostrado ao segurar a linha: título completo sem truncar.
+    private func titlePreview(_ task: TaskItem) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(task.title.isEmpty ? "Sem título" : task.title)
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(Color.primary)
+                .fixedSize(horizontal: false, vertical: true)
+            if let label = TasksDate.label(task) {
+                Text(label)
+                    .font(.system(size: 15))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(20)
+        .frame(width: UIScreen.main.bounds.width - 48, alignment: .leading)
+        .background(Color.paperCard)
     }
 
     @ViewBuilder
