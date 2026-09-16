@@ -4,6 +4,10 @@ import UniformTypeIdentifiers
 struct MoneyView: View {
     @StateObject private var store = MoneyStore.shared
     @AppStorage("moneyScope") private var scopeRaw = MoneyScope.expense.rawValue
+    @AppStorage("moneyWorkspace") private var workspace = MoneyWorkspaces.personal
+    @State private var namingWorkspace = false
+    @State private var newWorkspaceName = ""
+    @State private var deletingWorkspace = false
     @State private var composing: MoneyKind?
     @State private var choosingKind = false
     @State private var importing = false
@@ -17,12 +21,16 @@ struct MoneyView: View {
         MoneyScope(rawValue: scopeRaw) ?? .expense
     }
 
+    private var workspaceEntries: [MoneyEntry] {
+        store.entries(in: workspace)
+    }
+
     private var week: MoneyWeek {
-        MoneyOverview.week(store.entries, scope: scope)
+        MoneyOverview.week(workspaceEntries, scope: scope)
     }
 
     private var groups: [MoneyOverview.DayGroup] {
-        MoneyOverview.groups(store.entries, scope: scope, query: query)
+        MoneyOverview.groups(workspaceEntries, scope: scope, query: query)
     }
 
     var body: some View {
@@ -55,8 +63,35 @@ struct MoneyView: View {
         }
         .sheet(item: $composing) { kind in
             MoneyEntrySheet(kind: kind) { entry in
-                store.add(entry)
+                var tagged = entry
+                tagged.workspace = workspace
+                store.add(tagged)
             }
+        }
+        .alert("Novo espaço", isPresented: $namingWorkspace) {
+            TextField("Ex.: Minha empresa", text: $newWorkspaceName)
+            Button("Criar") {
+                if let created = store.addWorkspace(newWorkspaceName) {
+                    workspace = created
+                }
+                newWorkspaceName = ""
+            }
+            Button("Cancelar", role: .cancel) { newWorkspaceName = "" }
+        } message: {
+            Text("Pessoal, trabalho, uma empresa: cada espaço tem seus próprios lançamentos.")
+        }
+        .confirmationDialog(
+            "Apagar \"\(workspace)\"?",
+            isPresented: $deletingWorkspace,
+            titleVisibility: .visible
+        ) {
+            Button("Apagar espaço", role: .destructive) {
+                let doomed = workspace
+                workspace = MoneyWorkspaces.personal
+                store.deleteWorkspace(doomed)
+            }
+        } message: {
+            Text("Os lançamentos dele passam para Pessoal.")
         }
         .sheet(isPresented: $showSettings) {
             SettingsView()
@@ -105,20 +140,34 @@ struct MoneyView: View {
 
     private var scopeMenu: some View {
         Menu {
-            ForEach(MoneyScope.allCases) { option in
+            ForEach(store.workspaces, id: \.self) { option in
                 Button {
-                    scopeRaw = option.rawValue
+                    workspace = option
                 } label: {
-                    if option == scope {
-                        Label(option.label, systemImage: "checkmark")
+                    if option == workspace {
+                        Label(option, systemImage: "checkmark")
                     } else {
-                        Text(option.label)
+                        Text(option)
                     }
+                }
+            }
+            Divider()
+            Button {
+                namingWorkspace = true
+            } label: {
+                Label("Novo espaço…", systemImage: "plus")
+            }
+            if workspace != MoneyWorkspaces.personal {
+                Button(role: .destructive) {
+                    deletingWorkspace = true
+                } label: {
+                    Label("Apagar \"\(workspace)\"", systemImage: "trash")
                 }
             }
         } label: {
             HStack(spacing: 6) {
-                Text(scope.label)
+                Text(workspace)
+                    .lineLimit(1)
                     .font(.system(size: 17, weight: .medium))
                 Image(systemName: "chevron.up.chevron.down")
                     .font(.system(size: 11, weight: .semibold))
@@ -128,7 +177,7 @@ struct MoneyView: View {
             .frame(height: 44)
             .background(Color.moneyCard, in: Capsule())
         }
-        .accessibilityIdentifier("money-scope")
+        .accessibilityIdentifier("money-workspace")
     }
 
     private var actions: some View {
@@ -149,6 +198,12 @@ struct MoneyView: View {
             .accessibilityIdentifier("money-search")
 
             Menu {
+                Picker("Mostrar", selection: $scopeRaw) {
+                    ForEach(MoneyScope.allCases) { option in
+                        Text(option.label).tag(option.rawValue)
+                    }
+                }
+                Divider()
                 Button {
                     importing = true
                 } label: {
@@ -343,7 +398,9 @@ struct MoneyView: View {
             return
         }
         let transactions = OFXParser.parse(data)
-        let outcome = store.importEntries(MoneyImport.entries(from: transactions))
+        var incoming = MoneyImport.entries(from: transactions)
+        for index in incoming.indices { incoming[index].workspace = workspace }
+        let outcome = store.importEntries(incoming)
         importMessage = outcome.message
     }
 }

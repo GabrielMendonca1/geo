@@ -6,15 +6,64 @@ import os
 @MainActor
 final class MoneyStore: ObservableObject {
     @Published private(set) var entries: [MoneyEntry] = []
+    @Published private(set) var workspaces: [String] = MoneyWorkspaces.defaults
 
     static let shared = MoneyStore()
 
     private let logger = Logger(subsystem: "com.gabrielmendonca.garime", category: "MoneyStore")
     private let fileURL: URL?
+    private let defaults: UserDefaults
+    private static let workspacesKey = "moneyWorkspaces"
 
-    init(fileURL: URL? = MoneyStore.defaultURL) {
+    init(fileURL: URL? = MoneyStore.defaultURL, defaults: UserDefaults = .standard) {
         self.fileURL = fileURL
+        self.defaults = defaults
         load()
+    }
+
+    // MARK: - Espaços
+
+    /// Cria o espaço se ainda não existe e devolve o nome normalizado.
+    @discardableResult
+    func addWorkspace(_ raw: String) -> String? {
+        guard let name = MoneyWorkspaces.normalized(raw) else { return nil }
+        if let existing = workspaces.first(where: { $0.caseInsensitiveCompare(name) == .orderedSame }) {
+            return existing
+        }
+        workspaces.append(name)
+        saveWorkspaces()
+        return name
+    }
+
+    /// Apaga o espaço; os lançamentos dele voltam para Pessoal.
+    func deleteWorkspace(_ name: String) {
+        guard name != MoneyWorkspaces.personal, workspaces.contains(name) else { return }
+        workspaces.removeAll { $0 == name }
+        var moved = false
+        for index in entries.indices where entries[index].workspace == name {
+            entries[index].workspace = MoneyWorkspaces.personal
+            moved = true
+        }
+        saveWorkspaces()
+        if moved { save() }
+    }
+
+    func entries(in workspace: String) -> [MoneyEntry] {
+        entries.filter { $0.workspace == workspace }
+    }
+
+    private func saveWorkspaces() {
+        defaults.set(workspaces, forKey: MoneyStore.workspacesKey)
+    }
+
+    /// Garante que todo espaço citado por um lançamento apareça na lista.
+    private func reconcileWorkspaces() {
+        var list = defaults.stringArray(forKey: MoneyStore.workspacesKey) ?? MoneyWorkspaces.defaults
+        if !list.contains(MoneyWorkspaces.personal) { list.insert(MoneyWorkspaces.personal, at: 0) }
+        for name in entries.map(\.workspace) where !list.contains(name) {
+            list.append(name)
+        }
+        workspaces = list
     }
 
     nonisolated static var defaultURL: URL? {
@@ -73,6 +122,7 @@ final class MoneyStore: ObservableObject {
     }
 
     func load() {
+        defer { reconcileWorkspaces() }
         guard let fileURL, let data = try? Data(contentsOf: fileURL) else { return }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601

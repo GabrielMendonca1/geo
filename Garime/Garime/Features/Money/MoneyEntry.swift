@@ -26,6 +26,25 @@ struct MoneyEntry: Codable, Identifiable, Equatable {
     var recurring: Bool
     /// FITID do extrato importado: impede lançar duas vezes a mesma transação.
     var externalId: String?
+    /// Espaço a que o lançamento pertence: pessoal, trabalho, uma empresa…
+    var workspace: String
+
+    private enum CodingKeys: String, CodingKey {
+        case id, date, kind, amount, category, note, recurring, externalId, workspace
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        date = try c.decode(Date.self, forKey: .date)
+        kind = try c.decode(MoneyKind.self, forKey: .kind)
+        amount = try c.decode(Decimal.self, forKey: .amount)
+        category = try c.decode(String.self, forKey: .category)
+        note = try c.decodeIfPresent(String.self, forKey: .note) ?? ""
+        recurring = try c.decodeIfPresent(Bool.self, forKey: .recurring) ?? false
+        externalId = try c.decodeIfPresent(String.self, forKey: .externalId)
+        workspace = try c.decodeIfPresent(String.self, forKey: .workspace) ?? MoneyWorkspaces.personal
+    }
 
     init(
         id: UUID = UUID(),
@@ -35,7 +54,8 @@ struct MoneyEntry: Codable, Identifiable, Equatable {
         category: String,
         note: String = "",
         recurring: Bool = false,
-        externalId: String? = nil
+        externalId: String? = nil,
+        workspace: String = MoneyWorkspaces.personal
     ) {
         self.id = id
         self.date = date
@@ -45,6 +65,17 @@ struct MoneyEntry: Codable, Identifiable, Equatable {
         self.note = note
         self.recurring = recurring
         self.externalId = externalId
+        self.workspace = workspace
+    }
+}
+
+enum MoneyWorkspaces {
+    static let personal = "Pessoal"
+    static let defaults = [personal, "Trabalho"]
+
+    static func normalized(_ raw: String) -> String? {
+        let name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        return name.isEmpty ? nil : name
     }
 }
 
