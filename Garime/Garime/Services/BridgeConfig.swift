@@ -46,8 +46,17 @@ enum BridgeConfig {
         set { _ = setToken(newValue ?? "") }
     }
 
+    #if DEBUG
+    static var debugTermTokenOverride: String?
+    #endif
+
     static var termToken: String? {
-        get { KeychainStore.read(termTokenAccount) }
+        get {
+            #if DEBUG
+            if let debugTermTokenOverride, !debugTermTokenOverride.isEmpty { return debugTermTokenOverride }
+            #endif
+            return KeychainStore.read(termTokenAccount)
+        }
         set { _ = setTermToken(newValue ?? "") }
     }
 

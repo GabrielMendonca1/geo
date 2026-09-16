@@ -9,6 +9,10 @@ struct GarimeApp: App {
            index + 1 < CommandLine.arguments.count {
             BridgeConfig.debugTokenOverride = CommandLine.arguments[index + 1]
         }
+        if let index = CommandLine.arguments.firstIndex(of: "-geoBridgeTermToken"),
+           index + 1 < CommandLine.arguments.count {
+            BridgeConfig.debugTermTokenOverride = CommandLine.arguments[index + 1]
+        }
         #endif
     }
 

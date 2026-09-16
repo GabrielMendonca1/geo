@@ -523,6 +523,31 @@ def status_mac_scan():
     return proc.returncode == 0 or bool(agents) or bool(panes), agents, panes
 
 
+def herdr_sessions_scan():
+    """Lista todas as sessoes herdr do Mac (rodando ou paradas)."""
+    script = "export PATH=%s:$PATH; %s session list" % (
+        os.path.dirname(STATUS_HERDR) or "/usr/bin", STATUS_HERDR)
+    try:
+        proc = subprocess.run(
+            [
+                STATUS_SSH, "-o", "BatchMode=yes", "-o", "ConnectTimeout=4",
+                "-o", "ControlMaster=auto", "-o", "ControlPath=" + SSH_CONTROL_PATH, "-o", "ControlPersist=120",
+                "%s@%s" % (STATUS_MAC_USER, STATUS_MAC_ADDR[0]),
+                script,
+            ],
+            capture_output=True, timeout=STATUS_AGENTS_TIMEOUT,
+        )
+    except Exception:
+        return False, []
+    sessions = []
+    for line in proc.stdout.decode("utf-8", "replace").split("\n")[1:]:
+        parts = line.split()
+        if len(parts) < 3 or not TERM_ATTACH_PROJECT_RE.match(parts[0]):
+            continue
+        sessions.append({"name": parts[0], "status": parts[1], "directory": parts[2]})
+    return proc.returncode == 0, sessions
+
+
 def vm_process_tree():
     out = subprocess.run(
         ["ps", "-eo", "pid=", "-o", "ppid=", "-o", "comm="], capture_output=True, timeout=5
@@ -2162,6 +2187,12 @@ class Handler(BaseHTTPRequestHandler):
         }
         self._json(200, json.dumps(body).encode())
 
+    def _term_herdr_sessions(self):
+        if not self._term_gate():
+            return
+        ok, sessions = herdr_sessions_scan()
+        self._json(200, json.dumps({"mac_online": ok, "sessions": sessions}).encode())
+
     def _term_agent_target(self):
         q = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
         project = (q.get("project") or [""])[0]
@@ -3065,6 +3096,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._term_preview()
             elif path == "/term/agents":
                 self._term_agents()
+            elif path == "/term/herdr-sessions":
+                self._term_herdr_sessions()
             elif path == "/term/health":
                 self._term_health()
             elif path == "/term/panes":
