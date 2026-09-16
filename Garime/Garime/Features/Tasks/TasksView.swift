@@ -180,21 +180,6 @@ struct TasksView: View {
         .listRowSeparator(.hidden)
         .listRowBackground(Color.clear)
         .listRowInsets(EdgeInsets(top: 6, leading: 20, bottom: 6, trailing: 20))
-        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            Button(role: .destructive) {
-                viewModel.delete(task)
-            } label: {
-                Label("Excluir", systemImage: "trash")
-            }
-            if !done {
-                Button {
-                    tap(task)
-                } label: {
-                    Label("Concluir", systemImage: "checkmark")
-                }
-                .tint(.gray)
-            }
-        }
         .swipeActions(edge: .leading, allowsFullSwipe: true) {
             Button {
                 selecting = true
@@ -203,12 +188,6 @@ struct TasksView: View {
                 Label("Selecionar", systemImage: "checkmark.circle")
             }
             .tint(Color.primary)
-            Button {
-                rescheduling = request(for: task)
-            } label: {
-                Label("Mover", systemImage: "calendar")
-            }
-            .tint(.gray)
         }
         .contextMenu {
             Button {
