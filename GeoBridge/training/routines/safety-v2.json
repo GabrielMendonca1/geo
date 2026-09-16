@@ -1,0 +1,185 @@
+{
+  "schema": "vitals.safety/2",
+  "id": "gabriel-shoulder-safety",
+  "version": 2,
+  "updatedAt": "2026-09-14T09:19:00-03:00",
+  "disclaimer": "Fortalecimento não é tratamento nem cura de instabilidade. O histórico user-reported de aproximadamente 6 luxações bilaterais, com episódio recente e desconforto acima da cabeça, requer avaliação profissional; este arquivo apenas restringe seleção e orienta registro de sintomas.",
+  "constraints": [
+    {
+      "id": "ombro-instabilidade-bilateral",
+      "source": "user-reported",
+      "diagnosisClaim": false,
+      "summary": "Aproximadamente 6 luxações bilaterais relatadas pelo usuário, episódio recente e desconforto atual acima da cabeça."
+    }
+  ],
+  "gates": [
+    {
+      "id": "gate-overhead-load",
+      "state": "locked",
+      "appliesToRiskFlags": [
+        "overhead-load"
+      ],
+      "exerciseIds": [
+        "puxada-alta",
+        "desenvolvimento-ombro"
+      ],
+      "unlockRequirements": [
+        "explicit-professional-clearance",
+        "explicit-user-confirmation"
+      ],
+      "professionalClearanceRequired": true,
+      "selfReportAloneCanUnlock": false
+    },
+    {
+      "id": "gate-manguito-escapula",
+      "state": "locked",
+      "exerciseIds": [
+        "rotacao-externa-cabo",
+        "rotacao-interna-cabo",
+        "face-pull",
+        "flexao-escapular",
+        "rotacao-externa-elastico",
+        "flexao-escapular-parede"
+      ],
+      "blockIds": [
+        "bl.manguito-escapula"
+      ],
+      "unlockRequirements": [
+        "explicit-professional-guidance-or-clearance",
+        "explicit-user-confirmation"
+      ],
+      "professionalClearanceRequired": true,
+      "selfReportAloneCanUnlock": false
+    },
+    {
+      "id": "gate-tier-c",
+      "state": "locked",
+      "exerciseIds": [
+        "paralela"
+      ],
+      "unlockRequirements": [
+        "explicit-professional-clearance",
+        "explicit-user-confirmation"
+      ],
+      "professionalClearanceRequired": true,
+      "selfReportAloneCanUnlock": false
+    },
+    {
+      "id": "gate-tier-b-sem-overhead",
+      "state": "pending",
+      "exerciseIds": [
+        "elevacao-lateral",
+        "elevacao-lateral-cabo",
+        "supino",
+        "voador-crucifixo",
+        "flexao-inclinada",
+        "supino-inclinado"
+      ],
+      "blockedWhile": [
+        "overhead-discomfort-present"
+      ],
+      "currentCondition": "overhead-discomfort-present",
+      "unlockRequirements": [
+        "overhead-discomfort-absent",
+        "explicit-user-review"
+      ],
+      "automaticUnlock": false
+    }
+  ],
+  "publicationRules": {
+    "denyGateStates": [
+      "locked",
+      "pending"
+    ],
+    "denyReviewStates": [
+      "locked",
+      "pending",
+      "phase-gated"
+    ],
+    "lockedOrConditionalNeverInPublishableBlocks": true,
+    "catalogMayRetainBlockedItemsForDiscovery": true
+  },
+  "governance": {
+    "agentMayUnlockGates": false,
+    "gateChangesRequireExplicitUserAction": true,
+    "professionalClearanceMustBeExplicit": true,
+    "selfReportCannotUnlockProfessionalGates": true,
+    "authorizationsAreScopedAndExplicit": true,
+    "authorizationDoesNotImplyProfessionalVerification": true
+  },
+  "symptomVocabulary": [
+    "dor",
+    "apreensao",
+    "falseio"
+  ],
+  "stopRules": [
+    {
+      "when": "apreensao-or-falseio",
+      "action": "stop-exercise-and-record"
+    },
+    {
+      "when": "acute-pain",
+      "action": "stop-exercise-and-record"
+    },
+    {
+      "when": "same-symptom-on-same-exercise-in-two-sessions",
+      "action": "mark-for-review-and-exclude-from-future-plans"
+    }
+  ],
+  "symptomNoteFormat": "sintoma: <exerciseId> <dor|apreensao|falseio> — <detalhe>; sintoma: …",
+  "authorizations": [
+    {
+      "id": "auth.ficha-abcd-2026-09-14",
+      "state": "active",
+      "grantedAt": "2026-09-14T09:19:00-03:00",
+      "grantedBy": "user",
+      "explicitUserAuthorization": true,
+      "evidence": {
+        "type": "user-reported-professional-release",
+        "channel": "conversation",
+        "professionalVerified": false,
+        "independentProofOnFile": false,
+        "quotedAt": "2026-09-14T09:19:00-03:00",
+        "quote": "Não mantenha as restrições, pode botar os exercícios de ombro, não tem restrições. O médico liberou. Pode botar um treino nos exercícios de ombro e depois a gente vai partir para lapidar mais o app, principalmente interface e usabilidade.",
+        "note": "Relato do usuário registrado literalmente; não há documento nem contato profissional verificado neste repositório. Autorização vale como direção explícita do usuário, não como prova clínica independente."
+      },
+      "scope": {
+        "routineIds": [
+          "routine.ficha-abcd"
+        ],
+        "exerciseIds": [
+          "puxada-alta",
+          "elevacao-lateral",
+          "supino",
+          "supino-inclinado",
+          "triceps-frances",
+          "rotacao-externa-elastico",
+          "flexao-escapular-parede"
+        ],
+        "gateIds": [
+          "gate-overhead-load",
+          "gate-manguito-escapula",
+          "gate-tier-b-sem-overhead"
+        ],
+        "globalUnlock": false,
+        "appliesToUnknownExercises": false,
+        "appliesToNewBlocks": false
+      },
+      "historyPreserved": {
+        "constraintIds": [
+          "ombro-instabilidade-bilateral"
+        ],
+        "dislocationHistoryRetained": true,
+        "note": "Aproximadamente 6 luxações bilaterais user-reported permanecem no cadastro; a autorização não apaga histórico, apenas libera os IDs listados nesta ficha."
+      },
+      "revocation": {
+        "revocable": true,
+        "revokeIf": [
+          "dor",
+          "apreensao",
+          "falseio"
+        ]
+      }
+    }
+  ]
+}

@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
+src() { find "$ROOT/Sources" -name "$1.swift" | head -1; }
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
@@ -29,13 +30,13 @@ WAV="$TMP/bench.wav"
 echo "== compilando o banco de ensaio =="
 swiftc -O -target "$(uname -m)-apple-macos14.0" -sdk "$(xcrun --show-sdk-path --sdk macosx)" \
   -o "$TMP/bench" \
-  "$ROOT/Sources/Config.swift" \
-  "$ROOT/Sources/Stabilizer.swift" \
-  "$ROOT/Sources/StreamBuffer.swift" \
-  "$ROOT/Sources/FlushGuard.swift" \
-  "$ROOT/Sources/WindowedDecoder.swift" \
-  "$ROOT/Sources/WhisperBackend.swift" \
-  "$ROOT/Sources/ProcessRunner.swift" \
+  "$(src Config)" \
+  "$(src Stabilizer)" \
+  "$(src StreamBuffer)" \
+  "$(src FlushGuard)" \
+  "$(src WindowedDecoder)" \
+  "$(src WhisperBackend)" \
+  "$(src ProcessRunner)" \
   "$ROOT/Tests/Bench/main.swift"
 
 REF="$TMP/ref.txt"

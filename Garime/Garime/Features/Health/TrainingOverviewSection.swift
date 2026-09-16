@@ -31,14 +31,12 @@ struct TrainingOverviewSection: View {
     }
 
     private func week(_ plan: WeeklyPlan) -> some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 4) {
             ForEach(Array(plan.days.enumerated()), id: \.offset) { index, day in
-                if index > 0 {
-                    Divider().overlay(Color.slateStroke.opacity(0.35))
-                }
                 dayRow(day, index: index)
             }
         }
+        .padding(8)
         .glassSurface(shape: RoundedRectangle(cornerRadius: SlateRadius.card, style: .continuous))
     }
 
@@ -47,7 +45,7 @@ struct TrainingOverviewSection: View {
         return HStack(spacing: 10) {
             Text(dayLabel(index: index, date: day.date))
                 .font(.system(size: 10, weight: isToday ? .bold : .regular, design: .monospaced))
-                .foregroundStyle(isToday ? Color.slateText : Color.slateTextDim)
+                .foregroundStyle(isToday ? TrainingPalette.accent : Color.slateTextDim)
                 .frame(width: 48, alignment: .leading)
 
             Text(day.label.lowercased())
@@ -57,9 +55,7 @@ struct TrainingOverviewSection: View {
             Spacer(minLength: 8)
 
             if isToday {
-                Text("hoje")
-                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(Color.slateText)
+                TrainingBadge(text: "hoje", tint: TrainingPalette.accent)
             } else if day.rest {
                 Text("descanso")
                     .font(.system(size: 9, design: .monospaced))
@@ -71,8 +67,15 @@ struct TrainingOverviewSection: View {
             }
         }
         .padding(.horizontal, 12)
-        .frame(minHeight: 42)
-        .background(isToday ? Color.slateText.opacity(0.06) : Color.clear)
+        .frame(minHeight: 44)
+        .background(
+            RoundedRectangle(cornerRadius: SlateRadius.cell, style: .continuous)
+                .fill(isToday ? TrainingPalette.accentSoft : Color.slateInk(0.04))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: SlateRadius.cell, style: .continuous)
+                .stroke(isToday ? TrainingPalette.accent.opacity(0.5) : Color.clear, lineWidth: 1)
+        )
     }
 
     private func dayLabel(index: Int, date: String) -> String {

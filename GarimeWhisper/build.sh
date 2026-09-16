@@ -33,6 +33,9 @@ swiftc \
   "${SOURCES[@]}"
 
 cp "$ROOT/Resources/Info.plist" "$APP/Contents/Info.plist"
+if [ -d "$ROOT/Resources/ThirdParty" ]; then
+  cp -R "$ROOT/Resources/ThirdParty" "$APP/Contents/Resources/ThirdParty"
+fi
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
 IDENTITY="${WHISPER_SIGN_IDENTITY:-}"

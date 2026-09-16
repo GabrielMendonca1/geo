@@ -114,49 +114,6 @@ enum AirSpacing {
     static let section: CGFloat = 48
 }
 
-extension View {
-    func settingsToolbar() -> some View {
-        modifier(SettingsToolbar())
-    }
-}
-
-private struct SettingsToolbar: ViewModifier {
-    @State private var showSettings = false
-
-    func body(content: Content) -> some View {
-        content
-            .toolbar {
-                settingsToolbarItem
-            }
-            .sheet(isPresented: $showSettings) {
-                SettingsView()
-            }
-    }
-
-    @ToolbarContentBuilder
-    private var settingsToolbarItem: some ToolbarContent {
-        if #available(iOS 26.0, *) {
-            ToolbarItem(placement: .topBarTrailing) {
-                settingsButton
-            }
-            .sharedBackgroundVisibility(.hidden)
-        } else {
-            ToolbarItem(placement: .topBarTrailing) {
-                settingsButton
-            }
-        }
-    }
-
-    private var settingsButton: some View {
-        Button {
-            showSettings = true
-        } label: {
-            Image(systemName: "gearshape")
-                .foregroundStyle(Color.slateTextDim)
-        }
-    }
-}
-
 enum AirAppearance {
     static func apply() {
         let nav = UINavigationBarAppearance()

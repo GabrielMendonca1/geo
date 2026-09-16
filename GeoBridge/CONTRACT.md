@@ -419,11 +419,11 @@ Plans are append-only and write-once. The first revision is 1; each later POST m
 
 ## Terminal — `/term/*` (added in v3)
 
-A real interactive terminal for the phone. **Not** a dumb pipe over files (see the principle-4 carve-out above for the blast-radius warning). Eleven endpoints (`stream`, `input`, `resize`, `winsize`, `list`, `preview`, `agents`, `panes`, `kill`, `rename`, `upload`), all gated and separately authed. `preview`, `agents` and `panes` are strictly read-only and never spawn a session.
+A real interactive terminal for the phone. **Not** a dumb pipe over files (see the principle-4 carve-out above for the blast-radius warning). Ten endpoints (`stream`, `input`, `resize`, `winsize`, `list`, `agents`, `panes`, `kill`, `rename`, `upload`), all gated and separately authed. `agents` and `panes` are strictly read-only and never spawn a session.
 
-**Session selection.** Every `/term/*` endpoint takes `?session=<name>`, matched against `\A[A-Za-z0-9_-]{1,32}\Z` (anchored so a trailing newline is rejected, not accepted as `$` would). A **missing** value falls back to `GEO_TERM_SESSION` (default `mobile`) on every endpoint. A **present but malformed** value is `400 {"error":"bad_name"}` on **every** verb, reading or mutating (`stream`, `input`, `resize`, `winsize`, `list`, `preview`, `kill`, `rename`, and the `agent-*` verbs). One validator, no silent fallback: redirecting a request onto the default session — a stream just as much as a kill — answers about a session the caller never asked for. `/term/list` ignores the value but still validates it. The name `mac` is special: if `GEO_TERM_PROFILE_MAC` is set, that script is run as the session's command.
+**Session selection.** Every `/term/*` endpoint takes `?session=<name>`, matched against `\A[A-Za-z0-9_-]{1,32}\Z` (anchored so a trailing newline is rejected, not accepted as `$` would). A **missing** value falls back to `GEO_TERM_SESSION` (default `mobile`) on every endpoint. A **present but malformed** value is `400 {"error":"bad_name"}` on **every** verb, reading or mutating (`stream`, `input`, `resize`, `winsize`, `list`, `kill`, `rename`, and the `agent-*` verbs). One validator, no silent fallback: redirecting a request onto the default session — a stream just as much as a kill — answers about a session the caller never asked for. `/term/list` ignores the value but still validates it. The name `mac` is special: if `GEO_TERM_PROFILE_MAC` is set, that script is run as the session's command.
 
-**Targets are exact.** tmux resolves `-t <name>` by exact → fnmatch → **prefix** → substring, so `-t ma` would hit the session `mac`. Every session target the bridge passes to tmux is prefixed with `=` (`=<name>` for session targets, `=<name>:` for pane targets like `capture-pane`/`display-message`), which forces exact matching. Consequence: a name that only *prefixes* a live session resolves to nothing — `rename`/`preview` answer `404 no_session`, `winsize` answers `409 no_session`, `kill` is a no-op, and `has-session` no longer reports a false `409 exists`. Spawning (`new-session -A -s <name>`) is exact by construction and is not prefixed.
+**Targets are exact.** tmux resolves `-t <name>` by exact → fnmatch → **prefix** → substring, so `-t ma` would hit the session `mac`. Every session target the bridge passes to tmux is prefixed with `=` (`=<name>` for session targets, `=<name>:` for pane targets like `capture-pane`/`display-message`), which forces exact matching. Consequence: a name that only *prefixes* a live session resolves to nothing — `rename` answers `404 no_session`, `winsize` answers `409 no_session`, `kill` is a no-op, and `has-session` no longer reports a false `409 exists`. Spawning (`new-session -A -s <name>`) is exact by construction and is not prefixed.
 
 **Two layers of persistence.**
 
@@ -501,15 +501,6 @@ Reports the tmux window geometry for the session (`display-message -p`).
 ### GET /term/list
 
 - `200 {"sessions":["mobile","mac",…]}` — `tmux list-sessions`, tmux server down or erroring → `{"sessions":[]}`.
-
-### GET /term/preview
-
-Read-only snapshot of a session's tail, for the sessions home on the phone. **Never spawns anything**: it is `tmux capture-pane` only — no `new-session -A`, no attach, no registry entry. A preview of a session that does not exist leaves the tmux server exactly as it was.
-
-- `?session=<name>` follows the usual rule (absent → `GEO_TERM_SESSION`; malformed → `400 {"error":"bad_name"}`). `?lines=<n>` is clamped to `1..40`, default `12`, unparseable → default.
-- `tmux capture-pane -p -e -t <session> -S -<n>` (subprocess timeout 5 s). `-e` **keeps the ANSI escapes**, so a client that wants plain text must strip them (the iOS home does, v1 is colorless).
-- `200 {"text":"<lines>"}`. The text is the whole visible pane plus `n` lines of scrollback, so it can be longer than `n` lines and usually ends in blank lines — trimming is the client's job.
-- No such session (non-zero exit) or tmux missing/timeout → `404 {"error":"no_session"}`.
 
 ### GET /term/health
 
@@ -610,7 +601,7 @@ Open a **Mac-side herdr view** inside a bridge tmux session, so the phone termin
   - `project` (both routes): `\A[A-Za-z0-9_-]{1,24}\Z` — a herdr session name, as reported by `/term/agents` `project`.
   - `pane` (`attach-agent` only): `\Aw[0-9]{1,3}:p[0-9]{1,3}\Z` — the `/term/agents` `pane`. `attach-herdr` ignores any `pane` given.
   - Anything else (missing, empty, wrong shape, trailing newline, shell metacharacters, over-length) → `400 {"error":"bad_target"}` and **nothing is spawned**.
-- **`attach-agent` resolves the pane before spawning** (the same memoized scan `/term/agent-chat` uses, zero extra ssh). `herdr agent attach` on a pane with no agent fails *inside* tmux and the session dies seconds later — the phone used to get a `200`, a session name, and a terminal that 404s on the next `/term/preview`. So:
+- **`attach-agent` resolves the pane before spawning** (the same memoized scan `/term/agent-chat` uses, zero extra ssh). `herdr agent attach` on a pane with no agent fails *inside* tmux and the session dies seconds later — the phone used to get a `200`, a session name, and a terminal that disappeared before the next connection. So:
   - pane with an agent → spawn as below;
   - pane that exists in `/term/panes` but has **no agent** (a shell) → `409 {"error":"no_agent_in_pane"}`, **no tmux session created**;
   - pane that does not exist in the project → `404 {"error":"no_agent"}`, nothing created;
@@ -626,7 +617,7 @@ Open a **Mac-side herdr view** inside a bridge tmux session, so the phone termin
   ```
   argv list, never `shell=True`; every interpolated part is `shlex.quote`d on top of the strict regexes. `-tt` is mandatory — herdr panics (`failed to initialize terminal`) without a TTY and renders empty on a zero-sized one, which is why this only works from inside a real tmux session. No `--takeover`: herdr accepts several simultaneous clients, so attaching from the VM does **not** kick the Mac's own herdr window.
 - Success → `200 {"session":"<derived name>"}`. The bridge does not wait for ssh: a herdr that dies for any other reason, or a wrong project on `attach-herdr`, still surfaces as the error text *inside the terminal stream*, not as an HTTP code.
-- **Ephemeral by nature.** These sessions are ordinary bridge sessions: they show up in `/term/list`, `/term/preview` and `/term/winsize`, and `POST /term/kill?session=<derived>` kills them like any other. When the remote ssh/herdr exits, tmux tears the session down on its own. The 600 s idle reaper (no `/term/stream` client) tears the bridge's attach down as usual; re-issuing `attach-agent`/`attach-herdr` is always the way back in and is idempotent.
+- **Ephemeral by nature.** These sessions are ordinary bridge sessions: they show up in `/term/list` and `/term/winsize`, and `POST /term/kill?session=<derived>` kills them like any other. When the remote ssh/herdr exits, tmux tears the session down on its own. The 600 s idle reaper (no `/term/stream` client) tears the bridge's attach down as usual; re-issuing `attach-agent`/`attach-herdr` is always the way back in and is idempotent.
 
 ### GET /term/agent-chat
 

@@ -11,6 +11,23 @@ enum EffectiveDay {
     case legacy(VitalsSession)
 }
 
+enum HealthSaveError: LocalizedError, Equatable {
+    case targetUnavailable
+    case saveInProgress
+    case dayChanged
+
+    var errorDescription: String? {
+        switch self {
+        case .targetUnavailable:
+            return "Não foi possível identificar o treino de hoje. Recarregue e tente novamente."
+        case .saveInProgress:
+            return "Outro registro ainda está sendo salvo. Aguarde e tente novamente."
+        case .dayChanged:
+            return "O dia do treino mudou. Feche esta tela e abra o treino de hoje antes de registrar."
+        }
+    }
+}
+
 @MainActor
 final class HealthViewModel: ObservableObject {
     @Published private(set) var vitalsProtocol: VitalsProtocol?
@@ -28,6 +45,8 @@ final class HealthViewModel: ObservableObject {
     private let now: () -> Date
     private var loadedWeek = ""
     private var loadedDay = ""
+    private var isSavingLog = false
+    private var confirmedSaveRevision = 0
 
     init(
         repository: BridgeVitalsRepository = BridgeVitalsRepository(),
@@ -112,7 +131,15 @@ final class HealthViewModel: ObservableObject {
         return Set(session.muscles + session.exercises.flatMap(\.muscles))
     }
 
+    /// Returning from background only needs a fetch when the calendar day changed.
+    /// Do not replace an in-progress plan with legacy fallback on a transient network failure.
+    func refreshIfDayChanged() async {
+        guard hasLoaded, todayKey != loadedDay else { return }
+        await reload()
+    }
+
     func reload(date: Date? = nil) async {
+        let revisionAtStart = confirmedSaveRevision
         let date = date ?? now()
         let keys = clock.keys(for: date)
         loadedWeek = keys.week
@@ -151,9 +178,11 @@ final class HealthViewModel: ObservableObject {
             legacyError = legacyError ?? error
         }
         do {
-            logs = try await logsRequest.sorted { $0.date > $1.date }
+            let fetched = try await logsRequest.sorted { $0.date > $1.date }
+            // A GET started before a confirmed POST must not erase that series.
+            if revisionAtStart == confirmedSaveRevision { logs = fetched }
         } catch {
-            logs = []
+            // Keep confirmed in-memory saves when a later refresh is unavailable.
             errorMessage = error.localizedDescription
             return
         }
@@ -201,12 +230,19 @@ final class HealthViewModel: ObservableObject {
     }
 
     func submit(log: VitalsLog) async throws {
-        try await repository.saveLog(log)
-        await reload()
+        try beginSave()
+        defer { isSavingLog = false }
+        try await persist(log: log)
     }
 
-    func saveExercise(exerciseId: String, sets: [VitalsLogSet]) async throws {
-        guard let target = await saveTarget() else { return }
+    func saveExercise(exerciseId: String, sets: [VitalsLogSet], expectedDay: String? = nil) async throws {
+        try beginSave()
+        defer { isSavingLog = false }
+        if let expectedDay, expectedDay != todayKey { throw HealthSaveError.dayChanged }
+        guard let target = await saveTarget() else {
+            throw HealthSaveError.targetUnavailable
+        }
+        if let expectedDay, expectedDay != target.day { throw HealthSaveError.dayChanged }
         let log = Self.merged(
             existing: target.existing,
             date: target.day,
@@ -214,18 +250,35 @@ final class HealthViewModel: ObservableObject {
             exerciseId: exerciseId,
             sets: sets
         )
-        try await submit(log: log)
+        try await persist(log: log)
     }
 
     func saveNote(note: String) async throws {
-        guard let target = await saveTarget() else { return }
+        try beginSave()
+        defer { isSavingLog = false }
+        guard let target = await saveTarget() else {
+            throw HealthSaveError.targetUnavailable
+        }
         let log = Self.merged(
             existing: target.existing,
             date: target.day,
             identity: target.identity,
             note: note
         )
-        try await submit(log: log)
+        try await persist(log: log)
+    }
+
+    private func beginSave() throws {
+        guard !isSavingLog else { throw HealthSaveError.saveInProgress }
+        isSavingLog = true
+    }
+
+    private func persist(log: VitalsLog) async throws {
+        try await repository.saveLog(log)
+        confirmedSaveRevision += 1
+        logs.removeAll { $0.date == log.date }
+        logs.append(log)
+        logs.sort { $0.date > $1.date }
     }
 
     private func saveTarget() async -> (day: String, identity: VitalsLogIdentity, existing: VitalsLog?)? {

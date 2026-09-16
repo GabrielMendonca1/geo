@@ -3,39 +3,67 @@ import UniformTypeIdentifiers
 
 struct MoneyView: View {
     @StateObject private var store = MoneyStore.shared
+    @AppStorage("moneyScope") private var scopeRaw = MoneyScope.expense.rawValue
     @State private var composing: MoneyKind?
+    @State private var choosingKind = false
     @State private var importing = false
     @State private var importMessage: String?
+    @State private var searching = false
+    @State private var query = ""
+    @State private var showSettings = false
+    @FocusState private var searchFocused: Bool
 
-    private var month: [MoneyEntry] {
-        MoneyMath.entries(store.entries, inMonthOf: Date())
+    private var scope: MoneyScope {
+        MoneyScope(rawValue: scopeRaw) ?? .expense
     }
 
-    private var projection: MoneyProjection {
-        MoneyMath.projection(for: store.entries)
+    private var week: MoneyWeek {
+        MoneyOverview.week(store.entries, scope: scope)
+    }
+
+    private var groups: [MoneyOverview.DayGroup] {
+        MoneyOverview.groups(store.entries, scope: scope, query: query)
     }
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    balanceCard
-                    projectionCard
-                    quickAdd
-                    entriesList
+            ZStack(alignment: .bottomTrailing) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        totalCard
+                            .padding(.top, 8)
+                        if groups.isEmpty {
+                            emptyState
+                                .padding(.top, 28)
+                        } else {
+                            ForEach(groups) { group in
+                                section(group)
+                                    .padding(.top, 28)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 150)
                 }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 110)
+                .dockScrollTracking()
+                .scrollDismissesKeyboard(.immediately)
+                fab
             }
-            .dockScrollTracking()
-            .background(Color.slateCanvas)
-            .safeAreaInset(edge: .top) { header }
+            .background(Color.moneyCanvas)
+            .safeAreaInset(edge: .top, spacing: 0) { header }
             .navigationBarHidden(true)
         }
         .sheet(item: $composing) { kind in
             MoneyEntrySheet(kind: kind) { entry in
                 store.add(entry)
             }
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
+        }
+        .confirmationDialog("Novo lançamento", isPresented: $choosingKind, titleVisibility: .hidden) {
+            Button("Gasto") { composing = .expense }
+            Button("Entrada") { composing = .income }
         }
         .fileImporter(
             isPresented: $importing,
@@ -44,93 +72,257 @@ struct MoneyView: View {
         ) { result in
             importStatement(result)
         }
-        .alert("extrato", isPresented: Binding(
+        .alert("Extrato", isPresented: Binding(
             get: { importMessage != nil },
             set: { if !$0 { importMessage = nil } }
         )) {
-            Button("ok", role: .cancel) { importMessage = nil }
+            Button("OK", role: .cancel) { importMessage = nil }
         } message: {
             Text(importMessage ?? "")
         }
     }
 
+    // MARK: - Header
+
     private var header: some View {
-        HStack {
-            Text("dinheiro")
-                .font(.system(size: 15, weight: .semibold, design: .monospaced))
-                .foregroundStyle(Color.slateText)
-            Spacer()
-            Text(MoneyFormat.month(Date()))
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundStyle(Color.slateTextDim)
+        VStack(spacing: 10) {
+            HStack {
+                scopeMenu
+                Spacer()
+                actions
+            }
+            if searching {
+                searchField
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(Color.slateCanvas)
+        .padding(.top, 6)
+        .padding(.bottom, 12)
+        .background(Color.moneyCanvas)
+        .animation(.spring(response: 0.28, dampingFraction: 0.9), value: searching)
     }
 
-    private var balanceCard: some View {
-        let summary = MoneyMath.summary(of: month)
-        return VStack(alignment: .leading, spacing: 8) {
-            Text("saldo do mês")
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundStyle(Color.slateTextDim)
-            Text(MoneyFormat.signed(summary.balance))
-                .font(.system(size: 30, weight: .semibold, design: .monospaced))
-                .foregroundStyle(summary.balance < 0 ? Color.red : Color.slateText)
-            HStack(spacing: 14) {
-                pill("entrou", MoneyFormat.brl(summary.income))
-                pill("saiu", MoneyFormat.brl(summary.expense))
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .glassSurface(shape: RoundedRectangle(cornerRadius: SlateRadius.card, style: .continuous))
-    }
-
-    private var projectionCard: some View {
-        let p = projection
-        return VStack(alignment: .leading, spacing: 8) {
-            Text("projeção · fim do mês")
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundStyle(Color.slateTextDim)
-            Text(MoneyFormat.signed(p.projectedBalance))
-                .font(.system(size: 20, weight: .semibold, design: .monospaced))
-                .foregroundStyle(p.projectedBalance < 0 ? Color.red : Color.slateText)
-            Text("recorrentes contam inteiro · o resto segue o ritmo dos dias já vividos")
-                .font(.system(size: 10, design: .monospaced))
-                .foregroundStyle(Color.slateTextDim)
-            HStack(spacing: 14) {
-                pill("entradas", MoneyFormat.brl(p.projectedIncome))
-                pill("saídas", MoneyFormat.brl(p.projectedExpense))
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .glassSurface(shape: RoundedRectangle(cornerRadius: SlateRadius.card, style: .continuous))
-    }
-
-    private var quickAdd: some View {
-        VStack(spacing: 10) {
-            HStack(spacing: 10) {
-                addButton(.expense, symbol: "arrow.up.right")
-                addButton(.income, symbol: "arrow.down.left")
-            }
-            Button { importing = true } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "tray.and.arrow.down")
-                        .font(.system(size: 12, weight: .semibold))
-                    Text("importar extrato ofx")
-                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+    private var scopeMenu: some View {
+        Menu {
+            ForEach(MoneyScope.allCases) { option in
+                Button {
+                    scopeRaw = option.rawValue
+                } label: {
+                    if option == scope {
+                        Label(option.label, systemImage: "checkmark")
+                    } else {
+                        Text(option.label)
+                    }
                 }
-                .foregroundStyle(Color.slateTextDim)
-                .frame(maxWidth: .infinity, minHeight: 40)
-                .glassSurface(shape: RoundedRectangle(cornerRadius: SlateRadius.cell, style: .continuous))
             }
-            .buttonStyle(.plain)
+        } label: {
+            HStack(spacing: 6) {
+                Text(scope.label)
+                    .font(.system(size: 17, weight: .medium))
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 11, weight: .semibold))
+            }
+            .foregroundStyle(Color.primary)
+            .padding(.horizontal, 16)
+            .frame(height: 44)
+            .background(Color.moneyCard, in: Capsule())
+        }
+        .accessibilityIdentifier("money-scope")
+    }
+
+    private var actions: some View {
+        HStack(spacing: 0) {
+            Button {
+                searching.toggle()
+                if searching {
+                    searchFocused = true
+                } else {
+                    query = ""
+                }
+            } label: {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 18, weight: .medium))
+                    .frame(width: 44, height: 44)
+            }
+            .accessibilityLabel("Buscar")
+            .accessibilityIdentifier("money-search")
+
+            Menu {
+                Button {
+                    importing = true
+                } label: {
+                    Label("Importar extrato OFX", systemImage: "tray.and.arrow.down")
+                }
+            } label: {
+                Image(systemName: "line.3.horizontal.decrease")
+                    .font(.system(size: 18, weight: .medium))
+                    .frame(width: 44, height: 44)
+            }
+            .accessibilityLabel("Filtros")
             .accessibilityIdentifier("money-import")
+
+            Button {
+                showSettings = true
+            } label: {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 18, weight: .medium))
+                    .frame(width: 44, height: 44)
+            }
+            .accessibilityLabel("Ajustes")
+            .accessibilityIdentifier("money-settings")
+        }
+        .foregroundStyle(Color.primary)
+        .padding(.horizontal, 4)
+        .background(Color.moneyCard, in: Capsule())
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+            TextField("Buscar lançamento", text: $query)
+                .focused($searchFocused)
+                .submitLabel(.search)
+                .accessibilityIdentifier("money-search-field")
+            if !query.isEmpty {
+                Button {
+                    query = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+                .accessibilityLabel("Limpar busca")
+            }
+        }
+        .font(.system(size: 16))
+        .padding(.horizontal, 14)
+        .frame(height: 44)
+        .background(Color.moneyCard, in: Capsule())
+    }
+
+    // MARK: - Total + gráfico
+
+    private var totalCard: some View {
+        let week = week
+        return VStack(alignment: .leading, spacing: 0) {
+            Text(scope.totalLabel)
+                .font(.system(size: 17))
+                .foregroundStyle(.secondary)
+            Text(MoneyFormat.signed(week.total))
+                .font(.system(size: 40, weight: .bold))
+                .foregroundStyle(Color.primary)
+                .padding(.top, 6)
+                .accessibilityIdentifier("money-total")
+            MoneyWeekChart(week: week)
+                .frame(height: 220)
+                .padding(.top, 36)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(20)
+        .background(Color.moneyCard, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+    }
+
+    // MARK: - Listas
+
+    private func section(_ group: MoneyOverview.DayGroup) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(group.title)
+                .font(.system(size: 17))
+                .foregroundStyle(.secondary)
+                .padding(.leading, 20)
+            VStack(spacing: 0) {
+                ForEach(Array(group.entries.enumerated()), id: \.element.id) { index, entry in
+                    if index > 0 {
+                        Divider()
+                            .padding(.leading, 74)
+                            .padding(.trailing, 20)
+                    }
+                    row(entry)
+                }
+            }
+            .background(Color.moneyCard, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         }
     }
+
+    private func row(_ entry: MoneyEntry) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: MoneyOverview.symbol(for: entry))
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(Color.primary)
+                .frame(width: 44, height: 44)
+                .background(Color.moneyTile, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(MoneyOverview.title(for: entry))
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Color.primary)
+                    .lineLimit(1)
+                Text(MoneyOverview.subtitle(for: entry))
+                    .font(.system(size: 15))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: 8)
+
+            if entry.recurring {
+                Image(systemName: "repeat")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+            }
+
+            Text(amountText(entry))
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(Color.primary)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 14)
+        .contentShape(Rectangle())
+        .contextMenu {
+            Button("Apagar", role: .destructive) { store.delete(entry) }
+        }
+    }
+
+    private func amountText(_ entry: MoneyEntry) -> String {
+        let value = MoneyFormat.brl(entry.amount)
+        guard scope == .all else { return value }
+        return (entry.kind == .income ? "+" : "-") + value
+    }
+
+    private var emptyState: some View {
+        Text(query.isEmpty ? "Nada lançado ainda" : "Nada encontrado")
+            .font(.system(size: 15))
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 24)
+            .background(Color.moneyCard, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+    }
+
+    // MARK: - FAB
+
+    private var fab: some View {
+        Button {
+            switch scope {
+            case .expense: composing = .expense
+            case .income: composing = .income
+            case .all: choosingKind = true
+            }
+        } label: {
+            Image(systemName: "plus")
+                .font(.system(size: 28, weight: .medium))
+                .foregroundStyle(Color.moneyCanvasInverse)
+                .frame(width: 64, height: 64)
+                .background(Color.primary, in: Circle())
+                .shadow(color: .black.opacity(0.18), radius: 10, y: 4)
+        }
+        .buttonStyle(.plain)
+        .padding(.trailing, 16)
+        .padding(.bottom, 96)
+        .accessibilityLabel("Novo lançamento")
+        .accessibilityIdentifier("money-add")
+    }
+
+    // MARK: - Importação
 
     static var statementTypes: [UTType] {
         var types: [UTType] = [.data]
@@ -140,112 +332,99 @@ struct MoneyView: View {
 
     private func importStatement(_ result: Result<[URL], Error>) {
         guard case .success(let urls) = result, let url = urls.first else {
-            importMessage = "não deu pra abrir o arquivo"
+            importMessage = "Não deu pra abrir o arquivo"
             return
         }
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
 
         guard let data = try? Data(contentsOf: url) else {
-            importMessage = "não deu pra ler o arquivo"
+            importMessage = "Não deu pra ler o arquivo"
             return
         }
         let transactions = OFXParser.parse(data)
         let outcome = store.importEntries(MoneyImport.entries(from: transactions))
         importMessage = outcome.message
     }
+}
 
-    private func addButton(_ kind: MoneyKind, symbol: String) -> some View {
-        Button { composing = kind } label: {
-            HStack(spacing: 6) {
-                Image(systemName: symbol)
-                    .font(.system(size: 12, weight: .semibold))
-                Text(kind.label)
-                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
-            }
-            .foregroundStyle(Color.slateText)
-            .frame(maxWidth: .infinity, minHeight: 44)
-            .glassSurface(shape: RoundedRectangle(cornerRadius: SlateRadius.cell, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("money-add-\(kind.rawValue)")
-    }
+/// Barras pretas por dia da semana, linhas de grade com eixo à direita.
+struct MoneyWeekChart: View {
+    let week: MoneyWeek
 
-    @ViewBuilder
-    private var entriesList: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("lançamentos")
-                .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                .foregroundStyle(Color.slateTextDim)
+    private let axisWidth: CGFloat = 36
+    private let labelHeight: CGFloat = 22
 
-            if month.isEmpty {
-                Text("nada lançado neste mês")
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(Color.slateTextDim)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(14)
-                    .glassSurface(shape: RoundedRectangle(cornerRadius: SlateRadius.cell, style: .continuous))
-            } else {
-                VStack(spacing: 0) {
-                    ForEach(Array(month.enumerated()), id: \.element.id) { index, entry in
-                        if index > 0 {
-                            Divider().overlay(Color.slateStroke.opacity(0.35))
-                        }
-                        row(entry)
+    var body: some View {
+        let ticks = week.axisTicks
+        let top = week.axisMax
+        GeometryReader { proxy in
+            let plotWidth = proxy.size.width - axisWidth
+            let plotHeight = proxy.size.height - labelHeight
+            let slot = plotWidth / CGFloat(max(week.days.count, 1))
+            let barWidth = min(slot * 0.68, 56)
+
+            ZStack(alignment: .topLeading) {
+                ForEach(Array(ticks.enumerated()), id: \.offset) { _, tick in
+                    let y = plotHeight - plotHeight * ratio(tick, top)
+                    Rectangle()
+                        .fill(Color.primary.opacity(0.12))
+                        .frame(width: plotWidth, height: 1)
+                        .offset(y: y)
+                    Text(MoneyWeekChart.tickLabel(tick))
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                        .frame(width: axisWidth - 6, alignment: .trailing)
+                        .offset(x: plotWidth + 6, y: y - 8)
+                }
+
+                ForEach(Array(week.days.enumerated()), id: \.element.id) { index, day in
+                    let height = plotHeight * ratio(abs(day.total), top)
+                    let x = slot * CGFloat(index) + (slot - barWidth) / 2
+                    if height > 0 {
+                        UnevenRoundedRectangle(
+                            topLeadingRadius: 8, bottomLeadingRadius: 0,
+                            bottomTrailingRadius: 0, topTrailingRadius: 8,
+                            style: .continuous
+                        )
+                        .fill(Color.primary)
+                        .frame(width: barWidth, height: height)
+                        .offset(x: x, y: plotHeight - height)
                     }
-                }
-                .glassSurface(shape: RoundedRectangle(cornerRadius: SlateRadius.card, style: .continuous))
-            }
-        }
-    }
-
-    private func row(_ entry: MoneyEntry) -> some View {
-        HStack(spacing: 10) {
-            Text(MoneyFormat.day(entry.date))
-                .font(.system(size: 10, design: .monospaced))
-                .foregroundStyle(Color.slateTextDim)
-                .frame(width: 42, alignment: .leading)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(entry.category)
-                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(Color.slateText)
-                if !entry.note.isEmpty {
-                    Text(entry.note)
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundStyle(Color.slateTextDim)
-                        .lineLimit(1)
+                    Text(day.label)
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                        .frame(width: slot)
+                        .offset(x: slot * CGFloat(index), y: plotHeight + 8)
                 }
             }
-
-            Spacer(minLength: 8)
-
-            if entry.recurring {
-                Image(systemName: "repeat")
-                    .font(.system(size: 9))
-                    .foregroundStyle(Color.slateTextDim)
-            }
-
-            Text((entry.kind == .expense ? "-" : "+") + MoneyFormat.brl(entry.amount))
-                .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                .foregroundStyle(entry.kind == .expense ? Color.red : Color.green)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 11)
-        .contentShape(Rectangle())
-        .contextMenu {
-            Button("apagar", role: .destructive) { store.delete(entry) }
-        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Gráfico da semana")
+        .accessibilityValue(MoneyFormat.brl(week.total))
     }
 
-    private func pill(_ label: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(label)
-                .font(.system(size: 9, design: .monospaced))
-                .foregroundStyle(Color.slateTextDim)
-            Text(value)
-                .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                .foregroundStyle(Color.slateText)
-        }
+    private func ratio(_ value: Decimal, _ top: Decimal) -> CGFloat {
+        guard top > 0 else { return 0 }
+        let fraction = (value / top) as NSDecimalNumber
+        return min(max(CGFloat(fraction.doubleValue), 0), 1)
     }
+
+    static func tickLabel(_ value: Decimal) -> String {
+        let number = value as NSDecimalNumber
+        if value >= 1000 {
+            let thousands = number.doubleValue / 1000
+            return thousands == thousands.rounded() ? "\(Int(thousands))k" : String(format: "%.1fk", thousands)
+        }
+        return "\(number.intValue)"
+    }
+}
+
+private extension Color {
+    static let moneyCanvas = Color(uiColor: .systemGroupedBackground)
+    static let moneyCard = Color(uiColor: .secondarySystemGroupedBackground)
+    static let moneyTile = Color(uiColor: .tertiarySystemGroupedBackground)
+    static let moneyCanvasInverse = Color(uiColor: UIColor { trait in
+        trait.userInterfaceStyle == .dark ? .black : .white
+    })
 }

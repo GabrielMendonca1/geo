@@ -14,6 +14,30 @@ trap 'rm -rf "$TMP"; [ -n "${SENTINEL:-}" ] && kill "${SENTINEL}" 2>/dev/null' E
 ok() { PASS=$((PASS + 1)); echo "  ok   $1"; }
 no() { FAIL=$((FAIL + 1)); echo "  FAIL $1"; }
 check() { if [ "$1" -eq 0 ]; then ok "$2"; else no "$2"; fi; }
+src() {
+  local hit
+  hit="$(find "$ROOT/Sources" -name "$1.swift" | head -2)"
+  if [ "$(printf '%s\n' "$hit" | wc -l | tr -d ' ')" != "1" ] || [ -z "$hit" ]; then
+    echo "smoke: source $1.swift is missing or ambiguous under Sources/" >&2
+    echo "/nonexistent/$1.swift"
+    return 1
+  fi
+  printf '%s' "$hit"
+}
+feedback_sources=(
+  "$(src FeedbackCue)"
+  "$(src FeedbackPreferences)"
+  "$(src FeedbackPolicy)"
+  "$(src FeedbackVoice)"
+  "$(src SoundFeedback)"
+  "$(src FeedbackSettings)"
+)
+
+echo "== 0. source layout =="
+STRAY="$(find "$ROOT/Sources" -maxdepth 1 -name '*.swift' | wc -l | tr -d ' ')"
+[ "$STRAY" -eq 0 ]; check $? "every source lives in a Sources/<group>/ folder ($STRAY stray files)"
+DUPES="$(find "$ROOT/Sources" -name '*.swift' -exec basename {} \; | sort | uniq -d | tr '\n' ' ')"
+[ -z "$DUPES" ]; check $? "source file names are unique across groups ($DUPES)"
 
 echo "== 1. sources carry no comments =="
 HITS="$(grep -rnE '(^|[^:])//|/\*' "$ROOT/Sources" --include='*.swift' | wc -l | tr -d ' ')"
@@ -182,9 +206,10 @@ STUB
 chmod +x "$TMP/ffmpeg-stub" "$TMP/whisper-hang" "$TMP/whisper-ok"
 
 swiftc -O -target "$(uname -m)-apple-macos14.0" -sdk "$(xcrun --show-sdk-path --sdk macosx)" \
-  -o "$TMP/harness" "$ROOT/Sources/Transcriber.swift" "$ROOT/Sources/ProcessRunner.swift" \
-  "$ROOT/Sources/MeetingArchive.swift" \
-  "$ROOT/Tests/main.swift" 2>"$TMP/harness.log"
+  -o "$TMP/harness" "$(src Transcriber)" "$(src ProcessRunner)" \
+  "$(src MeetingArchive)" \
+  "${feedback_sources[@]}" \
+  "$ROOT/Tests/Transcriber/main.swift" 2>"$TMP/harness.log"
 check $? "harness compiles against the real Transcriber.swift"
 
 if [ -x "$TMP/harness" ]; then
@@ -235,56 +260,70 @@ else
 fi
 
 echo "== 14. streaming and animation contract =="
-grep -q 'var onLevel' "$ROOT/Sources/Recorder.swift"
+grep -q 'var onLevel' "$(src Recorder)"
 check $? "Recorder publishes real microphone levels"
-grep -q 'LevelMeter.measure' "$ROOT/Sources/Recorder.swift"
+grep -q 'LevelMeter.measure' "$(src Recorder)"
 check $? "levels are measured from the audio tap, not synthesized"
-grep -q 'recorder.onLevel' "$ROOT/Sources/AppDelegate.swift"
+grep -q 'recorder.onLevel' "$(src AppDelegate)"
 check $? "AppDelegate consumes the level stream"
-grep -q 'icon.updateLevel' "$ROOT/Sources/AppDelegate.swift"
+grep -q 'icon.updateLevel' "$(src AppDelegate)"
 check $? "levels reach the status item"
-grep -q 'accessibilityDisplayShouldReduceMotion' "$ROOT/Sources/StatusIcon.swift"
+grep -q 'accessibilityDisplayShouldReduceMotion' "$(src StatusIcon)"
 check $? "Reduce Motion is read from the system"
-grep -q 'accessibilityDisplayOptionsDidChangeNotification' "$ROOT/Sources/StatusIcon.swift"
+grep -q 'accessibilityDisplayOptionsDidChangeNotification' "$(src StatusIcon)"
 check $? "Reduce Motion changes are observed live"
-grep -q 'menu.popUp(' "$ROOT/Sources/StatusIcon.swift"
+grep -q 'menu.popUp(' "$(src StatusIcon)"
 check $? "right-click still pops the actions menu"
-grep -q 'onPrimaryClick' "$ROOT/Sources/StatusIcon.swift"
+grep -q 'onPrimaryClick' "$(src StatusIcon)"
 check $? "left-click drives the hub panel"
-grep -q 'NSPopover' "$ROOT/Sources/HubPanel.swift"
+grep -q 'NSPopover' "$(src HubPanel)"
 check $? "the hub uses a native popover"
-grep -q 'behavior = .transient' "$ROOT/Sources/HubPanel.swift"
+grep -q 'behavior = .transient' "$(src HubPanel)"
 check $? "the popover closes itself like every other menu bar app"
-grep -q 'preferredEdge: .maxY' "$ROOT/Sources/HubPanel.swift"
+grep -q 'preferredEdge: .maxY' "$(src HubPanel)"
 check $? "it hangs off the status item, positioned by the system"
-grep -q 'NSApp.hide(nil)' "$ROOT/Sources/AppDelegate.swift"
+grep -q 'NSApp.hide(nil)' "$(src AppDelegate)"
 check $? "dictation hands focus back before recording, so paste still lands"
-grep -q 'NSVisualEffectView\|NSGlassEffectView' "$ROOT/Sources/HubPanel.swift"
+grep -q 'NSVisualEffectView\|NSGlassEffectView' "$(src HubPanel)"
 check "$([ $? -ne 0 ] && echo 0 || echo 1)" "no hand-rolled background: the native popover supplies the glass"
-grep -q 'HubHairline' "$ROOT/Sources/HubPanel.swift"
+grep -q 'HubHairline' "$(src HubPanel)"
 check "$([ $? -ne 0 ] && echo 0 || echo 1)" "no hand-drawn border: native popovers have none"
-grep -q 'darkAqua' "$ROOT/Sources/HubPanel.swift"
+grep -q 'darkAqua' "$(src HubPanel)"
 check "$([ $? -ne 0 ] && echo 0 || echo 1)" "the card follows the system theme instead of forcing dark"
-grep -q 'calibratedWhite' "$ROOT/Sources/HubPanel.swift"
+grep -q 'calibratedWhite' "$(src HubPanel)"
 check "$([ $? -ne 0 ] && echo 0 || echo 1)" "no baked-in white: every ink is semantic so light mode stays readable"
-grep -q 'Vault' "$ROOT/Sources/StatusTodoWriter.swift"
+grep -q 'Vault' "$(src StatusTodoWriter)"
 check "$([ $? -ne 0 ] && echo 0 || echo 1)" "checking a todo never writes anywhere near the Vault"
-grep -q 'replaceItemAt' "$ROOT/Sources/StatusTodoWriter.swift"
+grep -q 'replaceItemAt' "$(src StatusTodoWriter)"
 check $? "STATUS.md is rewritten atomically"
 
-grep -q 'case .awake: return NSColor' "$ROOT/Sources/StatusIcon.swift"
+grep -q 'case .awake: return NSColor' "$(src StatusIcon)"
 check $? "caps lock has its own colour"
-grep -q 'triangleRain' "$ROOT/Sources/IconAnimation.swift"
+grep -q 'triangleRain' "$(src IconAnimation)"
 check $? "caps lock rains down the matrix instead of moving the icon around"
-grep -q 'cup.and.saucer.fill' "$ROOT/Sources/StatusIcon.swift"
+grep -q 'cup.and.saucer.fill' "$(src StatusIcon)"
 check "$([ $? -ne 0 ] && echo 0 || echo 1)" "caps lock no longer draws a badge glyph"
 
-grep -q 'DotMatrix.triangle' "$ROOT/Sources/StatusIcon.swift"
-check $? "the menu bar icon is drawn as a dot matrix"
-grep -q 'symbolCache\["__triangle"\]' "$ROOT/Sources/StatusIcon.swift"
-check $? "the idle matrix is cached (no redraw per tick)"
+grep -q 'symbol("triangle.fill")' "$(src StatusIcon)"
+check $? "the idle menu bar icon is a filled triangle"
+grep -q 'DotMatrix.triangle' "$(src StatusIcon)"
+check $? "active states retain the animated triangular matrix"
+grep -q 'ticker.tolerance = Config.capsPollTolerance' "$(src CapsWatcher)"
+check $? "caps safety polling is coalescible"
+grep -q 'Hotkey.shared.unregister()' "$(src AppDelegate)"
+check $? "termination unregisters the global hotkey"
+grep -q 'RemoveEventHandler' "$(src Hotkey)"
+check $? "hotkey teardown releases its Carbon handler"
+grep -q 'ticker.tolerance = Config.backgroundPollTolerance' "$(src CaptureWatcher)"
+check $? "capture polling is coalescible"
+grep -q 'ticker.tolerance = Config.backgroundPollTolerance' "$(src CallController)"
+check $? "call polling is coalescible"
+grep -q 'Timer' "$(src TasksController)"
+check "$([ $? -ne 0 ] && echo 0 || echo 1)" "idle task lifecycle has no timer"
+awk '/func start\(\)/,/^    }/' "$(src TasksController)" | grep -q 'refresh()'
+check "$([ $? -ne 0 ] && echo 0 || echo 1)" "task startup loads cache without launch-time SSH"
 
-grep -q 'disablesleep' "$ROOT/Sources/SleepBlocker.swift"
+grep -q 'disablesleep' "$(src SleepBlocker)"
 check $? "the lid-close blocker drives pmset disablesleep"
 grep -rq 'sudoers' "$ROOT/install-sleep.sh"
 check $? "the privileged rule has its own opt-in installer"
@@ -292,22 +331,22 @@ grep -q 'visudo -c' "$ROOT/install-sleep.sh"
 check $? "the sudoers rule is validated before it goes live"
 grep -q 'ALL=(root) NOPASSWD: /usr/bin/pmset -a disablesleep 1, /usr/bin/pmset -a disablesleep 0' "$ROOT/install-sleep.sh"
 check $? "the rule pins two exact commands and no wildcard"
-grep -q 'blocker.apply(false)' "$ROOT/Sources/InsomniaController.swift"
+grep -q 'blocker.apply(false)' "$(src InsomniaController)"
 check $? "sleep is always handed back when the hold ends"
-grep -q 'reconcileOnLaunch' "$ROOT/Sources/AppDelegate.swift"
+grep -q 'reconcileOnLaunch' "$(src AppDelegate)"
 check $? "a crash never leaves the Mac awake forever (reconciled on launch)"
-grep -q 'checkable: false' "$ROOT/Sources/HubPanel.swift"
+grep -q 'checkable: false' "$(src HubPanel)"
 check $? "vault tasks stay read-only in the panel"
-grep -q 'button.image' "$ROOT/Sources/StatusIcon.swift"
+grep -q 'button.image' "$(src StatusIcon)"
 check $? "status item still renders through button.image, not a custom view"
-grep -q 'image.isTemplate = paint == nil' "$ROOT/Sources/StatusIcon.swift"
+grep -q 'image.isTemplate = paint == nil' "$(src StatusIcon)"
 check $? "neutral frames stay template images (auto-tinting preserved)"
-grep -q 'case .neutral: return nil' "$ROOT/Sources/StatusIcon.swift"
+grep -q 'case .neutral: return nil' "$(src StatusIcon)"
 check $? "the idle icon never hardcodes a colour"
-grep -q 'image.isTemplate = base.isTemplate' "$ROOT/Sources/StatusIcon.swift"
+grep -q 'image.isTemplate = base.isTemplate' "$(src StatusIcon)"
 check $? "overlays never flatten a coloured frame back into a template"
 
-IDLE_ANIMATED="$(grep -c 'case .idle' "$ROOT/Sources/IconAnimation.swift")"
+IDLE_ANIMATED="$(grep -c 'case .idle' "$(src IconAnimation)")"
 [ "$IDLE_ANIMATED" -ge 1 ]; check $? "idle has an explicit still plan (no idle timer)"
 
 find "$ROOT" -name '*.xcframework' -o -name '*.framework' | grep -q .
@@ -322,52 +361,52 @@ case "$IMPORTS" in
 esac
 
 for NAME in meterAttack meterRelease meterFloorDecibels meterPeakHoldSeconds; do
-  grep -q "static let $NAME" "$ROOT/Sources/Config.swift"
+  grep -q "static let $NAME" "$(src Config)"
   check $? "meter coefficient $NAME is a named constant"
 done
 for NAME in stepSeconds windowBackoffSeconds commitMarginSeconds agreementSteps maxStepFailures typistChunkUTF16; do
-  grep -q "static let $NAME" "$ROOT/Sources/Config.swift"
+  grep -q "static let $NAME" "$(src Config)"
   check $? "streaming constant $NAME is named"
 done
 
-grep -q '"-oj"' "$ROOT/Sources/WhisperBackend.swift"
+grep -q '"-oj"' "$(src WhisperBackend)"
 check $? "streaming decode asks whisper-cli for JSON"
-grep -q '"-ml", "1"' "$ROOT/Sources/WhisperBackend.swift"
+grep -q '"-ml", "1"' "$(src WhisperBackend)"
 check $? "streaming decode asks for word-level segments"
-grep -q -- '"--prompt"' "$ROOT/Sources/WhisperBackend.swift"
+grep -q -- '"--prompt"' "$(src WhisperBackend)"
 check "$([ $? -ne 0 ] && echo 0 || echo 1)" "streaming decode never seeds whisper with the committed tail"
-grep -q 'keyboardSetUnicodeString' "$ROOT/Sources/Typist.swift"
+grep -q 'keyboardSetUnicodeString' "$(src Typist)"
 check $? "text is injected as unicode, never as synthesized keycodes"
-grep -q 'IsSecureEventInputEnabled' "$ROOT/Sources/FocusAnchor.swift"
+grep -q 'IsSecureEventInputEnabled' "$(src FocusAnchor)"
 check $? "secure input is checked before every injection"
-grep -q 'Config.whisperBinary\|Config.ffmpegBinary' "$ROOT/Sources/Transcriber.swift"
+grep -q 'Config.whisperBinary\|Config.ffmpegBinary' "$(src Transcriber)"
 check $? "batch whisper-cli fallback path is still present"
-grep -q '"-mc", "0"' "$ROOT/Sources/Transcriber.swift"
+grep -q '"-mc", "0"' "$(src Transcriber)"
 check $? "batch decode disables carried context (no repetition loops)"
-grep -q '"-nt"' "$ROOT/Sources/Transcriber.swift"
+grep -q '"-nt"' "$(src Transcriber)"
 check "$([ $? -ne 0 ] && echo 0 || echo 1)" "batch decode never uses -nt (it silently drops segments)"
-grep -q 'IOPMAssertionCreateWithName' "$ROOT/Sources/InsomniaController.swift"
+grep -q 'IOPMAssertionCreateWithName' "$(src InsomniaController)"
 check $? "insomnia holds a native IOPM assertion"
-grep -q 'maskAlphaShift' "$ROOT/Sources/CapsWatcher.swift"
+grep -q 'maskAlphaShift' "$(src CapsWatcher)"
 check $? "caps lock drives the assertion, capsomnia style"
-grep -q 'insomnia.hold("caps"' "$ROOT/Sources/AppDelegate.swift"
+grep -q 'insomnia.hold("caps"' "$(src AppDelegate)"
 check $? "caps lock is wired into the sleep hold"
 grep -rq 'caffeinate' "$ROOT/Sources" --include='*.swift'
 check "$([ $? -ne 0 ] && echo 0 || echo 1)" "no caffeinate subprocess anywhere"
-RELEASES="$(grep -c 'IOPMAssertionRelease' "$ROOT/Sources/InsomniaController.swift")"
+RELEASES="$(grep -c 'IOPMAssertionRelease' "$(src InsomniaController)")"
 [ "$RELEASES" -ge 2 ]
 check $? "assertion is released on deactivate and deinit"
-grep -q 'createFile\|setAttributes\|removeItem\|write(' "$ROOT/Sources/CaptureWatcher.swift"
+grep -q 'createFile\|setAttributes\|removeItem\|write(' "$(src CaptureWatcher)"
 check "$([ $? -ne 0 ] && echo 0 || echo 1)" "capture watcher is strictly read-only"
-grep -q 'BatchMode=yes' "$ROOT/Sources/TasksController.swift"
+grep -q 'BatchMode=yes' "$(src TasksController)"
 check $? "tasks fetch never prompts for credentials"
-grep -q '"cat " + Config.tasksRemoteGlob' "$ROOT/Sources/TasksController.swift"
+grep -q '"cat " + Config.tasksRemoteGlob' "$(src TasksController)"
 check $? "the remote tasks command is exactly a cat of the glob"
-grep -q 'createFile\|write(to\|removeItem' "$ROOT/Sources/ProjectStatus.swift"
+grep -q 'createFile\|write(to\|removeItem' "$(src ProjectStatus)"
 check "$([ $? -ne 0 ] && echo 0 || echo 1)" "the STATUS.md scanner is strictly read-only"
-grep -q 'Config.recScript' "$ROOT/Sources/CallController.swift"
+grep -q 'Config.recScript' "$(src CallController)"
 check $? "call recording drives the /record skill script"
-grep -q '"PATH=" + Config.recPath' "$ROOT/Sources/CallController.swift"
+grep -q '"PATH=" + Config.recPath' "$(src CallController)"
 check $? "rec.sh gets a PATH with homebrew under launchd"
 [ -x "$HOME/Garime/brain/skills/record/scripts/rec.sh" ]
 check $? "rec.sh exists and is executable"
@@ -375,25 +414,26 @@ check $? "rec.sh exists and is executable"
 echo "== 15. pure unit suite (stabilizer, chunker, meter, icon, session) =="
 swiftc -O -target "$(uname -m)-apple-macos14.0" -sdk "$(xcrun --show-sdk-path --sdk macosx)" \
   -o "$TMP/units" \
-  "$ROOT/Sources/Config.swift" \
-  "$ROOT/Sources/Stabilizer.swift" \
-  "$ROOT/Sources/TextChunker.swift" \
-  "$ROOT/Sources/LevelMeter.swift" \
-  "$ROOT/Sources/IconAnimation.swift" \
-  "$ROOT/Sources/DictationSession.swift" \
-  "$ROOT/Sources/InsomniaController.swift" \
-  "$ROOT/Sources/CapsWatcher.swift" \
-  "$ROOT/Sources/ProcessRunner.swift" \
-  "$ROOT/Sources/Transcriber.swift" \
-  "$ROOT/Sources/MeetingArchive.swift" \
-  "$ROOT/Sources/CaptureWatcher.swift" \
-  "$ROOT/Sources/VaultTasks.swift" \
-  "$ROOT/Sources/ProjectStatus.swift" \
-  "$ROOT/Sources/CallController.swift" \
-  "$ROOT/Sources/StatusTodoWriter.swift" \
-  "$ROOT/Sources/SleepBlocker.swift" \
-  "$ROOT/Sources/DotMatrix.swift" \
-  "$ROOT/Sources/HubPanel.swift" \
+  "$(src Config)" \
+  "$(src Stabilizer)" \
+  "$(src TextChunker)" \
+  "$(src LevelMeter)" \
+  "$(src IconAnimation)" \
+  "$(src DictationSession)" \
+  "$(src InsomniaController)" \
+  "$(src CapsWatcher)" \
+  "$(src ProcessRunner)" \
+  "$(src Transcriber)" \
+  "$(src MeetingArchive)" \
+  "$(src CaptureWatcher)" \
+  "$(src VaultTasks)" \
+  "$(src ProjectStatus)" \
+  "$(src CallController)" \
+  "$(src StatusTodoWriter)" \
+  "$(src SleepBlocker)" \
+  "$(src DotMatrix)" \
+  "$(src HubPanel)" \
+  "${feedback_sources[@]}" \
   "$ROOT/Tests/Units/main.swift" 2>"$TMP/units.log"
 check $? "unit harness compiles against the real sources"
 if [ -x "$TMP/units" ]; then
@@ -411,11 +451,11 @@ fi
 echo "== 16. windowed decoder suite (stub backend, stub audio) =="
 swiftc -O -target "$(uname -m)-apple-macos14.0" -sdk "$(xcrun --show-sdk-path --sdk macosx)" \
   -o "$TMP/decoder" \
-  "$ROOT/Sources/Config.swift" \
-  "$ROOT/Sources/Stabilizer.swift" \
-  "$ROOT/Sources/StreamBuffer.swift" \
-  "$ROOT/Sources/FlushGuard.swift" \
-  "$ROOT/Sources/WindowedDecoder.swift" \
+  "$(src Config)" \
+  "$(src Stabilizer)" \
+  "$(src StreamBuffer)" \
+  "$(src FlushGuard)" \
+  "$(src WindowedDecoder)" \
   "$ROOT/Tests/Decoder/main.swift" 2>"$TMP/decoder.log"
 check $? "decoder harness compiles against the real WindowedDecoder.swift"
 if [ -x "$TMP/decoder" ]; then
@@ -456,11 +496,12 @@ echo "== 18. status icon rendering and timer lifecycle =="
 swiftc -O -target "$(uname -m)-apple-macos14.0" -sdk "$(xcrun --show-sdk-path --sdk macosx)" \
   -framework AppKit \
   -o "$TMP/icon" \
-  "$ROOT/Sources/Config.swift" \
-  "$ROOT/Sources/IconAnimation.swift" \
-  "$ROOT/Sources/DotMatrix.swift" \
-  "$ROOT/Sources/StatusIcon.swift" \
-  "$ROOT/Sources/MenuController.swift" \
+  "$(src Config)" \
+  "$(src IconAnimation)" \
+  "$(src DotMatrix)" \
+  "$(src StatusIcon)" \
+  "$(src MenuController)" \
+  "${feedback_sources[@]}" \
   "$ROOT/Tests/Icon/main.swift" 2>"$TMP/icon.log"
 check $? "icon harness compiles against the real StatusIcon.swift"
 if [ -x "$TMP/icon" ]; then
@@ -472,6 +513,22 @@ if [ -x "$TMP/icon" ]; then
 else
   no "icon harness missing"
   sed 's/^/    /' "$TMP/icon.log" | head -20
+fi
+
+echo "== 19. feedback policy suite (isolated, no playback) =="
+if "$ROOT/Tests/Feedback/run.sh" >"$TMP/feedback.out" 2>&1; then
+  check 0 "feedback policy suite passes -> $(tail -1 "$TMP/feedback.out")"
+else
+  check 1 "feedback policy suite passes"
+  sed 's/^/    /' "$TMP/feedback.out" | tail -20
+fi
+
+echo "== 20. feedback integration suite (synthesis only, no playback) =="
+if "$ROOT/Tests/FeedbackIntegration/run.sh" >"$TMP/feedback-integration.out" 2>&1; then
+  check 0 "feedback integration suite passes -> $(tail -1 "$TMP/feedback-integration.out")"
+else
+  check 1 "feedback integration suite passes"
+  sed 's/^/    /' "$TMP/feedback-integration.out" | tail -20
 fi
 
 echo

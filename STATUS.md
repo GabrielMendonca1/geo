@@ -10,7 +10,6 @@
 - [ ] F2 do lifecycle de entradas (loop de clusters na sessão Geo Vault Cleaning)
 - [ ] F3 e F4 do lifecycle de entradas
 - [ ] decidir se o pipeline zap→Vault volta na VM (hermes local aposentado)
-- [ ] deletar o modelo e os 3 testes órfãos de `/term/preview` (sem chamador no app)
 - [ ] corrigir `spans()` O(n²) no chat (hoje só protegido pelo teto de 2000 chars)
 - [ ] preencher `DEVELOPMENT_TEAM` no `gen_project.rb` (1 linha)
 - [ ] atualizar CONTRACT.md/plist do bridge: dizem que ele mora no Mac, roda na VM
@@ -24,9 +23,10 @@
 - [ ] investigar por que o alerta de outage prolongado do whatsapp-ingest não disparou
 - [ ] podar `task_archive/` e corrigir repeat null-target no `context_scraping`
 - [ ] retomar a Fase 3 do terminal (chat com o pi + push de fim de task)
-- [ ] nits de UI: fonte do card bridge, locale EN no DatePicker, `settingsToolbar()` morto
+- [ ] nits de UI: fonte do card bridge, locale EN no DatePicker
 
 ## Feito
+- [x] código morto removido: endpoint `/term/preview` sem chamador e `settingsToolbar()` sem referências; contrato atualizado (2026-08-30)
 - [x] Saúde v2: catálogo real (37 exercícios/20 blocos), safety gates, plano semanal como fonte principal, logs plan-primary retrocompatíveis; bridge implantado, W35 publicada e app instalado no iPhone (2026-08-24)
 - [x] GarimeWhisper promovido a hub único de menu bar — reunião/call, insomnia nativo (Capsomnia removido), observador do GarimeCapture, tasks do Vault e todos por projeto; instalado e vivo (2026-08-17)
 - [x] Garime Whisper: ditado nativo na menu bar instalado e vivo (2026-08-07)

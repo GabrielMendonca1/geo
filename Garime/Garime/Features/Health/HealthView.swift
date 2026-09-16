@@ -1,20 +1,26 @@
 import SwiftUI
 
 struct HealthView: View {
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var loggingDay = ""
     @StateObject private var viewModel = HealthViewModel()
     @State private var showOnboarding = false
     @State private var loggingExercise: VitalsExercise?
     @State private var note = ""
     @AppStorage(GarimeAgent.sessionKey) private var agentSession = ""
     @StateObject private var vision = TrainingVisionModel(target: GarimeAgent.target(""))
+    @StateObject private var workout = WorkoutSessionModel()
     @State private var photoExercise: VitalsExercise?
     @State private var showCamera = false
     @State private var reading: TrainingVisionReading?
+    @State private var showWorkout = false
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
+                    homeIdentity
+
                     if let error = viewModel.errorMessage {
                         errorState(error)
                     } else if viewModel.isLoading, !viewModel.hasLoaded {
@@ -23,7 +29,7 @@ struct HealthView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 60)
                     } else if let session = viewModel.todaySession {
-                        sessionBody(for: session)
+                        heroCard(for: session)
                     } else if viewModel.hasLoaded, !viewModel.needsOnboarding {
                         Text("sem protocolo")
                             .font(.system(size: 13, design: .monospaced))
@@ -46,49 +52,92 @@ struct HealthView: View {
                     }
                 }
                 .padding(.horizontal, 16)
+                .padding(.top, 8)
                 .padding(.bottom, 28)
             }
             .dockScrollTracking()
             .background(Color.slateCanvas)
-            .safeAreaInset(edge: .top) { header }
             .navigationBarHidden(true)
             .refreshable {
                 await viewModel.reload()
             }
-            .sheet(isPresented: $showOnboarding) {
-                OnboardingSheet(
-                    title: viewModel.vitalsProtocol?.name ?? "",
-                    sessions: viewModel.sessions,
-                    selected: viewModel.todayIndex
-                ) { index in
-                    await viewModel.anchor(to: index)
-                }
-            }
-            .sheet(item: $loggingExercise) { exercise in
-                ExerciseLogSheet(
-                    exercise: exercise,
-                    logged: viewModel.todayEntry(for: exercise.id),
-                    lastWeight: viewModel.lastWeight(for: exercise.id),
-                    reading: reading
-                ) { sets in
-                    try await viewModel.saveExercise(
-                        exerciseId: exercise.id,
-                        sets: sets
+            .navigationDestination(isPresented: $showWorkout) {
+                if let session = viewModel.todaySession {
+                    WorkoutDetailView(
+                        viewModel: viewModel,
+                        workout: workout,
+                        session: session,
+                        note: $note,
+                        onLog: { exercise in
+                            reading = nil
+                            presentLog(exercise)
+                        },
+                        onPhoto: { exercise in
+                            photoExercise = exercise
+                            reading = nil
+                            vision.reset()
+                            showCamera = true
+                        }
                     )
+                } else {
+                    ContentUnavailableView(
+                        "Treino indisponível",
+                        systemImage: "figure.strengthtraining.traditional",
+                        description: Text("Volte e atualize para carregar o treino do dia.")
+                    )
+                    .navigationTitle("Treino")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar(.visible, for: .navigationBar)
                 }
             }
-            .fullScreenCover(isPresented: $showCamera) {
-                CameraCaptureView { data, _ in
-                    showCamera = false
-                    analyzePhoto(data)
-                }
-                .ignoresSafeArea()
-            }
-            .overlay(alignment: .bottom) { visionStatus }
         }
+        .sheet(isPresented: $showOnboarding) {
+            OnboardingSheet(
+                title: viewModel.vitalsProtocol?.name ?? "",
+                sessions: viewModel.sessions,
+                selected: viewModel.todayIndex
+            ) { index in
+                await viewModel.anchor(to: index)
+            }
+        }
+        .sheet(item: $loggingExercise) { exercise in
+            ExerciseLogSheet(
+                exercise: exercise,
+                logged: viewModel.todayEntry(for: exercise.id),
+                lastWeight: viewModel.lastWeight(for: exercise.id),
+                reading: reading,
+                session: workout
+            ) { sets in
+                try await viewModel.saveExercise(
+                    exerciseId: exercise.id,
+                    sets: sets,
+                    expectedDay: loggingDay
+                )
+            }
+        }
+        .fullScreenCover(isPresented: $showCamera) {
+            CameraCaptureView { data, _ in
+                showCamera = false
+                analyzePhoto(data)
+            }
+            .ignoresSafeArea()
+        }
+        .overlay(alignment: .bottom) { visionStatus }
         .tint(Color.slateText)
         .task {
             await viewModel.reload()
+            workout.adopt(day: viewModel.todayKey)
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                Task {
+                    await viewModel.refreshIfDayChanged()
+                    workout.adopt(day: viewModel.todayKey)
+                }
+            }
+        }
+        .onChange(of: viewModel.todayKey) { _, day in
+            workout.adopt(day: day)
         }
         .onChange(of: viewModel.needsOnboarding) { _, needs in
             if needs, !showOnboarding { showOnboarding = true }
@@ -98,94 +147,62 @@ struct HealthView: View {
         }
     }
 
-    private var header: some View {
-        GlassChrome {
-            HStack(alignment: .firstTextBaseline) {
-                Text(viewModel.todaySession?.short.lowercased() ?? "saúde")
-                    .font(.system(size: 34, weight: .bold, design: .monospaced))
-                    .foregroundStyle(Color.slateText)
-                Spacer(minLength: 8)
-                if !viewModel.isPlanPrimary, !viewModel.sessions.isEmpty {
-                    Button { showOnboarding = true } label: {
-                        Text("trocar")
-                            .font(.system(size: 12, design: .monospaced))
-                            .foregroundStyle(.primary)
-                            .padding(.horizontal, 14)
-                            .frame(minHeight: 34)
-                            .contentShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .glassSurface(shape: Capsule(), interactive: true)
+    private func presentLog(_ exercise: VitalsExercise) {
+        loggingDay = viewModel.todayKey
+        workout.adopt(day: loggingDay)
+        loggingExercise = exercise
+    }
+
+    /// Identificação discreta da aba: sem título gigante e sem barra fixa —
+    /// o protagonista da Home é o modelo muscular.
+    private var homeIdentity: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text("treino")
+                .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                .foregroundStyle(Color.slateTextDim)
+            Spacer(minLength: 8)
+            if !viewModel.isPlanPrimary, !viewModel.sessions.isEmpty {
+                Button { showOnboarding = true } label: {
+                    Text("trocar")
+                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(TrainingPalette.accent)
+                        .padding(.horizontal, 14)
+                        .frame(minHeight: 44)
+                        .contentShape(Capsule())
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Trocar o treino de hoje")
             }
-            .padding(.horizontal, 16)
-            .frame(minHeight: 52)
         }
     }
 
     @ViewBuilder
-    private func sessionBody(for session: VitalsSession) -> some View {
-        Text(session.name.lowercased())
-            .font(.system(size: 12, design: .monospaced))
-            .foregroundStyle(Color.slateTextDim)
+    private func heroCard(for session: VitalsSession) -> some View {
+        let summary = WorkoutProgress.session(exercises: session.exercises, loggedSets: loggedSets)
+        let current = WorkoutProgress.current(exercises: session.exercises, loggedSets: loggedSets)
 
-        BodyMapView(highlighted: viewModel.highlightedMuscles)
-            .frame(height: 300)
-            .frame(maxWidth: .infinity)
-
-        if session.rest {
-            Text("Descanso ativo — cardio")
-                .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                .foregroundStyle(Color.slateText)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(18)
-                .glassSurface(shape: RoundedRectangle(cornerRadius: SlateRadius.card, style: .continuous))
-        } else {
-            VStack(spacing: 0) {
-                ForEach(Array(session.exercises.enumerated()), id: \.element.id) { index, exercise in
-                    if index > 0 {
-                        Divider().overlay(Color.slateStroke.opacity(0.4))
-                    }
-                    exerciseEntry(exercise, session: session)
-                }
-            }
-            .glassSurface(shape: RoundedRectangle(cornerRadius: SlateRadius.card, style: .continuous))
-
-            noteField
-        }
+        WorkoutHeroCard(
+            sessionName: session.short.lowercased() == session.name.lowercased()
+                ? session.name
+                : "\(session.short) · \(session.name)",
+            highlighted: viewModel.highlightedMuscles,
+            isRest: session.rest,
+            progress: summary,
+            currentName: current?.name,
+            restLabel: workout.isResting ? workout.restLabel : nil,
+            action: { openWorkout() }
+        )
     }
 
-    @ViewBuilder
-    private func exerciseEntry(_ exercise: VitalsExercise, session: VitalsSession) -> some View {
-        if exercise.doseType == .reps {
-            HStack(spacing: 0) {
-                Button {
-                    reading = nil
-                    loggingExercise = exercise
-                } label: {
-                    exerciseRow(exercise, session: session)
-                }
-                .buttonStyle(.plain)
+    private func openWorkout() {
+        workout.adopt(day: viewModel.todayKey)
+        showWorkout = true
+    }
 
-                Button {
-                    photoExercise = exercise
-                    reading = nil
-                    vision.reset()
-                    showCamera = true
-                } label: {
-                    Image(systemName: "camera")
-                        .font(.system(size: 14))
-                        .foregroundStyle(Color.slateTextDim)
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("ler máquina e peso pela foto")
-                .padding(.trailing, 8)
-            }
-        } else {
-            exerciseRow(exercise, session: session)
-        }
+    // MARK: - Foco do treino
+
+    private func loggedSets(_ exerciseId: String) -> Int {
+        viewModel.todayEntry(for: exerciseId)?.sets.count ?? 0
     }
 
     @ViewBuilder
@@ -225,72 +242,10 @@ struct HealthView: View {
             await vision.analyze(image: data, exercise: exercise.name)
             if case .done(let result) = vision.phase {
                 reading = result
-                loggingExercise = exercise
+                presentLog(exercise)
                 vision.reset()
             }
         }
-    }
-
-    private func exerciseRow(_ exercise: VitalsExercise, session: VitalsSession) -> some View {
-        let entry = viewModel.todayEntry(for: exercise.id)
-        return VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(exercise.name.lowercased())
-                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(Color.slateText)
-                Spacer(minLength: 8)
-                if entry != nil {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Color.slateTextDim)
-                } else if viewModel.shouldIncreaseLoad(exercise) {
-                    Text("subir carga")
-                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(BodyMapPalette.highlight)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(BodyMapPalette.highlight.opacity(0.16), in: Capsule())
-                }
-            }
-            if let entry {
-                Text(VitalsFormat.logged(entry.sets))
-                    .font(.system(size: 12, design: .monospaced))
-                    .foregroundStyle(Color.slateText)
-            } else {
-                HStack(spacing: 10) {
-                    Text(VitalsFormat.prescription(exercise.sets, doseType: exercise.doseType))
-                        .font(.system(size: 12, design: .monospaced))
-                        .foregroundStyle(Color.slateTextDim)
-                    if let restSec = exercise.restSec, restSec > 0 {
-                        Text("\(restSec)s")
-                            .font(.system(size: 12, design: .monospaced))
-                            .foregroundStyle(Color.slateTextFaint)
-                    }
-                    if let weight = viewModel.lastWeight(for: exercise.id) {
-                        Text(VitalsFormat.kg(weight))
-                            .font(.system(size: 12, design: .monospaced))
-                            .foregroundStyle(Color.slateTextFaint)
-                    }
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .contentShape(Rectangle())
-    }
-
-    private var noteField: some View {
-        TextField("", text: $note, prompt: Text("nota").foregroundStyle(.tertiary))
-            .font(.system(size: 12, design: .monospaced))
-            .foregroundStyle(Color.slateTextDim)
-            .submitLabel(.done)
-            .onSubmit {
-                let trimmed = note.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard trimmed != viewModel.todayNote else { return }
-                Task { try? await viewModel.saveNote(note: trimmed) }
-            }
-            .padding(14)
-            .glassSurface(shape: RoundedRectangle(cornerRadius: SlateRadius.cell, style: .continuous))
     }
 
     private func planFallback(_ message: String) -> some View {

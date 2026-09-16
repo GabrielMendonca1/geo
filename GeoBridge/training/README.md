@@ -18,3 +18,7 @@ A variante inicial de 5 dias, correspondente à frequência declarada de 4–5 v
 python3 GeoBridge/tools/generate_week_plan.py --week 2026-W35 --days 5 --output GeoBridge/fixtures/training/generated/plan-2026-W35.r1-5days.json
 python3 -m unittest discover -s tests -p 'test_*.py'
 ```
+
+O subdiretório `routines/` guarda fontes versionadas de rotinas autorizadas (ficha A/B/C/D, catálogo v2,
+safety v2 com autorizações escopadas). Ele não altera os três arquivos acima nem o gerador conservador,
+não contém plano ativo e não publica nada — ver `routines/README.md`.
