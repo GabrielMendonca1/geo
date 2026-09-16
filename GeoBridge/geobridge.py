@@ -56,6 +56,8 @@ TERM_ATTACH_PANE_RE = re.compile(r"\Aw[0-9]{1,3}:p[0-9]{1,3}\Z")
 TERM_ATTACH_AGENT_PREFIX = "ag-"
 TERM_ATTACH_HERDR_PREFIX = "hd-"
 TERM_ATTACH_SSH_TIMEOUT = os.environ.get("GEO_TERM_ATTACH_SSH_TIMEOUT", "4")
+TERM_PREVIEW_LINES = 12
+TERM_PREVIEW_MAX_LINES = 40
 STATUS_UNITS = [u for u in os.environ.get("GEO_STATUS_UNITS", "garime-wa syncthing-garime").split() if u]
 STATUS_MAC_ADDR = (os.environ.get("GEO_STATUS_MAC_HOST", "100.123.44.9"), 22)
 STATUS_MAC_USER = os.environ.get("GEO_STATUS_MAC_USER", "biel")
@@ -2083,6 +2085,32 @@ class Handler(BaseHTTPRequestHandler):
             names = []
         self._json(200, json.dumps({"sessions": names}).encode())
 
+    def _term_preview(self):
+        if not self._term_gate():
+            return
+        session = self._term_session_name()
+        if session is None:
+            return
+        q = parse_qs(urlsplit(self.path).query)
+        try:
+            lines = int((q.get("lines") or [str(TERM_PREVIEW_LINES)])[0])
+        except ValueError:
+            lines = TERM_PREVIEW_LINES
+        lines = max(1, min(TERM_PREVIEW_MAX_LINES, lines))
+        try:
+            proc = subprocess.run(
+                [TERM_TMUX, "capture-pane", "-p", "-e", "-t", term_pane_target(session), "-S", "-%d" % lines],
+                capture_output=True, timeout=5,
+            )
+        except Exception:
+            self._json(404, b'{"error":"no_session"}')
+            return
+        if proc.returncode != 0:
+            self._json(404, b'{"error":"no_session"}')
+            return
+        text = proc.stdout.decode("utf-8", "replace")
+        self._json(200, json.dumps({"text": text}).encode())
+
     def _term_health(self):
         if not self._term_gate():
             return
@@ -3032,6 +3060,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._term_list()
             elif path == "/term/winsize":
                 self._term_winsize()
+            elif path == "/term/preview":
+                self._term_preview()
             elif path == "/term/agents":
                 self._term_agents()
             elif path == "/term/health":
