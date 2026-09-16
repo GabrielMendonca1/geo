@@ -36,7 +36,7 @@ private struct BodySideView: View {
                     path
                         .fill(color(for: part.slug))
                         .overlay {
-                            path.stroke(Color.slateInk(0.28), lineWidth: 0.5)
+                            path.stroke(Color.slateInk(0.18), lineWidth: 0.5)
                         }
                 }
             }
@@ -53,14 +53,9 @@ private struct BodySideView: View {
 
 enum BodyMapPalette {
     // Keep the unworked muscles visible on both canvas and glass cards.
-    static let body = Color.slateInk(0.22)
-    static let head = Color.slateInk(0.28)
-    static let highlight = Color(
-        UIColor { $0.userInterfaceStyle == .dark
-            ? UIColor(red: 0.42, green: 0.60, blue: 0.97, alpha: 1)
-            : UIColor(red: 0.24, green: 0.45, blue: 0.90, alpha: 1)
-        }
-    )
+    static let body = Color.slateInk(0.14)
+    static let head = Color.slateInk(0.18)
+    static let highlight = Color.primary
 }
 
 struct BodyPart {

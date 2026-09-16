@@ -47,17 +47,22 @@ struct ExerciseLogSheet: View {
     }
     private var restPrescription: String {
         let seconds = RestTimerRules.duration(restSec: exercise.restSec)
-        return "descanso \(seconds)s" + ((exercise.restSec ?? 0) > 0 ? "" : " · padrão")
+        return "Descanso \(seconds)s" + ((exercise.restSec ?? 0) > 0 ? "" : " (padrão)")
     }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
-                    headline
-
-                    if session.rest != nil {
-                        restBanner
+                    if let rest = session.rest {
+                        RestRingView(
+                            state: rest,
+                            remaining: session.remaining,
+                            onRestart: { session.restartRest() },
+                            onSkip: { session.skipRest() }
+                        )
+                    } else {
+                        headline
                     }
 
                     if let reading {
@@ -70,8 +75,8 @@ struct ExerciseLogSheet: View {
                                 setRow(index: index)
                             }
                         }
-                        .padding(14)
-                        .glassSurface(shape: RoundedRectangle(cornerRadius: SlateRadius.card, style: .continuous))
+                        .padding(12)
+                        .background(Color.paperCard, in: RoundedRectangle(cornerRadius: PaperRadius.card, style: .continuous))
 
                         hint
                     } else {
@@ -85,26 +90,24 @@ struct ExerciseLogSheet: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 18)
             }
-            .scrollContentBackground(.hidden)
+            .background(Color.paperCanvas)
             .scrollDismissesKeyboard(.interactively)
-            .navigationTitle(exercise.name.lowercased())
+            .navigationTitle(exercise.name)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("fechar") { persistDraft(); dismiss() }
-                        .foregroundStyle(.secondary)
+                    Button("Fechar") { persistDraft(); dismiss() }
                         .disabled(isBusy)
                 }
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
-                    Button("ok") { focused = nil }
-                        .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                    Button("OK") { focused = nil }
+                        .font(.system(size: 15, weight: .semibold))
                 }
             }
         }
-        .glassSheet(detents: [.large])
-        .tint(Color.slateText)
+        .presentationDetents([.large])
+        .tint(Color.primary)
         .onAppear(perform: prepare)
         .onDisappear(perform: persistDraft)
         .interactiveDismissDisabled(isBusy)
@@ -115,61 +118,46 @@ struct ExerciseLogSheet: View {
     // MARK: - Cabeçalho
 
     private var headline: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(VitalsFormat.prescription(exercise.sets, doseType: exercise.doseType))
-                    .font(.system(size: 12, design: .monospaced))
-                    .foregroundStyle(Color.slateTextDim)
-                Spacer(minLength: 8)
-                if isTrackable {
-                    Text("\(progress.done)/\(progress.target) séries")
-                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(progress.isComplete ? TrainingPalette.done : Color.slateText)
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 14) {
+                BodyMapView(highlighted: Set(exercise.muscles))
+                    .padding(8)
+                    .frame(width: 96, height: 96)
+                    .background(Color.paperTile, in: RoundedRectangle(cornerRadius: PaperRadius.tile, style: .continuous))
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(MuscleNames.line(exercise.muscles))
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.primary)
+                    Text(VitalsFormat.prescription(exercise.sets, doseType: exercise.doseType))
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                    Text(restPrescription)
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                    if let lastWeight {
+                        Text("Última: \(VitalsFormat.kg(lastWeight))")
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
+                    }
                 }
+                Spacer(minLength: 0)
             }
             if isTrackable {
+                HStack {
+                    Text("Séries")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text("\(progress.done) de \(progress.target)")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.primary)
+                }
                 ProgressBar(fraction: progress.fraction)
             }
-            HStack(spacing: 10) {
-                Text(restPrescription)
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(Color.slateTextFaint)
-                if let lastWeight {
-                    Text("última \(VitalsFormat.kg(lastWeight))")
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundStyle(Color.slateTextFaint)
-                }
-            }
         }
-    }
-
-    // MARK: - Descanso
-
-    private var restBanner: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(session.remaining > 0 ? "descanso" : "pode ir")
-                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(Color.slateTextDim)
-                Text(session.restLabel)
-                    .font(.system(size: 30, weight: .bold, design: .monospaced))
-                    .foregroundStyle(session.remaining > 0 ? TrainingPalette.accent : TrainingPalette.done)
-                    .monospacedDigit()
-            }
-            Spacer(minLength: 8)
-            Button("reiniciar") { session.restartRest() }
-                .font(.system(size: 12, design: .monospaced))
-                .foregroundStyle(Color.slateTextDim)
-                .frame(minHeight: 44)
-            Button("pular") { session.skipRest() }
-                .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                .foregroundStyle(TrainingPalette.accent)
-                .frame(minHeight: 44)
-        }
-        .buttonStyle(.plain)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
-        .glassSurface(shape: RoundedRectangle(cornerRadius: SlateRadius.cell, style: .continuous))
+        .padding(16)
+        .background(Color.paperCard, in: RoundedRectangle(cornerRadius: PaperRadius.card, style: .continuous))
     }
 
     // MARK: - Linhas de série
@@ -183,15 +171,17 @@ struct ExerciseLogSheet: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 10) {
                 Text("\(index + 1)")
-                    .font(.system(size: 12, weight: isCurrent ? .bold : .regular, design: .monospaced))
-                    .foregroundStyle(row.committed ? TrainingPalette.done : (isCurrent ? TrainingPalette.accent : Color.slateTextFaint))
-                    .frame(width: 16, alignment: .leading)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(isCurrent ? Color.paperCard : Color.primary)
+                    .frame(width: 28, height: 28)
+                    .background(isCurrent ? Color.primary : Color.paperTile, in: Circle())
+                    .opacity(row.committed || isCurrent ? 1 : 0.5)
 
                 field(
                     text: repsBinding(index: index),
                     prompt: target.map { "\($0)" } ?? "reps",
                     suffix: "reps",
-                    width: 56,
+                    width: 62,
                     keyboard: .numberPad,
                     focus: .reps(index),
                     enabled: !row.committed && !isBusy
@@ -201,7 +191,7 @@ struct ExerciseLogSheet: View {
                     text: kgBinding(index: index),
                     prompt: "0",
                     suffix: "kg",
-                    width: 70,
+                    width: 76,
                     keyboard: .decimalPad,
                     focus: .kg(index),
                     enabled: !row.committed && !isBusy
@@ -214,16 +204,13 @@ struct ExerciseLogSheet: View {
 
             if let message = rowError[index] {
                 Text(message)
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundStyle(TrainingPalette.attention)
-                    .padding(.leading, 26)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .padding(.leading, 38)
             }
         }
-        .padding(.vertical, 8)
-        .padding(.horizontal, 8)
-        .background(
-            TrainingRowBackground(state: isCurrent ? .current : (row.committed ? .done : .idle))
-        )
+        .padding(.vertical, 6)
+        .padding(.horizontal, 4)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Série \(index + 1)\(row.committed ? ", concluída" : (isCurrent ? ", atual" : ""))")
     }
@@ -233,16 +220,16 @@ struct ExerciseLogSheet: View {
         if row.committed {
             HStack(spacing: 8) {
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 16))
-                    .foregroundStyle(TrainingPalette.done)
+                    .font(.system(size: 20))
+                    .foregroundStyle(.primary)
                     .accessibilityLabel("série concluída")
                 if index == committedCount - 1 {
-                    Button("desfazer") { undoLast() }
-                        .font(.system(size: 10, design: .monospaced))
+                    Button("Desfazer") { undoLast() }
+                        .font(.system(size: 12))
                         .lineLimit(1)
                         .fixedSize(horizontal: true, vertical: false)
                         .frame(minHeight: 44)
-                        .foregroundStyle(Color.slateTextDim)
+                        .foregroundStyle(.secondary)
                         .buttonStyle(.plain)
                         .disabled(isBusy)
                 }
@@ -253,27 +240,22 @@ struct ExerciseLogSheet: View {
             } label: {
                 Group {
                     if busyIndex == index {
-                        ProgressView().tint(.slateText).scaleEffect(0.7)
+                        ProgressView().tint(Color.paperCard).scaleEffect(0.8)
                     } else {
-                        Text("concluir")
-                            .font(.system(size: 12, weight: .bold, design: .monospaced))
-                            .lineLimit(1)
-                            .fixedSize(horizontal: true, vertical: false)
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 16, weight: .bold))
                     }
                 }
-                .foregroundStyle(TrainingPalette.onAccent)
-                .padding(.horizontal, 14)
-                .frame(minHeight: 44)
-                .background(TrainingPalette.accent, in: Capsule())
-                .contentShape(Capsule())
+                .foregroundStyle(Color.paperCard)
+                .frame(width: 44, height: 44)
+                .background(Color.primary, in: RoundedRectangle(cornerRadius: PaperRadius.tile, style: .continuous))
+                .contentShape(RoundedRectangle(cornerRadius: PaperRadius.tile, style: .continuous))
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Concluir série \(index + 1)")
             .disabled(isBusy)
         } else {
-            Text("—")
-                .font(.system(size: 12, design: .monospaced))
-                .foregroundStyle(Color.slateTextFaint)
+            Color.clear.frame(width: 44, height: 44)
         }
     }
 
@@ -287,80 +269,80 @@ struct ExerciseLogSheet: View {
         enabled: Bool
     ) -> some View {
         HStack(spacing: 3) {
-            TextField("", text: text, prompt: Text(prompt).foregroundStyle(Color.slateTextDim))
+            TextField("", text: text, prompt: Text(prompt).foregroundStyle(.tertiary))
                 .keyboardType(keyboard)
                 .accessibilityLabel(suffix == "kg" ? "Peso em quilogramas" : "Repetições")
-                .font(.system(size: 15, design: .monospaced))
+                .font(.system(size: 16, weight: .semibold))
+                .monospacedDigit()
                 .focused($focused, equals: focus)
                 .disabled(!enabled)
             Text(suffix)
-                .font(.system(size: 10, design: .monospaced))
-                .foregroundStyle(Color.slateTextFaint)
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .fixedSize(horizontal: true, vertical: false)
         }
         .frame(width: width)
-        .padding(.vertical, 9)
+        .frame(height: 44)
         .padding(.horizontal, 10)
-        .overlay(
-            RoundedRectangle(cornerRadius: AirRadius.button, style: .continuous)
-                .stroke(Color.slateStroke.opacity(enabled ? 1 : 0.4), lineWidth: 0.5)
-        )
+        .background(Color.paperTile, in: RoundedRectangle(cornerRadius: PaperRadius.tile, style: .continuous))
         .opacity(enabled ? 1 : 0.6)
     }
 
     private var hint: some View {
-        Text("0 kg = peso corporal · vírgula ou ponto para decimais · concluir salva esta série")
-            .font(.system(size: 10, design: .monospaced))
-            .foregroundStyle(Color.slateTextFaint)
+        Text("0 kg = peso corporal. O botão ✓ salva a série e inicia o descanso.")
+            .font(.system(size: 12))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 4)
     }
 
     private var durationCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("exercício por tempo · somente leitura")
-                .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                .foregroundStyle(Color.slateText)
-            Text("o registro de séries ainda aceita apenas repetições. Para esta atividade, acompanhe o tempo no relógio e use a nota do dia.")
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundStyle(Color.slateTextDim)
+            Text("Exercício por tempo")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.primary)
+            Text("O registro de séries aceita apenas repetições. Acompanhe o tempo no relógio e use a nota do dia.")
+                .font(.system(size: 13))
+                .foregroundStyle(.secondary)
             Button {
                 session.startRest(exerciseId: exercise.id, setIndex: 0, restSec: exercise.restSec)
             } label: {
-                Text("iniciar descanso")
-                    .font(.system(size: 12, weight: .bold, design: .monospaced))
-                    .foregroundStyle(TrainingPalette.onAccent)
-                    .padding(.horizontal, 16)
-                    .frame(minHeight: 44)
-                    .background(TrainingPalette.accent, in: Capsule())
-                    .contentShape(Capsule())
+                Text("Iniciar descanso")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Color.paperCard)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 48)
+                    .background(Color.primary, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
             .buttonStyle(.plain)
+            .padding(.top, 4)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
-        .glassSurface(shape: RoundedRectangle(cornerRadius: SlateRadius.card, style: .continuous))
+        .background(Color.paperCard, in: RoundedRectangle(cornerRadius: PaperRadius.card, style: .continuous))
     }
 
     private func failureBanner(_ message: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("não salvou · \(message)")
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundStyle(Color.slateText)
-            Text("seus números continuam aqui.")
-                .font(.system(size: 10, design: .monospaced))
-                .foregroundStyle(Color.slateTextFaint)
+            Text("Não salvou: \(message)")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.primary)
+            Text("Seus números continuam aqui.")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
             if retry != nil {
-                Button("tentar de novo") { performRetry() }
-                    .font(.system(size: 12, weight: .bold, design: .monospaced))
-                    .foregroundStyle(TrainingPalette.accent)
+                Button("Tentar de novo") { performRetry() }
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.primary)
                     .frame(minHeight: 44)
                     .buttonStyle(.plain)
                     .disabled(isBusy)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .glassSurface(shape: RoundedRectangle(cornerRadius: SlateRadius.cell, style: .continuous))
+        .padding(16)
+        .background(Color.paperCard, in: RoundedRectangle(cornerRadius: PaperRadius.card, style: .continuous))
     }
 
     @ViewBuilder
@@ -369,24 +351,24 @@ struct ExerciseLogSheet: View {
             HStack(spacing: 6) {
                 Image(systemName: "camera.viewfinder")
                     .font(.system(size: 11, weight: .semibold))
-                Text("leitura da foto · sugestão, confira antes de concluir")
-                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                Text("Leitura da foto — confira antes de concluir")
+                    .font(.system(size: 12, weight: .semibold))
             }
-            .foregroundStyle(TrainingPalette.attention)
+            .foregroundStyle(.secondary)
 
             Text(VisionBannerText.summary(reading))
-                .font(.system(size: 12, design: .monospaced))
-                .foregroundStyle(Color.slateText)
+                .font(.system(size: 14))
+                .foregroundStyle(.primary)
 
             if !reading.note.isEmpty {
-                Text(reading.note.lowercased())
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundStyle(Color.slateTextDim)
+                Text(reading.note)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .glassSurface(shape: RoundedRectangle(cornerRadius: SlateRadius.cell, style: .continuous))
+        .padding(16)
+        .background(Color.paperCard, in: RoundedRectangle(cornerRadius: PaperRadius.card, style: .continuous))
     }
 
     // MARK: - Bindings
@@ -561,13 +543,13 @@ struct ProgressBar: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
-                Capsule().fill(Color.slateText.opacity(0.12))
+                Capsule().fill(Color.paperTile)
                 Capsule()
-                    .fill(fraction >= 1 ? TrainingPalette.done : TrainingPalette.accent)
+                    .fill(Color.primary)
                     .frame(width: max(0, min(1, fraction)) * geometry.size.width)
             }
         }
-        .frame(height: 4)
+        .frame(height: 6)
         .animation(.easeOut(duration: 0.2), value: fraction)
     }
 }

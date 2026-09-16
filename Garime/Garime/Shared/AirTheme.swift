@@ -43,6 +43,23 @@ extension Color {
     }
 }
 
+/// Superfícies "papel": fundo cinza-claro, cartões brancos, tile cinza (invertido no escuro).
+/// É a linguagem das abas redesenhadas (Dinheiro, Treino).
+extension Color {
+    static let paperCanvas = Color(uiColor: .systemGroupedBackground)
+    static let paperCard = Color(uiColor: .secondarySystemGroupedBackground)
+    static let paperTile = Color(uiColor: .tertiarySystemGroupedBackground)
+    /// Cor do texto sobre um preenchimento `Color.primary` (branco no claro, preto no escuro).
+    static let paperInk = Color(uiColor: UIColor { trait in
+        trait.userInterfaceStyle == .dark ? .black : .white
+    })
+}
+
+enum PaperRadius {
+    static let card: CGFloat = 24
+    static let tile: CGFloat = 12
+}
+
 enum AirRadius {
     static let card: CGFloat = 14
     static let image: CGFloat = 11

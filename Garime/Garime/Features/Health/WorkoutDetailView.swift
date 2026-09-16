@@ -13,33 +13,25 @@ struct WorkoutDetailView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                Text(session.name.lowercased())
-                    .font(.system(size: 12, design: .monospaced))
-                    .foregroundStyle(Color.slateTextDim)
-
+            VStack(alignment: .leading, spacing: 28) {
                 if session.rest {
                     restDayCard
                 } else {
                     focusCard
                     exerciseList
-                    BodyMapView(highlighted: viewModel.highlightedMuscles)
-                        .frame(height: 180)
-                        .frame(maxWidth: .infinity)
-                        .opacity(0.9)
-                        .accessibilityHidden(true)
                 }
                 noteField
             }
             .padding(.horizontal, 16)
-            .padding(.bottom, 28)
-            .padding(.top, 4)
+            .padding(.bottom, 120)
+            .padding(.top, 8)
         }
         .dockScrollTracking()
-        .background(Color.slateCanvas)
-        .navigationTitle(session.short.lowercased())
+        .background(Color.paperCanvas)
+        .navigationTitle(session.short)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
+        .toolbarBackground(Color.paperCanvas, for: .navigationBar)
     }
 
     // MARK: - Progresso
@@ -52,252 +44,257 @@ struct WorkoutDetailView: View {
         WorkoutProgress.exercise(prescribed: exercise.sets, loggedSets: loggedSets(exercise.id))
     }
 
+    private var currentExercise: VitalsExercise? {
+        WorkoutProgress.current(exercises: session.exercises, loggedSets: loggedSets)
+    }
+
     private var restDayCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("descanso ativo · cardio")
-                .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                .foregroundStyle(Color.slateText)
-            Text("sem séries de força hoje. Use a nota do dia se quiser registrar algo.")
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundStyle(Color.slateTextDim)
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Descanso ativo")
+                .font(.system(size: 17))
+                .foregroundStyle(.secondary)
+            Text("Sem séries de força hoje")
+                .font(.system(size: 28, weight: .bold))
+                .foregroundStyle(Color.primary)
+            Text("Cardio leve ou caminhada. Use a nota do dia se quiser registrar algo.")
+                .font(.system(size: 15))
+                .foregroundStyle(.secondary)
+                .padding(.top, 8)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(18)
-        .glassSurface(shape: RoundedRectangle(cornerRadius: SlateRadius.card, style: .continuous))
+        .padding(20)
+        .background(Color.paperCard, in: RoundedRectangle(cornerRadius: PaperRadius.card, style: .continuous))
     }
 
     @ViewBuilder
     private var focusCard: some View {
         let summary = WorkoutProgress.session(exercises: session.exercises, loggedSets: loggedSets)
-        let current = WorkoutProgress.current(exercises: session.exercises, loggedSets: loggedSets)
+        let current = currentExercise
         let next = WorkoutProgress.next(exercises: session.exercises, after: current?.id, loggedSets: loggedSets)
 
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline) {
-                if summary.isComplete {
-                    TrainingBadge(text: "séries concluídas", tint: TrainingPalette.done, systemImage: "checkmark")
-                } else {
-                    TrainingBadge(text: "agora", tint: TrainingPalette.accent, systemImage: "bolt.fill")
-                }
-                Spacer(minLength: 8)
-                Text("\(summary.setsDone)/\(summary.setsTarget) séries · \(summary.exercisesDone)/\(summary.exercisesTarget) exercícios")
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(Color.slateTextFaint)
+        VStack(alignment: .leading, spacing: 0) {
+            Text(summary.isComplete ? "Treino concluído" : "Progresso")
+                .font(.system(size: 17))
+                .foregroundStyle(.secondary)
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text("\(summary.setsDone)")
+                    .font(.system(size: 40, weight: .bold))
+                    .foregroundStyle(Color.primary)
+                Text("de \(summary.setsTarget) séries")
+                    .font(.system(size: 17))
+                    .foregroundStyle(.secondary)
             }
-
+            .padding(.top, 6)
             ProgressBar(fraction: summary.fraction)
+                .padding(.top, 20)
 
             if workout.rest != nil {
                 restStrip
+                    .padding(.top, 20)
             }
 
             if let current {
                 Button {
                     onLog(current)
                 } label: {
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(current.name.lowercased())
-                                .font(.system(size: 19, weight: .bold, design: .monospaced))
-                                .foregroundStyle(Color.slateText)
-                                .multilineTextAlignment(.leading)
+                    HStack(spacing: 14) {
+                        MuscleTile(muscles: current.muscles)
+                            .colorScheme(.dark)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(current.name)
+                                .font(.system(size: 17, weight: .semibold))
+                                .lineLimit(1)
                             Text(currentSubtitle(current))
-                                .font(.system(size: 11, design: .monospaced))
-                                .foregroundStyle(Color.slateTextDim)
+                                .font(.system(size: 15))
+                                .opacity(0.7)
+                                .lineLimit(1)
                         }
                         Spacer(minLength: 8)
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(TrainingPalette.accent)
+                            .font(.system(size: 15, weight: .semibold))
                     }
+                    .foregroundStyle(Color.paperInk)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(12)
-                    .background(
-                        RoundedRectangle(cornerRadius: SlateRadius.cell, style: .continuous)
-                            .fill(TrainingPalette.accentSoft)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: SlateRadius.cell, style: .continuous)
-                            .stroke(TrainingPalette.accent.opacity(0.5), lineWidth: 1)
-                    )
-                    .contentShape(RoundedRectangle(cornerRadius: SlateRadius.cell, style: .continuous))
+                    .background(Color.primary, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 }
                 .buttonStyle(.plain)
+                .padding(.top, 20)
                 .accessibilityLabel("Registrar \(current.name)")
-            } else {
-                Text(summary.exercisesTarget == 0
-                     ? "consulte abaixo as atividades por tempo."
-                     : "séries de força registradas. Confira abaixo as atividades por tempo, se houver.")
-                    .font(.system(size: 12, design: .monospaced))
-                    .foregroundStyle(Color.slateText)
             }
 
             if let next {
-                Text("próximo · \(next.name.lowercased()) · \(VitalsFormat.prescription(next.sets, doseType: next.doseType))")
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(Color.slateTextFaint)
-                    .lineLimit(2)
+                Text("Próximo · \(next.name)")
+                    .font(.system(size: 15))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .padding(.top, 14)
             }
         }
-        .padding(16)
-        .glassSurface(shape: RoundedRectangle(cornerRadius: SlateRadius.card, style: .continuous))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(20)
+        .background(Color.paperCard, in: RoundedRectangle(cornerRadius: PaperRadius.card, style: .continuous))
     }
 
     private func currentSubtitle(_ exercise: VitalsExercise) -> String {
         let progress = setProgress(for: exercise)
-        var parts = ["série \(min(progress.done + 1, max(progress.target, 1))) de \(progress.target)"]
+        var parts = ["Série \(min(progress.done + 1, max(progress.target, 1))) de \(progress.target)"]
         if let reps = WorkoutProgress.suggestedReps(prescribed: exercise.sets, index: progress.done) {
-            parts.append("alvo \(reps) reps")
+            parts.append("\(reps) reps")
         }
         if let weight = viewModel.lastWeight(for: exercise.id) {
-            parts.append("última \(VitalsFormat.kg(weight))")
+            parts.append(VitalsFormat.kg(weight))
         }
         return parts.joined(separator: " · ")
     }
 
     private var restStrip: some View {
         HStack(spacing: 12) {
-            Text(workout.restLabel)
-                .font(.system(size: 24, weight: .bold, design: .monospaced))
-                .monospacedDigit()
-                .foregroundStyle(workout.remaining > 0 ? TrainingPalette.accent : TrainingPalette.done)
-            Text(workout.remaining > 0 ? "descanso" : "pode ir")
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundStyle(Color.slateTextDim)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(workout.remaining > 0 ? "Descanso" : "Pode ir")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+                Text(workout.restLabel)
+                    .font(.system(size: 28, weight: .bold))
+                    .monospacedDigit()
+                    .foregroundStyle(Color.primary)
+            }
             Spacer(minLength: 8)
-            Button("reiniciar") { workout.restartRest() }
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundStyle(Color.slateTextDim)
+            Button("Reiniciar") { workout.restartRest() }
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(.secondary)
                 .frame(minHeight: 44)
-            Button("pular") { workout.skipRest() }
-                .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                .foregroundStyle(TrainingPalette.accent)
+            Button("Pular") { workout.skipRest() }
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Color.primary)
                 .frame(minHeight: 44)
         }
         .buttonStyle(.plain)
-        .padding(.horizontal, 12)
-        .glassSurface(shape: RoundedRectangle(cornerRadius: SlateRadius.cell, style: .continuous))
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(Color.paperTile, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
     // MARK: - Lista de exercícios
 
     private var exerciseList: some View {
-        VStack(spacing: 6) {
-            ForEach(session.exercises) { exercise in
-                exerciseEntry(exercise)
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Exercícios")
+                .font(.system(size: 17))
+                .foregroundStyle(.secondary)
+                .padding(.leading, 20)
+            VStack(spacing: 0) {
+                ForEach(Array(session.exercises.enumerated()), id: \.element.id) { index, exercise in
+                    if index > 0 {
+                        Divider().padding(.leading, 74).padding(.trailing, 20)
+                    }
+                    exerciseEntry(exercise)
+                }
             }
+            .background(Color.paperCard, in: RoundedRectangle(cornerRadius: PaperRadius.card, style: .continuous))
         }
-        .padding(8)
-        .glassSurface(shape: RoundedRectangle(cornerRadius: SlateRadius.card, style: .continuous))
     }
 
     @ViewBuilder
     private func exerciseEntry(_ exercise: VitalsExercise) -> some View {
-        if exercise.doseType == .reps {
-            HStack(spacing: 0) {
-                Button {
-                    onLog(exercise)
-                } label: {
-                    exerciseRow(exercise)
-                }
-                .buttonStyle(.plain)
-
-                Button {
-                    onPhoto(exercise)
-                } label: {
-                    Image(systemName: "camera")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(TrainingPalette.accent)
-                        .frame(width: 44, height: 44)
-                        .contentShape(Circle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Ler máquina e peso pela foto")
-                .padding(.trailing, 4)
-            }
-            .background(rowBackground(exercise))
-        } else {
+        HStack(spacing: 0) {
             Button {
                 onLog(exercise)
             } label: {
                 exerciseRow(exercise)
             }
             .buttonStyle(.plain)
-            .background(rowBackground(exercise))
-        }
-    }
 
-    /// Fundo sempre arredondado — o estado "agora" nunca vaza um retângulo
-    /// sobre os cantos do cartão.
-    private func rowBackground(_ exercise: VitalsExercise) -> some View {
-        let progress = setProgress(for: exercise)
-        let isCurrent = WorkoutProgress.current(exercises: session.exercises, loggedSets: loggedSets)?.id == exercise.id
-        let state: TrainingRowState = isCurrent ? .current : (progress.isComplete ? .done : .idle)
-        return TrainingRowBackground(state: state)
+            if exercise.doseType == .reps {
+                Button {
+                    onPhoto(exercise)
+                } label: {
+                    Image(systemName: "camera")
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Ler máquina e peso pela foto")
+                .padding(.trailing, 10)
+            }
+        }
     }
 
     private func exerciseRow(_ exercise: VitalsExercise) -> some View {
         let entry = viewModel.todayEntry(for: exercise.id)
         let progress = setProgress(for: exercise)
-        return VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(exercise.name.lowercased())
-                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(Color.slateText)
-                Spacer(minLength: 8)
-                if WorkoutProgress.isTrackable(exercise), progress.isStarted {
-                    Text("\(progress.done)/\(progress.target)")
-                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(progress.isComplete ? TrainingPalette.done : Color.slateTextDim)
-                }
-                if progress.isComplete {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(TrainingPalette.done)
-                        .accessibilityLabel("concluído")
-                } else if !progress.isStarted, viewModel.shouldIncreaseLoad(exercise) {
-                    TrainingBadge(text: "subir carga", tint: TrainingPalette.attention, systemImage: "arrow.up")
-                }
-            }
-            if let entry, !entry.sets.isEmpty {
-                HStack(spacing: 8) {
-                    Text(VitalsFormat.logged(entry.sets))
-                        .font(.system(size: 12, design: .monospaced))
-                        .foregroundStyle(Color.slateText)
-                    if progress.isPartial {
-                        Text("faltam \(progress.target - progress.done)")
-                            .font(.system(size: 11, design: .monospaced))
-                            .foregroundStyle(TrainingPalette.attention)
-                    }
-                }
-            } else {
-                HStack(spacing: 10) {
-                    Text(VitalsFormat.prescription(exercise.sets, doseType: exercise.doseType))
-                        .font(.system(size: 12, design: .monospaced))
-                        .foregroundStyle(Color.slateTextDim)
-                    if let restSec = exercise.restSec, restSec > 0 {
-                        Text("\(restSec)s")
-                            .font(.system(size: 12, design: .monospaced))
-                            .foregroundStyle(Color.slateTextFaint)
-                    }
-                    if let weight = viewModel.lastWeight(for: exercise.id) {
-                        Text(VitalsFormat.kg(weight))
-                            .font(.system(size: 12, design: .monospaced))
-                            .foregroundStyle(Color.slateTextFaint)
-                    }
-                }
+        let isCurrent = currentExercise?.id == exercise.id
+
+        var detail: String
+        if let entry, !entry.sets.isEmpty {
+            detail = VitalsFormat.logged(entry.sets)
+        } else {
+            detail = VitalsFormat.prescription(exercise.sets, doseType: exercise.doseType)
+            if let weight = viewModel.lastWeight(for: exercise.id) {
+                detail += " · \(VitalsFormat.kg(weight))"
             }
         }
+
+        return HStack(spacing: 14) {
+            MuscleTile(muscles: exercise.muscles)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text(exercise.name)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(Color.primary)
+                        .lineLimit(1)
+                    if !progress.isStarted, viewModel.shouldIncreaseLoad(exercise) {
+                        Image(systemName: "arrow.up")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(.secondary)
+                            .accessibilityLabel("subir carga")
+                    }
+                }
+                Text(detail)
+                    .font(.system(size: 15))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 8)
+            trailing(progress: progress, isCurrent: isCurrent, trackable: WorkoutProgress.isTrackable(exercise))
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .frame(minHeight: 44)
-        .contentShape(RoundedRectangle(cornerRadius: SlateRadius.cell, style: .continuous))
+        .contentShape(Rectangle())
+    }
+
+    @ViewBuilder
+    private func trailing(progress: ExerciseProgress, isCurrent: Bool, trackable: Bool) -> some View {
+        if progress.isComplete {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(Color.primary)
+                .accessibilityLabel("concluído")
+        } else if trackable, progress.isStarted {
+            Text("\(progress.done)/\(progress.target)")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(Color.primary)
+        } else if isCurrent {
+            Circle()
+                .fill(Color.primary)
+                .frame(width: 10, height: 10)
+                .accessibilityLabel("atual")
+        } else {
+            Image(systemName: "circle")
+                .font(.system(size: 22, weight: .regular))
+                .foregroundStyle(Color.primary.opacity(0.25))
+        }
     }
 
     private var noteField: some View {
-        TextField("", text: $note, prompt: Text("nota").foregroundStyle(Color.slateTextDim))
-            .font(.system(size: 12, design: .monospaced))
-            .foregroundStyle(Color.slateTextDim)
+        TextField("", text: $note, prompt: Text("Nota do dia").foregroundStyle(.secondary))
+            .font(.system(size: 17))
+            .foregroundStyle(Color.primary)
             .submitLabel(.done)
             .accessibilityLabel("Nota do dia")
             .onSubmit {
@@ -305,8 +302,8 @@ struct WorkoutDetailView: View {
                 guard trimmed != viewModel.todayNote else { return }
                 Task { try? await viewModel.saveNote(note: trimmed) }
             }
-            .padding(14)
-            .frame(minHeight: 44)
-            .glassSurface(shape: RoundedRectangle(cornerRadius: SlateRadius.cell, style: .continuous))
+            .padding(.horizontal, 20)
+            .frame(minHeight: 56)
+            .background(Color.paperCard, in: RoundedRectangle(cornerRadius: PaperRadius.card, style: .continuous))
     }
 }

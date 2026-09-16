@@ -1,45 +1,28 @@
 import SwiftUI
 import UIKit
 
-/// Paleta local da aba treino. Não toca no tema global (AirTheme): só define as
-/// poucas cores de ação e estado que a UX de treino precisa, com contraste
-/// próprio para claro e escuro.
+/// Paleta da aba treino: monocromática, na mesma linha da aba Dinheiro.
+/// Ação e "agora" são o preto (branco no escuro); concluído é o mesmo tom;
+/// atenção é o cinza secundário. Nada de cor de destaque.
 enum TrainingPalette {
-    /// Ação e "agora": ciano/teal.
-    static let accent = Color(
-        UIColor { $0.userInterfaceStyle == .dark
-            ? UIColor(red: 0.22, green: 0.84, blue: 0.82, alpha: 1)
-            : UIColor(red: 0.00, green: 0.44, blue: 0.48, alpha: 1)
-        }
-    )
+    /// Ação e "agora".
+    static let accent = Color.primary
 
     /// Texto/ícone sobre o preenchimento de `accent`.
-    static let onAccent = Color(
-        UIColor { $0.userInterfaceStyle == .dark ? UIColor.black : UIColor.white }
-    )
+    static let onAccent = Color.paperInk
 
-    /// Estado concluído: verde.
-    static let done = Color(
-        UIColor { $0.userInterfaceStyle == .dark
-            ? UIColor(red: 0.36, green: 0.86, blue: 0.52, alpha: 1)
-            : UIColor(red: 0.06, green: 0.51, blue: 0.27, alpha: 1)
-        }
-    )
+    /// Estado concluído.
+    static let done = Color.primary
 
-    /// Atenção suave (subir carga, avisos não bloqueantes): âmbar.
-    static let attention = Color(
-        UIColor { $0.userInterfaceStyle == .dark
-            ? UIColor(red: 0.99, green: 0.75, blue: 0.29, alpha: 1)
-            : UIColor(red: 0.60, green: 0.40, blue: 0.00, alpha: 1)
-        }
-    )
+    /// Atenção suave (subir carga, avisos não bloqueantes).
+    static let attention = Color.secondary
 
     /// Fundo de seleção "agora" — sempre usado com shape arredondado.
-    static var accentSoft: Color { accent.opacity(0.22) }
-    static var doneSoft: Color { done.opacity(0.18) }
+    static var accentSoft: Color { Color.primary.opacity(0.06) }
+    static var doneSoft: Color { Color.primary.opacity(0.03) }
 }
 
-/// Pílula colorida de ação (visual; o toque é de quem contém).
+/// Pílula de ação (visual; o toque é de quem contém).
 struct TrainingCTALabel: View {
     let title: String
     let systemImage: String
@@ -48,13 +31,13 @@ struct TrainingCTALabel: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: systemImage)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 15, weight: .semibold))
             Text(title)
-                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                .font(.system(size: 17, weight: .semibold))
         }
         .foregroundStyle(TrainingPalette.onAccent)
         .padding(.horizontal, 18)
-        .frame(minHeight: 44)
+        .frame(minHeight: 52)
         .frame(maxWidth: .infinity)
         .background(tint, in: Capsule())
     }
@@ -67,11 +50,10 @@ enum TrainingRowState {
     case idle
 }
 
-/// Fundo de linha **sempre arredondado**: o estado selecionado nunca desenha um
-/// retângulo quadrado por cima de um cartão de cantos redondos.
+/// Fundo de linha **sempre arredondado**.
 struct TrainingRowBackground: View {
     let state: TrainingRowState
-    var radius: CGFloat = SlateRadius.cell
+    var radius: CGFloat = PaperRadius.tile
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
@@ -84,16 +66,15 @@ struct TrainingRowBackground: View {
     private var fill: Color {
         switch state {
         case .current: return TrainingPalette.accentSoft
-        case .done: return TrainingPalette.doneSoft
-        case .idle: return Color.slateInk(0.04)
+        case .done: return .clear
+        case .idle: return .clear
         }
     }
 
     private var stroke: Color {
         switch state {
-        case .current: return TrainingPalette.accent.opacity(0.55)
-        case .done: return TrainingPalette.done.opacity(0.35)
-        case .idle: return .clear
+        case .current: return Color.primary.opacity(0.9)
+        case .done, .idle: return .clear
         }
     }
 }
@@ -113,7 +94,7 @@ enum WorkoutCTA {
     }
 }
 
-/// Selo de estado com fundo arredondado (nunca um retângulo vazando a borda).
+/// Selo de estado com fundo arredondado.
 struct TrainingBadge: View {
     let text: String
     let tint: Color
@@ -123,14 +104,14 @@ struct TrainingBadge: View {
         HStack(spacing: 4) {
             if let systemImage {
                 Image(systemName: systemImage)
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: 11, weight: .semibold))
             }
             Text(text)
-                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .font(.system(size: 13, weight: .semibold))
         }
         .foregroundStyle(tint)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(tint.opacity(0.16), in: Capsule())
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(tint.opacity(0.08), in: Capsule())
     }
 }

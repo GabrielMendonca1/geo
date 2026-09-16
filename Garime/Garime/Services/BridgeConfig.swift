@@ -31,8 +31,18 @@ enum BridgeConfig {
         return octets.count == 4 && octets[0] == 100 && (64...127).contains(octets[1])
     }
 
+    #if DEBUG
+    /// Simulador: token vindo do argumento `-geoBridgeToken` (não persiste).
+    static var debugTokenOverride: String?
+    #endif
+
     static var token: String? {
-        get { KeychainStore.read(tokenAccount) }
+        get {
+            #if DEBUG
+            if let debugTokenOverride, !debugTokenOverride.isEmpty { return debugTokenOverride }
+            #endif
+            return KeychainStore.read(tokenAccount)
+        }
         set { _ = setToken(newValue ?? "") }
     }
 

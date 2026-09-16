@@ -478,10 +478,8 @@ struct MoneyWeekChart: View {
 }
 
 private extension Color {
-    static let moneyCanvas = Color(uiColor: .systemGroupedBackground)
-    static let moneyCard = Color(uiColor: .secondarySystemGroupedBackground)
-    static let moneyTile = Color(uiColor: .tertiarySystemGroupedBackground)
-    static let moneyCanvasInverse = Color(uiColor: UIColor { trait in
-        trait.userInterfaceStyle == .dark ? .black : .white
-    })
+    static let moneyCanvas = Color.paperCanvas
+    static let moneyCard = Color.paperCard
+    static let moneyTile = Color.paperTile
+    static let moneyCanvasInverse = Color.paperInk
 }
