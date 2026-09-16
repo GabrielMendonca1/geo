@@ -1,7 +1,23 @@
+import GeoCore
 import SwiftUI
 
 struct CalendarView: View {
     @StateObject private var viewModel = CalendarViewModel()
+    @StateObject private var moneyStore = MoneyStore.shared
+    /// Espaço ativo do Financeiro (espelhado por padrão).
+    @AppStorage("moneyWorkspace") private var activeWorkspace = MoneyWorkspaces.personal
+    /// Escolha própria do calendário: "" segue o Financeiro, "*" mostra todos.
+    @AppStorage("calendarMoneyWorkspace") private var calendarWorkspace = ""
+    @State private var rescheduling: TaskItem?
+
+    /// `nil` = todos os espaços.
+    private var moneyFilter: String? {
+        switch calendarWorkspace {
+        case "": return activeWorkspace
+        case "*": return nil
+        default: return calendarWorkspace
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -22,7 +38,25 @@ struct CalendarView: View {
             .navigationBarHidden(true)
             .refreshable { await viewModel.load() }
         }
-        .task { await viewModel.load() }
+        .sheet(item: $rescheduling) { task in
+            CalendarRescheduleSheet(task: task) { date in
+                viewModel.reschedule(task, to: date)
+            }
+        }
+        .onAppear { viewModel.moneyWorkspaceFilter = moneyFilter }
+        .onChange(of: calendarWorkspace) { viewModel.moneyWorkspaceFilter = moneyFilter }
+        .onChange(of: activeWorkspace) { viewModel.moneyWorkspaceFilter = moneyFilter }
+        .task {
+            await viewModel.load()
+            #if DEBUG
+            if CommandLine.arguments.contains("-geoCalendarReschedule") {
+                rescheduling = viewModel.agenda(for: viewModel.selectedDate).compactMap { item -> TaskItem? in
+                    if case .task(let task) = item { return task }
+                    return nil
+                }.first
+            }
+            #endif
+        }
     }
 
     // MARK: - Header
@@ -245,6 +279,16 @@ struct CalendarView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
+        .contentShape(Rectangle())
+        .contextMenu {
+            if case .task(let task) = item, !task.isHabit {
+                Button {
+                    rescheduling = task
+                } label: {
+                    Label("Mover para…", systemImage: "calendar")
+                }
+            }
+        }
     }
 
     // MARK: - Treino
@@ -305,7 +349,7 @@ struct CalendarView: View {
     // MARK: - Financeiro
 
     private var moneySection: some View {
-        section(title: "Financeiro", subtitle: nil) {
+        section(title: "Financeiro", subtitle: nil, accessory: { workspaceMenu }) {
             let items = viewModel.moneyItems(for: viewModel.selectedDate)
             if items.isEmpty {
                 emptyRow
@@ -316,6 +360,44 @@ struct CalendarView: View {
                 }
             }
         }
+    }
+
+    private var workspaceMenu: some View {
+        Menu {
+            Button {
+                calendarWorkspace = "*"
+            } label: {
+                if calendarWorkspace == "*" {
+                    Label("Todos os espaços", systemImage: "checkmark")
+                } else {
+                    Text("Todos os espaços")
+                }
+            }
+            ForEach(moneyStore.workspaces, id: \.self) { option in
+                Button {
+                    calendarWorkspace = option == activeWorkspace ? "" : option
+                } label: {
+                    if moneyFilter == option {
+                        Label(option, systemImage: "checkmark")
+                    } else {
+                        Text(option)
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Text(moneyFilter ?? "Todos os espaços")
+                    .lineLimit(1)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 10, weight: .semibold))
+            }
+            .font(.system(size: 15))
+            .foregroundStyle(Color.primary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(Color.paperCard, in: Capsule())
+        }
+        .accessibilityIdentifier("calendar-money-workspace")
     }
 
     private func moneyRow(_ item: CalendarMoneyItem) -> some View {
@@ -331,10 +413,11 @@ struct CalendarView: View {
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(Color.primary)
                     .lineLimit(1)
-                if item.projected {
-                    Text("Recorrente")
+                if let detail = moneyDetail(item) {
+                    Text(detail)
                         .font(.system(size: 15))
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
             }
 
@@ -350,23 +433,38 @@ struct CalendarView: View {
 
     // MARK: - Peças
 
-    private func section<Content: View>(
+    private func moneyDetail(_ item: CalendarMoneyItem) -> String? {
+        let showsWorkspace = moneyFilter == nil
+        switch (item.projected, showsWorkspace) {
+        case (true, true): return "Recorrente · " + item.workspace
+        case (true, false): return "Recorrente"
+        case (false, true): return item.workspace
+        case (false, false): return nil
+        }
+    }
+
+    private func section<Accessory: View, Content: View>(
         title: String,
         subtitle: String?,
+        @ViewBuilder accessory: () -> Accessory = { EmptyView() },
         @ViewBuilder content: () -> Content
     ) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                if let subtitle {
-                    Text(subtitle)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(Color.primary)
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 2) {
+                    if let subtitle {
+                        Text(subtitle)
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(Color.primary)
+                    }
+                    Text(title)
+                        .font(.system(size: 15))
+                        .foregroundStyle(.secondary)
                 }
-                Text(title)
-                    .font(.system(size: 15))
-                    .foregroundStyle(.secondary)
+                Spacer(minLength: 8)
+                accessory()
             }
-            .padding(.leading, 20)
+            .padding(.horizontal, 20)
 
             VStack(spacing: 0) {
                 content()

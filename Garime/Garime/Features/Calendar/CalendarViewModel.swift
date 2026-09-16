@@ -118,6 +118,7 @@ struct CalendarMoneyItem: Identifiable {
     var amount: Decimal
     var kind: MoneyKind
     var projected: Bool
+    var workspace: String
 
     var amountText: String {
         let value = MoneyFormat.brl(amount)
@@ -150,14 +151,18 @@ final class CalendarViewModel: ObservableObject {
     /// Planos de treino já buscados, por semana ISO ("2026-W38").
     @Published private(set) var plans: [String: WeeklyPlan] = [:]
     @Published private(set) var trainingLogs: [VitalsLog] = []
-    /// Treino de hoje quando o hub só tem o protocolo legado (sem plano semanal).
-    @Published private(set) var legacyToday: VitalsSession?
+    /// Protocolo legado (sem plano semanal): sessões e âncora do ciclo.
+    @Published private(set) var legacySessions: [VitalsSession] = []
+    @Published private(set) var vitalsState: VitalsState?
+    /// Espaço do Financeiro mostrado no calendário; `nil` = todos os espaços.
+    @Published var moneyWorkspaceFilter: String?
 
     private var eventsByDay: [Date: [CalendarEventItem]] = [:]
     private var loadedWeeks = Set<String>()
 
     private let tasksRepository: BridgeTasksRepository
     private let trainingRepository: BridgeTrainingRepository
+    private let vitalsRepository: BridgeVitalsRepository
     private let health: HealthViewModel
     private let eventKit: EventKitService
     private let clock = TrainingClock()
@@ -166,11 +171,13 @@ final class CalendarViewModel: ObservableObject {
     init(
         tasksRepository: BridgeTasksRepository = BridgeTasksRepository(),
         trainingRepository: BridgeTrainingRepository = BridgeTrainingRepository(),
+        vitalsRepository: BridgeVitalsRepository = BridgeVitalsRepository(),
         health: HealthViewModel? = nil,
         eventKit: EventKitService? = nil
     ) {
         self.tasksRepository = tasksRepository
         self.trainingRepository = trainingRepository
+        self.vitalsRepository = vitalsRepository
         self.health = health ?? HealthViewModel()
         self.eventKit = eventKit ?? .shared
         displayedMonth = selectedDate
@@ -212,7 +219,12 @@ final class CalendarViewModel: ObservableObject {
     private func loadHealth() async {
         await health.reload()
         trainingLogs = health.logs
-        legacyToday = health.isPlanPrimary ? nil : health.todaySession
+        legacySessions = health.sessions
+        vitalsState = health.state
+        // O hub pode ter respondido só o plano da semana: busca a âncora direto.
+        if vitalsState == nil, !legacySessions.isEmpty {
+            vitalsState = try? await vitalsRepository.fetchState()
+        }
         if let plan = health.plan {
             plans[plan.week] = plan
             loadedWeeks.insert(plan.week)
@@ -302,7 +314,11 @@ final class CalendarViewModel: ObservableObject {
     func markers(for date: Date) -> [CalendarMarker] {
         var result: [CalendarMarker] = []
         if !agenda(for: date).isEmpty { result.append(.task) }
-        if let entry = training(for: date), !entry.rest { result.append(.training) }
+        if let entry = training(for: date) {
+            if !entry.rest { result.append(.training) }
+        } else if let session = legacySession(for: date), !session.rest {
+            result.append(.training)
+        }
         if !moneyItems(for: date).isEmpty { result.append(.money) }
         return result
     }
@@ -343,6 +359,53 @@ final class CalendarViewModel: ObservableObject {
         }
     }
 
+    /// Troca só o dia da tarefa, preservando a hora (e a duração, no evento).
+    func reschedule(_ task: TaskItem, to date: Date) {
+        let cal = CalGrid.calendar
+        var updated = task
+        switch task.body {
+        case .task(let due, let estimatedMinutes):
+            guard let moved = Self.moving(due, toDayOf: date, calendar: cal) else { return }
+            updated.body = .task(due: moved, estimatedMinutes: estimatedMinutes)
+        case .event(let start, let end, let externalID):
+            guard let moved = Self.moving(start, toDayOf: date, calendar: cal) else { return }
+            let duration = end.timeIntervalSince(start)
+            updated.body = .event(
+                start: moved,
+                end: moved.addingTimeInterval(max(0, duration)),
+                externalEKEventID: externalID
+            )
+        case .milestone:
+            guard let moved = Self.moving(task.anchorDate, toDayOf: date, calendar: cal) else { return }
+            updated.body = .milestone(target: moved)
+        case .habit:
+            return
+        }
+        guard !cal.isDate(task.anchorDate, inSameDayAs: updated.anchorDate) else { return }
+        updated.modifiedAt = Date()
+        replace(updated)
+        Task {
+            do {
+                try await tasksRepository.update(updated)
+                errorMessage = nil
+            } catch {
+                replace(task)
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    /// A hora do original no dia de destino.
+    static func moving(_ original: Date, toDayOf target: Date, calendar: Calendar) -> Date? {
+        let time = calendar.dateComponents([.hour, .minute, .second], from: original)
+        return calendar.date(
+            bySettingHour: time.hour ?? 0,
+            minute: time.minute ?? 0,
+            second: time.second ?? 0,
+            of: calendar.startOfDay(for: target)
+        )
+    }
+
     private func replace(_ task: TaskItem) {
         guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
         tasks[index] = task
@@ -363,18 +426,21 @@ final class CalendarViewModel: ObservableObject {
         ).first { $0.dayKey == day }
     }
 
-    /// Sem plano semanal o hub só sabe o treino de hoje (protocolo legado gira
-    /// a partir da âncora), então outros dias ficam sem linha de treino.
+    /// Sem plano semanal, o protocolo legado gira ciclicamente a partir da
+    /// âncora (`anchorDate`/`anchorIndex`), então vale para qualquer data.
     func legacySession(for date: Date) -> VitalsSession? {
-        guard CalGrid.calendar.isDateInToday(date) else { return nil }
-        return legacyToday
+        guard !legacySessions.isEmpty, let state = vitalsState else { return nil }
+        guard let days = clock.days(from: state.anchorDate, to: date) else { return nil }
+        let count = legacySessions.count
+        let index = ((state.anchorIndex + days) % count + count) % count
+        return legacySessions.first { $0.index == index } ?? legacySessions[safe: index]
     }
 
     // MARK: - Financeiro
 
     func moneyItems(for date: Date) -> [CalendarMoneyItem] {
         let cal = CalGrid.calendar
-        let realized = moneyEntries
+        let realized = visibleMoneyEntries
             .filter { cal.isDate($0.date, inSameDayAs: date) }
             .map {
                 CalendarMoneyItem(
@@ -382,7 +448,8 @@ final class CalendarViewModel: ObservableObject {
                     category: $0.category,
                     amount: $0.amount,
                     kind: $0.kind,
-                    projected: false
+                    projected: false,
+                    workspace: $0.workspace
                 )
             }
         return realized + projections(for: date)
@@ -395,13 +462,14 @@ final class CalendarViewModel: ObservableObject {
         let cal = CalGrid.calendar
         let day = cal.startOfDay(for: date)
         guard day >= cal.startOfDay(for: Date()) else { return [] }
+        let pool = visibleMoneyEntries
 
-        return moneyEntries.compactMap { entry -> CalendarMoneyItem? in
+        return pool.compactMap { entry -> CalendarMoneyItem? in
             guard entry.recurring else { return nil }
             guard cal.compare(entry.date, to: day, toGranularity: .month) == .orderedAscending else { return nil }
             guard let projected = Self.projectedDate(of: entry.date, into: day, calendar: cal),
                   cal.isDate(projected, inSameDayAs: day) else { return nil }
-            let alreadyPaid = moneyEntries.contains { other in
+            let alreadyPaid = pool.contains { other in
                 other.id != entry.id
                     && cal.isDate(other.date, equalTo: day, toGranularity: .month)
                     && other.category == entry.category
@@ -414,9 +482,15 @@ final class CalendarViewModel: ObservableObject {
                 category: entry.category,
                 amount: entry.amount,
                 kind: entry.kind,
-                projected: true
+                projected: true,
+                workspace: entry.workspace
             )
         }
+    }
+
+    private var visibleMoneyEntries: [MoneyEntry] {
+        guard let workspace = moneyWorkspaceFilter else { return moneyEntries }
+        return moneyEntries.filter { $0.workspace == workspace }
     }
 
     static func projectedDate(of origin: Date, into month: Date, calendar: Calendar) -> Date? {

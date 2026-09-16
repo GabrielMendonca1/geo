@@ -16,10 +16,19 @@ struct TasksView: View {
     @State private var runningFocus = false
     @State private var confirmingDelete = false
     @State private var focusTitle = "Foco"
+    @State private var rescheduling: RescheduleRequest?
+    @AppStorage("tasksShowCompleted") private var showCompleted = false
     @FocusState private var searchFocused: Bool
 
+    /// Tarefas escolhidas para "Mover data" (linha ou seleção múltipla).
+    private struct RescheduleRequest: Identifiable {
+        let ids: Set<String>
+        let anchor: Date
+        var id: String { ids.sorted().joined(separator: ",") }
+    }
+
     private var pending: [TaskItem] { filter(viewModel.pending) }
-    private var completed: [TaskItem] { filter(viewModel.completed) }
+    private var completed: [TaskItem] { showCompleted ? filter(viewModel.completed) : [] }
 
     private func filter(_ tasks: [TaskItem]) -> [TaskItem] {
         let term = query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -46,6 +55,12 @@ struct TasksView: View {
                 viewModel.create(draft)
             }
         }
+        .sheet(item: $rescheduling) { request in
+            RescheduleSheet(count: request.ids.count, initialDate: request.anchor) { date in
+                viewModel.reschedule(ids: request.ids, to: date)
+                if selecting { endSelection() }
+            }
+        }
         .fullScreenCover(isPresented: $runningFocus) {
             FocusSessionView(session: focus, title: focusTitle) {
                 focus.stop()
@@ -62,7 +77,36 @@ struct TasksView: View {
                 endSelection()
             }
         }
-        .task { await viewModel.reload() }
+        .task {
+            await viewModel.reload()
+            #if DEBUG
+            applyLaunchArguments()
+            #endif
+        }
+    }
+
+    #if DEBUG
+    /// Suporte a `-geoNewTask` e `-geoReschedule` para captura de telas.
+    private func applyLaunchArguments() {
+        let args = CommandLine.arguments
+        if args.contains("-geoNewTask"), rescheduling == nil {
+            composing = true
+        }
+        if args.contains("-geoReschedule"), let first = pending.first {
+            composing = false
+            rescheduling = request(for: first)
+        }
+    }
+    #endif
+
+    private func request(for task: TaskItem) -> RescheduleRequest {
+        RescheduleRequest(ids: [task.id], anchor: TasksDate.scheduled(task) ?? Date())
+    }
+
+    private func rescheduleSelection() {
+        let ordered = pending + completed
+        let anchor = ordered.first { selection.contains($0.id) }.flatMap(TasksDate.scheduled) ?? Date()
+        rescheduling = RescheduleRequest(ids: selection, anchor: anchor)
     }
 
     // MARK: - Conteúdo
@@ -162,6 +206,38 @@ struct TasksView: View {
                     Label("Concluir", systemImage: "checkmark")
                 }
                 .tint(.gray)
+            }
+        }
+        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+            Button {
+                selecting = true
+                selection = [task.id]
+            } label: {
+                Label("Selecionar", systemImage: "checkmark.circle")
+            }
+            .tint(Color.primary)
+            Button {
+                rescheduling = request(for: task)
+            } label: {
+                Label("Mover", systemImage: "calendar")
+            }
+            .tint(.gray)
+        }
+        .contextMenu {
+            Button {
+                rescheduling = request(for: task)
+            } label: {
+                Label("Mover", systemImage: "calendar")
+            }
+            Button {
+                tap(task)
+            } label: {
+                Label(done ? "Reabrir" : "Concluir", systemImage: done ? "arrow.uturn.backward" : "checkmark")
+            }
+            Button(role: .destructive) {
+                viewModel.delete(task)
+            } label: {
+                Label("Excluir", systemImage: "trash")
             }
         }
     }
@@ -294,6 +370,13 @@ struct TasksView: View {
                     } label: {
                         Label("Foco", systemImage: "timer")
                     }
+                    Divider()
+                    Button {
+                        withAnimation { showCompleted.toggle() }
+                    } label: {
+                        Label(showCompleted ? "Ocultar concluídas" : "Mostrar concluídas",
+                              systemImage: showCompleted ? "eye.slash" : "eye")
+                    }
                 } label: {
                     Image(systemName: "ellipsis")
                         .font(.system(size: 18, weight: .medium))
@@ -377,6 +460,9 @@ struct TasksView: View {
             selectionAction("checkmark", label: "Concluir") {
                 viewModel.complete(ids: selection)
                 endSelection()
+            }
+            selectionAction("calendar", label: "Mover") {
+                rescheduleSelection()
             }
             selectionAction("trash", label: "Excluir") {
                 confirmingDelete = true

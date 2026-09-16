@@ -130,6 +130,66 @@ final class TasksViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Mover data
+
+    /// Move a tarefa para outro dia mantendo a hora original.
+    func reschedule(_ task: TaskItem, to date: Date) {
+        guard let updated = Self.rescheduled(task, to: date) else { return }
+        let previous = task
+        replace(updated)
+        Task {
+            do {
+                try await repository.update(updated)
+                errorMessage = nil
+            } catch {
+                replace(previous)
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    func reschedule(ids: Set<String>, to date: Date) {
+        for task in allTasks where ids.contains(task.id) {
+            reschedule(task, to: date)
+        }
+    }
+
+    /// Troca só o dia do corpo da tarefa; hábitos ficam como estão.
+    static func rescheduled(_ task: TaskItem, to day: Date) -> TaskItem? {
+        var updated = task
+        switch task.body {
+        case .task(let due, let estimated):
+            updated.body = .task(due: moveDay(of: due, to: day), estimatedMinutes: estimated)
+        case .event(let start, let end, let externalID):
+            let newStart = moveDay(of: start, to: day)
+            let newEnd = newStart.addingTimeInterval(end.timeIntervalSince(start))
+            updated.body = .event(start: newStart, end: newEnd, externalEKEventID: externalID)
+        case .milestone(let target):
+            updated.body = .milestone(target: moveDay(of: target, to: day))
+        case .habit:
+            return nil
+        }
+        updated.modifiedAt = Date()
+        return updated
+    }
+
+    /// Mantém hora/minuto/segundo de `original` no dia de `day`.
+    static func moveDay(of original: Date, to day: Date, calendar: Calendar = .current) -> Date {
+        let time = calendar.dateComponents([.hour, .minute, .second], from: original)
+        return calendar.date(
+            bySettingHour: time.hour ?? 0,
+            minute: time.minute ?? 0,
+            second: time.second ?? 0,
+            of: day
+        ) ?? day
+    }
+
+    private func replace(_ task: TaskItem) {
+        guard let index = allTasks.firstIndex(where: { $0.id == task.id }) else { return }
+        allTasks[index] = task
+        rebuild()
+    }
+
     // MARK: - Ordenação
 
     private func apply(status: TaskStatus, to id: String) {
