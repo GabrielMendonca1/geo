@@ -166,33 +166,20 @@ struct TasksView: View {
             .accessibilityLabel(done ? "Reabrir" : "Concluir")
 
             Text(task.title.isEmpty ? "Sem título" : task.title)
-                .font(.system(size: 17))
+                .font(.system(size: 19))
                 .foregroundStyle(done ? Color.secondary : Color.primary)
-                .lineLimit(2)
+                .lineLimit(1)
 
             Spacer(minLength: 8)
-
-            if !done, let label = TasksDate.label(task) {
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text(label)
-                        .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
-                    if TasksDate.isOverdue(task) {
-                        Text("atrasada")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.tertiary)
-                    }
-                }
-            }
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, 12)
         .contentShape(Rectangle())
         .onTapGesture {
             if selecting { toggle(task) }
         }
         .listRowSeparator(.hidden)
         .listRowBackground(Color.clear)
-        .listRowInsets(EdgeInsets(top: 4, leading: 20, bottom: 4, trailing: 20))
+        .listRowInsets(EdgeInsets(top: 6, leading: 20, bottom: 6, trailing: 20))
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button(role: .destructive) {
                 viewModel.delete(task)
