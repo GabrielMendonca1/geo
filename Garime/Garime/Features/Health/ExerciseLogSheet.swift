@@ -119,29 +119,25 @@ struct ExerciseLogSheet: View {
 
     private var headline: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 14) {
-                BodyMapView(highlighted: Set(exercise.muscles))
-                    .padding(8)
-                    .frame(width: 96, height: 96)
-                    .background(Color.paperTile, in: RoundedRectangle(cornerRadius: PaperRadius.tile, style: .continuous))
-                    .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(MuscleNames.line(exercise.muscles))
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.primary)
-                    Text(VitalsFormat.prescription(exercise.sets, doseType: exercise.doseType))
+            BodyMapView(highlighted: Set(exercise.muscles))
+                .padding(16)
+                .frame(maxWidth: .infinity)
+                .frame(height: 240)
+                .background(Color.paperTile, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(MuscleNames.line(exercise.muscles))
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(.primary)
+                Text([VitalsFormat.prescription(exercise.sets, doseType: exercise.doseType), restPrescription]
+                        .joined(separator: " · "))
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+                if let lastWeight {
+                    Text("Última: \(VitalsFormat.kg(lastWeight))")
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
-                    Text(restPrescription)
-                        .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
-                    if let lastWeight {
-                        Text("Última: \(VitalsFormat.kg(lastWeight))")
-                            .font(.system(size: 13))
-                            .foregroundStyle(.secondary)
-                    }
                 }
-                Spacer(minLength: 0)
             }
             if isTrackable {
                 HStack {
