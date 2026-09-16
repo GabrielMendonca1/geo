@@ -18,6 +18,7 @@ enum BridgeEndpoint {
     case termAgents
     case termAttachAgent(project: String, pane: String)
     case termAttachHerdr(project: String)
+    case termHerdrSessions
     case termAgentChat(target: AgentTargetRef, limit: Int)
     case termAgentWork(target: AgentTargetRef)
     case termAgentPrompt(target: AgentTargetRef)
@@ -68,6 +69,8 @@ enum BridgeEndpoint {
             return "/term/attach-agent?project=\(Self.encode(project))&pane=\(Self.encode(pane))"
         case .termAttachHerdr(let project):
             return "/term/attach-herdr?project=\(Self.encode(project))"
+        case .termHerdrSessions:
+            return "/term/herdr-sessions"
         case .termAgentChat(let target, let limit):
             return "/term/agent-chat?\(Self.selector(target))&limit=\(max(1, min(200, limit)))"
         case .termAgentWork(let target):

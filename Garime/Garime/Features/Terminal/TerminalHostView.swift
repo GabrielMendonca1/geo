@@ -4,6 +4,7 @@ import SwiftTerm
 struct TerminalHostView: UIViewRepresentable {
     let viewModel: TerminalViewModel
     @Binding var fontSize: Double
+    var herdrMode = false
 
     func makeCoordinator() -> Coordinator { Coordinator(viewModel: viewModel) }
 
@@ -14,7 +15,7 @@ struct TerminalHostView: UIViewRepresentable {
     }
 
     func makeUIView(context: Context) -> TerminalView {
-        let term = GeoTerminalView(frame: .zero)
+        let term = GeoTerminalView(frame: .zero, herdrMode: herdrMode)
         term.terminalDelegate = context.coordinator
         term.font = UIFont.monospacedSystemFont(ofSize: CGFloat(fontSize), weight: .regular)
         term.backgroundColor = .systemBackground
@@ -116,6 +117,7 @@ struct TerminalHostView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: TerminalView, context: Context) {
+        (uiView as? GeoTerminalView)?.herdrMode = herdrMode
         let target = CGFloat(fontSize)
         if abs(uiView.font.pointSize - target) > 0.1 {
             uiView.font = UIFont.monospacedSystemFont(ofSize: target, weight: .regular)

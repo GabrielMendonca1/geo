@@ -96,7 +96,7 @@ struct RootView: View {
         case "calendar": CalendarView()
         case "health": HealthView()
         case "money": MoneyView()
-        case "terminal": AgentHomeView()
+        case "terminal": SessionsHomeView()
         default: TasksView()
         }
     }

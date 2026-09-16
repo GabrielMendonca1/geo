@@ -7,6 +7,17 @@ final class GeoTerminalView: TerminalView {
 
     private let smartKeys = SmartKeysView(width: UIScreen.main.bounds.width)
 
+    /// Liga as teclas rápidas do herdr (prefix, panes, zoom…) na barra do teclado.
+    var herdrMode: Bool {
+        get { smartKeys.herdrMode }
+        set { smartKeys.herdrMode = newValue }
+    }
+
+    convenience init(frame: CGRect, herdrMode: Bool) {
+        self.init(frame: frame)
+        smartKeys.herdrMode = herdrMode
+    }
+
     override init(frame: CGRect) {
         super.init(frame: frame)
         smartKeys.onBytes = { [weak self] bytes in self?.onSend?(bytes) }

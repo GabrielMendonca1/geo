@@ -44,6 +44,8 @@ struct TerminalScreen: View {
     var onBack: () -> Void = {}
 
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.dockState) private var dock
+    @Environment(\.colorScheme) private var colorScheme
     @State private var wasBackgrounded = false
     @State private var terminalOrigin: String
     @State private var showSnips = CommandLine.arguments.contains("-geoSnips")
@@ -68,12 +70,22 @@ struct TerminalScreen: View {
         TerminalSessionList.normalized(sessionsRaw)
     }
 
+    /// Sessões `hd-*` são attach direto no herdr: tela cheia, fundo preto e teclas do multiplexador.
+    private var herdrMode: Bool {
+        TerminalSessionList.label(for: viewModel.session).hasPrefix("hd-")
+    }
+
     var body: some View {
         ZStack(alignment: .top) {
-            TerminalHostView(viewModel: viewModel, fontSize: $fontSize)
-                .padding(.top, Self.headerHeight + 8)
+            TerminalHostView(viewModel: viewModel, fontSize: $fontSize, herdrMode: herdrMode)
+                .padding(.top, herdrMode ? Self.headerHeight : Self.headerHeight + 8)
                 .ignoresSafeArea(.container, edges: .bottom)
-            header
+                .environment(\.colorScheme, herdrMode ? .dark : colorScheme)
+            if herdrMode {
+                herdrHeader
+            } else {
+                header
+            }
         }
         .sheet(isPresented: $showSnips) {
             SnipsSheet { text in viewModel.send(Array(text.utf8)) }
@@ -90,7 +102,7 @@ struct TerminalScreen: View {
                 onRefresh: refreshServerSessions
             )
         }
-        .background(Color(uiColor: .systemBackground).ignoresSafeArea())
+        .background((herdrMode ? Color.black : Color(uiColor: .systemBackground)).ignoresSafeArea())
         .navigationBarHidden(true)
         .toolbar(.hidden, for: .tabBar)
         .photosPicker(isPresented: $showPhotoPicker, selection: $photoItem, matching: .images)
@@ -103,12 +115,16 @@ struct TerminalScreen: View {
             Task { await importPhoto(item) }
         }
         .onAppear {
+            if herdrMode { dock?.hidden = true }
             pruneReservedSessions()
             viewModel.connect()
             Task { await refreshServerSessions() }
             raiseKeyboard()
         }
-        .onDisappear { viewModel.disconnect() }
+        .onDisappear {
+            if herdrMode { dock?.hidden = false }
+            viewModel.disconnect()
+        }
         .onChange(of: scenePhase) { _, phase in
             switch phase {
             case .active:
@@ -203,6 +219,46 @@ struct TerminalScreen: View {
     }
 
     private static let headerHeight: CGFloat = 44
+
+    /// Cabeçalho mínimo do modo herdr: voltar, nome da sessão e tamanho da fonte.
+    private var herdrHeader: some View {
+        HStack(spacing: 4) {
+            Button { onBack() } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 16, weight: .semibold))
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            Text(TerminalSessionList.label(for: viewModel.session))
+                .font(.system(size: 14, weight: .medium, design: .monospaced))
+                .lineLimit(1)
+            Spacer(minLength: 4)
+            Button { fontSize = clampFont(fontSize - 1) } label: {
+                Image(systemName: "textformat.size.smaller")
+                    .font(.system(size: 15, weight: .semibold))
+                    .frame(width: 40, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Diminuir fonte")
+            Button { fontSize = clampFont(fontSize + 1) } label: {
+                Image(systemName: "textformat.size.larger")
+                    .font(.system(size: 15, weight: .semibold))
+                    .frame(width: 40, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Aumentar fonte")
+            StatusDot(level: .live(viewModel.connected))
+                .padding(.trailing, 12)
+        }
+        .foregroundStyle(.white)
+        .padding(.leading, 4)
+        .frame(height: Self.headerHeight)
+        .frame(maxWidth: .infinity)
+        .background(Color.black)
+    }
 
     private var header: some View {
         GlassChrome {

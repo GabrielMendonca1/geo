@@ -65,6 +65,48 @@ struct TermAttachPayload: Decodable {
     let session: String
 }
 
+/// Sessão do herdr (multiplexador do Mac), como o bridge reporta em `/term/herdr-sessions`.
+struct HerdrSession: Decodable, Identifiable, Equatable {
+    let name: String
+    let status: String
+    let directory: String
+
+    var id: String { name }
+    var running: Bool { status == "running" }
+    var note: String { running ? "rodando" : "parada" }
+
+    enum CodingKeys: String, CodingKey {
+        case name, status, directory
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        func text(_ key: CodingKeys) -> String {
+            ((try? container.decodeIfPresent(String.self, forKey: key)) ?? nil) ?? ""
+        }
+        name = text(.name)
+        status = text(.status)
+        directory = text(.directory)
+    }
+}
+
+struct HerdrSessionsPayload: Decodable {
+    let macOnline: Bool
+    let sessions: [HerdrSession]
+
+    enum CodingKeys: String, CodingKey {
+        case macOnline = "mac_online"
+        case sessions
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        macOnline = ((try? container.decodeIfPresent(Bool.self, forKey: .macOnline)) ?? nil) ?? false
+        let decoded = (try? container.decodeIfPresent([HerdrSession].self, forKey: .sessions)) ?? nil
+        sessions = (decoded ?? []).filter { !$0.name.isEmpty }
+    }
+}
+
 struct TermAgentsPayload: Decodable {
     let units: [TermAgentUnit]
     let macOnline: Bool
@@ -203,6 +245,10 @@ final class SessionsHomeModel: ObservableObject {
     @Published private(set) var macOnline = false
     @Published private(set) var reachable = true
     @Published private(set) var work: [String: Int] = [:]
+    /// Último resultado bom de `/term/herdr-sessions`: fica em memória pra lista não piscar.
+    @Published private(set) var herdr: [HerdrSession] = []
+    @Published private(set) var herdrLoaded = false
+    @Published private(set) var herdrMacOnline = false
 
     static let workProbeLimit = 6
 
@@ -238,6 +284,7 @@ final class SessionsHomeModel: ObservableObject {
         let client = self.client
         async let listed = Self.fetch(client, BridgeEndpoint.termList.path, as: TermSessions.self)
         async let probed = Self.fetch(client, BridgeEndpoint.termAgents.path, as: TermAgentsPayload.self)
+        async let herded = Self.fetch(client, BridgeEndpoint.termHerdrSessions.path, as: HerdrSessionsPayload.self)
 
         var ok = false
         if let payload = await probed {
@@ -253,6 +300,11 @@ final class SessionsHomeModel: ObservableObject {
             ok = true
         }
         await worked
+        if let payload = await herded {
+            herdr = payload.sessions
+            herdrMacOnline = payload.macOnline
+            herdrLoaded = true
+        }
         reachable = ok
     }
 
@@ -396,11 +448,14 @@ enum SessionsHomeKill {
 enum SessionsHomeRoute: Hashable {
     case session(String)
     case chat(AgentChatTarget)
+    case garime(prefill: String)
 }
 
+/// Home da aba Agente no estilo papel: herdr primeiro, terminais salvos e o chat do Garime.
 struct SessionsHomeView: View {
     @StateObject private var model = SessionsHomeModel()
     @AppStorage("terminal.sessions") private var sessionsRaw = "vm:mobile"
+    @AppStorage(GarimeAgent.sessionKey) private var agentSession = GarimeAgent.fallbackSession
     @State private var path: [SessionsHomeRoute] = SessionsHomeView.initialPath()
     @State private var ticker: Task<Void, Never>?
     @State private var renaming: String?
@@ -408,8 +463,7 @@ struct SessionsHomeView: View {
     @State private var renameError: String?
     @State private var attaching: String?
     @State private var killing: String?
-    @State private var layout: [TermAgentGroup] = []
-    @State private var expanded: Set<String> = []
+    @State private var showSettings = false
     @Environment(\.scenePhase) private var scenePhase
 
     private static let macSession = TerminalSessionList.mac
@@ -429,20 +483,19 @@ struct SessionsHomeView: View {
     var body: some View {
         NavigationStack(path: $path) {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    hostCards
-                    inventory
+                VStack(alignment: .leading, spacing: 22) {
+                    herdrCard
+                    terminalsCard
+                    garimeCard
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 12)
-                .padding(.bottom, 32)
+                .padding(.top, 4)
+                .padding(.bottom, 96)
             }
-            .background(Color.slateCanvas.ignoresSafeArea())
-            .refreshable {
-                await refreshAll()
-                resetLayout()
-            }
-            .safeAreaInset(edge: .top) { header }
+            .dockScrollTracking()
+            .background(Color.paperCanvas.ignoresSafeArea())
+            .refreshable { await refreshAll() }
+            .safeAreaInset(edge: .top, spacing: 0) { header }
             .navigationBarHidden(true)
             .navigationDestination(for: SessionsHomeRoute.self) { route in
                 switch route {
@@ -454,37 +507,42 @@ struct SessionsHomeView: View {
                     AgentChatView(target: target) {
                         if !path.isEmpty { path.removeLast() }
                     }
+                case .garime(let prefill):
+                    AgentChatView(target: GarimeAgent.target(agentSession), initialDraft: prefill) {
+                        if !path.isEmpty { path.removeLast() }
+                    }
                 }
             }
         }
-        .alert("renomear sessão", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
+        .tint(Color.primary)
+        .sheet(isPresented: $showSettings) { SettingsView() }
+        .alert("Renomear sessão", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
             TextField("nome", text: $renameText)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
-            Button("cancelar", role: .cancel) { renaming = nil }
-            Button("renomear") { confirmRename() }
+            Button("Cancelar", role: .cancel) { renaming = nil }
+            Button("Renomear") { confirmRename() }
         }
         .confirmationDialog(
-            "matar \(TerminalSessionList.label(for: killing ?? ""))?",
+            "Matar \(TerminalSessionList.label(for: killing ?? ""))?",
             isPresented: Binding(get: { killing != nil }, set: { if !$0 { killing = nil } }),
             titleVisibility: .visible
         ) {
-            Button("matar sessão", role: .destructive) { confirmKill() }
-            Button("cancelar", role: .cancel) { killing = nil }
+            Button("Matar sessão", role: .destructive) { confirmKill() }
+            Button("Cancelar", role: .cancel) { killing = nil }
         } message: {
-            Text("a sessão e o que estiver rodando nela morrem. não dá pra desfazer.")
+            Text("A sessão e o que estiver rodando nela morrem. Não dá pra desfazer.")
         }
         .alert(
             renameError ?? "",
             isPresented: Binding(get: { renameError != nil }, set: { if !$0 { renameError = nil } })
         ) {
-            Button("ok", role: .cancel) { renameError = nil }
+            Button("Ok", role: .cancel) { renameError = nil }
         }
         .task {
             await refreshAll()
-            resetLayout()
+            openDebugHerdr()
         }
-        .onChange(of: model.agents) { _, _ in adoptNewGroups() }
         .onAppear { startTicker() }
         .onDisappear { stopTicker() }
         .onChange(of: scenePhase) { _, phase in
@@ -495,383 +553,299 @@ struct SessionsHomeView: View {
                 stopTicker()
             }
         }
-        .animation(.spring(response: 0.34, dampingFraction: 1), value: expanded)
         .animation(.spring(response: 0.34, dampingFraction: 1), value: sessionsRaw)
-        .animation(.spring(response: 0.34, dampingFraction: 1), value: model.units)
+        .animation(.spring(response: 0.34, dampingFraction: 1), value: model.herdr)
         .animation(.spring(response: 0.34, dampingFraction: 1), value: model.agents)
-        .animation(.spring(response: 0.34, dampingFraction: 1), value: model.work)
         .animation(.spring(response: 0.34, dampingFraction: 1), value: attaching)
     }
 
+    // MARK: - Header
+
     private var header: some View {
-        GlassChrome {
-            HStack(spacing: 8) {
-                Text("sessões")
-                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                Spacer(minLength: 4)
-                connectionDot
+        HStack {
+            Text("Agente")
+                .font(.system(size: 34, weight: .bold))
+                .foregroundStyle(Color.primary)
+            Spacer()
+            HStack(spacing: 0) {
+                Button {
+                    Task { await refreshAll() }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 18, weight: .medium))
+                        .frame(width: 44, height: 44)
+                }
+                .accessibilityLabel("Atualizar")
+                .accessibilityIdentifier("agent-refresh")
+
+                Button {
+                    showSettings = true
+                } label: {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 18, weight: .medium))
+                        .frame(width: 44, height: 44)
+                }
+                .accessibilityLabel("Ajustes")
+                .accessibilityIdentifier("agent-settings")
             }
-            .foregroundStyle(.primary)
-            .padding(.horizontal, 16)
-            .frame(height: 44)
+            .foregroundStyle(Color.primary)
+            .padding(.horizontal, 4)
+            .background(Color.paperCard, in: Capsule())
         }
-        .animation(.spring(response: 0.34, dampingFraction: 1), value: model.reachable)
+        .padding(.horizontal, 16)
+        .padding(.top, 6)
+        .padding(.bottom, 12)
+        .background(Color.paperCanvas)
     }
 
-    private var hostCards: some View {
-        HStack(spacing: 12) {
-            hostCard(host: "vm", verb: "nova sessão") { create() }
-            hostCard(host: "mac", verb: "abrir mac") { path.append(.session(Self.macSession)) }
-        }
-    }
+    // MARK: - Cartões
 
-    private func hostCard(host: String, verb: String, action: @escaping () -> Void) -> some View {
-        let shape = RoundedRectangle(cornerRadius: SlateRadius.card, style: .continuous)
-        return Button(action: action) {
-            VStack(alignment: .leading, spacing: 0) {
-                Image(systemName: HostMark.symbol(for: host))
-                    .font(.system(size: 28, weight: .regular))
-                    .foregroundStyle(.primary)
-                Spacer(minLength: 10)
-                Text(verb)
-                    .font(.system(size: 15, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                Text("no \(HostMark.label(for: host))")
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(Color.slateTextFaint)
-                    .lineLimit(1)
-            }
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .aspectRatio(1, contentMode: .fit)
-            .contentShape(shape)
-        }
-        .buttonStyle(.plain)
-        .glassSurface(shape: shape, interactive: true)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(verb)
-        .accessibilityHint("abre um terminal no \(HostMark.label(for: host))")
-        .accessibilityAddTraits(.isButton)
-    }
-
-    private var connectionDot: some View {
-        StatusDot(level: .link(model.reachable))
-    }
-
-    private var inventory: some View {
+    private func card<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("instâncias")
-                .font(.system(size: 11, weight: .medium, design: .monospaced))
-                .foregroundStyle(Color.slateTextFaint)
+            Text(title)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.secondary)
                 .padding(.leading, 4)
-            VStack(spacing: 0) {
-                ForEach(Array(visibleSessions.enumerated()), id: \.element) { index, name in
-                    if index > 0 {
-                        Divider().overlay(Color.slateStroke.opacity(0.4))
-                    }
-                    sessionRow(name)
-                }
-                let groups = TermAgentOrder.merged(layout: layout, live: model.agents)
-                if groups.isEmpty {
-                    Divider().overlay(Color.slateStroke.opacity(0.4))
-                    emptyAgents
-                }
-                ForEach(groups) { group in
-                    Divider().overlay(Color.slateStroke.opacity(0.4))
-                    projectHeader(group)
-                    if isExpanded(group) {
-                        ForEach(group.agents) { agent in
-                            Divider().overlay(Color.slateStroke.opacity(0.4))
-                            processRow(agent)
-                        }
-                    }
-                }
-                if !model.agents.isEmpty {
-                    Text("serviços")
-                        .font(.system(size: 9, weight: .medium, design: .monospaced))
-                        .foregroundStyle(Color.slateTextFaint)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 14)
-                        .padding(.top, 10)
-                        .padding(.bottom, 2)
-                }
-                ForEach(model.units) { unit in
-                    agentRow(name: unit.name, active: unit.active, detail: Self.relative(unit.since))
-                    Divider().overlay(Color.slateStroke.opacity(0.4))
-                }
-                agentRow(name: "host mac", active: model.macOnline, detail: nil)
-            }
-            .glassSurface(shape: RoundedRectangle(cornerRadius: SlateRadius.card, style: .continuous))
+            VStack(spacing: 0) { content() }
+                .background(
+                    RoundedRectangle(cornerRadius: PaperRadius.card, style: .continuous)
+                        .fill(Color.paperCard)
+                )
         }
     }
 
-    private func sessionRow(_ name: String) -> some View {
-        Button { path.append(.session(name)) } label: { sessionRowBody(name) }
-            .buttonStyle(.plain)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("sessão \(TerminalSessionList.label(for: name)) no \(TerminalSessionList.origin(for: name))")
-            .accessibilityValue(model.isDead(name) ? StatusLevel.dormant.label : StatusLevel.healthy.label)
-            .accessibilityHint("abre o terminal")
-            .accessibilityAddTraits(.isButton)
-            .contextMenu {
-                if SessionsHomeStart.startable(session: name) {
-                    Menu {
-                        ForEach(SessionsHomeStart.agents, id: \.self) { agent in
-                            Button { startAgent(name, agent: agent) } label: {
-                                Label(agent, systemImage: AgentMark.symbol(for: agent) ?? "sparkle")
-                            }
-                        }
-                    } label: {
-                        Label("iniciar agente", systemImage: "play")
-                    }
-                }
-                if name != Self.macSession {
-                    Button { startRename(name) } label: {
-                        Label("renomear", systemImage: "pencil")
-                    }
-                }
-                if SessionsHomeKill.killable(session: name) {
-                    Button(role: .destructive) { killing = name } label: {
-                        Label("matar sessão", systemImage: "xmark")
-                    }
-                }
-            }
+    private var rowDivider: some View {
+        Divider().padding(.leading, 16)
     }
 
-    private func sessionRowBody(_ name: String) -> some View {
-        let dead = model.isDead(name)
-        return HStack(spacing: 10) {
-            StatusDot(level: .live(!dead))
-            HostBadge(host: TerminalSessionList.origin(for: name))
-            Text(TerminalSessionList.label(for: name))
-                .font(.system(size: 13, design: .monospaced))
-                .foregroundStyle(.primary)
-                .opacity(dead ? 0.45 : 1)
-                .lineLimit(1)
-            Spacer(minLength: 4)
-            Image(systemName: "chevron.right")
-                .font(.system(size: 9, weight: .semibold))
-                .foregroundStyle(Color.slateTextFaint)
-        }
-        .padding(.horizontal, 14)
-        .frame(minHeight: 44)
-        .contentShape(Rectangle())
-    }
-
-    private var emptyAgents: some View {
-        Text(model.reachable ? "nenhum agente rodando" : "sem conexão com o mac")
-            .font(.system(size: 11, design: .monospaced))
-            .foregroundStyle(Color.slateTextFaint)
-            .frame(maxWidth: .infinity, minHeight: 44)
-    }
-
-    private func isExpanded(_ group: TermAgentGroup) -> Bool {
-        group.project.isEmpty || expanded.contains(group.project)
-    }
-
-    @ViewBuilder
-    private func projectHeader(_ group: TermAgentGroup) -> some View {
-        let open = isExpanded(group)
-        HStack(spacing: 6) {
-            Button { toggle(group.project) } label: {
-                HStack(spacing: 6) {
-                    if !open {
-                        StatusDot(level: group.level)
-                    }
-                    Text(group.label)
-                        .font(.system(size: 11, weight: .medium, design: .monospaced))
-                        .foregroundStyle(Color.slateTextDim)
-                        .lineLimit(1)
-                    if !open {
-                        marks(group)
-                    }
-                    Spacer(minLength: 4)
-                    if !open {
-                        Text("\(group.agents.count) agentes")
-                            .font(.system(size: 9, design: .monospaced))
-                            .foregroundStyle(Color.slateTextFaint)
-                            .layoutPriority(1)
-                    }
-                }
-                .frame(maxWidth: .infinity)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .disabled(group.project.isEmpty)
-            if !group.project.isEmpty {
-                Button { attachHerdr(group.project) } label: {
-                    if attaching == Self.herdrKey(group.project) {
-                        ProgressView().controlSize(.mini)
-                    } else {
-                        tag("herdr")
-                    }
-                }
-                .buttonStyle(.plain)
-                Button { toggle(group.project) } label: {
-                    Image(systemName: open ? "chevron.down" : "chevron.right")
-                        .font(.system(size: 8, weight: .semibold))
-                        .foregroundStyle(Color.slateTextFaint)
-                        .frame(width: 22, height: 44)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(.horizontal, 14)
-        .frame(height: 44)
-    }
-
-    private func marks(_ group: TermAgentGroup) -> some View {
-        let (symbols, overflow) = group.marks
-        return HStack(spacing: 4) {
-            ForEach(Array(symbols.enumerated()), id: \.offset) { _, mark in
-                if mark.count == 1 {
-                    Text(mark)
-                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                } else {
-                    Image(systemName: mark)
-                        .font(.system(size: 11, weight: .semibold))
-                }
-            }
-            if overflow > 0 {
-                Text("+\(overflow)")
-                    .font(.system(size: 9, design: .monospaced))
-                    .foregroundStyle(Color.slateTextFaint)
-            }
-        }
-        .foregroundStyle(Color.slateTextDim)
-        .layoutPriority(1)
-    }
-
-    private func tag(_ text: String) -> some View {
+    private func line(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 9, weight: .medium, design: .monospaced))
-            .foregroundStyle(Color.slateTextDim)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .overlay(Capsule().stroke(Color.slateStroke, lineWidth: 0.5))
-            .layoutPriority(1)
+            .font(.system(size: 16))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
     }
 
-    private func toggle(_ project: String) {
-        guard !project.isEmpty else { return }
-        if expanded.contains(project) {
-            expanded.remove(project)
-        } else {
-            expanded.insert(project)
-        }
+    private func dot(_ on: Bool) -> some View {
+        Circle()
+            .fill(on ? Color.primary : Color.secondary.opacity(0.28))
+            .frame(width: 8, height: 8)
     }
 
-    private func resetLayout() {
-        let groups = TermAgentOrder.ranked(TermAgentOrder.grouped(model.agents))
-        layout = groups
-        expanded = TermAgentOrder.autoExpanded(groups)
-    }
-
-    private func adoptNewGroups() {
-        let fresh = TermAgentOrder.adopting(layout: layout, live: model.agents)
-        guard !fresh.isEmpty else { return }
-        layout += fresh
-        expanded.formUnion(fresh.map(\.project))
-    }
-
-    @ViewBuilder
-    private func processRow(_ agent: TermAgentProcess) -> some View {
-        if let target = AgentChatTarget(agent) {
-            Button { path.append(.chat(target)) } label: { processRowBody(agent) }
-                .buttonStyle(.plain)
-                .contextMenu {
-                    if agent.isAttachable {
-                        Button { attachAgent(agent) } label: {
-                            Label("abrir no terminal", systemImage: "terminal")
-                        }
-                    } else if !agent.session.isEmpty {
-                        Button { path.append(.session("vm:\(agent.session)")) } label: {
-                            Label("abrir no terminal", systemImage: "terminal")
-                        }
-                    }
-                    if let target = SessionsHomeKill.target(agent) {
-                        Button(role: .destructive) { killing = target } label: {
-                            Label("matar sessão", systemImage: "xmark")
-                        }
-                    }
-                }
-        } else {
-            processRowBody(agent)
-        }
-    }
-
-    private func processRowBody(_ agent: TermAgentProcess) -> some View {
-        HStack(spacing: 10) {
-            if attaching == agent.id {
-                ProgressView()
-                    .controlSize(.mini)
-                    .frame(width: 7)
+    private func rowBody(on: Bool, title: String, note: String?, busy: Bool) -> some View {
+        HStack(spacing: 12) {
+            if busy {
+                ProgressView().controlSize(.mini).frame(width: 8)
             } else {
-                StatusDot(level: .agent(status: agent.status))
+                dot(on)
             }
-            AgentBadge(agent: agent.agent)
-            Text(agent.agent)
-                .font(.system(size: 13, design: .monospaced))
-                .foregroundStyle(.primary)
-                .opacity(agent.isBusy ? 1 : 0.55)
-                .layoutPriority(1)
-            if !agent.place.isEmpty {
-                Text(agent.place)
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundStyle(Color.slateTextDim)
-                    .lineLimit(1)
-                    .truncationMode(.head)
-                    .layoutPriority(1)
-            }
-            if !agent.title.isEmpty {
-                Text(agent.title)
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(Color.slateTextDim)
+            Text(title)
+                .font(.system(size: 16))
+                .foregroundStyle(Color.primary)
+                .lineLimit(1)
+            if let note, !note.isEmpty {
+                Text(note)
+                    .font(.system(size: 14))
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.tail)
             }
             Spacer(minLength: 4)
-            if let count = model.work[agent.id], count > 0 {
-                AgentWorkMark(count: count)
-            }
-            HostBadge(host: agent.host)
-                .layoutPriority(1)
-            if agent.isChattable {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(Color.slateTextFaint)
-                    .layoutPriority(1)
-            }
+            Image(systemName: "chevron.right")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.tertiary)
         }
-        .padding(.horizontal, 14)
-        .frame(minHeight: 44)
+        .padding(.horizontal, 16)
+        .frame(minHeight: 56)
         .contentShape(Rectangle())
-        .opacity(attaching == agent.id ? 0.55 : 1)
     }
 
-    private func agentRow(name: String, active: Bool, detail: String?) -> some View {
-        HStack(spacing: 10) {
-            StatusDot(level: .live(active))
-            Text(name)
-                .font(.system(size: 13, design: .monospaced))
-                .foregroundStyle(.primary)
-                .opacity(active ? 1 : 0.45)
-            Spacer(minLength: 4)
-            if active, let detail {
-                Text(detail)
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundStyle(Color.slateTextFaint)
+    // MARK: - Herdr
+
+    @ViewBuilder
+    private var herdrCard: some View {
+        card("Herdr") {
+            if !model.herdrLoaded {
+                HStack(spacing: 12) {
+                    ProgressView().controlSize(.small)
+                    Text("Procurando sessões…")
+                        .font(.system(size: 16))
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 16)
+                .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
+            } else if !model.herdrMacOnline {
+                line("Mac offline")
+            } else if model.herdr.isEmpty {
+                line("Nenhuma sessão no herdr")
+            } else {
+                ForEach(Array(model.herdr.enumerated()), id: \.element.id) { index, session in
+                    if index > 0 { rowDivider }
+                    Button { attachHerdr(session.name) } label: {
+                        rowBody(
+                            on: session.running,
+                            title: session.name,
+                            note: session.note,
+                            busy: attaching == Self.herdrKey(session.name)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("herdr-\(session.name)")
+                    .accessibilityHint("abre a sessão do herdr no terminal")
+                }
             }
         }
-        .padding(.horizontal, 14)
-        .frame(minHeight: 44)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(name)
-        .accessibilityValue(active ? StatusLevel.healthy.label : StatusLevel.dormant.label)
     }
+
+    // MARK: - Terminais
+
+    @ViewBuilder
+    private var terminalsCard: some View {
+        card("Terminais") {
+            ForEach(Array(visibleSessions.enumerated()), id: \.element) { index, name in
+                if index > 0 { rowDivider }
+                sessionRow(name)
+            }
+            ForEach(TermAgentOrder.sorted(model.agents)) { agent in
+                rowDivider
+                agentRow(agent)
+            }
+            rowDivider
+            Button { create() } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 14, weight: .semibold))
+                        .frame(width: 8)
+                    Text("Nova sessão")
+                        .font(.system(size: 16))
+                    Spacer(minLength: 4)
+                }
+                .foregroundStyle(Color.primary)
+                .padding(.horizontal, 16)
+                .frame(minHeight: 56)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("terminal-new")
+        }
+    }
+
+    private func sessionRow(_ name: String) -> some View {
+        let dead = model.isDead(name)
+        return Button { path.append(.session(name)) } label: {
+            rowBody(
+                on: !dead,
+                title: TerminalSessionList.label(for: name),
+                note: TerminalSessionList.origin(for: name) == "mac" ? "Mac" : nil,
+                busy: false
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("abre o terminal")
+        .contextMenu {
+            if SessionsHomeStart.startable(session: name) {
+                Menu {
+                    ForEach(SessionsHomeStart.agents, id: \.self) { agent in
+                        Button { startAgent(name, agent: agent) } label: {
+                            Label(agent, systemImage: AgentMark.symbol(for: agent) ?? "sparkle")
+                        }
+                    }
+                } label: {
+                    Label("Iniciar agente", systemImage: "play")
+                }
+            }
+            if name != Self.macSession {
+                Button { startRename(name) } label: {
+                    Label("Renomear", systemImage: "pencil")
+                }
+            }
+            if SessionsHomeKill.killable(session: name) {
+                Button(role: .destructive) { killing = name } label: {
+                    Label("Matar sessão", systemImage: "xmark")
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func agentRow(_ agent: TermAgentProcess) -> some View {
+        let detail = [agent.project, agent.title].filter { !$0.isEmpty }.joined(separator: " · ")
+        if let target = AgentChatTarget(agent) {
+            Button { path.append(.chat(target)) } label: {
+                rowBody(on: agent.isBusy, title: agent.agent, note: detail, busy: attaching == agent.id)
+            }
+            .buttonStyle(.plain)
+            .contextMenu {
+                if agent.isAttachable {
+                    Button { attachAgent(agent) } label: {
+                        Label("Abrir no terminal", systemImage: "terminal")
+                    }
+                } else if !agent.session.isEmpty {
+                    Button { path.append(.session("vm:\(agent.session)")) } label: {
+                        Label("Abrir no terminal", systemImage: "terminal")
+                    }
+                }
+                if let target = SessionsHomeKill.target(agent) {
+                    Button(role: .destructive) { killing = target } label: {
+                        Label("Matar sessão", systemImage: "xmark")
+                    }
+                }
+            }
+        } else {
+            rowBody(on: agent.isBusy, title: agent.agent, note: detail, busy: false)
+        }
+    }
+
+    // MARK: - Garime
+
+    private var garimeCard: some View {
+        card("Garime") {
+            Button { path.append(.garime(prefill: "")) } label: {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 8) {
+                        Text("Conversar com o Garime")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(Color.primary)
+                        Spacer(minLength: 4)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                    Text("Pergunte, acompanhe e responda quando ele precisar de você.")
+                        .font(.system(size: 15))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(16)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("garime-chat")
+            rowDivider
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(AgentQuickPrompt.all, id: \.self) { prompt in
+                        Button { path.append(.garime(prefill: prompt.text)) } label: {
+                            Text(prompt.label)
+                                .font(.system(size: 15))
+                                .foregroundStyle(Color.primary)
+                                .padding(.horizontal, 14)
+                                .frame(height: 36)
+                                .background(
+                                    RoundedRectangle(cornerRadius: PaperRadius.tile, style: .continuous)
+                                        .fill(Color.paperTile)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+            .padding(.vertical, 12)
+        }
+    }
+
+    // MARK: - Ações
 
     private func refreshAll(force: Bool = true) async {
         await model.refresh(force: force)
@@ -927,6 +901,13 @@ struct SessionsHomeView: View {
 
     private static func herdrKey(_ project: String) -> String {
         "herdr|\(project)"
+    }
+
+    private func openDebugHerdr() {
+        #if DEBUG
+        guard let name = Self.debugHerdr(), path.isEmpty else { return }
+        attachHerdr(name)
+        #endif
     }
 
     private func startAgent(_ name: String, agent: String) {
@@ -1006,23 +987,13 @@ struct SessionsHomeView: View {
         ticker = nil
     }
 
-    private static func relative(_ raw: String) -> String? {
-        guard let date = systemdFormatter.date(from: raw) else { return nil }
-        return "desde " + relativeFormatter.localizedString(for: date, relativeTo: Date())
+    private static func debugHerdr() -> String? {
+        guard let index = CommandLine.arguments.firstIndex(of: "-geoHerdr"),
+              index + 1 < CommandLine.arguments.count
+        else { return nil }
+        let name = CommandLine.arguments[index + 1]
+        return name.isEmpty ? nil : name
     }
-
-    private static let systemdFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "EEE yyyy-MM-dd HH:mm:ss zzz"
-        return formatter
-    }()
-
-    private static let relativeFormatter: RelativeDateTimeFormatter = {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .short
-        return formatter
-    }()
 
     private static func initialPath() -> [SessionsHomeRoute] {
         if let index = CommandLine.arguments.firstIndex(of: "-geoChat"),
@@ -1045,6 +1016,9 @@ struct SessionsHomeView: View {
                     title: parts.count > 4 ? parts[4] : ""
                 ))]
             }
+        }
+        if CommandLine.arguments.contains("-geoChat") {
+            return [.garime(prefill: "")]
         }
         guard let index = CommandLine.arguments.firstIndex(of: "-geoSession"),
               index + 1 < CommandLine.arguments.count

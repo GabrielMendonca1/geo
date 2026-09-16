@@ -5,6 +5,14 @@ final class SmartKeysView: UIInputView {
     var onPaste: (() -> Void)?
     var applicationCursor: () -> Bool = { false }
 
+    /// Em modo herdr a barra ganha uma segunda linha com os atalhos do multiplexador.
+    var herdrMode = false {
+        didSet {
+            guard oldValue != herdrMode else { return }
+            rebuild()
+        }
+    }
+
     private enum Action {
         case esc
         case tab
@@ -12,6 +20,10 @@ final class SmartKeysView: UIInputView {
         case arrow(String)
         case literal(String)
         case paste
+        /// ctrl+b sozinho (o prefixo do herdr/tmux).
+        case prefix
+        /// ctrl+b seguido de uma tecla, enviados juntos.
+        case herdr(UInt8)
     }
 
     private struct KeySpec {
@@ -35,14 +47,36 @@ final class SmartKeysView: UIInputView {
         KeySpec(title: "", action: .paste, symbol: "doc.on.clipboard"),
     ]
 
+    private static let herdrKeys: [KeySpec] = [
+        KeySpec(title: "pfx", action: .prefix),
+        KeySpec(title: "‹tab", action: .herdr(0x70)),
+        KeySpec(title: "tab›", action: .herdr(0x6e)),
+        KeySpec(title: "◀", action: .herdr(0x68)),
+        KeySpec(title: "▼", action: .herdr(0x6a)),
+        KeySpec(title: "▲", action: .herdr(0x6b)),
+        KeySpec(title: "▶", action: .herdr(0x6c)),
+        KeySpec(title: "zoom", action: .herdr(0x7a)),
+        KeySpec(title: "ws", action: .herdr(0x77)),
+        KeySpec(title: "ir", action: .herdr(0x67)),
+        KeySpec(title: "bar", action: .herdr(0x62)),
+        KeySpec(title: "sair", action: .herdr(0x71)),
+    ]
+
+    private static let mainRow = 0
+    private static let herdrRow = 1
+
     private var ctrlArmed = false
     private weak var ctrlButton: UIButton?
+    private weak var prefixButton: UIButton?
+    private var prefixTimer: Timer?
     private var holdTimer: Timer?
     private var repeatTimer: Timer?
     private let keysAreGlass: Bool = {
         if #available(iOS 26.0, *) { return true }
         return false
     }()
+
+    private var barHeight: CGFloat { herdrMode ? 88 : 44 }
 
     init(width: CGFloat) {
         super.init(frame: CGRect(x: 0, y: 0, width: width, height: 44), inputViewStyle: .keyboard)
@@ -54,7 +88,7 @@ final class SmartKeysView: UIInputView {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     override var intrinsicContentSize: CGSize {
-        CGSize(width: UIView.noIntrinsicMetric, height: 44)
+        CGSize(width: UIView.noIntrinsicMetric, height: barHeight)
     }
 
     func transform(_ bytes: [UInt8]) -> [UInt8] {
@@ -64,12 +98,33 @@ final class SmartKeysView: UIInputView {
         return [mapped] + bytes.dropFirst()
     }
 
+    private func rebuild() {
+        cancelRepeat()
+        prefixTimer?.invalidate()
+        prefixTimer = nil
+        ctrlArmed = false
+        ctrlButton = nil
+        prefixButton = nil
+        subviews.forEach { $0.removeFromSuperview() }
+        frame.size.height = barHeight
+        invalidateIntrinsicContentSize()
+        buildStack()
+    }
+
+    private func specs(_ row: Int) -> [KeySpec] {
+        row == Self.herdrRow ? Self.herdrKeys : Self.keys
+    }
+
+    private func spec(for tag: Int) -> KeySpec {
+        specs(tag / 100)[tag % 100]
+    }
+
     private func buildStack() {
-        let stack = UIStackView()
-        stack.axis = .horizontal
-        stack.distribution = .fillEqually
-        stack.spacing = 5
-        stack.translatesAutoresizingMaskIntoConstraints = false
+        let columns = UIStackView()
+        columns.axis = .vertical
+        columns.distribution = .fillEqually
+        columns.spacing = 5
+        columns.translatesAutoresizingMaskIntoConstraints = false
 
         let host = makeStackHost()
         addSubview(host)
@@ -81,16 +136,34 @@ final class SmartKeysView: UIInputView {
         ])
 
         let container = (host as? UIVisualEffectView)?.contentView ?? host
-        container.addSubview(stack)
+        container.addSubview(columns)
         NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 5),
-            stack.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -5),
-            stack.topAnchor.constraint(equalTo: container.topAnchor, constant: 5),
-            stack.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -5),
+            columns.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 5),
+            columns.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -5),
+            columns.topAnchor.constraint(equalTo: container.topAnchor, constant: 5),
+            columns.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -5),
         ])
 
-        for (index, key) in Self.keys.enumerated() {
-            let button = makeButton(title: key.title, symbol: key.symbol, tag: index)
+        if herdrMode {
+            columns.addArrangedSubview(makeRow(Self.herdrRow))
+        }
+        columns.addArrangedSubview(makeRow(Self.mainRow))
+    }
+
+    private func makeRow(_ row: Int) -> UIStackView {
+        let stack = UIStackView()
+        stack.axis = .horizontal
+        stack.distribution = .fillEqually
+        stack.spacing = 5
+        var wrapped: [UIView] = []
+
+        for (index, key) in specs(row).enumerated() {
+            let button = makeButton(
+                title: key.title,
+                symbol: key.symbol,
+                tag: row * 100 + index,
+                fontSize: row == Self.herdrRow ? 10 : 13
+            )
             switch key.action {
             case .arrow:
                 button.addTarget(self, action: #selector(arrowDown(_:)), for: .touchDown)
@@ -98,11 +171,27 @@ final class SmartKeysView: UIInputView {
             case .ctrl:
                 ctrlButton = button
                 button.addTarget(self, action: #selector(tapped(_:)), for: .touchUpInside)
+            case .prefix:
+                prefixButton = button
+                button.addTarget(self, action: #selector(tapped(_:)), for: .touchUpInside)
             default:
                 button.addTarget(self, action: #selector(tapped(_:)), for: .touchUpInside)
             }
-            stack.addArrangedSubview(wrap(button))
+            let view = wrap(button)
+            wrapped.append(view)
+            stack.addArrangedSubview(view)
         }
+        // Largura fatiada na mão: senão rótulos maiores (zoom, sair) empurram a linha pra fora da tela.
+        if !wrapped.isEmpty {
+            let slice = 1 / CGFloat(wrapped.count)
+            let inset = stack.spacing * CGFloat(wrapped.count - 1) * slice
+            for view in wrapped {
+                view.widthAnchor.constraint(
+                    equalTo: stack.widthAnchor, multiplier: slice, constant: -inset
+                ).isActive = true
+            }
+        }
+        return stack
     }
 
     private func makeStackHost() -> UIView {
@@ -126,6 +215,8 @@ final class SmartKeysView: UIInputView {
         capsule.clipsToBounds = true
         capsule.layer.cornerRadius = 17
         capsule.layer.cornerCurve = .continuous
+        capsule.setContentCompressionResistancePriority(.fittingSizeLevel, for: .horizontal)
+        capsule.setContentHuggingPriority(.fittingSizeLevel, for: .horizontal)
         button.translatesAutoresizingMaskIntoConstraints = false
         capsule.contentView.addSubview(button)
         NSLayoutConstraint.activate([
@@ -137,7 +228,7 @@ final class SmartKeysView: UIInputView {
         return capsule
     }
 
-    private func makeButton(title: String, symbol: String?, tag: Int) -> UIButton {
+    private func makeButton(title: String, symbol: String?, tag: Int, fontSize: CGFloat = 13) -> UIButton {
         let button = UIButton(type: .system)
         button.tag = tag
         if let symbol {
@@ -148,9 +239,13 @@ final class SmartKeysView: UIInputView {
             button.setTitle(title, for: .normal)
         }
         button.setTitleColor(SlatePalette.text, for: .normal)
-        button.titleLabel?.font = UIFont.monospacedSystemFont(ofSize: 13, weight: .medium)
+        button.titleLabel?.font = UIFont.monospacedSystemFont(ofSize: fontSize, weight: .medium)
         button.titleLabel?.adjustsFontSizeToFitWidth = true
-        button.titleLabel?.minimumScaleFactor = 0.8
+        button.titleLabel?.minimumScaleFactor = 0.5
+        button.titleLabel?.lineBreakMode = .byClipping
+        button.setContentCompressionResistancePriority(.fittingSizeLevel, for: .horizontal)
+        button.setContentHuggingPriority(.fittingSizeLevel, for: .horizontal)
+        button.titleLabel?.setContentCompressionResistancePriority(.fittingSizeLevel, for: .horizontal)
         if keysAreGlass {
             button.backgroundColor = .clear
         } else {
@@ -162,7 +257,7 @@ final class SmartKeysView: UIInputView {
     }
 
     @objc private func tapped(_ sender: UIButton) {
-        let key = Self.keys[sender.tag]
+        let key = spec(for: sender.tag)
         switch key.action {
         case .ctrl:
             setCtrl(!ctrlArmed)
@@ -177,9 +272,30 @@ final class SmartKeysView: UIInputView {
         case .paste:
             setCtrl(false)
             onPaste?()
+        case .prefix:
+            setCtrl(false)
+            flashPrefix()
+            emit([0x02])
+        case .herdr(let letter):
+            setCtrl(false)
+            emit([0x02, letter])
         case .arrow:
             break
         }
+    }
+
+    /// Destaca a tecla `pfx` por um segundo, como o `ctrl` armado.
+    private func flashPrefix() {
+        prefixTimer?.invalidate()
+        setPrefixHighlight(true)
+        prefixTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: false) { [weak self] _ in
+            self?.setPrefixHighlight(false)
+        }
+    }
+
+    private func setPrefixHighlight(_ on: Bool) {
+        prefixButton?.backgroundColor = on ? SlatePalette.text : (keysAreGlass ? .clear : SlatePalette.elevated)
+        prefixButton?.setTitleColor(on ? SlatePalette.card : SlatePalette.text, for: .normal)
     }
 
     @objc private func arrowDown(_ sender: UIButton) {
@@ -207,7 +323,7 @@ final class SmartKeysView: UIInputView {
     }
 
     private func sendArrow(_ sender: UIButton) {
-        guard case .arrow(let direction) = Self.keys[sender.tag].action else { return }
+        guard case .arrow(let direction) = spec(for: sender.tag).action else { return }
         let prefix = applicationCursor() ? "\u{1b}O" : "\u{1b}["
         emit(Array((prefix + direction).utf8))
     }
