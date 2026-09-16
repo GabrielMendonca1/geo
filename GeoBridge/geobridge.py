@@ -180,6 +180,7 @@ PLAN_ID_RE = re.compile(r"\Aplan-(\d{4}-W\d{2})\.r([1-9]\d*)\Z")
 PLAN_FILE_RE = re.compile(r"\Aplan-(\d{4}-W\d{2})\.r([1-9]\d*)\.json\Z")
 TASK_ROUTE = re.compile(r"^/tasks/([^/]+)/(complete|reopen)$")
 TASK_DELETE_ROUTE = re.compile(r"^/tasks/([^/]+)$")
+TASK_UPDATE_ROUTE = TASK_DELETE_ROUTE
 DISPATCH_STREAM_ROUTE = re.compile(r"^/dispatches/([^/]+)/stream$")
 
 TOKEN = ""
@@ -3165,6 +3166,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._mutate_task(m.group(1), "completed" if m.group(2) == "complete" else "pending")
             elif path == "/tasks":
                 self._create_task()
+            elif TASK_UPDATE_ROUTE.match(path):
+                self._update_task(TASK_UPDATE_ROUTE.match(path).group(1))
             elif path == "/vitals/state":
                 self._put_vitals_state()
             elif path == "/vitals/log":
@@ -3285,6 +3288,81 @@ class Handler(BaseHTTPRequestHandler):
                 return
             self._json(200, data)
             return
+
+    def _read_task_body(self):
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            length = 0
+        try:
+            self._body_read = True
+            task = json.loads(self.rfile.read(length)) if length else None
+        except ValueError:
+            task = None
+        return task if isinstance(task, dict) else None
+
+    def _valid_task_shape(self, task):
+        title = task.get("title")
+        body = task.get("body")
+        kind = body.get("kind") if isinstance(body, dict) else None
+        if (
+            not valid_id(task.get("id"))
+            or not isinstance(title, str)
+            or not title.strip()
+            or kind not in ("task", "event", "habit", "milestone")
+            or not isinstance(task.get("createdAt"), str)
+        ):
+            return "invalid_body"
+        if kind == "task":
+            due = body.get("due")
+            if not isinstance(due, str) or not due:
+                return "task_due_required"
+            try:
+                datetime.fromisoformat(due.replace("Z", "+00:00"))
+            except ValueError:
+                return "task_due_required"
+        return None
+
+    def _update_task(self, task_id):
+        """POST /tasks/{id} com o TaskItem completo: substitui o arquivo (id deve bater)."""
+        if not valid_id(task_id):
+            self._json(400, b'{"error":"invalid_id"}')
+            return
+        task = self._read_task_body()
+        if task is None or task.get("id") != task_id:
+            self._json(400, b'{"error":"invalid_body"}')
+            return
+        err = self._valid_task_shape(task)
+        if err:
+            self._json(400, ('{"error":"%s"}' % err).encode())
+            return
+        path = os.path.join(TASKS_DIR, task_id + ".json")
+        if not os.path.exists(path):
+            self._json(404, b'{"error":"not_found"}')
+            return
+        task["modifiedAt"] = now_iso()
+        data = json.dumps(task, separators=(",", ":"), ensure_ascii=False).encode()
+        fd, tmp = tempfile.mkstemp(dir=TASKS_DIR, prefix=".geobridge-")
+        try:
+            os.write(fd, data)
+            os.fsync(fd)
+            os.close(fd)
+            fd = -1
+            os.chmod(tmp, 0o600)
+            os.replace(tmp, path)
+        except OSError:
+            if fd != -1:
+                try:
+                    os.close(fd)
+                except OSError:
+                    pass
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+            self._json(500, b'{"error":"internal"}')
+            return
+        self._json(200, data)
 
     def _create_task(self):
         try:

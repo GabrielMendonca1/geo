@@ -33,6 +33,7 @@ enum BridgeEndpoint {
     case taskComplete(id: String)
     case taskReopen(id: String)
     case taskDelete(id: String)
+    case taskUpdate(id: String)
     case vitalsProtocol
     case vitalsState
     case vitalsLogs
@@ -93,7 +94,7 @@ enum BridgeEndpoint {
             return "/tasks/\(Self.encode(id))/complete"
         case .taskReopen(let id):
             return "/tasks/\(Self.encode(id))/reopen"
-        case .taskDelete(let id):
+        case .taskDelete(let id), .taskUpdate(let id):
             return "/tasks/\(Self.encode(id))"
         case .vitalsProtocol:
             return "/vitals/protocol"
