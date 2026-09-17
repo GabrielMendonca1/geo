@@ -485,7 +485,6 @@ struct SessionsHomeView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     herdrCard
-                    terminalsCard
                     garimeCard
                 }
                 .padding(.horizontal, 16)
