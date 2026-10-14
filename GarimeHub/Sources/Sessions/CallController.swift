@@ -52,7 +52,11 @@ final class CallController {
         poll()
         let directory = (Config.recStatePath as NSString).deletingLastPathComponent
         try? FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
-        let fileWatcher = PathWatcher(paths: [directory]) { [weak self] in self?.poll() }
+        let stateFile = (Config.recStatePath as NSString).lastPathComponent
+        let fileWatcher = PathWatcher(
+            paths: [directory],
+            accepts: { ($0 as NSString).lastPathComponent == stateFile }
+        ) { [weak self] in self?.poll() }
         fileWatcher.start()
         watcher = fileWatcher
     }

@@ -33,6 +33,10 @@ enum CaptureProbe {
         return snapshot
     }
 
+    static func isSignal(path: String) -> Bool {
+        path.hasSuffix("/status/stranded") || path.hasSuffix("/registry/processed.json")
+    }
+
     static func mtime(_ path: String) -> Date? {
         (try? FileManager.default.attributesOfItem(atPath: path))?[.modificationDate] as? Date
     }
@@ -77,8 +81,14 @@ final class CaptureWatcher {
         guard timer == nil else { return }
         poll()
         let fm = FileManager.default
-        let watched = fm.fileExists(atPath: root) ? root : (root as NSString).deletingLastPathComponent
-        let fileWatcher = PathWatcher(paths: [watched], latency: 1) { [weak self] in self?.poll() }
+        let watched = fm.fileExists(atPath: root + "/status")
+            ? [root + "/status", root + "/registry"]
+            : [(root as NSString).deletingLastPathComponent]
+        let fileWatcher = PathWatcher(
+            paths: watched,
+            latency: 1,
+            accepts: { CaptureProbe.isSignal(path: $0) }
+        ) { [weak self] in self?.poll() }
         fileWatcher.start()
         watcher = fileWatcher
         let ticker = Timer(timeInterval: Config.captureStaleCheckInterval, repeats: true) { [weak self] _ in

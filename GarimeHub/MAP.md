@@ -19,13 +19,13 @@ Bundle `ai.garime.hub`, LaunchAgent `ai.garime.hub`, logs em `~/Library/Logs/gar
 
 | O quê | Frequência |
 |---|---|
-| `PathWatcher` (FSEvents) em `~/.cache/whisper` e na pasta do GarimeCapture | só quando um arquivo muda (heartbeat do Capture: ~15 s) |
+| `PathWatcher` (FSEvents) em `~/.cache/whisper` e em `GarimeCapture/{status,registry}` | só reage a `rec.state`, `stranded` e `processed.json`; heartbeats chegam a cada ~15 s e são descartados |
 | Checagem de heartbeat parado do Capture | 60 s, tolerância 10 s |
 | Liveness da call | 60 s, **só enquanto uma call grava** |
 | `CapsWatcher` | monitor de `flagsChanged` + 30 s |
 | Ícone | sem timer parado; anima só gravando/transcrevendo |
 
-Medido com `./perf.sh`: 14 MB de footprint, ~0 idle wakeups/s, 0 leaks (antes: 33 MB, ~6,5/s).
+Medido com `./perf.sh`: 14 MB de footprint, 0,2–0,3 idle wakeups/s, 0 leaks (antes: 33 MB, ~6,5/s).
 
 ## Não é o app
 

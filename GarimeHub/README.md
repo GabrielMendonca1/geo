@@ -55,7 +55,7 @@ Testes isolados, sem lançar o hub completo:
 
 `./perf.sh` abre o build, espera 20 s, mede 60 s e falha acima da meta (footprint ≤ 25 MB,
 ≤ 0,5 idle wakeups/s, 0 leaks). Saia do app instalado antes. Em 2026-10-14: 33 MB e ~6,5 wakeups/s
-antes; 14 MB e ~0 wakeups/s depois de tirar Mac Duo, o arraste legado e os polls de 5 s.
+antes; 14 MB e 0,2–0,3 wakeups/s depois de tirar Mac Duo, o arraste legado e os polls de 5 s.
 
 ## Migração do Garime Whisper
 

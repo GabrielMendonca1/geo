@@ -6,11 +6,23 @@ final class PathWatcher {
     private let paths: [String]
     private let latency: CFTimeInterval
     private let onChange: () -> Void
+    private let accepts: (String) -> Bool
 
-    init(paths: [String], latency: CFTimeInterval = 0.5, onChange: @escaping () -> Void) {
+    init(
+        paths: [String],
+        latency: CFTimeInterval = 0.5,
+        accepts: @escaping (String) -> Bool = { _ in true },
+        onChange: @escaping () -> Void
+    ) {
         self.paths = paths
         self.latency = latency
+        self.accepts = accepts
         self.onChange = onChange
+    }
+
+    fileprivate func deliver(_ changed: [String]) {
+        guard changed.isEmpty || changed.contains(where: accepts) else { return }
+        onChange()
     }
 
     deinit {
@@ -29,11 +41,14 @@ final class PathWatcher {
             release: nil,
             copyDescription: nil
         )
-        let callback: FSEventStreamCallback = { _, info, _, _, _, _ in
+        let callback: FSEventStreamCallback = { _, info, _, eventPaths, _, _ in
             guard let info else { return }
-            Unmanaged<PathWatcher>.fromOpaque(info).takeUnretainedValue().onChange()
+            let changed = (Unmanaged<CFArray>.fromOpaque(eventPaths).takeUnretainedValue() as? [String]) ?? []
+            Unmanaged<PathWatcher>.fromOpaque(info).takeUnretainedValue().deliver(changed)
         }
-        let flags = FSEventStreamCreateFlags(kFSEventStreamCreateFlagNoDefer | kFSEventStreamCreateFlagFileEvents)
+        let flags = FSEventStreamCreateFlags(
+            kFSEventStreamCreateFlagNoDefer | kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagUseCFTypes
+        )
         guard let created = FSEventStreamCreate(
             kCFAllocatorDefault,
             callback,
