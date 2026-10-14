@@ -354,6 +354,26 @@ final class HubRowView: NSView {
 }
 
 final class HubScrollView: NSScrollView {
+    private var boundsObserver: NSObjectProtocol?
+
+    deinit {
+        if let boundsObserver {
+            NotificationCenter.default.removeObserver(boundsObserver)
+        }
+    }
+
+    func followBounds() {
+        guard boundsObserver == nil else { return }
+        contentView.postsBoundsChangedNotifications = true
+        boundsObserver = NotificationCenter.default.addObserver(
+            forName: NSView.boundsDidChangeNotification,
+            object: contentView,
+            queue: .main
+        ) { [weak self] _ in
+            self?.syncHover()
+        }
+    }
+
     override func scrollWheel(with event: NSEvent) {
         super.scrollWheel(with: event)
         syncHover()
@@ -600,14 +620,7 @@ enum HubPanelView {
             scroller.horizontalScrollElasticity = .none
             scroller.verticalScroller?.knobStyle = .light
             scroller.documentView = body
-            scroller.contentView.postsBoundsChangedNotifications = true
-            NotificationCenter.default.addObserver(
-                forName: NSView.boundsDidChangeNotification,
-                object: scroller.contentView,
-                queue: .main
-            ) { [weak scroller] _ in
-                scroller?.syncHover()
-            }
+            scroller.followBounds()
             container.addSubview(scroller)
         } else {
             body.setFrameOrigin(NSPoint(x: 0, y: bodyTop))

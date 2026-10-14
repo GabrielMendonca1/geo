@@ -86,7 +86,9 @@ enum MeetingArchive {
                     "-m", Config.modelPath,
                     "-f", wav.path,
                     "-l", Config.language,
-                    "-nt",
+                    "-mc", "0",
+                    "-osrt",
+                    "-of", directory.appendingPathComponent("transcript").path,
                     "-np",
                 ],
                 timeout: Config.meetingTranscribeTimeout

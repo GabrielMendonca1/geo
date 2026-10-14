@@ -66,6 +66,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let tangerineShortcutRetryItem = NSMenuItem(title: "Tentar registrar atalhos novamente", action: nil, keyEquivalent: "")
     private let hubPanel = HubPanel()
     private var openProject: String?
+    private var projectCache: (at: Date, projects: [ProjectStatus])?
     private var appTailItems: [NSMenuItem] = []
     private var duoItem: NSMenuItem?
     private var hubMenuOpen = false
@@ -471,7 +472,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func panelContent() -> NSView {
-        let projects = ProjectStatusScanner.scan(files: Config.canonicalProjectStatusFiles)
+        let projects = scannedProjects()
         let content: HubContent
         if let openProject, let project = projects.first(where: { $0.path == openProject }) {
             content = HubContent(
@@ -518,6 +519,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         )
     }
 
+    private func scannedProjects() -> [ProjectStatus] {
+        let now = Date()
+        if let projectCache, now.timeIntervalSince(projectCache.at) < Config.projectScanMaxAge {
+            return projectCache.projects
+        }
+        let projects = ProjectStatusScanner.scan(roots: Config.projectRoots)
+        projectCache = (now, projects)
+        return projects
+    }
+
     private func panelOpenRow(_ id: String) {
         guard id.hasPrefix("project:") else { return }
         let path = String(id.dropFirst("project:".count))
@@ -530,6 +541,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard id.hasPrefix("todo:"), let path = openProject else { return }
         let todo = String(id.dropFirst("todo:".count))
         if StatusTodoWriter.complete(path: path, todo: todo) {
+            projectCache = nil
             icon.flash("checkmark.circle.fill")
         }
         presentPanel()

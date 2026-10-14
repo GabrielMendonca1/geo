@@ -113,16 +113,17 @@ enum Config {
     static let panelGap: CGFloat = 6
     static let panelProjectLimit = 6
 
-    static let canonicalProjectStatusFiles = [
-        NSHomeDirectory() + "/ARCA/Clients/mac/mcScala/STATUS.md",
-        NSHomeDirectory() + "/ARCA/Clients/Marqserv/STATUS.md",
-        NSHomeDirectory() + "/ARCA/Clients/Isaro/STATUS.md",
-        NSHomeDirectory() + "/Omni/Clients/Bloko/STATUS.md",
-        NSHomeDirectory() + "/Omni/STATUS.md",
-        NSHomeDirectory() + "/ARCA/STATUS.md",
-        NSHomeDirectory() + "/Omni/Clients/WG/STATUS.md",
-        NSHomeDirectory() + "/Lab/sitesmith/STATUS.md",
+    static let projectRoots = [
+        NSHomeDirectory() + "/Garime",
+        NSHomeDirectory() + "/Omni",
+        NSHomeDirectory() + "/Omni/Clients",
+        NSHomeDirectory() + "/ARCA",
+        NSHomeDirectory() + "/ARCA/Clients",
+        NSHomeDirectory() + "/ARCA/Clients/mac",
+        NSHomeDirectory() + "/Lab",
+        NSHomeDirectory() + "/.claude",
     ]
+    static let projectScanMaxAge: TimeInterval = 30
     static let projectTodoLimit = 10
 
     static let recScript = NSHomeDirectory() + "/Garime/brain/skills/record/scripts/rec.sh"
