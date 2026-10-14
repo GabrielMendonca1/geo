@@ -5,7 +5,6 @@ enum MenuSectionID: Int, CaseIterable {
     case dictation
     case meeting
     case insomnia
-    case capture
     case personalTasks
     case projects
     case app

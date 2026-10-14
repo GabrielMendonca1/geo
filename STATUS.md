@@ -19,6 +19,7 @@
 - [ ] endurecer verbos de leitura do /term: `session=` malformado ainda cai na sessão default
 - [ ] ler `/proc/<pid>/cwd` para transcript de processos prime fora do tmux
 - [ ] decidir o destino do histórico congelado de `Captures/` na VM
+- [x] GarimeCapture aposentado (2026-10-14): prints ficam onde o macOS salva, `~/Pictures/SCREENSHOT`; estado, binário e agentes em `~/Library/Application Support/Garime/Backups/GarimeCapture/20261014-133339/`
 - [ ] decidir a aposentadoria total da VM antiga `garime-bridge` na OCI
 - [ ] investigar por que o alerta de outage prolongado do whatsapp-ingest não disparou
 - [ ] podar `task_archive/` e corrigir repeat null-target no `context_scraping`

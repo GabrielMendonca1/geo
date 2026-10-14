@@ -10,14 +10,13 @@ installed at `~/Applications/Garime Hub.app`. Map of every feature: [`MAP.md`](M
 | Reunião | start/stop from the menu → `~/Recordings/<stamp>-reuniao/` with `audio.wav` + `transcript.txt` | native `Recorder` + `whisper-cli` |
 | Call | start/stop the `/record` skill's `rec.sh` (BlackHole mix); recordings started from the terminal show up too, mirrored from `~/.cache/whisper/rec.state` | subprocess, `env` with a homebrew PATH |
 | Manter acordado | **Caps Lock on = the Mac never sleeps** (the capsomnia contract), plus an automatic hold while any recording runs; the menu toggle is only for holding it by hand | native `IOPMAssertion` stacked over named holds, no `caffeinate` |
-| Prints | observes GarimeCapture's status files, **read-only**: icon flash per processed print, alert badge + menu line when stranded or heartbeat is stale | FSEvents on the folder + 60 s stale check |
 | Tarefas | open Vault tasks, read-only, refreshed lazily over `ssh garime` when the hub/menu opens, offline cache with an age stamp | `ssh` BatchMode + cache in `~/Library/Application Support/Garime/Hub/` |
 | Projetos | unchecked `- [ ]` items from every `STATUS.md` under `Config.projectRoots` (`~/Garime ~/Omni ~/Omni/Clients ~/ARCA ~/ARCA/Clients ~/ARCA/Clients/mac ~/Lab ~/.claude`, root + 1 level) | local parse, cached 30 s |
 | Arquivos | select files in Finder/Mesa, **⌃⌥Space** converts, **⇧⌃⌥Space** tools — a radial wheel at the cursor | native backend + ffmpeg/poppler/gs |
 
 The icon carries state: a filled triangle (idle), an animated triangular matrix (dictating,
-meeting/call and transcribing), a moon overlay while insomnia is on, an alert badge while
-GarimeCapture needs a human, and a short camera flash when a print is processed.
+meeting/call and transcribing), and a moon overlay while insomnia is on. Prints are left to macOS (saved to
+`~/Pictures/SCREENSHOT`); the GarimeCapture daemon was retired on 2026-10-14.
 
 Dictation, meetings and OCR never leave the Mac. The only network touch is the read-only `ssh`
 fetch of Vault tasks over the tailnet.
@@ -127,9 +126,6 @@ line names the missing path.
 - **A meeting never loses audio**: the capture is moved into its `~/Recordings/` folder before
   conversion; a wedged whisper leaves `audio.wav` in place and only the transcript is missing.
   An audio-device change mid-meeting stops and transcribes instead of aborting.
-- **GarimeCapture is observed, never touched**: the watcher only ever `stat`s and reads
-  `status/` and `registry/processed.json`; `smoke.sh` fails if a write call appears in it.
-  The menu line only exists while something is wrong.
 - **Insomnia does not persist**: a reboot always comes back with sleep enabled.
 - **Tasks are read-only and lazy**: launch only loads the local cache; opening the hub/menu refreshes
   stale data. The remote command is exactly `cat` of the tasks glob, `BatchMode=yes`, and the menu

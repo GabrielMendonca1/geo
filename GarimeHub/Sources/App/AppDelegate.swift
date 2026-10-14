@@ -25,8 +25,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var meetingDirectory: URL?
     private let call = CallController()
     private var callDirectory: String?
-    private let capture = CaptureWatcher()
-    private var captureLine: String?
     private let tasksController = TasksController()
     private let files = FilesController()
     private let filesSelectionHotKeys = FilesSelectionHotKeys()
@@ -56,7 +54,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let insomniaItem = NSMenuItem(title: "Manter acordado", action: nil, keyEquivalent: "")
     private let meetingToggleItem = NSMenuItem(title: "Gravar reunião", action: nil, keyEquivalent: "")
     private let meetingStatusItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-    private let captureItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let callToggleItem = NSMenuItem(title: "Gravar call", action: nil, keyEquivalent: "")
     private let callStatusItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let notesItem = NSMenuItem(title: "Abrir o Vault", action: nil, keyEquivalent: "")
@@ -114,9 +111,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         call.onChange = { [weak self] in self?.callChanged() }
         call.start()
 
-        capture.onProcessed = { [weak self] in self?.icon.flash("camera.fill") }
-        capture.onCondition = { [weak self] condition in self?.captureChanged(condition) }
-        capture.start()
 
         tasksController.onChange = { [weak self] in self?.tasksChanged() }
         tasksController.start()
@@ -150,7 +144,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         insomnia.deactivate()
         meeting.abort()
         call.stop()
-        capture.stop()
         tasksController.stop()
         filesSelectionHotKeys.onConvert = nil
         filesSelectionHotKeys.onTools = nil
@@ -482,7 +475,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                         titleLimit: Config.taskTitleLimit
                     ),
                 ],
-                notice: captureLine,
+                notice: nil,
                 footer: panelFooter(),
                 actions: panelActionSpecs()
             )
@@ -555,19 +548,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func tasksChanged() {
         guard hubPanel.isOpen else { return }
         hubPanel.show(content: panelContent(), below: icon.button)
-    }
-
-    private func captureChanged(_ condition: CaptureCondition) {
-        let line = CaptureProbe.line(for: condition)
-        icon.setOverlay(.alert, enabled: line != nil)
-        guard line != captureLine else { return }
-        captureLine = line
-        if let line {
-            captureItem.title = line
-            menuController.set(.capture, items: [captureItem])
-        } else {
-            menuController.set(.capture, items: [])
-        }
     }
 
     private func restoreIdleIconAfterMeeting() {

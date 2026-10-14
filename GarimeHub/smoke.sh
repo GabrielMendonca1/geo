@@ -314,10 +314,6 @@ grep -q 'Hotkey.shared.unregister()' "$(src AppDelegate)"
 check $? "termination unregisters the global hotkey"
 grep -q 'RemoveEventHandler' "$(src Hotkey)"
 check $? "hotkey teardown releases its Carbon handler"
-grep -q 'accepts: { CaptureProbe.isSignal(path: $0) }' "$(src CaptureWatcher)"
-check $? "capture waits for file events instead of a 5 s poll"
-grep -q 'ticker.tolerance = Config.slowPollTolerance' "$(src CaptureWatcher)"
-check $? "capture stale check is slow and coalescible"
 grep -q 'PathWatcher(' "$(src CallController)"
 check $? "call waits for rec.state events instead of a 5 s poll"
 grep -q 'setLivenessTimer(active: probe?.active == true)' "$(src CallController)"
@@ -416,8 +412,6 @@ check "$([ $? -ne 0 ] && echo 0 || echo 1)" "no caffeinate subprocess anywhere"
 RELEASES="$(grep -c 'IOPMAssertionRelease' "$(src InsomniaController)")"
 [ "$RELEASES" -ge 2 ]
 check $? "assertion is released on deactivate and deinit"
-grep -q 'createFile\|setAttributes\|removeItem\|write(' "$(src CaptureWatcher)"
-check "$([ $? -ne 0 ] && echo 0 || echo 1)" "capture watcher is strictly read-only"
 grep -q 'BatchMode=yes' "$(src TasksController)"
 check $? "tasks fetch never prompts for credentials"
 grep -q '"cat " + Config.tasksRemoteGlob' "$(src TasksController)"
@@ -445,7 +439,6 @@ swiftc -O -target "$(uname -m)-apple-macos14.0" -sdk "$(xcrun --show-sdk-path --
   "$(src ProcessRunner)" \
   "$(src Transcriber)" \
   "$(src MeetingArchive)" \
-  "$(src CaptureWatcher)" \
   "$(src VaultTasks)" \
   "$(src ProjectStatus)" \
   "$(src CallController)" \

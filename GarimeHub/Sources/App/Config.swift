@@ -77,11 +77,8 @@ enum Config {
     static let meetingTranscribeTimeout: TimeInterval = 3600
     static let meetingElapsedRefresh: TimeInterval = 60
 
-    static let captureRoot = NSHomeDirectory() + "/Library/Application Support/Garime/GarimeCapture"
-    static let captureStaleCheckInterval: TimeInterval = 60
     static let backgroundPollTolerance: TimeInterval = 1
     static let slowPollTolerance: TimeInterval = 10
-    static let captureHeartbeatMaxAge: TimeInterval = 300
 
     static let hubDirectory = NSHomeDirectory() + "/Library/Application Support/Garime/Hub"
     static let sshBinary = "/usr/bin/ssh"

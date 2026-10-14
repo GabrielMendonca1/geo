@@ -75,7 +75,7 @@ final class TasksController {
     private func loadCache() {
         guard let raw = try? String(contentsOfFile: cachePath, encoding: .utf8) else { return }
         tasks = VaultTasks.parse(Data(raw.utf8))
-        fetchedAt = CaptureProbe.mtime(cachePath)
+        fetchedAt = (try? FileManager.default.attributesOfItem(atPath: cachePath))?[.modificationDate] as? Date
         offline = true
         onChange?()
     }

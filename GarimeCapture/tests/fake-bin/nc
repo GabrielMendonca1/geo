@@ -1,3 +1,0 @@
-#!/bin/sh
-echo "$(basename "$0") $*" >> "${GARIME_NETWORK_TRIPWIRE:-/dev/stderr}"
-exit 1

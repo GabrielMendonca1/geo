@@ -20,7 +20,6 @@ Personal, local-first system split by responsibility: human knowledge in **`~/Ga
         │
 geo_indexer (VM)     indexes human Markdown into state/index
 GeoBridge            exposes task/health state and terminal over Tailscale
-GarimeCapture        local screenshot/OCR archive, never writes either vault
 GarimeHub            menu-bar hub: dictation, meetings/calls, files, tasks
 ```
 
@@ -32,7 +31,6 @@ GarimeHub            menu-bar hub: dictation, meetings/calls, files, tasks
 | `GeoBridge/` | HTTP bridge (launchd `ai.geo.bridge`) serving tasks/terminal/chat to GeoMobile over the tailnet — see `GeoBridge/CONTRACT.md` |
 | `Garime/` | iOS app (SwiftUI): unified Today, Chat, Agents, Terminal |
 | `GeoCore/` | Swift package shared with the iOS app |
-| `GarimeCapture/` | Swift daemon: screenshot + Vision OCR → durable local archive. Never writes `~/Gabriel/` or `~/Sistema/` |
 | `GarimeHub/` | Swift menu-bar hub (formerly GarimeWhisper): dictation, meetings/calls, Arquivos, tasks — see `GarimeHub/MAP.md` |
 | `tests/` | `geo_time_contract.py` — time/timezone contract for `context_scraping` |
 
