@@ -29,7 +29,7 @@ func archiveBaseName(originalName: String, data: Data, capturedAt: Date) -> Stri
 }
 
 func writeAtomicGuarded(_ data: Data, to url: URL) -> Bool {
-    guard !isForbiddenPath(url) else {
+    guard !isForbiddenPathResolvingLinks(url) else {
         logErr("refused write into forbidden vault root: \(url.path)")
         return false
     }
@@ -52,8 +52,14 @@ func dayDirectory(under root: URL, day: String, label: String) -> URL? {
         return nil
     }
     let dayDir = root.appendingPathComponent(day, isDirectory: true)
-    guard !isForbiddenPath(dayDir) else {
+    guard !isForbiddenPathResolvingLinks(dayDir) else {
         logErr("refused \(label): \(dayDir.path) is inside a forbidden vault root")
+        return nil
+    }
+    // The archive is user-visible: never follow a shortcut placed at a day path.
+    if let type = try? fm.attributesOfItem(atPath: dayDir.path)[.type] as? FileAttributeType,
+       type != .typeDirectory {
+        logErr("refused \(label): \(dayDir.path) is not a plain directory")
         return nil
     }
     do {
@@ -62,12 +68,26 @@ func dayDirectory(under root: URL, day: String, label: String) -> URL? {
         logErr("failed to create \(label) day dir \(day): \(error.localizedDescription)")
         return nil
     }
+    guard let type = try? fm.attributesOfItem(atPath: dayDir.path)[.type] as? FileAttributeType,
+          type == .typeDirectory,
+          !isForbiddenPathResolvingLinks(dayDir),
+          dayDir.resolvingSymlinksInPath().path.hasPrefix(root.resolvingSymlinksInPath().path + "/") else {
+        logErr("refused \(label): day directory is not safely inside the archive")
+        return nil
+    }
     return dayDir
 }
 
 func archiveCapture(originalName: String, data: Data, capturedAt: Date) -> URL? {
     let archiveDay = dayFolderName(for: nowDate())
-    guard let archiveDayDir = dayDirectory(under: archiveDir, day: archiveDay, label: "archive") else { return nil }
+    let archiveDayDir: URL
+    if archiveLayout == .flat {
+        archiveDayDir = archiveDir
+    } else {
+        guard let dir = dayDirectory(under: archiveDir, day: archiveDay, label: "archive") else { return nil }
+        archiveDayDir = dir
+    }
+    // Atomic Data.write creates a new file: its mtime is archiving time, not capturedAt.
 
     let base = archiveBaseName(originalName: originalName, data: data, capturedAt: capturedAt)
     let imageName = "\(base).\(safeImageExtension(originalName))"
@@ -79,7 +99,7 @@ func archiveCapture(originalName: String, data: Data, capturedAt: Date) -> URL? 
     let imageURL = archiveDayDir.appendingPathComponent(imageName, isDirectory: false)
     guard writeAtomicGuarded(data, to: imageURL) else { return nil }
     guard syncToDisk(archiveDayDir) else {
-        logErr("refused archive: could not fsync archive/\(archiveDay); original left in place")
+        logErr("refused archive: could not fsync \(archiveDayDir.path); original left in place")
         return nil
     }
     return imageURL

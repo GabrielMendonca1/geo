@@ -3,13 +3,17 @@ import Foundation
 let arguments = Array(CommandLine.arguments.dropFirst())
 
 func ensureDirectories() {
+    _ = archiveLayout // Reject invalid configuration before creating directories.
     for dir in [baseDir, archiveDir, statusDir, registryURL.deletingLastPathComponent()] {
-        if isForbiddenPath(dir) {
+        if isForbiddenPathResolvingLinks(dir) {
             logErr("FATAL: \(dir.path) is inside a forbidden vault root; refusing to run")
             exit(78)
         }
         try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
     }
+    // Lets the independently launched watchdog recognize the shared archive root.
+    try? (archiveDir.resolvingSymlinksInPath().standardizedFileURL.path + "\n")
+        .write(to: statusDir.appendingPathComponent("archive.path"), atomically: true, encoding: .utf8)
     warnLegacySpool()
 }
 
@@ -83,6 +87,7 @@ case "paths":
     ensureDirectories()
     print("base=\(baseDir.path)")
     print("archive=\(archiveDir.path)")
+    print("archive_layout=\(archiveLayout.rawValue)")
     print("status=\(statusDir.path)")
     print("registry=\(registryURL.path)")
     exit(0)

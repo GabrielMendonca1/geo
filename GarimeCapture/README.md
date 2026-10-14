@@ -9,12 +9,12 @@ not anywhere. The clipboard is the only sink.
 
 **Stage A — capture** (main thread, offline):
 watch dir → wait for the file to stabilize → decode → clipboard phase 1 (image only) → Vision OCR →
-write the image into `archive/<day>/`, atomically and `F_FULLFSYNC`ed → clipboard phase 2 (image +
+write the image into `archive/<day>/` (or directly into the archive root with `flat`), atomically and `F_FULLFSYNC`ed → clipboard phase 2 (image +
 OCR text + a `file://` URL pointing at the archived image) → **only then** delete the original
 screenshot.
 
 **Stage B — retention** (background thread, purely local):
-every 6h, purge `archive/<day>/` folders older than 30 days. The gate is the *day folder name*, not
+By default (`GARIME_ARCHIVE_LAYOUT=dated`), every 6h purge `archive/<day>/` folders older than 30 days. The gate is the *day folder name*, not
 a file mtime — `cp`, rsync, Time Machine and iCloud all rewrite mtimes, the folder name is written
 once and never touched again. **That name is the archiving day, not the capture day**: a screenshot
 taken 45 days ago and only ingested today lands in `archive/<today>/` and gets its full 30 days.
@@ -26,6 +26,16 @@ is just as narrow: it deletes only regular files whose names match its own gener
 one, and removes the day folder only if that leaves it empty. A file you dropped in there, a nested
 folder, a symlink — all survive, and the day survives with them.
 
+With `GARIME_ARCHIVE_LAYOUT=flat`, images go directly into the archive root. Retention examines
+only regular root files matching the same generated-artifact whitelist, purging those whose mtime
+is more than 30 × 24 hours old. Atomic image writes create a new file with the **archiving mtime**;
+the capture timestamp in its name is not used for retention. Retries reset this mtime. Manually
+changing mtimes (including through copying/restoring files) changes this retention clock.
+Symlinks, native pending screenshots, foreign files and **all subdirectories** are left alone.
+Existing dated history, including the old internal archive, is neither migrated nor purged in flat
+mode. `archive_days` is zero; `archive_files` and `archive_oldest_age_days` describe only recognized
+regular flat artifacts. Purge totals remain cumulative across layout changes.
+
 ## Invariants
 
 - **Nothing leaves the Mac.** The daemon links no networking library, spawns no subprocess, and
@@ -34,8 +44,16 @@ folder, a symlink — all survive, and the day survives with them.
 - **No markdown is ever generated or persisted.** The OCR text exists in memory and on the
   pasteboard, and nowhere else. Not even the log records it — only a character count.
 - Nothing is ever written under the human `~/Gabriel/`, operational `~/Sistema/`, legacy `~/Vault/`, or retired `~/Library/Application Support/Geo/` roots.
-  Both are hard-guarded; if `GARIME_CAPTURE_HOME` resolves inside either, the process exits 78.
-- The original screenshot is deleted only after **both**: the archived image and its day directory
+  Both are hard-guarded; if `GARIME_CAPTURE_HOME` or `GARIME_ARCHIVE_DIR` resolves inside either, the
+  process exits 78. `GARIME_ARCHIVE_DIR` is checked through symlinks too, and refuses `/` or the home
+  directory itself.
+- **The archive root may be the watch directory.** Scans are non-recursive and skip generated
+  artifact names when the canonical watch and archive roots match, preventing flat re-ingest loops.
+  The watchdog uses `status/archive.path` to apply the same exclusion, without requiring its own
+  archive environment override. Native pending filenames remain eligible for capture and backlog alarms.
+- **Moving the archive moves only images.** Logs, `status/`, `registry/` and the legacy `spool/`
+  probe stay under `GARIME_CAPTURE_HOME` whatever `GARIME_ARCHIVE_DIR` says.
+- The original screenshot is deleted only after **both**: the archived image and its containing directory
   are `F_FULLFSYNC`ed, *and* the clipboard payload is accepted by the pasteboard server. A panic at
   any point leaves the original in the watch dir, never a truncated capture as the only copy.
 - **A failure never costs the original.** A failed archive write, a refused pasteboard, or any
@@ -86,7 +104,8 @@ folder, a symlink — all survive, and the day survives with them.
 ```
 ~/Library/Application Support/Garime/GarimeCapture/
   archive/<YYYY-MM-DD>/   the captured images, local only, keyed on the archiving day,
-                          purged 30 days after it
+                          purged 30 days after it (relocatable with GARIME_ARCHIVE_DIR;
+                          everything below always stays here)
   status/capture.heartbeat
   status/retention.heartbeat
   status/retention.status archive_days/archive_files/archive_oldest_age_days/
@@ -121,6 +140,8 @@ delete the original — not a shortcut around it.
 |---|---|
 | `GARIME_CAPTURE_HOME` | `~/Library/Application Support/Garime/GarimeCapture` |
 | `GARIME_WATCH_DIR` | unset — falls back to the `com.apple.screencapture` location, then Desktop |
+| `GARIME_ARCHIVE_DIR` | unset — the image archive lives in `<capture home>/archive`; an absolute path moves only the images |
+| `GARIME_ARCHIVE_LAYOUT` | `dated` — `flat` stores images directly in the archive root; other values exit 78 |
 | `GARIME_ARCHIVE_RETENTION_DAYS` | `30` days of local image archive |
 | `GARIME_RETENTION_INTERVAL` | `21600` seconds between purge passes |
 | `GARIME_RETENTION_MAX_AGE` | `86400` seconds before a stale retention heartbeat kicks (watchdog) |
@@ -143,6 +164,30 @@ delete the original — not a shortcut around it.
 TCC grants on every rebuild), installs `garimecapture` and the watchdog into `~/.local/bin`, and
 bootstraps `ai.garime.capture` (`KeepAlive`) plus `ai.garime.capture-watchdog` (every 300s). Running
 it twice is safe. `GARIME_INSTALL_SKIP_LAUNCHCTL=1` installs the files without touching launchd.
+`GARIME_ARCHIVE_DIR=/abs/path ./install.sh` writes that override into `ai.garime.capture`'s
+`EnvironmentVariables`; a later `./install.sh` without the variable preserves whatever the installed
+agent already carried. `GARIME_ARCHIVE_LAYOUT=flat` (or `dated`) is written and preserved independently
+in the same way; invalid values are rejected before stopping services. There is no global default — an install that was never asked for an override
+leaves the key absent and the archive under the capture home. Agent plists are prepared and
+validated before any installed files are replaced or services stopped.
+
+To use one visible folder for native screenshots and the OCR archive:
+
+```bash
+mkdir -p "$HOME/Pictures/SCREENSHOT"
+GARIME_ARCHIVE_DIR="$HOME/Pictures/SCREENSHOT" GARIME_ARCHIVE_LAYOUT=flat ./install.sh
+defaults write com.apple.screencapture location -string "$HOME/Pictures/SCREENSHOT"
+defaults write com.apple.screencapture location-screenshot -string "$HOME/Pictures/SCREENSHOT"
+```
+
+Recent macOS versions also use `location-screenshot` for still images; set both keys so the
+native capture destination matches the daemon's watched directory. Screen recording has its own
+`location-screenrecording` preference and is intentionally left unchanged.
+
+Add that folder to Finder's sidebar via **File → Add to Sidebar**. New screenshots enter the root,
+then become digest-named files directly in `SCREENSHOT/` after OCR, with 30-day retention. Existing images
+in the previous archive and dated subdirectories are not migrated or purged by this configuration. Daily directories must
+be plain directories, never symlinks; an unsafe destination leaves the original screenshot intact.
 
 The watchdog checks the two heartbeats (capture 180s, retention 86400s, the latter only once the
 daemon has written one) and logs an explicit error when the agent is not loaded at all, instead of

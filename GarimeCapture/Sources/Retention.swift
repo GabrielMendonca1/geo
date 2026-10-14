@@ -123,9 +123,44 @@ func writeRetentionStatus(_ status: RetentionStatus) {
     try? (body + "\n").write(to: retentionStatusURL, atomically: true, encoding: .utf8)
 }
 
+// Flat mode deliberately never descends into old dated folders.
+func flatArchiveFiles() -> [(url: URL, modified: Date)] {
+    archiveEntries().compactMap { name in
+        guard isSafeComponent(name), isArchiveArtifact(name) else { return nil }
+        let url = archiveDir.appendingPathComponent(name)
+        guard let attrs = try? fm.attributesOfItem(atPath: url.path),
+              attrs[.type] as? FileAttributeType == .typeRegular,
+              let modified = attrs[.modificationDate] as? Date else { return nil }
+        return (url, modified)
+    }
+}
+
+func flatRetentionPass(now: Date) -> Bool {
+    let cutoff = now.addingTimeInterval(-Double(Retention.days) * 86_400)
+    var purged = 0
+    for file in flatArchiveFiles() where file.modified < cutoff {
+        do {
+            try fm.removeItem(at: file.url)
+            purged += 1
+        } catch {
+            logErr("retention: could not purge \(file.url.lastPathComponent): \(error.localizedDescription)")
+        }
+    }
+    let remaining = flatArchiveFiles()
+    var status = loadRetentionStatus() ?? RetentionStatus()
+    status.lastPass = Int(Date().timeIntervalSince1970)
+    status.archiveDays = 0
+    status.archiveFiles = remaining.count
+    status.archiveOldestAgeDays = remaining.map { max(0, Int(now.timeIntervalSince($0.modified) / 86_400)) }.max() ?? 0
+    status.purgedFilesTotal += purged
+    writeRetentionStatus(status)
+    return true
+}
+
 @discardableResult
 func retentionPass() -> Bool {
     let now = nowDate()
+    if archiveLayout == .flat { return flatRetentionPass(now: now) }
     let cutoff = dayFolderName(for: now.addingTimeInterval(-Double(Retention.days) * 86_400))
     guard isSafeDayFolder(cutoff) else {
         logErr("retention: refusing to purge — computed cutoff is not a safe day folder (\(cutoff))")

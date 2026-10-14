@@ -23,6 +23,7 @@ mkdir -p "$TMP/base" "$TMP/shots" "$TMP/fake-bin"
 cp "$ROOT"/tests/fake-bin/* "$TMP/fake-bin/"
 chmod 755 "$TMP/fake-bin"/*
 
+unset GARIME_ARCHIVE_DIR GARIME_ARCHIVE_LAYOUT
 export GARIME_CAPTURE_HOME="$TMP/base"
 export GARIME_PASTEBOARD_NAME="ai.garime.capture.test.$$"
 export GARIME_NETWORK_TRIPWIRE="$TMP/network.log"
@@ -495,6 +496,186 @@ grep -q 'unconsumed screenshot' "$TMP/wd20b.log" \
 grep -q 'live-shot.heif' "$TMP/wd20b.log" \
   && ok "the .heif is probed and the stranded entry is filtered out, not merely first in line" \
   || fail "the watchdog reported $(sed -n 's/.*unconsumed screenshot: //p' "$TMP/wd20b.log")"
+
+section "T21 GARIME_ARCHIVE_DIR relocates only the images, and only where it is allowed"
+rm -rf "$TMP/base21" "$TMP/pics21"
+mkdir -p "$TMP/pics21"
+make_text_shot "$TMP/shots/external-archive.png"
+env GARIME_CAPTURE_HOME="$TMP/base21" GARIME_ARCHIVE_DIR="$TMP/pics21" \
+  "$BIN" capture-once "$TMP/shots/external-archive.png" >"$TMP/ext.log" 2>&1 \
+  && ok "capture-once archived into an external directory" || fail "external archive failed: $(cat "$TMP/ext.log")"
+[ "$(find "$TMP/pics21/$TODAY" -type f -name '*.png' 2>/dev/null | wc -l | tr -d ' ')" = "1" ] \
+  && ok "the image landed in <external>/$TODAY" || fail "nothing archived under the external dir"
+[ "$(count_files "$TMP/base21/archive")" = "0" ] \
+  && ok "the capture home archive stayed empty" || fail "an image was written under the capture home archive"
+[ -f "$TMP/base21/registry/processed.json" ] && ok "the registry still lives under the capture home" \
+  || fail "the registry followed the archive"
+[ "$(find "$TMP/pics21" -name 'processed.json' -o -name 'retention.status' | wc -l | tr -d ' ')" = "0" ] \
+  && ok "no status or registry state leaked into the external archive" || fail "state leaked into the external archive"
+env GARIME_CAPTURE_HOME="$TMP/base21" GARIME_ARCHIVE_DIR="$TMP/pics21" "$BIN" paths 2>/dev/null \
+  | grep -qx "archive=$TMP/pics21" && ok "paths reports the override" || fail "paths did not report the override"
+env GARIME_CAPTURE_HOME="$TMP/base21" "$BIN" paths 2>/dev/null \
+  | grep -qx "archive=$TMP/base21/archive" && ok "without the variable the default is unchanged" \
+  || fail "the default archive path moved"
+
+for bad_dir in "$HOME/Gabriel/garimecapture-archive-$$" "$HOME/Sistema/garimecapture-archive-$$" \
+               "$HOME/Vault/garimecapture-archive-$$" "$HOME/Library/Application Support/Geo/cap-$$"; do
+  env GARIME_CAPTURE_HOME="$TMP/base21" GARIME_ARCHIVE_DIR="$bad_dir" "$BIN" paths >"$TMP/badarch.log" 2>&1
+  STATUS=$?
+  [ "$STATUS" -eq 78 ] && ok "exit 78 for an archive dir inside $(dirname "$bad_dir")" \
+    || fail "forbidden archive dir $bad_dir accepted (exit $STATUS)"
+  [ ! -e "$bad_dir" ] && ok "nothing created at $bad_dir" || fail "the guard created $bad_dir"
+done
+ln -sfn "$HOME/Gabriel" "$TMP/vault-link"
+env GARIME_CAPTURE_HOME="$TMP/base21" GARIME_ARCHIVE_DIR="$TMP/vault-link/cap-$$" "$BIN" paths >"$TMP/badarch2.log" 2>&1
+STATUS=$?
+[ "$STATUS" -eq 78 ] && ok "a symlink into ~/Gabriel is refused too" || fail "symlinked archive dir accepted (exit $STATUS)"
+[ ! -e "$HOME/Gabriel/cap-$$" ] && ok "nothing created through the symlink" || fail "the symlink guard leaked into ~/Gabriel"
+env GARIME_CAPTURE_HOME="$TMP/base21" GARIME_ARCHIVE_DIR="$HOME" "$BIN" paths >/dev/null 2>&1
+[ "$?" -eq 78 ] && ok "the home directory itself is refused as an archive root" || fail "\$HOME accepted as archive root"
+VAULT_AFTER21="$(vault_count)"
+[ "$VAULT_BEFORE" = "$VAULT_AFTER21" ] && ok "~/Gabriel still untouched ($VAULT_AFTER21 files)" \
+  || fail "~/Gabriel changed: $VAULT_BEFORE -> $VAULT_AFTER21"
+
+section "T22 the archive root may be the watch dir: no re-ingest, no purge of loose files"
+rm -rf "$TMP/base22" "$TMP/pics22"
+mkdir -p "$TMP/pics22"
+env GARIME_CAPTURE_HOME="$TMP/base22" GARIME_ARCHIVE_DIR="$TMP/pics22" GARIME_WATCH_DIR="$TMP/pics22" \
+  "$BIN" >"$TMP/daemon22.log" 2>&1 &
+D22=$!
+for _ in $(seq 1 60); do [ -f "$TMP/base22/registry/bootstrap" ] && break; sleep 1; done
+make_text_shot "$TMP/pics22/same-root.png"
+for _ in $(seq 1 60); do
+  [ "$(find "$TMP/pics22/$TODAY" -type f -name '*.png' 2>/dev/null | wc -l | tr -d ' ')" -ge 1 ] && break
+  sleep 1
+done
+sleep 5
+kill "$D22" 2>/dev/null; wait "$D22" 2>/dev/null
+[ "$(find "$TMP/pics22/$TODAY" -type f -name '*.png' 2>/dev/null | wc -l | tr -d ' ')" = "1" ] \
+  && ok "exactly one archived image; the day folder is not rescanned" \
+  || fail "re-ingest loop: $(find "$TMP/pics22" -type f -name '*.png' | wc -l | tr -d ' ') file(s) archived"
+[ ! -e "$TMP/pics22/same-root.png" ] && ok "the original was consumed from the shared root" || fail "original left in the shared root"
+[ "$(grep -c 'archived ' "$TMP/daemon22.log")" = "1" ] && ok "a single ingest was logged" \
+  || fail "$(grep -c 'archived ' "$TMP/daemon22.log") ingests logged for one screenshot"
+
+make_text_shot "$TMP/pics22/pending-loose.png"
+printf 'user file' > "$TMP/pics22/NOTES.txt"
+mkdir -p "$TMP/pics22/$D45"
+cp "$OCR_FIXTURE" "$TMP/pics22/$D45/$LEG.png"
+PENDING_SUM="$(shasum "$TMP/pics22/pending-loose.png" | awk '{print $1}')"
+env GARIME_CAPTURE_HOME="$TMP/base22" GARIME_ARCHIVE_DIR="$TMP/pics22" GARIME_NOW="$NOON" \
+  "$BIN" retention-once >"$TMP/retention22.log" 2>&1 \
+  && ok "retention-once exited 0 on the shared root" || fail "retention failed: $(cat "$TMP/retention22.log")"
+[ -f "$TMP/pics22/pending-loose.png" ] && [ "$(shasum "$TMP/pics22/pending-loose.png" | awk '{print $1}')" = "$PENDING_SUM" ] \
+  && ok "a loose screenshot waiting in the archive root is untouched" || fail "the reaper ate a pending screenshot"
+[ -f "$TMP/pics22/NOTES.txt" ] && ok "a foreign file in the archive root is untouched" || fail "NOTES.txt was deleted"
+[ ! -e "$TMP/pics22/$D45" ] && ok "the expired day folder is still purged" || fail "the expired day survived"
+[ -d "$TMP/pics22/$TODAY" ] && ok "today's archive day is kept" || fail "today's day folder was purged"
+
+section "T23 the installer carries GARIME_ARCHIVE_DIR without inventing a default"
+export GARIME_INSTALL_SKIP_LAUNCHCTL=1
+export GARIME_BIN_DIR="$TMP/bin23"
+export GARIME_LAUNCH_AGENTS_DIR="$TMP/agents23"
+CAP_PLIST="$TMP/agents23/ai.garime.capture.plist"
+"$ROOT/install.sh" >"$TMP/install23a.log" 2>&1 && ok "install without the variable exited 0" \
+  || fail "install failed: $(tail -3 "$TMP/install23a.log")"
+plutil -extract EnvironmentVariables raw -o - "$CAP_PLIST" >/dev/null 2>&1 \
+  && fail "a plain install invented an EnvironmentVariables default" \
+  || ok "a plain install writes no EnvironmentVariables key"
+GARIME_ARCHIVE_LAYOUT=flat GARIME_ARCHIVE_DIR="$TMP/pics23" "$ROOT/install.sh" >"$TMP/install23b.log" 2>&1 \
+  && ok "install with GARIME_ARCHIVE_DIR exited 0" || fail "install failed: $(tail -3 "$TMP/install23b.log")"
+[ "$(plutil -extract EnvironmentVariables.GARIME_ARCHIVE_DIR raw -o - "$CAP_PLIST" 2>/dev/null)" = "$TMP/pics23" ] \
+  && ok "the agent carries the requested archive dir" || fail "the archive dir was not written into the agent"
+"$ROOT/install.sh" >"$TMP/install23c.log" 2>&1 && ok "reinstall without the variable exited 0" \
+  || fail "reinstall failed: $(tail -3 "$TMP/install23c.log")"
+[ "$(plutil -extract EnvironmentVariables.GARIME_ARCHIVE_DIR raw -o - "$CAP_PLIST" 2>/dev/null)" = "$TMP/pics23" ] \
+  && ok "a later install preserves it instead of silently reverting the archive" \
+  || fail "the reinstall dropped GARIME_ARCHIVE_DIR"
+[ "$(plutil -extract EnvironmentVariables.GARIME_ARCHIVE_LAYOUT raw -o - "$CAP_PLIST" 2>/dev/null)" = "flat" ]   && ok "reinstall preserves flat layout" || fail "layout lost on reinstall"
+plutil -lint "$CAP_PLIST" >/dev/null && ok "the rewritten agent still lints" || fail "the agent plist is invalid"
+plutil -extract EnvironmentVariables raw -o - "$TMP/agents23/ai.garime.capture-watchdog.plist" >/dev/null 2>&1 \
+  && fail "the watchdog agent got an archive override it does not use" \
+  || ok "the watchdog agent is left alone"
+PLIST_BEFORE_BAD_INSTALL="$(shasum "$CAP_PLIST")"
+GARIME_ARCHIVE_DIR="relative/path" "$ROOT/install.sh" >"$TMP/install23d.log" 2>&1 \
+  && fail "a relative GARIME_ARCHIVE_DIR was accepted" || ok "a relative GARIME_ARCHIVE_DIR is rejected"
+[ "$(shasum "$CAP_PLIST")" = "$PLIST_BEFORE_BAD_INSTALL" ] \
+  && ok "invalid configuration leaves the installed agent untouched" || fail "invalid install replaced the agent"
+grep -q 'GARIME_ARCHIVE_DIR' "$ROOT/ai.garime.capture.plist" \
+  && fail "the shipped template hardcodes an archive dir" || ok "the shipped template stays default-free"
+mkdir -p "$TMP/invalid-bin"
+cat > "$TMP/invalid-bin/launchctl" <<'RECORDER'
+#!/bin/sh
+echo "$*" >> "$GARIME_LAUNCHCTL_LOG"
+exit 1
+RECORDER
+chmod +x "$TMP/invalid-bin/launchctl"
+: > "$GARIME_LAUNCHCTL_LOG"
+GARIME_INSTALL_SKIP_LAUNCHCTL=0 GARIME_ARCHIVE_LAYOUT=invalid PATH="$TMP/invalid-bin:$PATH"   "$ROOT/install.sh" >"$TMP/invalid-layout.log" 2>&1   && fail "invalid layout accepted" || ok "invalid layout rejected"
+[ ! -s "$GARIME_LAUNCHCTL_LOG" ] && ok "invalid layout never touches launchctl" || fail "invalid layout touched services"
+[ "$(shasum "$CAP_PLIST")" = "$PLIST_BEFORE_BAD_INSTALL" ]   && ok "invalid layout leaves installed plist unchanged" || fail "invalid layout replaced plist"
+unset GARIME_INSTALL_SKIP_LAUNCHCTL GARIME_BIN_DIR GARIME_LAUNCH_AGENTS_DIR
+
+section "T24 a user-visible archive never follows a symlink at a day path"
+mkdir -p "$TMP/pics24" "$TMP/outside24"
+ln -s "$TMP/outside24" "$TMP/pics24/$TODAY"
+make_text_shot "$TMP/shots/day-link.png"
+env GARIME_CAPTURE_HOME="$TMP/base24" GARIME_ARCHIVE_DIR="$TMP/pics24" \
+  "$BIN" capture-once "$TMP/shots/day-link.png" >"$TMP/day-link.log" 2>&1 \
+  && fail "the archive followed a symlink at the day path" || ok "a symlinked day path is refused"
+[ -f "$TMP/shots/day-link.png" ] && ok "the original survives an unsafe archive day" || fail "original lost"
+[ "$(count_files "$TMP/outside24")" = "0" ] && ok "no image written outside the archive" || fail "write escaped the archive"
+ln -s "$HOME" "$TMP/home-link24"
+env GARIME_CAPTURE_HOME="$TMP/base24" GARIME_ARCHIVE_DIR="$TMP/home-link24" "$BIN" paths >/dev/null 2>&1
+[ "$?" -eq 78 ] && ok "a symlink to the home root is also refused" || fail "home-root alias accepted"
+
+section "T25 flat shared-root daemon: OCR, one root artifact, no loop"
+mkdir -p "$TMP/flat" "$TMP/base25/registry"
+echo 1 > "$TMP/base25/registry/bootstrap"
+make_text_shot "$TMP/flat/native.png"
+touch -t "$(date -v-45d +%Y%m%d%H%M.%S)" "$TMP/flat/native.png"
+SetFile -d "$(date -v-45d +'%m/%d/%Y %H:%M:%S')" "$TMP/flat/native.png" 2>/dev/null
+env GARIME_CAPTURE_HOME="$TMP/base25" GARIME_ARCHIVE_DIR="$TMP/flat" GARIME_ARCHIVE_LAYOUT=flat   GARIME_WATCH_DIR="$TMP/flat" "$BIN" >"$TMP/flat.log" 2>&1 &
+D25=$!
+for _ in $(seq 1 60); do [ ! -e "$TMP/flat/native.png" ] && break; sleep 1; done
+sleep 5
+kill "$D25" 2>/dev/null; wait "$D25" 2>/dev/null
+[ ! -e "$TMP/flat/native.png" ] && ok "flat consumes original" || fail "flat original remains"
+[ "$(find "$TMP/flat" -maxdepth 1 -type f | wc -l | tr -d ' ')" = "1" ]   && ok "one root artifact" || fail "flat artifact count"
+[ "$(find "$TMP/flat" -mindepth 1 -type d | wc -l | tr -d ' ')" = "0" ]   && ok "no daily directories" || fail "flat made directories"
+[ "$(grep -c 'archived ' "$TMP/flat.log")" = "1" ] && ok "no re-ingest" || fail "flat ingest loop"
+"$BIN" clipboard-show | grep -q "^string=.*$OCR_TEXT" && ok "flat OCR clipboard" || fail "flat OCR missing"
+if grep -rlI "$OCR_TEXT" "$TMP/base25" "$TMP/flat.log" >/dev/null; then fail "flat OCR leaked"; else ok "no flat OCR persisted"; fi
+FLAT_CURRENT="$(find "$TMP/flat" -maxdepth 1 -type f | head -1)"
+[ "$(stat -f %m "$FLAT_CURRENT")" -gt "$(( $(date +%s) - 60 ))" ]   && ok "backlog archive mtime is now, not capture time" || fail "flat age inherits capture time"
+
+section "T26 flat retention ignores native files, foreign files, symlinks and all subdirectories"
+cp "$OCR_FIXTURE" "$TMP/flat/$LEG.png"
+cp "$OCR_FIXTURE" "$TMP/flat/pending-native.png"
+printf 'foreign' > "$TMP/flat/NOTES.txt"
+mkdir -p "$TMP/flat/$D45" "$TMP/flat/nested" "$TMP/base25/archive/$D45"
+cp "$OCR_FIXTURE" "$TMP/flat/$D45/$LEG.png"
+cp "$OCR_FIXTURE" "$TMP/flat/nested/$LEG.png"
+cp "$OCR_FIXTURE" "$TMP/base25/archive/$D45/$LEG.png"
+ln -s "$TMP/flat/pending-native.png" "$TMP/flat/$LEG2.png"
+for f in "$LEG.png" pending-native.png NOTES.txt; do touch -t "$(date -v-45d +%Y%m%d%H%M.%S)" "$TMP/flat/$f"; done
+env GARIME_CAPTURE_HOME="$TMP/base25" GARIME_ARCHIVE_DIR="$TMP/flat" GARIME_ARCHIVE_LAYOUT=flat   "$BIN" retention-once >"$TMP/flat-retention.log" 2>&1 && ok "flat retention succeeds" || fail "flat retention failed"
+[ ! -e "$TMP/flat/$LEG.png" ] && ok "expired flat artifact purged" || fail "expired flat remains"
+for f in "$FLAT_CURRENT" "$TMP/flat/pending-native.png" "$TMP/flat/NOTES.txt"   "$TMP/flat/$D45/$LEG.png" "$TMP/flat/nested/$LEG.png" "$TMP/base25/archive/$D45/$LEG.png"; do
+  [ -f "$f" ] && ok "kept $f" || fail "lost $f"
+done
+[ -L "$TMP/flat/$LEG2.png" ] && ok "flat symlink kept" || fail "flat symlink lost"
+for field in archive_days=0 archive_files=1 archive_oldest_age_days=0 purged_files_total=1 purged_days_total=0; do
+  grep -qx "$field" "$TMP/base25/status/retention.status" && ok "$field" || fail "wrong $field"
+done
+# An archived file older than the watchdog's backlog threshold must not cause a restart.
+touch -t "$(date -v-10M +%Y%m%d%H%M.%S)" "$FLAT_CURRENT"
+rm "$TMP/flat/pending-native.png" "$TMP/flat/$LEG2.png"
+env GARIME_CAPTURE_HOME="$TMP/base25" GARIME_WATCH_DIR="$TMP/flat"   GARIME_WATCHDOG_LOG="$TMP/wd25.log" GARIME_WATCHDOG_SKIP_LAUNCHCTL=1   sh "$ROOT/garimecapture-watchdog.sh"
+grep -q kickstart "$TMP/wd25.log" && fail "watchdog mistakes archive for backlog" || ok "watchdog ignores flat artifact"
+env GARIME_CAPTURE_HOME="$TMP/invalid-layout-base" GARIME_ARCHIVE_LAYOUT=invalid "$BIN" paths >/dev/null 2>&1
+[ "$?" -eq 78 ] && ok "daemon rejects invalid layout" || fail "daemon accepts invalid layout"
+[ ! -e "$TMP/invalid-layout-base" ] && ok "invalid layout creates nothing" || fail "invalid layout wrote state"
 
 echo
 [ ! -s "$GARIME_NETWORK_TRIPWIRE" ] || { fail "network tool invoked during the run: $(cat "$GARIME_NETWORK_TRIPWIRE")"; }

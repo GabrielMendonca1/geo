@@ -25,6 +25,8 @@ kick() {
 first_live() {
   while IFS= read -r f; do
     [ -n "$f" ] || continue
+    if [ "$watching_archive" = "1" ] && printf '%s\n' "$(basename "$f")" |
+      grep -Eq '^[0-9]{8}-[0-9]{6}-[0-9a-f]{10}\.(png|jpg|jpeg|heic|heif)$'; then continue; fi
     if [ -f "$STRANDED" ] && grep -qxF "$(basename "$f")" "$STRANDED"; then continue; fi
     echo "$f"
     return 0
@@ -50,6 +52,12 @@ dir="${GARIME_WATCH_DIR:-}"
 [ -z "$dir" ] && dir=$(defaults read com.apple.screencapture location 2>/dev/null)
 [ -z "$dir" ] && dir="$HOME/Desktop"
 case "$dir" in "~"*) dir="$HOME${dir#\~}";; esac
+
+watching_archive=0
+archive_path=$(cat "$STATUS/archive.path" 2>/dev/null)
+[ -n "$archive_path" ] && archive_path=$(cd "$archive_path" 2>/dev/null && pwd -P)
+watch_path=$(cd "$dir" 2>/dev/null && pwd -P)
+[ -n "$archive_path" ] && [ "$watch_path" = "$archive_path" ] && watching_archive=1
 
 BOOTSTRAP_FILE="$BASE/registry/bootstrap"
 bootstrap=$(cat "$BOOTSTRAP_FILE" 2>/dev/null || echo '')

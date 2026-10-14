@@ -41,6 +41,31 @@ func isForbiddenPath(_ url: URL) -> Bool {
     return forbiddenRoots.contains { path == $0 || path.hasPrefix($0 + "/") }
 }
 
+/// `resolvingSymlinksInPath()` gives up when the path does not exist yet, which is
+/// exactly the case for a directory about to be created. Resolve the deepest
+/// existing ancestor instead and re-attach the missing tail.
+func resolvingExistingAncestor(_ url: URL) -> URL {
+    var missing: [String] = []
+    var current = url.standardizedFileURL
+    while !fm.fileExists(atPath: current.path) {
+        let parent = current.deletingLastPathComponent().standardizedFileURL
+        if parent.path == current.path { return url.standardizedFileURL }
+        missing.append(current.lastPathComponent)
+        current = parent
+    }
+    var resolved = current.resolvingSymlinksInPath().standardizedFileURL
+    for component in missing.reversed() {
+        resolved.appendPathComponent(component)
+    }
+    return resolved.standardizedFileURL
+}
+
+/// Same guard, but also through symlinks: a configured directory may be a link
+/// whose literal path is innocent and whose target is a vault root.
+func isForbiddenPathResolvingLinks(_ url: URL) -> Bool {
+    isForbiddenPath(url) || isForbiddenPath(resolvingExistingAncestor(url))
+}
+
 let baseDir: URL = {
     let resolved = envValue("GARIME_CAPTURE_HOME").map(expandPath)
         ?? homeDir
@@ -53,7 +78,37 @@ let baseDir: URL = {
     return resolved
 }()
 
-let archiveDir = baseDir.appendingPathComponent("archive", isDirectory: true)
+/// The image archive. Defaults to `<capture home>/archive`; `GARIME_ARCHIVE_DIR`
+/// moves only the images (logs, status and registry stay under the capture home).
+let archiveDir: URL = {
+    guard let raw = envValue("GARIME_ARCHIVE_DIR") else {
+        return baseDir.appendingPathComponent("archive", isDirectory: true)
+    }
+    let resolved = expandPath(raw)
+    if isForbiddenPathResolvingLinks(resolved) {
+        logErr("FATAL: archive dir \(resolved.path) resolves inside a forbidden vault root; refusing to run")
+        exit(78)
+    }
+    let canonicalPath = resolved.resolvingSymlinksInPath().standardizedFileURL.path
+    if canonicalPath == "/" || canonicalPath == homeDir.resolvingSymlinksInPath().standardizedFileURL.path {
+        logErr("FATAL: archive dir \(resolved.path) is a whole-account root; refusing to run")
+        exit(78)
+    }
+    return resolved
+}()
+enum ArchiveLayout: String {
+    case dated, flat
+}
+
+let archiveLayout: ArchiveLayout = {
+    let raw = envValue("GARIME_ARCHIVE_LAYOUT") ?? "dated"
+    guard let layout = ArchiveLayout(rawValue: raw) else {
+        logErr("FATAL: GARIME_ARCHIVE_LAYOUT must be dated or flat")
+        exit(78)
+    }
+    return layout
+}()
+
 let statusDir = baseDir.appendingPathComponent("status", isDirectory: true)
 let registryURL = baseDir.appendingPathComponent("registry", isDirectory: true)
     .appendingPathComponent("processed.json", isDirectory: false)

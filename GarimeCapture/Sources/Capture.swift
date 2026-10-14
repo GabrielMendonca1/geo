@@ -309,9 +309,12 @@ func scan(directory: URL) {
         return
     }
 
+    let watchingArchive = directory.resolvingSymlinksInPath().standardizedFileURL ==
+        archiveDir.resolvingSymlinksInPath().standardizedFileURL
     var candidates: [Candidate] = []
     for file in files {
         if file.lastPathComponent.hasPrefix(".") { continue }
+        if watchingArchive && isArchiveArtifact(file.lastPathComponent) { continue }
         if !imageExtensions.contains(file.pathExtension.lowercased()) { continue }
         guard let values = try? file.resourceValues(forKeys: Set(keys)) else { continue }
         if values.isDirectory == true { continue }
