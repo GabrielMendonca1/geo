@@ -6,7 +6,7 @@
 - [ ] escrever o plano da transição Geo → garime (infra e nomenclatura)
 - [ ] colar os 2 tokens novos em Ajustes do app (sem eles o app fica em tokenMissing)
 - [ ] abrir a porta 22 do `garime` no console da OCI (hoje não há rota de fuga fora do tailnet)
-- [ ] conceder os 2 grants de TCC do Garime Whisper (microfone e acessibilidade)
+- [ ] rodar `GarimeHub/migrate.sh` e conceder os grants de TCC do Garime Hub (microfone, acessibilidade, automação Finder)
 - [ ] F2 do lifecycle de entradas (loop de clusters na sessão Geo Vault Cleaning)
 - [ ] F3 e F4 do lifecycle de entradas
 - [ ] decidir se o pipeline zap→Vault volta na VM (hermes local aposentado)

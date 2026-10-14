@@ -21,7 +21,7 @@ Personal, local-first system split by responsibility: human knowledge in **`~/Ga
 geo_indexer (VM)     indexes human Markdown into state/index
 GeoBridge            exposes task/health state and terminal over Tailscale
 GarimeCapture        local screenshot/OCR archive, never writes either vault
-GarimeWhisper        menu-bar dictation: hotkey → local whisper → paste
+GarimeHub            menu-bar hub: dictation, meetings/calls, files, tasks
 ```
 
 ## Components (this repo)
@@ -33,7 +33,7 @@ GarimeWhisper        menu-bar dictation: hotkey → local whisper → paste
 | `Garime/` | iOS app (SwiftUI): unified Today, Chat, Agents, Terminal |
 | `GeoCore/` | Swift package shared with the iOS app |
 | `GarimeCapture/` | Swift daemon: screenshot + Vision OCR → durable local archive. Never writes `~/Gabriel/` or `~/Sistema/` |
-| `GarimeWhisper/` | Swift menu-bar dictation app: hotkey → local whisper → paste |
+| `GarimeHub/` | Swift menu-bar hub (formerly GarimeWhisper): dictation, meetings/calls, Arquivos, tasks — see `GarimeHub/MAP.md` |
 | `tests/` | `geo_time_contract.py` — time/timezone contract for `context_scraping` |
 
 The former macOS app (Swift/SwiftUI) was **retired on 2026-07-04** — its code was removed from the repo (lives in git history). The old vault at `~/Library/Application Support/Geo/` is a frozen backup, read and written by nothing.

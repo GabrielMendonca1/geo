@@ -1,7 +1,8 @@
-# GarimeHub
+# Garime Hub
 
-The Garime **menu-bar hub** for the Mac: one mic icon, one menu, no Dock; optional Mac Duo and file-tool windows. It grew out
-of the dictation app and now concentrates everything the menu bar needs to say:
+The Garime **menu-bar hub** for the Mac (formerly *Garime Whisper*): one icon, one menu, no Dock. It grew out
+of the dictation app and now concentrates everything the menu bar needs to say. Bundle `ai.garime.hub`,
+installed at `~/Applications/Garime Hub.app`. Map of every feature: [`MAP.md`](MAP.md).
 
 | Section | What | How |
 |---|---|---|
@@ -9,9 +10,10 @@ of the dictation app and now concentrates everything the menu bar needs to say:
 | Reunião | start/stop from the menu → `~/Recordings/<stamp>-reuniao/` with `audio.wav` + `transcript.txt` | native `Recorder` + `whisper-cli` |
 | Call | start/stop the `/record` skill's `rec.sh` (BlackHole mix); recordings started from the terminal show up too, mirrored from `~/.cache/whisper/rec.state` | subprocess, `env` with a homebrew PATH |
 | Manter acordado | **Caps Lock on = the Mac never sleeps** (the capsomnia contract), plus an automatic hold while any recording runs; the menu toggle is only for holding it by hand | native `IOPMAssertion` stacked over named holds, no `caffeinate` |
-| Prints | observes GarimeCapture's status files, **read-only**: icon flash per processed print, alert badge + menu line when stranded or heartbeat is stale | 5 s stat poll |
+| Prints | observes GarimeCapture's status files, **read-only**: icon flash per processed print, alert badge + menu line when stranded or heartbeat is stale | FSEvents on the folder + 60 s stale check |
 | Tarefas | open Vault tasks, read-only, refreshed lazily over `ssh garime` when the hub/menu opens, offline cache with an age stamp | `ssh` BatchMode + cache in `~/Library/Application Support/Garime/Hub/` |
-| Projetos | unchecked `- [ ]` items from every canonical `STATUS.md` under `~/Garime ~/Omni ~/ARCA ~/Lab ~/.claude` (root + 1 level) | local parse on menu open |
+| Projetos | unchecked `- [ ]` items from every `STATUS.md` under `Config.projectRoots` (`~/Garime ~/Omni ~/Omni/Clients ~/ARCA ~/ARCA/Clients ~/ARCA/Clients/mac ~/Lab ~/.claude`, root + 1 level) | local parse, cached 30 s |
+| Arquivos | select files in Finder/Mesa, **⌃⌥Space** converts, **⇧⌃⌥Space** tools — a radial wheel at the cursor | native backend + ffmpeg/poppler/gs |
 
 The icon carries state: a filled triangle (idle), an animated triangular matrix (dictating,
 meeting/call and transcribing), a moon overlay while insomnia is on, an alert badge while
@@ -20,15 +22,13 @@ GarimeCapture needs a human, and a short camera flash when a print is processed.
 Dictation, meetings and OCR never leave the Mac. The only network touch is the read-only `ssh`
 fetch of Vault tasks over the tailnet.
 
-## Mac Duo e ferramentas Tangerine
+## Arquivos (antes Tangerine)
 
-O menu de contexto oferece **Mac Duo** (controles diretos), **Tangerine — seleção ⌃⌥Space / ⇧⌃⌥Space e permissões…**, **Tangerine — painel utilitário…** e **Sons…**. Os módulos são locais; não substituem ditado, reuniões, calls ou tarefas.
+O menu de contexto oferece **Arquivos — seleção ⌃⌥Space / ⇧⌃⌥Space e permissões…**, **Arquivos — painel utilitário…** e **Sons…**. Os módulos são locais; não substituem ditado, reuniões, calls ou tarefas.
 
-- **Mac Duo:** port MIT de [DhananjayBhosale/MacDuo](https://github.com/DhananjayBhosale/MacDuo), efeitos Metal Duo/Roll/Shutter/Flex/Iris, sensor HID compatível, repouso 1–5 s, preview/replay sintético e redução de FPS por energia/temperatura. Vem desativado. Captura real requer Screen Recording concedido pelo macOS; frames permanecem só em memória. Clique no efeito ou use Pause para sair. Sem atalho Carbon adicional. Licença em `Resources/ThirdParty/MacDuo/`, também copiada ao bundle.
-- **Tangerine — fluxo principal: seleção + atalho.** Selecione arquivo(s) no Finder/Mesa e pressione **Control+Option+Space** para conversões ou **Shift+Control+Option+Space** para ferramentas. Clique na operação da roda única temporária junto ao cursor; sem arrastar/importar/abrir dashboard. Setas/Enter e Esc também tratados no painel. **Option+Space continua ditado.** Parâmetros necessários usam editor compacto só após escolher a ação. Saídas novas em `<nome>-result[-N]/`, sem sobrescrever originais. Implementação independente, não inclui aplicativo comercial.
+- **Arquivos — fluxo principal: seleção + atalho.** Selecione arquivo(s) no Finder/Mesa e pressione **Control+Option+Space** para conversões ou **Shift+Control+Option+Space** para ferramentas. Clique na operação da roda única temporária junto ao cursor; sem arrastar/importar/abrir dashboard. Setas/Enter e Esc também tratados no painel. **Option+Space continua ditado.** Parâmetros necessários usam editor compacto só após escolher a ação. Saídas novas em `<nome>-result[-N]/`, sem sobrescrever originais. Implementação independente, não inclui aplicativo comercial.
 - **Seleção e permissões:** Finder/Mesa usa **Automação → Finder**, solicitada pelo botão explícito do aviso ou menu de seleção. Outros apps requerem Acessibilidade e precisam expor seleção com URLs locais; não há suporte universal. Documento ativo não substitui seleção. Sem clipboard/Cmd+C, varredura de textos privados ou seleção em cache. Revalida seleção/fonte antes de executar; erro, timeout, mudança de app ou seleção incompatível não executam nada. URLs remotas e links simbólicos são recusados; arquivos e pastas protegidos exigem consentimento normal do macOS.
-- **Mac Duo direto no menu:** ativar/desativar, escolher efeito, repouso e status do sensor sem abrir preview/settings. Espera do sensor pode ser cancelada. Ajustes visuais antigos são secundários e opcionais. Efeito físico continua dependente de sensor HID compatível e consentimento de Gravação de Tela.
-- **Aceite real pendente:** build instalado 20260912.1; os testes cobrem atalhos, resolução injetada, clique e conversão real, mas não substituem Finder→atalho físico→roda→clique. Automação deste runtime está sem AX/PostEvent; nenhuma permissão foi contornada. Teclado do painel, telas/Spaces e movimento físico da tampa precisam de validação interativa. Shift+drag permanece apenas extra legado, nunca requisito; painel utilitário é secundário.
+- **Aceite real pendente:** build instalado 20260912.1; os testes cobrem atalhos, resolução injetada, clique e conversão real, mas não substituem Finder→atalho físico→roda→clique. Automação deste runtime está sem AX/PostEvent; nenhuma permissão foi contornada. Teclado do painel, telas/Spaces e movimento físico da tampa precisam de validação interativa. O arraste com Shift foi removido (custava um timer de 20 Hz e monitores globais com o app parado); painel utilitário é secundário e só é criado quando aberto.
 - Imagens: PNG/JPG/WEBP/HEIC/TIFF/PDF/DOCX, compressão, metadados, crop e QR; DOCX incorpora imagem, sem OCR. SVG foi bloqueado explicitamente até haver um renderizador com isolamento seguro. Vídeo/áudio: conversão, compressão, metadados, mute/trim/crop/speed/snapshot/split/normalize/channels conforme família. PDF: texto/imagens/DOCX textual, split, metadados e QR. Archives: ZIP/TAR/GZIP e extração com snapshot privado, rejeição de links/traversal/tipos especiais e limites. MOV e GIF→vídeo também disponíveis.
 - **Combinar:** selecione 2+ arquivos e use o grupo Combinar: collage de imagens (grid/linha/coluna/featured, espaço/margem/fundo/ordem), imagens→PDF, merge de PDFs e concatenação de áudio/vídeo. Uma operação por conjunto ordenado. TXT UTF-8 exporta PDF/PNG/JPG paginados. Compressão PDF usa Ghostscript externo (`brew install ghostscript`, AGPL; não redistribuído no bundle).
 - **Sons…:** feedback ORIGINAL sintetizado em memória, sem copiar áudio proprietário. Mudança real de setor, confirmação e conclusão/erro/cancelamento; toggle e volume persistentes em `ai.garime.hub.feedback.*`. Volume padrão baixo, rate-limit/coalescing. Captura fecha o gate e para playback antes do mic; cue inicial omitido conservadoramente. Cauda física do HAL e gravação externa iniciada simultaneamente não são garantias de isolamento acústico: valide com seu dispositivo/rota. Áudio desativado não impede funções.
@@ -37,23 +37,32 @@ O menu de contexto oferece **Mac Duo** (controles diretos), **Tangerine — sele
 Testes isolados, sem lançar o hub completo:
 
 ```bash
-./Tests/MacDuo/run.sh
 ./Tests/FileToolsIntegration/run.sh
 ./Tests/FileToolsUI/run.sh
 ./Tests/Feedback/run.sh
 ./Tests/FeedbackIntegration/run.sh
-./Tests/RadialGesture/run.sh
 ./Tests/FloatingRadial/run.sh
 ./Tests/RadialActions/run.sh
 ./Tests/FileSelection/run.sh
 ./Tests/SelectionHotKeys/run.sh
 ./Tests/ContextualWheel/run.sh
 ./Tests/SelectionPipeline/run.sh
-./Tests/MacDuoMenu/run.sh
-./Tests/MacDuoMenuReview/run.sh
 ```
 
 **Cuidado operacional:** `smoke.sh` lança instâncias completas; a reconciliação de insônia pode executar pmset e registrar hooks globais. `install.sh` para o agente existente e substitui o bundle; não executar durante sessões ativas sem aprovação específica.
+
+## Desempenho parado
+
+`./perf.sh` abre o build, espera 20 s, mede 60 s e falha acima da meta (footprint ≤ 25 MB,
+≤ 0,5 idle wakeups/s, 0 leaks). Saia do app instalado antes. Em 2026-10-14: 33 MB e ~6,5 wakeups/s
+antes; 14 MB e ~0 wakeups/s depois de tirar Mac Duo, o arraste legado e os polls de 5 s.
+
+## Migração do Garime Whisper
+
+`./migrate.sh` (uma vez): recusa rodar com o app antigo aberto ou call gravando, faz backup em
+`~/Library/Application Support/Garime/Backups/Whisper/<stamp>/`, copia os ajustes de Sons, remove
+`ai.garime.whisper` e instala `ai.garime.hub`. Depois conceda de novo Microfone, Acessibilidade e
+Automação → Finder — o macOS liga permissões ao bundle id.
 
 ## Layout
 
@@ -63,10 +72,9 @@ Sources/Audio/          Recorder, LevelMeter, StreamBuffer, FlushGuard
 Sources/Transcribe/     Transcriber, WhisperBackend, WindowedDecoder, Stabilizer, TextChunker
 Sources/Dictation/      DictationSession, Hotkey, Paster, Typist, FocusAnchor
 Sources/Sessions/       MeetingController, MeetingArchive, CallController
-Sources/System/         InsomniaController, SleepBlocker, CapsWatcher, ProcessRunner
+Sources/System/         InsomniaController, SleepBlocker, CapsWatcher, ProcessRunner, PathWatcher
 Sources/UI/             StatusIcon, IconAnimation, DotMatrix, HubPanel, MenuController
 Sources/Integrations/   CaptureWatcher, TasksController, VaultTasks, ProjectStatus, StatusTodoWriter
-Sources/MacDuo/         sensor, captura em memória, renderer Metal, preview e configurações
 Sources/FileTools/      Backend seguro e UI radial/Finder
 Sources/Feedback/       síntese original, playback em memória, política e ajustes persistentes
 Tests/<Suite>/main.swift  one harness per suite (Transcriber, Units, Decoder, Icon, Stream, Recorder, Bench)
