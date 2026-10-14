@@ -14,7 +14,7 @@ func check(_ name: String, _ condition: @autoclosure () -> Bool) {
     }
 }
 
-let bindings = TangerineSelectionHotKeys.approvedBindings
+let bindings = FilesSelectionHotKeys.approvedBindings
 let convert = bindings.first { $0.action == .convert }
 let tools = bindings.first { $0.action == .tools }
 
@@ -26,7 +26,7 @@ check("convert does not include Shift", convert.map { $0.modifiers & UInt32(shif
 check("neither shortcut includes Command", bindings.allSatisfy { $0.modifiers & UInt32(cmdKey) == 0 })
 
 let root = URL(fileURLWithPath: CommandLine.arguments.dropFirst().first ?? FileManager.default.currentDirectoryPath)
-let hotKeyURL = root.appendingPathComponent("Sources/FileTools/Selection/TangerineSelectionHotKeys.swift")
+let hotKeyURL = root.appendingPathComponent("Sources/FileTools/Selection/FilesSelectionHotKeys.swift")
 let appURL = root.appendingPathComponent("Sources/App/AppDelegate.swift")
 let dictationURL = root.appendingPathComponent("Sources/Dictation/Hotkey.swift")
 let hotKeySource = (try? String(contentsOf: hotKeyURL, encoding: .utf8)) ?? ""
@@ -46,20 +46,20 @@ check("dictation rejects an unmatched signature", dictationHotKey.handle(foreign
 check("dictation rejects an unmatched ID", dictationHotKey.handle(foreignID) == OSStatus(eventNotHandledErr))
 check("dictation callback filters event class and kind", dictationSource.contains("GetEventClass(event) == OSType(kEventClassKeyboard)") && dictationSource.contains("GetEventKind(event) == UInt32(kEventHotKeyPressed)"))
 check("dictation parameter failures remain unhandled", dictationSource.contains("guard status == noErr else { return OSStatus(eventNotHandledErr) }"))
-check("registration failure has user-readable detail", hotKeySource.contains("registrationError =") && appSource.contains("Atalhos do Tangerine indisponíveis"))
-check("startup registers selection shortcuts", appSource.contains("registerTangerineSelectionHotKeys()"))
-check("shutdown unregisters selection shortcuts", appSource.contains("tangerineSelectionHotKeys.unregister()"))
-check("shortcut failure has a separate disabled menu line", appSource.contains("tangerineShortcutErrorItem.isEnabled = false") && appSource.contains("appTailItems.insert(contentsOf: [tangerineShortcutErrorItem, tangerineShortcutRetryItem]"))
-check("shortcut failure offers explicit retry", appSource.contains("#selector(menuRetryTangerineSelectionHotKeys)") && appSource.contains("@objc private func menuRetryTangerineSelectionHotKeys()"))
-check("successful shortcut retry clears the app error", appSource.contains("if tangerineSelectionHotKeys.register() {\n            tangerineShortcutError = nil"))
+check("registration failure has user-readable detail", hotKeySource.contains("registrationError =") && appSource.contains("Atalhos de Arquivos indisponíveis"))
+check("startup registers selection shortcuts", appSource.contains("registerFilesSelectionHotKeys()"))
+check("shutdown unregisters selection shortcuts", appSource.contains("filesSelectionHotKeys.unregister()"))
+check("shortcut failure has a separate disabled menu line", appSource.contains("filesShortcutErrorItem.isEnabled = false") && appSource.contains("appTailItems.insert(contentsOf: [filesShortcutErrorItem, filesShortcutRetryItem]"))
+check("shortcut failure offers explicit retry", appSource.contains("#selector(menuRetryFilesSelectionHotKeys)") && appSource.contains("@objc private func menuRetryFilesSelectionHotKeys()"))
+check("successful shortcut retry clears the app error", appSource.contains("if filesSelectionHotKeys.register() {\n            filesShortcutError = nil"))
 let statusStart = appSource.range(of: "private func statusText()")
 let recordingStart = appSource.range(of: "private func recordingStatus()")
 let statusSource = statusStart.flatMap { start in recordingStart.map { String(appSource[start.lowerBound..<$0.lowerBound]) } } ?? ""
-check("shortcut failure does not hijack dictation status", !statusSource.contains("tangerineShortcutError"))
-check("shortcut failure does not force the error icon", !appSource.contains("blockingError != nil || tangerineShortcutError != nil"))
-check("convert action invokes selection convert mode", appSource.contains("tangerine.invokeSelection(mode: .convert)"))
-check("tools action invokes selection tools mode", appSource.contains("tangerine.invokeSelection(mode: .tools)"))
-check("primary Tangerine menu explains selection shortcuts and permissions", appSource.contains("Tangerine — seleção ⌃⌥Space / ⇧⌃⌥Space e permissões…") && appSource.contains("tangerine.showSelectionSettings()"))
+check("shortcut failure does not hijack dictation status", !statusSource.contains("filesShortcutError"))
+check("shortcut failure does not force the error icon", !appSource.contains("blockingError != nil || filesShortcutError != nil"))
+check("convert action invokes selection convert mode", appSource.contains("files.invokeSelection(mode: .convert)"))
+check("tools action invokes selection tools mode", appSource.contains("files.invokeSelection(mode: .tools)"))
+check("primary Arquivos menu explains selection shortcuts and permissions", appSource.contains("Arquivos — seleção ⌃⌥Space / ⇧⌃⌥Space e permissões…") && appSource.contains("files.showSelectionSettings()"))
 let selectionMenuRange = appSource.range(of: "selectionItem = NSMenuItem")
 let tailOrderRange = appSource.range(of: "appTailItems = [selectionItem, filesItem")
 check("utility dashboard remains secondary", selectionMenuRange != nil && tailOrderRange != nil)

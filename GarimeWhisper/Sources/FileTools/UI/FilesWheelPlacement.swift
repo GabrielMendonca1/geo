@@ -1,18 +1,18 @@
 import AppKit
 
-protocol TangerineWheelSurface: NSView {
+protocol FilesWheelSurface: NSView {
     init(frame: NSRect)
     var preferredSide: CGFloat { get }
     func prepare(forScreen screen: NSRect)
-    var selectedOption: TangerineOption? { get }
-    func apply(groups: [TangerineGroup], mode: TangerineMode, headline: String, footnote: String)
+    var selectedOption: FilesOption? { get }
+    func apply(groups: [FilesGroup], mode: FilesMode, headline: String, footnote: String)
     func apply(fileURLs: [URL])
     func reset()
     @discardableResult
     func track(at point: NSPoint) -> Bool
 }
 
-enum TangerineDraggedFile {
+enum FilesDraggedFile {
     static func displayName(_ urls: [URL]) -> String {
         switch urls.count {
         case 0: return ""
@@ -33,7 +33,7 @@ extension FloatingRadialView {
     }
 }
 
-enum TangerineWheelPlacement {
+enum FilesWheelPlacement {
     static func screen(containing point: NSPoint, screens: [NSRect], fallback: NSRect?) -> NSRect? {
         for frame in screens where NSMouseInRect(point, frame, false) { return frame }
         if let nearest = screens.min(by: { distance(point, $0) < distance(point, $1) }) { return nearest }

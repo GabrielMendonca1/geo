@@ -78,27 +78,27 @@ final class NeverUsedAccessibility: FileSelectionProviding {
     }
 }
 
-final class CapturingPresenter: TangerineContextualPresenting {
-    var onCommit: ((UUID, TangerineOption) -> Void)?
-    var onDismiss: ((UUID, TangerineContextualDismissReason) -> Void)?
-    private(set) var invocation: TangerineContextualInvocation?
+final class CapturingPresenter: FilesContextualPresenting {
+    var onCommit: ((UUID, FilesOption) -> Void)?
+    var onDismiss: ((UUID, FilesContextualDismissReason) -> Void)?
+    private(set) var invocation: FilesContextualInvocation?
     private(set) var activeSessionID: UUID?
-    private(set) var dismissals: [TangerineContextualDismissReason] = []
+    private(set) var dismissals: [FilesContextualDismissReason] = []
 
     @discardableResult
-    func present(_ invocation: TangerineContextualInvocation) -> Bool {
+    func present(_ invocation: FilesContextualInvocation) -> Bool {
         self.invocation = invocation
         activeSessionID = invocation.id
         return true
     }
 
-    func dismiss(reason: TangerineContextualDismissReason) {
+    func dismiss(reason: FilesContextualDismissReason) {
         dismissals.append(reason)
         activeSessionID = nil
     }
 
     // Corresponding seam for a real contextual-wheel click.
-    func pick(_ option: TangerineOption) {
+    func pick(_ option: FilesOption) {
         guard let invocation, activeSessionID == invocation.id else { return }
         activeSessionID = nil
         onCommit?(invocation.id, option)
@@ -114,7 +114,7 @@ func resolver(source: FileSelectionSource, results: [RawFileSelection], accessib
     )
 }
 
-func pngOption(from presenter: CapturingPresenter) -> TangerineOption? {
+func pngOption(from presenter: CapturingPresenter) -> FilesOption? {
     presenter.invocation?.groups.flatMap(\.options).first { $0.kind == "convert" && $0.format == "png" }
 }
 
@@ -136,8 +136,8 @@ let successAX = NeverUsedAccessibility()
 let selected = RawFileSelection(selectedURLs: [input], documentURL: nil)
 var dashboardCalls = 0
 var compactCalls = 0
-var submitted: [TangerineJob] = []
-let successController = TangerineController(
+var submitted: [FilesJob] = []
+let successController = FilesController(
     engine: FileToolsBridge(), // production default bridge; owns a real FileToolsBackend
     presentDashboard: { dashboardCalls += 1 },
     presentCompactParameters: { _, _ in compactCalls += 1 },
@@ -186,9 +186,9 @@ try makeTIFF(at: first, width: 19, height: 11)
 try makeTIFF(at: changed, width: 7, height: 5)
 let beforeNames = Set(try fm.contentsOfDirectory(atPath: mismatchRoot.path))
 let mismatchPresenter = CapturingPresenter()
-var mismatchJobs: [TangerineJob] = []
-var mismatchNotices: [TangerineContextualNotice] = []
-let mismatchController = TangerineController(
+var mismatchJobs: [FilesJob] = []
+var mismatchNotices: [FilesContextualNotice] = []
+let mismatchController = FilesController(
     engine: FileToolsBridge(),
     presentDashboard: { dashboardCalls += 1 },
     onSubmitted: { mismatchJobs = $0 },

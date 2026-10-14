@@ -47,8 +47,8 @@ let png = fixture("a.png")
 let jpg = fixture("b.jpg")
 let doc = fixture("c.pdf")
 
-func session(_ count: Int, pid: pid_t = 501, id: UUID = UUID()) -> TangerineContextualPolicy.Session {
-    TangerineContextualPolicy.Session(
+func session(_ count: Int, pid: pid_t = 501, id: UUID = UUID()) -> FilesContextualPolicy.Session {
+    FilesContextualPolicy.Session(
         id: id,
         sourcePID: pid,
         fileKeys: ["/tmp/a.png"],
@@ -56,7 +56,7 @@ func session(_ count: Int, pid: pid_t = 501, id: UUID = UUID()) -> TangerineCont
     )
 }
 
-var policy = TangerineContextualPolicy()
+var policy = FilesContextualPolicy()
 let opened = session(4)
 check("present limpa a seleção", policy.apply(.present(opened)) == [.select(nil)])
 check("present não escolhe setor", policy.selection == nil)
@@ -73,24 +73,24 @@ check("enter com setor executa a sessão", committed == [.commit(sessionID: open
 check("enter depois do commit é no-op", policy.apply(.enter).isEmpty)
 check("hover depois do commit é no-op", policy.apply(.hover(1)).isEmpty)
 
-var clickPolicy = TangerineContextualPolicy()
+var clickPolicy = FilesContextualPolicy()
 let clickSession = session(3)
 _ = clickPolicy.apply(.present(clickSession))
 check("clique no setor seleciona e executa",
       clickPolicy.apply(.click(1)) == [.select(1), .commit(sessionID: clickSession.id, index: 1)])
 check("clique posterior não repete execução", clickPolicy.apply(.click(1)).isEmpty)
 
-var gapPolicy = TangerineContextualPolicy()
+var gapPolicy = FilesContextualPolicy()
 _ = gapPolicy.apply(.present(session(3)))
 check("clique no vão/furo cancela", gapPolicy.apply(.click(nil)) == [.dismiss(.gap)])
 check("depois do vão nada mais responde", gapPolicy.apply(.enter).isEmpty)
 
-var escPolicy = TangerineContextualPolicy()
+var escPolicy = FilesContextualPolicy()
 _ = escPolicy.apply(.present(session(3)))
 check("esc encerra", escPolicy.apply(.escape) == [.dismiss(.escape)])
 check("esc repetido é no-op", escPolicy.apply(.escape).isEmpty)
 
-var replacePolicy = TangerineContextualPolicy()
+var replacePolicy = FilesContextualPolicy()
 let first = session(3, id: UUID())
 let secondSession = session(5, pid: 777, id: UUID())
 _ = replacePolicy.apply(.present(first))
@@ -102,45 +102,45 @@ _ = replacePolicy.apply(.hover(4))
 check("commit carrega a sessão nova",
       replacePolicy.apply(.enter) == [.commit(sessionID: secondSession.id, index: 4)])
 
-var emptyPolicy = TangerineContextualPolicy()
+var emptyPolicy = FilesContextualPolicy()
 check("sessão sem opções não apresenta",
       emptyPolicy.apply(.present(session(0))) == [.select(nil)])
 check("sessão sem opções não fica ativa", emptyPolicy.isPresenting == false)
 
 let finderSource = FileSelectionSource(pid: 300, bundleIdentifier: "com.apple.finder")
 let otherSource = FileSelectionSource(pid: 400, bundleIdentifier: "com.acme.editor")
-let finderDenied = TangerineContextualNoticeFactory.notice(for: .permissionDenied, source: finderSource)
+let finderDenied = FilesContextualNoticeFactory.notice(for: .permissionDenied, source: finderSource)
 check("Finder sem permissão fala de Automação",
       finderDenied.remedy == .automation("com.apple.finder") && finderDenied.message.contains("Automação"),
       finderDenied.message)
-let axDenied = TangerineContextualNoticeFactory.notice(for: .permissionDenied, source: otherSource)
+let axDenied = FilesContextualNoticeFactory.notice(for: .permissionDenied, source: otherSource)
 check("app comum sem permissão fala de Acessibilidade",
       axDenied.remedy == .accessibility && axDenied.message.contains("Acessibilidade"),
       axDenied.message)
 check("erro sem remédio não oferece botão",
-      TangerineContextualNoticeFactory.notice(for: .timeout, source: finderSource).actionTitle == nil)
+      FilesContextualNoticeFactory.notice(for: .timeout, source: finderSource).actionTitle == nil)
 check("doc-only é falha explícita",
-      TangerineContextualNoticeFactory.documentOnlyNotice(source: otherSource).message.contains("documento aberto"))
+      FilesContextualNoticeFactory.documentOnlyNotice(source: otherSource).message.contains("documento aberto"))
 check("seleção não suportada é explícita",
-      TangerineContextualNoticeFactory.notice(for: .unsupported, source: otherSource).title.contains("não suportada"))
+      FilesContextualNoticeFactory.notice(for: .unsupported, source: otherSource).title.contains("não suportada"))
 
 check("foco volta quando o painel ficou à frente",
-      TangerineContextualFocus.shouldRestore(sourcePID: 300, frontmostPID: 999, ownPID: 999, sourceRunning: true))
+      FilesContextualFocus.shouldRestore(sourcePID: 300, frontmostPID: 999, ownPID: 999, sourceRunning: true))
 check("foco não é roubado de outro app",
-      !TangerineContextualFocus.shouldRestore(sourcePID: 300, frontmostPID: 555, ownPID: 999, sourceRunning: true))
+      !FilesContextualFocus.shouldRestore(sourcePID: 300, frontmostPID: 555, ownPID: 999, sourceRunning: true))
 check("origem morta não é reativada",
-      !TangerineContextualFocus.shouldRestore(sourcePID: 300, frontmostPID: 999, ownPID: 999, sourceRunning: false))
+      !FilesContextualFocus.shouldRestore(sourcePID: 300, frontmostPID: 999, ownPID: 999, sourceRunning: false))
 check("ativação de terceiro invalida",
-      TangerineContextualFocus.shouldInvalidate(activatedPID: 555, sourcePID: 300, ownPID: 999))
+      FilesContextualFocus.shouldInvalidate(activatedPID: 555, sourcePID: 300, ownPID: 999))
 check("ativação da própria origem não invalida",
-      !TangerineContextualFocus.shouldInvalidate(activatedPID: 300, sourcePID: 300, ownPID: 999))
+      !FilesContextualFocus.shouldInvalidate(activatedPID: 300, sourcePID: 300, ownPID: 999))
 check("ativação do próprio painel não invalida",
-      !TangerineContextualFocus.shouldInvalidate(activatedPID: 999, sourcePID: 300, ownPID: 999))
+      !FilesContextualFocus.shouldInvalidate(activatedPID: 999, sourcePID: 300, ownPID: 999))
 
-final class FakeSurface: NSView, TangerineContextualSurface {
-    var appliedGroups: [TangerineGroup] = []
+final class FakeSurface: NSView, FilesContextualSurface {
+    var appliedGroups: [FilesGroup] = []
     var appliedFiles: [URL] = []
-    var appliedMode: TangerineMode = .convert
+    var appliedMode: FilesMode = .convert
     var resets = 0
     var focusHistory: [Int?] = []
     var hits: [NSPoint: Int] = [:]
@@ -156,14 +156,14 @@ final class FakeSurface: NSView, TangerineContextualSurface {
 
     func prepare(forScreen screen: NSRect) {}
 
-    var options: [TangerineOption] { appliedGroups.flatMap(\.options) }
+    var options: [FilesOption] { appliedGroups.flatMap(\.options) }
 
-    var selectedOption: TangerineOption? {
+    var selectedOption: FilesOption? {
         guard let selectedIndex, options.indices.contains(selectedIndex) else { return nil }
         return options[selectedIndex]
     }
 
-    func apply(groups: [TangerineGroup], mode: TangerineMode, headline: String, footnote: String) {
+    func apply(groups: [FilesGroup], mode: FilesMode, headline: String, footnote: String) {
         appliedGroups = groups
         appliedMode = mode
     }
@@ -191,20 +191,20 @@ final class FakeSurface: NSView, TangerineContextualSurface {
         selectedIndex = index
     }
 
-    func contextualOption(at index: Int) -> TangerineOption? {
+    func contextualOption(at index: Int) -> FilesOption? {
         options.indices.contains(index) ? options[index] : nil
     }
 }
 
 let sampleOptions = [
-    TangerineOption(kind: "convert", format: "webp", title: "WEBP"),
-    TangerineOption(kind: "convert", format: "jpg", title: "JPG"),
-    TangerineOption(kind: "convert", format: "png", title: "PNG"),
+    FilesOption(kind: "convert", format: "webp", title: "WEBP"),
+    FilesOption(kind: "convert", format: "jpg", title: "JPG"),
+    FilesOption(kind: "convert", format: "png", title: "PNG"),
 ]
-let sampleGroups = [TangerineGroup(title: "Converter", options: sampleOptions)]
+let sampleGroups = [FilesGroup(title: "Converter", options: sampleOptions)]
 
 var panelSurface: FakeSurface?
-let panel = TangerineContextualPanel(surfaceFactory: { frame in
+let panel = FilesContextualPanel(surfaceFactory: { frame in
     let surface = FakeSurface(frame: frame)
     panelSurface = surface
     return surface
@@ -212,8 +212,8 @@ let panel = TangerineContextualPanel(surfaceFactory: { frame in
 let screen = NSRect(x: 0, y: 0, width: 1440, height: 900)
 panel.screenProvider = { [screen] }
 panel.fallbackScreen = { screen }
-var panelCommits: [(UUID, TangerineOption)] = []
-var panelDismissals: [(UUID, TangerineContextualDismissReason)] = []
+var panelCommits: [(UUID, FilesOption)] = []
+var panelDismissals: [(UUID, FilesContextualDismissReason)] = []
 panel.onCommit = { id, option in panelCommits.append((id, option)) }
 panel.onDismiss = { id, reason in panelDismissals.append((id, reason)) }
 
@@ -221,7 +221,7 @@ let sectorPoint = NSPoint(x: 40, y: 40)
 let gapPoint = NSPoint(x: 1, y: 1)
 panelSurface?.hits = [sectorPoint: 1]
 
-let invocation = TangerineContextualInvocation(
+let invocation = FilesContextualInvocation(
     urls: [png, jpg],
     mode: .convert,
     sourcePID: 300,
@@ -251,7 +251,7 @@ _ = panel.present(invocation)
 panel.handleClick(at: gapPoint)
 check("clique no vão cancela", panelDismissals.last?.1 == .gap && panelCommits.isEmpty)
 
-let secondInvocation = TangerineContextualInvocation(
+let secondInvocation = FilesContextualInvocation(
     urls: [png],
     mode: .tools,
     sourcePID: 300,
@@ -268,7 +268,7 @@ check("painel fecha ao executar", !panel.isVisible)
 panel.handleClick(at: sectorPoint)
 check("clique depois de fechar não repete", panelCommits.count == 1)
 
-let third = TangerineContextualInvocation(
+let third = FilesContextualInvocation(
     urls: [jpg],
     mode: .convert,
     sourcePID: 300,
@@ -277,7 +277,7 @@ let third = TangerineContextualInvocation(
     headline: "b.jpg"
 )
 _ = panel.present(third)
-let fourth = TangerineContextualInvocation(
+let fourth = FilesContextualInvocation(
     urls: [png],
     mode: .convert,
     sourcePID: 301,
@@ -292,7 +292,7 @@ check("reinvocação assume a sessão nova", panel.activeSessionID == fourth.id)
 panel.dismiss(reason: .stopped)
 check("stop fecha tudo", panel.activeSessionID == nil && !panel.isVisible)
 check("apresentação sem grupos é recusada",
-      !panel.present(TangerineContextualInvocation(
+      !panel.present(FilesContextualInvocation(
           urls: [png],
           mode: .convert,
           sourcePID: 300,
@@ -301,21 +301,21 @@ check("apresentação sem grupos é recusada",
           headline: "a.png"
       )))
 
-final class StubEngine: TangerineRunning {
+final class StubEngine: FilesRunning {
     var runs = 0
-    func capability(for url: URL) -> TangerineCapability { .unknown }
+    func capability(for url: URL) -> FilesCapability { .unknown }
     func run(
         input: URL,
-        option: TangerineOption,
-        values: [String: TangerineValue],
+        option: FilesOption,
+        values: [String: FilesValue],
         outputDirectory: URL?
-    ) async throws -> TangerineOutcome {
+    ) async throws -> FilesOutcome {
         runs += 1
-        return TangerineOutcome(outputs: [input], message: nil)
+        return FilesOutcome(outputs: [input], message: nil)
     }
 }
 
-final class FakeResolver: TangerineSelectionResolving {
+final class FakeResolver: FilesSelectionResolving {
     var queued: [FileSelectionResolution] = []
     var deferred = false
     var pending: [(UUID, (FileSelectionResolution) -> Void)] = []
@@ -346,23 +346,23 @@ final class FakeResolver: TangerineSelectionResolving {
     }
 }
 
-final class FakePresenter: TangerineContextualPresenting {
-    var onCommit: ((UUID, TangerineOption) -> Void)?
-    var onDismiss: ((UUID, TangerineContextualDismissReason) -> Void)?
-    var presented: [TangerineContextualInvocation] = []
-    var dismissals: [TangerineContextualDismissReason] = []
+final class FakePresenter: FilesContextualPresenting {
+    var onCommit: ((UUID, FilesOption) -> Void)?
+    var onDismiss: ((UUID, FilesContextualDismissReason) -> Void)?
+    var presented: [FilesContextualInvocation] = []
+    var dismissals: [FilesContextualDismissReason] = []
     var accepts = true
     var activeSessionID: UUID?
 
     @discardableResult
-    func present(_ invocation: TangerineContextualInvocation) -> Bool {
+    func present(_ invocation: FilesContextualInvocation) -> Bool {
         guard accepts else { return false }
         presented.append(invocation)
         activeSessionID = invocation.id
         return true
     }
 
-    func dismiss(reason: TangerineContextualDismissReason) {
+    func dismiss(reason: FilesContextualDismissReason) {
         guard let id = activeSessionID else { return }
         dismissals.append(reason)
         activeSessionID = nil
@@ -371,10 +371,10 @@ final class FakePresenter: TangerineContextualPresenting {
 }
 
 var dashboardCalls = 0
-var notices: [TangerineContextualNotice] = []
+var notices: [FilesContextualNotice] = []
 var noticeGrants: [(() -> Void)?] = []
-var grants: [TangerineContextualNotice.Remedy] = []
-var submitted: [[TangerineJob]] = []
+var grants: [FilesContextualNotice.Remedy] = []
+var submitted: [[FilesJob]] = []
 var activations: [pid_t] = []
 
 func makeController(
@@ -383,11 +383,11 @@ func makeController(
     engine: StubEngine,
     frontmost: FileSelectionSource?,
     frontmostPID: pid_t?,
-    revalidation: TangerineContextualRevalidation = .off,
+    revalidation: FilesContextualRevalidation = .off,
     automation: Bool = false,
     accessibility: Bool = false
-) -> TangerineController {
-    TangerineController(
+) -> FilesController {
+    FilesController(
         engine: engine,
         presentDashboard: { dashboardCalls += 1 },
         onSubmitted: { submitted.append($0) },
@@ -639,10 +639,10 @@ selfController.invokeSelection(mode: .convert)
 check("invocação sobre o próprio app não abre a roda nem consulta seleção",
       selfPresenter.presented.isEmpty && selfResolver.calls == 0)
 check("invocação sobre o próprio app avisa em vez de calar",
-      notices.count == 1 && notices.last == TangerineContextualNoticeFactory.ownApplicationNotice,
+      notices.count == 1 && notices.last == FilesContextualNoticeFactory.ownApplicationNotice,
       notices.last?.title ?? "-")
 check("aviso do próprio app manda voltar à origem sem remédio de TCC",
-      notices.last?.remedy == TangerineContextualNotice.Remedy.none
+      notices.last?.remedy == FilesContextualNotice.Remedy.none
           && notices.last?.message.contains("app de origem") == true,
       notices.last?.message ?? "-")
 
@@ -672,7 +672,7 @@ check("falha na revalidação não mente dizendo que a seleção mudou",
       notices.last?.title.contains("seleção mudou") == false,
       notices.last?.title ?? "-")
 check("timeout na revalidação fala da origem que não respondeu",
-      notices.last?.title == TangerineContextualNoticeFactory.notice(for: .timeout, source: finderSource).title,
+      notices.last?.title == FilesContextualNoticeFactory.notice(for: .timeout, source: finderSource).title,
       notices.last?.title ?? "-")
 check("falha na revalidação diz que a ação não rodou",
       notices.last?.message.contains("não foi executada") == true,
@@ -728,12 +728,12 @@ check("PID diferente na revalidação segue tratado como seleção mudada",
       notices.last?.title.contains("seleção mudou") == true && submitted.isEmpty,
       notices.last?.title ?? "-")
 
-let noticePanel = TangerineContextualNoticePanel()
+let noticePanel = FilesContextualNoticePanel()
 check("botão do aviso aceita o primeiro clique com o app inativo", noticePanel.actionAcceptsFirstMouse)
 check("botão do aviso começa escondido", !noticePanel.isActionVisible)
 var noticeGrant = 0
 noticePanel.show(
-    TangerineContextualNoticeFactory.permissionNotice(source: finderSource),
+    FilesContextualNoticeFactory.permissionNotice(source: finderSource),
     at: NSPoint(x: 400, y: 400),
     onGrant: { noticeGrant += 1 }
 )
@@ -742,7 +742,7 @@ check("botão visível continua aceitando o primeiro clique", noticePanel.action
 noticePanel.hide()
 check("esconder o aviso não dispara a permissão", noticeGrant == 0)
 
-let hoverRoot = TangerineContextualRootView(frame: NSRect(x: 0, y: 0, width: 200, height: 200))
+let hoverRoot = FilesContextualRootView(frame: NSRect(x: 0, y: 0, width: 200, height: 200))
 var hoverPoints: [NSPoint] = []
 hoverRoot.onHover = { hoverPoints.append($0) }
 if let moved = NSEvent.mouseEvent(
@@ -761,7 +761,7 @@ if let moved = NSEvent.mouseEvent(
 check("mouseMoved real chega ao hover da roda", hoverPoints == [NSPoint(x: 30, y: 40)], "\(hoverPoints)")
 
 var diagSurface: FakeSurface?
-let diagPanel = TangerineContextualPanel(surfaceFactory: { frame in
+let diagPanel = FilesContextualPanel(surfaceFactory: { frame in
     let surface = FakeSurface(frame: frame)
     diagSurface = surface
     return surface
@@ -772,8 +772,8 @@ var diagLogs: [String] = []
 diagPanel.diagnosticLog = { diagLogs.append($0) }
 check("painel da roda pede eventos de mouse movido", diagPanel.tracksMouseMoved)
 diagSurface?.hits = [sectorPoint: 1]
-check("diagnóstico começa zerado", diagPanel.keyDiagnostics == TangerineContextualKeyDiagnostics())
-_ = diagPanel.present(TangerineContextualInvocation(
+check("diagnóstico começa zerado", diagPanel.keyDiagnostics == FilesContextualKeyDiagnostics())
+_ = diagPanel.present(FilesContextualInvocation(
     urls: [png],
     mode: .convert,
     sourcePID: 300,
@@ -814,7 +814,7 @@ check("botões dos ajustes pedem TCC por ação explícita",
 check("ajustes de seleção não abrem o dashboard", dashboardCalls == 0)
 
 let sources = (try? FileManager.default.contentsOfDirectory(atPath: uiSources)) ?? []
-let contextualSources = sources.filter { $0.hasPrefix("TangerineContextual") }
+let contextualSources = sources.filter { $0.hasPrefix("FilesContextual") }
 check("os arquivos do fluxo contextual existem", contextualSources.count == 2, contextualSources.joined(separator: ","))
 let contextualText = contextualSources
     .compactMap { try? String(contentsOfFile: uiSources + "/" + $0, encoding: .utf8) }
@@ -822,15 +822,15 @@ let contextualText = contextualSources
 check("fluxo contextual não registra hotkey",
       !contextualText.contains("RegisterEventHotKey") && !contextualText.contains("CGEvent.tapCreate"))
 check("fluxo contextual não abre dashboard/ajustes",
-      !contextualText.contains("TangerineDashboard") && !contextualText.contains("showSettings"))
+      !contextualText.contains("FilesDashboard") && !contextualText.contains("showSettings"))
 check("fluxo contextual não ativa o app à força",
       !contextualText.contains("NSApp.activate"))
-let controllerText = (try? String(contentsOfFile: uiSources + "/TangerineController.swift", encoding: .utf8)) ?? ""
+let controllerText = (try? String(contentsOfFile: uiSources + "/FilesController.swift", encoding: .utf8)) ?? ""
 check("controller expõe invokeSelection para o binding",
-      controllerText.contains("public func invokeSelection(mode: TangerineWheelMode"))
+      controllerText.contains("public func invokeSelection(mode: FilesWheelMode"))
 check("controller não registra atalho", !controllerText.contains("RegisterEventHotKey"))
 check("revalidação estrita continua sendo o padrão",
-      controllerText.contains("revalidation: TangerineContextualRevalidation = .strict"))
+      controllerText.contains("revalidation: FilesContextualRevalidation = .strict"))
 check("diagnóstico de teclado não pede TCC global de teclado",
       !contextualText.contains("addGlobalMonitorForEvents")
           && !contextualText.contains("CGEventTap")

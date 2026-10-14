@@ -1,6 +1,6 @@
-# Tangerine: inventário verificável
+# Files: inventário verificável
 
-Referência pública: https://tangerineformac.com/, JS `index-D4XiOnew.js`, consultado em 2026-09-11. Implementação independente, não contém o aplicativo comercial nem seus assets sonoros. Aparência inspirada, sem alegação pixel-perfect.
+Referência pública: https://filesformac.com/, JS `index-D4XiOnew.js`, consultado em 2026-09-11. Implementação independente, não contém o aplicativo comercial nem seus assets sonoros. Aparência inspirada, sem alegação pixel-perfect.
 
 ## Conversões
 

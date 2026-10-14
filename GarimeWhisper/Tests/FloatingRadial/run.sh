@@ -8,10 +8,10 @@ mkdir -p "$OUT"
 
 # Escopo fechado: catálogo (backend das opções) + o protocolo da superfície do overlay.
 swiftc \
-  "$ROOT/Sources/FileTools/UI/TangerineCatalog.swift" \
-  "$ROOT/Sources/FileTools/UI/TangerineTheme.swift" \
+  "$ROOT/Sources/FileTools/UI/FilesCatalog.swift" \
+  "$ROOT/Sources/FileTools/UI/FilesTheme.swift" \
   "$ROOT/Sources/FileTools/UI/RadialMenuView.swift" \
-  "$ROOT/Sources/FileTools/UI/TangerineDragPolicy.swift" \
+  "$ROOT/Sources/FileTools/UI/FilesWheelPlacement.swift" \
   "$ROOT/Sources/FileTools/UI/FloatingRadialView.swift" \
   "$ROOT/Tests/FloatingRadial/main.swift" \
   -framework AppKit \

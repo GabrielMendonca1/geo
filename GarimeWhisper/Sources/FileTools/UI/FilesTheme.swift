@@ -1,6 +1,6 @@
 import AppKit
 
-enum TangerineTheme {
+enum FilesTheme {
     static let accent = NSColor(srgbRed: 0xF4 / 255.0, green: 0x5D / 255.0, blue: 0x22 / 255.0, alpha: 1)
     static let accentSoft = accent.withAlphaComponent(0.14)
     static let panel = NSColor(srgbRed: 0.937, green: 0.937, blue: 0.929, alpha: 1)
@@ -24,7 +24,7 @@ enum TangerineTheme {
         _ text: String,
         size: CGFloat,
         weight: NSFont.Weight = .regular,
-        color: NSColor = TangerineTheme.ink
+        color: NSColor = FilesTheme.ink
     ) -> NSTextField {
         let field = NSTextField(labelWithString: text)
         field.font = NSFont.systemFont(ofSize: size, weight: weight)
@@ -35,11 +35,11 @@ enum TangerineTheme {
     }
 }
 
-final class TangerineCard: NSView {
+final class FilesCard: NSView {
     override var isFlipped: Bool { true }
 
     var active = false { didSet { applySkin() } }
-    var radius: CGFloat = TangerineTheme.cardRadius { didSet { applySkin() } }
+    var radius: CGFloat = FilesTheme.cardRadius { didSet { applySkin() } }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -50,10 +50,10 @@ final class TangerineCard: NSView {
 
     private func applySkin() {
         wantsLayer = true
-        layer?.backgroundColor = TangerineTheme.card.cgColor
+        layer?.backgroundColor = FilesTheme.card.cgColor
         layer?.cornerRadius = radius
         layer?.borderWidth = active ? 2 : 1
-        layer?.borderColor = (active ? TangerineTheme.accent : TangerineTheme.cardStroke).cgColor
+        layer?.borderColor = (active ? FilesTheme.accent : FilesTheme.cardStroke).cgColor
         layer?.shadowColor = NSColor.black.cgColor
         layer?.shadowOpacity = 0.06
         layer?.shadowRadius = 6
@@ -67,7 +67,7 @@ final class TangerineCard: NSView {
     }
 }
 
-final class TangerineKeycaps: NSView {
+final class FilesKeycaps: NSView {
     var caps: [String] { didSet { needsDisplay = true } }
 
     override var isFlipped: Bool { true }
@@ -107,7 +107,7 @@ final class TangerineKeycaps: NSView {
             }
             let attributes: [NSAttributedString.Key: Any] = [
                 .font: font,
-                .foregroundColor: cap == "+" ? TangerineTheme.inkFaint : TangerineTheme.inkSoft,
+                .foregroundColor: cap == "+" ? FilesTheme.inkFaint : FilesTheme.inkSoft,
             ]
             let size = (cap as NSString).size(withAttributes: attributes)
             (cap as NSString).draw(
@@ -119,7 +119,7 @@ final class TangerineKeycaps: NSView {
     }
 }
 
-final class TangerinePill: NSView {
+final class FilesPill: NSView {
     var title: String { didSet { needsDisplay = true } }
     var action: () -> Void
     private var hot = false
@@ -172,21 +172,21 @@ final class TangerinePill: NSView {
         if !enabledAction {
             fill = NSColor(white: 0.92, alpha: 1)
         } else if selected {
-            fill = TangerineTheme.accent
+            fill = FilesTheme.accent
         } else if hot {
-            fill = TangerineTheme.accentSoft
+            fill = FilesTheme.accentSoft
         } else {
             fill = NSColor.white
         }
         fill.setFill()
         path.fill()
-        (selected ? TangerineTheme.accent : TangerineTheme.cardStroke).setStroke()
+        (selected ? FilesTheme.accent : FilesTheme.cardStroke).setStroke()
         path.lineWidth = 1
         path.stroke()
 
         let color: NSColor = !enabledAction
-            ? TangerineTheme.inkFaint
-            : (selected ? .white : TangerineTheme.ink)
+            ? FilesTheme.inkFaint
+            : (selected ? .white : FilesTheme.ink)
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 12.5, weight: selected ? .semibold : .medium),
             .foregroundColor: color,

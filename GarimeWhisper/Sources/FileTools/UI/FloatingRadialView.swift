@@ -45,12 +45,12 @@ enum FloatingRadialOptions {
     ]
 
     static func convert(
-        category: TangerineCategory,
+        category: FilesCategory,
         sourceExtension: String,
-        capability: TangerineCapability = .unknown
-    ) -> [TangerineOption] {
-        let source = TangerineCatalog.normalize(sourceExtension)
-        let flat = TangerineCatalog
+        capability: FilesCapability = .unknown
+    ) -> [FilesOption] {
+        let source = FilesCatalog.normalize(sourceExtension)
+        let flat = FilesCatalog
             .convertGroups(category: category, sourceExtension: sourceExtension, capability: capability)
             .flatMap(\.options)
             .filter { option in
@@ -60,7 +60,7 @@ enum FloatingRadialOptions {
         return normalizeConvert(flat)
     }
 
-    static func normalizeConvert(_ options: [TangerineOption]) -> [TangerineOption] {
+    static func normalizeConvert(_ options: [FilesOption]) -> [FilesOption] {
         var seen = Set<String>()
         let unique = options.filter { option in
             guard !packageFormats.contains(option.format ?? "") else { return false }
@@ -74,7 +74,7 @@ enum FloatingRadialOptions {
         }
     }
 
-    static func normalizeTools(_ options: [TangerineOption]) -> [TangerineOption] {
+    static func normalizeTools(_ options: [FilesOption]) -> [FilesOption] {
         var seen = Set<String>()
         let unique = options.filter { seen.insert($0.id).inserted }
         return unique.sorted { lhs, rhs in
@@ -85,11 +85,11 @@ enum FloatingRadialOptions {
         }
     }
 
-    static func normalize(_ options: [TangerineOption], mode: TangerineMode) -> [TangerineOption] {
+    static func normalize(_ options: [FilesOption], mode: FilesMode) -> [FilesOption] {
         mode == .tools ? normalizeTools(options) : normalizeConvert(options)
     }
 
-    private static func convertRank(_ option: TangerineOption) -> Int {
+    private static func convertRank(_ option: FilesOption) -> Int {
         guard option.kind == "convert",
               let format = option.format,
               let index = convertOrder.firstIndex(of: format) else { return convertOrder.count }
@@ -97,10 +97,10 @@ enum FloatingRadialOptions {
     }
 
     static func tools(
-        category: TangerineCategory,
-        capability: TangerineCapability = .unknown
-    ) -> [TangerineOption] {
-        let flat = TangerineCatalog
+        category: FilesCategory,
+        capability: FilesCapability = .unknown
+    ) -> [FilesOption] {
+        let flat = FilesCatalog
             .toolGroups(category: category, capability: capability)
             .flatMap(\.options)
         return normalizeTools(flat)
@@ -112,7 +112,7 @@ enum FloatingRadialOptions {
 }
 
 @objc(FloatingRadialView)
-final class FloatingRadialView: NSView, TangerineWheelSurface {
+final class FloatingRadialView: NSView, FilesWheelSurface {
     static var playSectorChangedFeedback: (() -> Void)?
     static var playSelectionFeedback: (() -> Void)?
 
@@ -161,7 +161,7 @@ final class FloatingRadialView: NSView, TangerineWheelSurface {
     private let ink = NSColor(white: 0.11, alpha: 1)
     private let inkFaint = NSColor(white: 0.42, alpha: 1)
 
-    var options: [TangerineOption] = [] {
+    var options: [FilesOption] = [] {
         didSet {
             if let index = selectedIndex, !options.indices.contains(index) {
                 selectedIndex = nil
@@ -203,10 +203,10 @@ final class FloatingRadialView: NSView, TangerineWheelSurface {
         didSet { canvas.needsDisplay = true }
     }
 
-    var onSelectionChange: ((TangerineOption?) -> Void)?
-    var onCommit: ((TangerineOption) -> Void)?
+    var onSelectionChange: ((FilesOption?) -> Void)?
+    var onCommit: ((FilesOption) -> Void)?
 
-    var selectedOption: TangerineOption? {
+    var selectedOption: FilesOption? {
         guard let index = selectedIndex, options.indices.contains(index) else { return nil }
         return options[index]
     }
@@ -258,7 +258,7 @@ final class FloatingRadialView: NSView, TangerineWheelSurface {
         if wanted != diameter { diameter = wanted }
     }
 
-    func apply(groups: [TangerineGroup], mode: TangerineMode, headline: String, footnote: String) {
+    func apply(groups: [FilesGroup], mode: FilesMode, headline: String, footnote: String) {
         _ = headline
         _ = footnote
         let keep = selectedOption?.id
@@ -503,7 +503,7 @@ final class FloatingRadialView: NSView, TangerineWheelSurface {
         drawCenter()
     }
 
-    private func drawSectorLabel(option: TangerineOption, index: Int, active: Bool) {
+    private func drawSectorLabel(option: FilesOption, index: Int, active: Bool) {
         guard let point = sectorMidpoint(index) else { return }
         let isFormat = option.kind == "convert"
         let text = isFormat ? (option.format?.uppercased() ?? option.title.uppercased()) : option.title

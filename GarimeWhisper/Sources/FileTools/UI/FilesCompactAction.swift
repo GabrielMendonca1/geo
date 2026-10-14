@@ -1,21 +1,21 @@
 import AppKit
 
-final class TangerineCompactAction {
+final class FilesCompactAction {
     enum Result: Equatable {
         case rejected
         case submitted(Int)
         case awaitingParameters
     }
 
-    private let jobs: TangerineJobCenter
-    private let injectedPresenter: (([URL], TangerineOption) -> Void)?
-    var onSubmitted: (([TangerineJob]) -> Void)?
+    private let jobs: FilesJobCenter
+    private let injectedPresenter: (([URL], FilesOption) -> Void)?
+    var onSubmitted: (([FilesJob]) -> Void)?
 
-    private var panel: TangerineCompactPanel?
+    private var panel: FilesCompactPanel?
 
     init(
-        jobs: TangerineJobCenter,
-        presentParameters: (([URL], TangerineOption) -> Void)? = nil
+        jobs: FilesJobCenter,
+        presentParameters: (([URL], FilesOption) -> Void)? = nil
     ) {
         self.jobs = jobs
         injectedPresenter = presentParameters
@@ -25,22 +25,22 @@ final class TangerineCompactAction {
         !urls.isEmpty && urls.allSatisfy { $0.isFileURL && $0.path.hasPrefix("/") }
     }
 
-    func groups(for urls: [URL], mode: TangerineMode) -> [TangerineGroup] {
+    func groups(for urls: [URL], mode: FilesMode) -> [FilesGroup] {
         guard Self.accepts(urls), let first = urls.first else { return [] }
         let capability = jobs.capability(for: urls)
-        let category = TangerineCategory.of(first) ?? .documents
-        let extensions = Set(urls.map { TangerineCatalog.normalize($0.pathExtension) })
+        let category = FilesCategory.of(first) ?? .documents
+        let extensions = Set(urls.map { FilesCatalog.normalize($0.pathExtension) })
         let sourceExtension = extensions.count == 1 ? (extensions.first ?? "") : ""
         switch mode {
         case .convert:
-            return TangerineCatalog.convertGroups(
+            return FilesCatalog.convertGroups(
                 category: category,
                 sourceExtension: sourceExtension,
                 capability: capability
             )
         case .tools:
-            return TangerineCatalog.toolGroups(category: category, capability: capability)
-                + TangerineCatalog.batchGroups(
+            return FilesCatalog.toolGroups(category: category, capability: capability)
+                + FilesCatalog.batchGroups(
                     category: category,
                     inputCount: urls.count,
                     capability: capability
@@ -49,7 +49,7 @@ final class TangerineCompactAction {
     }
 
     @discardableResult
-    func perform(inputs: [URL], option: TangerineOption) -> Result {
+    func perform(inputs: [URL], option: FilesOption) -> Result {
         guard Self.accepts(inputs), jobs.rejects(option: option, inputs: inputs).isEmpty else {
             return .rejected
         }
@@ -60,7 +60,7 @@ final class TangerineCompactAction {
                     presenter(inputs, option)
                 } else {
                     if self.panel == nil {
-                        self.panel = TangerineCompactPanel(jobs: self.jobs) { [weak self] created in
+                        self.panel = FilesCompactPanel(jobs: self.jobs) { [weak self] created in
                             self?.onSubmitted?(created)
                         }
                     }
@@ -82,20 +82,20 @@ final class TangerineCompactAction {
     }
 }
 
-private final class TangerineCompactPanel: NSObject, NSWindowDelegate {
-    private let jobs: TangerineJobCenter
-    private let onSubmitted: ([TangerineJob]) -> Void
+private final class FilesCompactPanel: NSObject, NSWindowDelegate {
+    private let jobs: FilesJobCenter
+    private let onSubmitted: ([FilesJob]) -> Void
     private let window: NSPanel
     private let titleLabel = NSTextField(labelWithString: "")
     private let filesLabel = NSTextField(wrappingLabelWithString: "")
     private let statusLabel = NSTextField(wrappingLabelWithString: "")
     private let form = NSView(frame: .zero)
     private var inputs: [URL] = []
-    private var option: TangerineOption?
+    private var option: FilesOption?
     private var fields: [String: NSTextField] = [:]
     private var choices: [String: NSPopUpButton] = [:]
 
-    init(jobs: TangerineJobCenter, onSubmitted: @escaping ([TangerineJob]) -> Void) {
+    init(jobs: FilesJobCenter, onSubmitted: @escaping ([FilesJob]) -> Void) {
         self.jobs = jobs
         self.onSubmitted = onSubmitted
         window = NSPanel(
@@ -105,7 +105,7 @@ private final class TangerineCompactPanel: NSObject, NSWindowDelegate {
             defer: false
         )
         super.init()
-        window.title = "Tangerine"
+        window.title = "Arquivos"
         window.isFloatingPanel = true
         window.hidesOnDeactivate = false
         window.isReleasedWhenClosed = false
@@ -113,7 +113,7 @@ private final class TangerineCompactPanel: NSObject, NSWindowDelegate {
         window.delegate = self
     }
 
-    func present(inputs: [URL], option: TangerineOption) {
+    func present(inputs: [URL], option: FilesOption) {
         self.inputs = inputs
         self.option = option
         rebuild()
@@ -206,13 +206,13 @@ private final class TangerineCompactPanel: NSObject, NSWindowDelegate {
     }
 
     private enum ParsedValues {
-        case success([String: TangerineValue])
+        case success([String: FilesValue])
         case failure(String)
     }
 
     private func parsedValues() -> ParsedValues {
         guard let option else { return .failure("Ação indisponível.") }
-        var result: [String: TangerineValue] = [:]
+        var result: [String: FilesValue] = [:]
         for param in option.params {
             let raw: String
             if let popup = choices[param.id] {
@@ -226,7 +226,7 @@ private final class TangerineCompactPanel: NSObject, NSWindowDelegate {
             case .problem(let message): return .failure(message)
             }
         }
-        if let problem = TangerineCatalog.batchProblem(option: option, values: result, inputCount: inputs.count) {
+        if let problem = FilesCatalog.batchProblem(option: option, values: result, inputCount: inputs.count) {
             return .failure(problem)
         }
         return .success(result)

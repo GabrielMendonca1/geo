@@ -1,13 +1,13 @@
 import AppKit
 
-protocol TangerineContextualSurface: TangerineWheelSurface {
+protocol FilesContextualSurface: FilesWheelSurface {
     var contextualOptionCount: Int { get }
     func contextualHitIndex(at point: NSPoint) -> Int?
     func contextualFocus(index: Int?)
-    func contextualOption(at index: Int) -> TangerineOption?
+    func contextualOption(at index: Int) -> FilesOption?
 }
 
-extension FloatingRadialView: TangerineContextualSurface {
+extension FloatingRadialView: FilesContextualSurface {
     var contextualOptionCount: Int { options.count }
 
     func contextualHitIndex(at point: NSPoint) -> Int? {
@@ -23,27 +23,27 @@ extension FloatingRadialView: TangerineContextualSurface {
         track(at: midpoint)
     }
 
-    func contextualOption(at index: Int) -> TangerineOption? {
+    func contextualOption(at index: Int) -> FilesOption? {
         options.indices.contains(index) ? options[index] : nil
     }
 }
 
-struct TangerineContextualInvocation: Equatable {
+struct FilesContextualInvocation: Equatable {
     let id: UUID
     let urls: [URL]
-    let mode: TangerineMode
+    let mode: FilesMode
     let sourcePID: pid_t
     let anchor: NSPoint
-    let groups: [TangerineGroup]
+    let groups: [FilesGroup]
     let headline: String
 
     init(
         id: UUID = UUID(),
         urls: [URL],
-        mode: TangerineMode,
+        mode: FilesMode,
         sourcePID: pid_t,
         anchor: NSPoint,
-        groups: [TangerineGroup],
+        groups: [FilesGroup],
         headline: String
     ) {
         self.id = id
@@ -55,25 +55,25 @@ struct TangerineContextualInvocation: Equatable {
         self.headline = headline
     }
 
-    static func == (lhs: TangerineContextualInvocation, rhs: TangerineContextualInvocation) -> Bool {
+    static func == (lhs: FilesContextualInvocation, rhs: FilesContextualInvocation) -> Bool {
         lhs.id == rhs.id
     }
 }
 
-protocol TangerineContextualPresenting: AnyObject {
-    var onCommit: ((UUID, TangerineOption) -> Void)? { get set }
-    var onDismiss: ((UUID, TangerineContextualDismissReason) -> Void)? { get set }
+protocol FilesContextualPresenting: AnyObject {
+    var onCommit: ((UUID, FilesOption) -> Void)? { get set }
+    var onDismiss: ((UUID, FilesContextualDismissReason) -> Void)? { get set }
     var activeSessionID: UUID? { get }
     var keyboardDiagnosticSummary: String? { get }
-    @discardableResult func present(_ invocation: TangerineContextualInvocation) -> Bool
-    func dismiss(reason: TangerineContextualDismissReason)
+    @discardableResult func present(_ invocation: FilesContextualInvocation) -> Bool
+    func dismiss(reason: FilesContextualDismissReason)
 }
 
-extension TangerineContextualPresenting {
+extension FilesContextualPresenting {
     var keyboardDiagnosticSummary: String? { nil }
 }
 
-struct TangerineContextualKeyDiagnostics: Equatable {
+struct FilesContextualKeyDiagnostics: Equatable {
     var presentations = 0
     var keyAcquisitions = 0
     var presentationsWithoutKey = 0
@@ -84,15 +84,15 @@ struct TangerineContextualKeyDiagnostics: Equatable {
     }
 }
 
-final class TangerineContextualWindow: NSPanel {
+final class FilesContextualWindow: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 }
 
-final class TangerineContextualRootView: NSView {
+final class FilesContextualRootView: NSView {
     var onHover: ((NSPoint) -> Void)?
     var onClick: ((NSPoint) -> Void)?
-    var onKey: ((TangerineContextualKey) -> Void)?
+    var onKey: ((FilesContextualKey) -> Void)?
 
     private var tracking: NSTrackingArea?
 
@@ -141,22 +141,22 @@ final class TangerineContextualRootView: NSView {
     }
 }
 
-final class TangerineContextualPanel: NSObject, TangerineContextualPresenting, NSWindowDelegate {
-    var onCommit: ((UUID, TangerineOption) -> Void)?
-    var onDismiss: ((UUID, TangerineContextualDismissReason) -> Void)?
+final class FilesContextualPanel: NSObject, FilesContextualPresenting, NSWindowDelegate {
+    var onCommit: ((UUID, FilesOption) -> Void)?
+    var onDismiss: ((UUID, FilesContextualDismissReason) -> Void)?
 
     var screenProvider: () -> [NSRect] = { NSScreen.screens.map(\.frame) }
     var fallbackScreen: () -> NSRect? = { NSScreen.main?.frame }
 
-    private let panel: TangerineContextualWindow
-    private let root: TangerineContextualRootView
-    private let surface: TangerineContextualSurface
-    private var policy = TangerineContextualPolicy()
-    private var invocation: TangerineContextualInvocation?
+    private let panel: FilesContextualWindow
+    private let root: FilesContextualRootView
+    private let surface: FilesContextualSurface
+    private var policy = FilesContextualPolicy()
+    private var invocation: FilesContextualInvocation?
     private var becameKey = false
 
     private(set) var isVisible = false
-    private(set) var keyDiagnostics = TangerineContextualKeyDiagnostics()
+    private(set) var keyDiagnostics = FilesContextualKeyDiagnostics()
 
     var diagnosticLog: (String) -> Void = { NSLog("%@", $0) }
 
@@ -166,19 +166,19 @@ final class TangerineContextualPanel: NSObject, TangerineContextualPresenting, N
 
     var tracksMouseMoved: Bool { panel.acceptsMouseMovedEvents }
 
-    var wheel: TangerineContextualSurface { surface }
+    var wheel: FilesContextualSurface { surface }
 
-    init(surfaceFactory: (NSRect) -> TangerineContextualSurface = { FloatingRadialView(frame: $0) }) {
+    init(surfaceFactory: (NSRect) -> FilesContextualSurface = { FloatingRadialView(frame: $0) }) {
         let frame = NSRect(x: 0, y: 0, width: 480, height: 480)
         surface = surfaceFactory(frame)
         let side = max(surface.preferredSide, 120)
-        panel = TangerineContextualWindow(
+        panel = FilesContextualWindow(
             contentRect: NSRect(x: 0, y: 0, width: side, height: side),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
-        root = TangerineContextualRootView(frame: NSRect(x: 0, y: 0, width: side, height: side))
+        root = FilesContextualRootView(frame: NSRect(x: 0, y: 0, width: side, height: side))
         super.init()
         panel.isOpaque = false
         panel.backgroundColor = .clear
@@ -206,13 +206,13 @@ final class TangerineContextualPanel: NSObject, TangerineContextualPresenting, N
     }
 
     @discardableResult
-    func present(_ next: TangerineContextualInvocation) -> Bool {
+    func present(_ next: FilesContextualInvocation) -> Bool {
         if policy.isPresenting { dismiss(reason: .reinvoked) }
         guard !next.urls.isEmpty, !next.groups.isEmpty else {
             clearSurface(mode: next.mode)
             return false
         }
-        let screen = TangerineWheelPlacement.screen(
+        let screen = FilesWheelPlacement.screen(
             containing: next.anchor,
             screens: screenProvider(),
             fallback: fallbackScreen()
@@ -233,16 +233,16 @@ final class TangerineContextualPanel: NSObject, TangerineContextualPresenting, N
         }
         let side = max(surface.preferredSide, 120)
         panel.setFrame(
-            TangerineWheelPlacement.frame(center: next.anchor, side: side, screen: screen),
+            FilesWheelPlacement.frame(center: next.anchor, side: side, screen: screen),
             display: false
         )
         surface.frame = root.bounds
         surface.isHidden = false
         invocation = next
-        let session = TangerineContextualPolicy.Session(
+        let session = FilesContextualPolicy.Session(
             id: next.id,
             sourcePID: next.sourcePID,
-            fileKeys: TangerineContextualFileKeys.keys(next.urls),
+            fileKeys: FilesContextualFileKeys.keys(next.urls),
             optionCount: surface.contextualOptionCount
         )
         apply(policy.apply(.present(session)))
@@ -255,7 +255,7 @@ final class TangerineContextualPanel: NSObject, TangerineContextualPresenting, N
         return true
     }
 
-    func dismiss(reason: TangerineContextualDismissReason) {
+    func dismiss(reason: FilesContextualDismissReason) {
         let effects = policy.apply(.invalidate(reason))
         apply(effects)
         guard isVisible else { return }
@@ -272,7 +272,7 @@ final class TangerineContextualPanel: NSObject, TangerineContextualPresenting, N
         apply(policy.apply(.click(index(at: point))))
     }
 
-    func handleKey(_ key: TangerineContextualKey) {
+    func handleKey(_ key: FilesContextualKey) {
         guard policy.isPresenting else { return }
         keyDiagnostics.keysDelivered += 1
         switch key {
@@ -285,7 +285,7 @@ final class TangerineContextualPanel: NSObject, TangerineContextualPresenting, N
     func windowDidBecomeKey(_ notification: Notification) {
         becameKey = true
         keyDiagnostics.keyAcquisitions += 1
-        diagnosticLog("tangerine.wheel key=sim \(keyDiagnostics.summary)")
+        diagnosticLog("files.wheel key=sim \(keyDiagnostics.summary)")
     }
 
     func windowDidResignKey(_ notification: Notification) {
@@ -298,7 +298,7 @@ final class TangerineContextualPanel: NSObject, TangerineContextualPresenting, N
         return surface.contextualHitIndex(at: local)
     }
 
-    private func apply(_ effects: [TangerineContextualPolicy.Effect]) {
+    private func apply(_ effects: [FilesContextualPolicy.Effect]) {
         for effect in effects {
             switch effect {
             case let .select(index):
@@ -324,7 +324,7 @@ final class TangerineContextualPanel: NSObject, TangerineContextualPresenting, N
         isVisible = false
         if !becameKey {
             keyDiagnostics.presentationsWithoutKey += 1
-            diagnosticLog("tangerine.wheel key=nao \(keyDiagnostics.summary)")
+            diagnosticLog("files.wheel key=nao \(keyDiagnostics.summary)")
         }
         becameKey = false
         let mode = invocation?.mode ?? .convert
@@ -334,23 +334,23 @@ final class TangerineContextualPanel: NSObject, TangerineContextualPresenting, N
         panel.orderOut(nil)
     }
 
-    private func clearSurface(mode: TangerineMode) {
+    private func clearSurface(mode: FilesMode) {
         surface.reset()
         surface.apply(fileURLs: [])
         surface.apply(groups: [], mode: mode, headline: "", footnote: "")
     }
 }
 
-final class TangerineContextualNoticeButton: NSButton {
+final class FilesContextualNoticeButton: NSButton {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
 
-final class TangerineContextualNoticePanel {
+final class FilesContextualNoticePanel {
     private let panel: NSPanel
-    private let card = TangerineCard(frame: NSRect(x: 0, y: 0, width: 360, height: 96))
-    private let title = TangerineTheme.label("", size: 12.5, weight: .semibold)
+    private let card = FilesCard(frame: NSRect(x: 0, y: 0, width: 360, height: 96))
+    private let title = FilesTheme.label("", size: 12.5, weight: .semibold)
     private let message = NSTextField(wrappingLabelWithString: "")
-    private let action = TangerineContextualNoticeButton(title: "", target: nil, action: nil)
+    private let action = FilesContextualNoticeButton(title: "", target: nil, action: nil)
 
     var actionAcceptsFirstMouse: Bool { action.acceptsFirstMouse(for: nil) }
 
@@ -380,7 +380,7 @@ final class TangerineContextualNoticePanel {
         title.frame = NSRect(x: 16, y: 12, width: 328, height: 18)
         message.frame = NSRect(x: 16, y: 32, width: 328, height: 34)
         message.font = .systemFont(ofSize: 11)
-        message.textColor = TangerineTheme.inkSoft
+        message.textColor = FilesTheme.inkSoft
         message.maximumNumberOfLines = 3
         message.lineBreakMode = .byTruncatingTail
         message.isEditable = false
@@ -398,7 +398,7 @@ final class TangerineContextualNoticePanel {
         card.addSubview(action)
     }
 
-    func show(_ notice: TangerineContextualNotice, at anchor: NSPoint, onGrant: (() -> Void)?) {
+    func show(_ notice: FilesContextualNotice, at anchor: NSPoint, onGrant: (() -> Void)?) {
         title.stringValue = notice.title
         message.stringValue = notice.message
         grant = onGrant
@@ -409,7 +409,7 @@ final class TangerineContextualNoticePanel {
             action.isHidden = true
         }
         let screens = NSScreen.screens.map(\.frame)
-        let screen = TangerineWheelPlacement.screen(
+        let screen = FilesWheelPlacement.screen(
             containing: anchor,
             screens: screens,
             fallback: NSScreen.main?.frame

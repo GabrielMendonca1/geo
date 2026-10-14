@@ -1,7 +1,7 @@
 import Carbon.HIToolbox
 import Foundation
 
-final class TangerineSelectionHotKeys {
+final class FilesSelectionHotKeys {
     enum Action: UInt32, Equatable {
         case convert = 1
         case tools = 2
@@ -50,7 +50,7 @@ final class TangerineSelectionHotKeys {
         let context = Unmanaged.passUnretained(self).toOpaque()
         let installed = InstallEventHandler(
             GetApplicationEventTarget(),
-            tangerineSelectionHotKeyHandler,
+            filesSelectionHotKeyHandler,
             1,
             &spec,
             context,
@@ -119,7 +119,7 @@ final class TangerineSelectionHotKeys {
     }
 }
 
-private func tangerineSelectionHotKeyHandler(
+private func filesSelectionHotKeyHandler(
     _ callRef: EventHandlerCallRef?,
     _ event: EventRef?,
     _ context: UnsafeMutableRawPointer?
@@ -140,6 +140,6 @@ private func tangerineSelectionHotKeyHandler(
         &identifier
     )
     guard status == noErr else { return OSStatus(eventNotHandledErr) }
-    let owner = Unmanaged<TangerineSelectionHotKeys>.fromOpaque(context).takeUnretainedValue()
+    let owner = Unmanaged<FilesSelectionHotKeys>.fromOpaque(context).takeUnretainedValue()
     return owner.handle(identifier)
 }

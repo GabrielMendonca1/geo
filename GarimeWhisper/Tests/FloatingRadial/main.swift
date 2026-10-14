@@ -40,7 +40,7 @@ let gifWheel = FloatingRadialOptions.convert(category: .images, sourceExtension:
 check(gifWheel.contains { $0.format == "mp4" }, "gif ganha alvos animados (dependente da origem)")
 check(!pngWheel.contains { $0.format == "mp4" }, "png não ganha alvos animados")
 
-let limited = TangerineCapability(kinds: ["convert"], formats: ["mp4", "zip"])
+let limited = FilesCapability(kinds: ["convert"], formats: ["mp4", "zip"])
 let limitedWheel = FloatingRadialOptions.convert(category: .video, sourceExtension: "mov", capability: limited)
 equal(limitedWheel.map { $0.format ?? "" }, ["mp4"], "capability do backend manda e pacote continua fora")
 
@@ -52,7 +52,7 @@ equal(
 )
 let cappedTools = FloatingRadialOptions.tools(
     category: .video,
-    capability: TangerineCapability(kinds: ["trim", "mute"], formats: [])
+    capability: FilesCapability(kinds: ["trim", "mute"], formats: [])
 )
 equal(cappedTools.map(\.kind), ["mute", "trim"], "ferramentas respeitam capability")
 
@@ -77,7 +77,7 @@ func shuffled<T>(_ items: [T], seed: UInt64) -> [T] {
     return out
 }
 
-let movGroups = TangerineCatalog.convertGroups(category: .video, sourceExtension: "mov")
+let movGroups = FilesCatalog.convertGroups(category: .video, sourceExtension: "mov")
 let movCanonical = FloatingRadialOptions.normalizeConvert(movGroups.flatMap(\.options))
 equal(movCanonical.map { $0.format ?? "" }, ["mp4", "mkv", "gif", "mp3", "m4a"], "normalizeConvert dá a ordem canônica do MOV")
 
@@ -85,7 +85,7 @@ var permutedStable = true
 var permutationCount = 0
 for seed in UInt64(1) ... 24 {
     let permutedGroups = shuffled(movGroups, seed: seed).map {
-        TangerineGroup(title: $0.title, options: shuffled($0.options, seed: seed &* 7 &+ 3))
+        FilesGroup(title: $0.title, options: shuffled($0.options, seed: seed &* 7 &+ 3))
     }
     let flat = permutedGroups.flatMap(\.options)
     permutationCount += 1
@@ -100,11 +100,11 @@ check(
     "MOV invertido volta à ordem canônica"
 )
 
-let toolCanonical = FloatingRadialOptions.normalizeTools(TangerineCatalog.toolGroups(category: .video).flatMap(\.options))
+let toolCanonical = FloatingRadialOptions.normalizeTools(FilesCatalog.toolGroups(category: .video).flatMap(\.options))
 var toolsStable = true
 for seed in UInt64(1) ... 24 {
-    let permuted = shuffled(TangerineCatalog.toolGroups(category: .video), seed: seed).map {
-        TangerineGroup(title: $0.title, options: shuffled($0.options, seed: seed &* 11 &+ 5))
+    let permuted = shuffled(FilesCatalog.toolGroups(category: .video), seed: seed).map {
+        FilesGroup(title: $0.title, options: shuffled($0.options, seed: seed &* 11 &+ 5))
     }
     if FloatingRadialOptions.normalizeTools(permuted.flatMap(\.options)).map(\.id) != toolCanonical.map(\.id) {
         toolsStable = false
@@ -223,13 +223,13 @@ equal(view.selectedIndex, nil, "seleção fora da faixa é zerada")
 view.options = movWheel
 view.clearSelection()
 
-// MARK: - Contrato TangerineWheelSurface (worker do gesto)
+// MARK: - Contrato FilesWheelSurface (worker do gesto)
 
-check(NSClassFromString("FloatingRadialView") is TangerineWheelSurface.Type, "lookup dinâmico acha a superfície")
-let surface: TangerineWheelSurface = FloatingRadialView(frame: NSRect(x: 0, y: 0, width: 348, height: 348))
+check(NSClassFromString("FloatingRadialView") is FilesWheelSurface.Type, "lookup dinâmico acha a superfície")
+let surface: FilesWheelSurface = FloatingRadialView(frame: NSRect(x: 0, y: 0, width: 348, height: 348))
 close(surface.preferredSide, 348, 0.001, "preferredSide = diâmetro + padding")
 surface.apply(
-    groups: TangerineCatalog.convertGroups(category: .video, sourceExtension: "mov"),
+    groups: FilesCatalog.convertGroups(category: .video, sourceExtension: "mov"),
     mode: .convert,
     headline: "ignorado",
     footnote: "ignorado"
@@ -246,7 +246,7 @@ check(surface.selectedOption == nil, "furo zera selectedOption")
 check(!surface.track(at: NSPoint(x: 4, y: 4)), "track fora do anel devolve false")
 surface.track(at: NSPoint(x: surfaceCenter.x, y: surfaceCenter.y + surfaceRing))
 surface.apply(
-    groups: TangerineCatalog.toolGroups(category: .video),
+    groups: FilesCatalog.toolGroups(category: .video),
     mode: .tools,
     headline: "",
     footnote: ""
@@ -261,14 +261,14 @@ if let wheel = surface as? FloatingRadialView {
 }
 surface.track(at: NSPoint(x: surfaceCenter.x, y: surfaceCenter.y + surfaceRing))
 check(surface.selectedOption?.kind == "compress", "topo das ferramentas é compress")
-surface.apply(groups: TangerineCatalog.toolGroups(category: .video), mode: .tools, headline: "", footnote: "")
+surface.apply(groups: FilesCatalog.toolGroups(category: .video), mode: .tools, headline: "", footnote: "")
 check(surface.selectedOption?.kind == "compress", "apply preserva a seleção ainda válida")
 surface.reset()
 check(surface.selectedOption == nil, "reset limpa a seleção")
 
 let permutedSurface = FloatingRadialView(frame: NSRect(x: 0, y: 0, width: 348, height: 348))
 permutedSurface.apply(
-    groups: shuffled(movGroups, seed: 9).map { TangerineGroup(title: $0.title, options: shuffled($0.options, seed: 31)) },
+    groups: shuffled(movGroups, seed: 9).map { FilesGroup(title: $0.title, options: shuffled($0.options, seed: 31)) },
     mode: .convert,
     headline: "",
     footnote: ""
@@ -276,8 +276,8 @@ permutedSurface.apply(
 equal(permutedSurface.options.map { $0.format ?? "" }, ["mp4", "mkv", "gif", "mp3", "m4a"], "apply normaliza grupos permutados")
 let permutedTools = FloatingRadialView(frame: NSRect(x: 0, y: 0, width: 348, height: 348))
 permutedTools.apply(
-    groups: shuffled(TangerineCatalog.toolGroups(category: .video), seed: 5).map {
-        TangerineGroup(title: $0.title, options: shuffled($0.options, seed: 13))
+    groups: shuffled(FilesCatalog.toolGroups(category: .video), seed: 5).map {
+        FilesGroup(title: $0.title, options: shuffled($0.options, seed: 13))
     },
     mode: .tools,
     headline: "",

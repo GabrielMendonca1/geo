@@ -29,29 +29,29 @@ final class RadialMenuView: NSView {
 
     private var font: CGFloat { max(scale, 0.85) }
 
-    var groups: [TangerineGroup] = [] {
+    var groups: [FilesGroup] = [] {
         didSet {
             if selection.group >= groups.count { selection = Selection(group: 0, option: nil) }
             needsDisplay = true
         }
     }
 
-    var mode: TangerineMode = .convert { didSet { needsDisplay = true } }
+    var mode: FilesMode = .convert { didSet { needsDisplay = true } }
     var dimmed = false { didSet { needsDisplay = true } }
     var headline: String = "" { didSet { needsDisplay = true } }
     var footnote: String = "" { didSet { needsDisplay = true } }
     var selection = Selection(group: 0, option: nil) { didSet { needsDisplay = true } }
-    var onSelectionChange: ((TangerineOption?) -> Void)?
-    var onCommit: ((TangerineOption) -> Void)?
+    var onSelectionChange: ((FilesOption?) -> Void)?
+    var onCommit: ((FilesOption) -> Void)?
 
-    var currentOption: TangerineOption? {
+    var currentOption: FilesOption? {
         guard groups.indices.contains(selection.group) else { return nil }
         let options = groups[selection.group].options
         guard let index = selection.option, options.indices.contains(index) else { return nil }
         return options[index]
     }
 
-    var currentGroup: TangerineGroup? {
+    var currentGroup: FilesGroup? {
         groups.indices.contains(selection.group) ? groups[selection.group] : nil
     }
 
@@ -273,7 +273,7 @@ final class RadialMenuView: NSView {
     private func capsule(text: String, centerY: CGFloat, size: CGFloat, weight: NSFont.Weight) {
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: size, weight: weight),
-            .foregroundColor: TangerineTheme.ink,
+            .foregroundColor: FilesTheme.ink,
         ]
         let textSize = (text as NSString).size(withAttributes: attributes)
         let box = NSRect(
@@ -332,9 +332,9 @@ final class RadialMenuView: NSView {
                 radiusOut: outerOut,
                 start: start,
                 end: end,
-                corner: TangerineTheme.sectorCorner
+                corner: FilesTheme.sectorCorner
             )
-            paint(path, color: hot ? TangerineTheme.sectorHot : TangerineTheme.sector)
+            paint(path, color: hot ? FilesTheme.sectorHot : FilesTheme.sector)
             let point = midpoint(index: index, count: options.count, radius: (outerIn + outerOut) / 2)
 
             draw(
@@ -342,7 +342,7 @@ final class RadialMenuView: NSView {
                 at: NSPoint(x: point.x, y: point.y + (option.detail.isEmpty ? 0 : 7 * font)),
                 size: (option.title.count > 12 ? 12 : 13) * font,
                 weight: .semibold,
-                color: hot ? .white : TangerineTheme.ink,
+                color: hot ? .white : FilesTheme.ink,
                 width: optionLabelWidth
             )
             if !option.detail.isEmpty {
@@ -351,7 +351,7 @@ final class RadialMenuView: NSView {
                     at: NSPoint(x: point.x, y: point.y - 8 * font),
                     size: 9.5 * font,
                     weight: .regular,
-                    color: hot ? NSColor(white: 1, alpha: 1) : TangerineTheme.inkFaint,
+                    color: hot ? NSColor(white: 1, alpha: 1) : FilesTheme.inkFaint,
                     width: optionLabelWidth
                 )
             }
@@ -363,7 +363,7 @@ final class RadialMenuView: NSView {
                 at: NSPoint(x: center.x, y: center.y + (outerIn + outerOut) / 2),
                 size: 12 * font,
                 weight: .medium,
-                color: TangerineTheme.inkFaint,
+                color: FilesTheme.inkFaint,
                 width: 160
             )
         }
@@ -376,10 +376,10 @@ final class RadialMenuView: NSView {
                 radiusOut: innerOut,
                 start: start,
                 end: end,
-                corner: TangerineTheme.sectorCorner
+                corner: FilesTheme.sectorCorner
             )
             let strong = hot && !dimmed && selection.option != nil
-            paint(path, color: strong ? TangerineTheme.sectorHotDeep : (hot ? TangerineTheme.sector : TangerineTheme.sectorDim))
+            paint(path, color: strong ? FilesTheme.sectorHotDeep : (hot ? FilesTheme.sector : FilesTheme.sectorDim))
 
             let point = midpoint(
                 index: index,
@@ -397,7 +397,7 @@ final class RadialMenuView: NSView {
                 at: point,
                 size: 10 * font,
                 weight: hot ? .semibold : .medium,
-                color: hot && !dimmed && selection.option != nil ? .white : TangerineTheme.inkSoft,
+                color: hot && !dimmed && selection.option != nil ? .white : FilesTheme.inkSoft,
 
                 width: labelWidth(
                     index: index,
@@ -415,9 +415,9 @@ final class RadialMenuView: NSView {
             width: hubRadius * 2,
             height: hubRadius * 2
         ))
-        TangerineTheme.hub.setFill()
+        FilesTheme.hub.setFill()
         hub.fill()
-        TangerineTheme.accent.withAlphaComponent(currentOption == nil || dimmed ? 0.25 : 1).setStroke()
+        FilesTheme.accent.withAlphaComponent(currentOption == nil || dimmed ? 0.25 : 1).setStroke()
         hub.lineWidth = 2
         hub.stroke()
 
@@ -427,7 +427,7 @@ final class RadialMenuView: NSView {
             at: NSPoint(x: center.x, y: center.y + 30 * font),
             size: 9 * font,
             weight: .bold,
-            color: dimmed ? TangerineTheme.inkFaint : TangerineTheme.accent,
+            color: dimmed ? FilesTheme.inkFaint : FilesTheme.accent,
             width: 100 * font
         )
         if let option = currentOption {
@@ -437,18 +437,18 @@ final class RadialMenuView: NSView {
                 at: NSPoint(x: center.x, y: center.y + 6 * font),
                 size: titleSize * font,
                 weight: .bold,
-                color: TangerineTheme.ink,
+                color: FilesTheme.ink,
                 width: hubRadius * 1.9
             )
             if !option.detail.isEmpty {
-                draw(text: option.detail, at: NSPoint(x: center.x, y: center.y - 12 * font), size: 10 * font, weight: .regular, color: TangerineTheme.inkFaint, width: 100 * font)
+                draw(text: option.detail, at: NSPoint(x: center.x, y: center.y - 12 * font), size: 10 * font, weight: .regular, color: FilesTheme.inkFaint, width: 100 * font)
             }
             if option.needsParams {
-                draw(text: "pede ajustes", at: NSPoint(x: center.x, y: center.y - 28 * font), size: 9 * font, weight: .semibold, color: TangerineTheme.accent, width: 100 * font)
+                draw(text: "pede ajustes", at: NSPoint(x: center.x, y: center.y - 28 * font), size: 9 * font, weight: .semibold, color: FilesTheme.accent, width: 100 * font)
             }
         } else {
-            draw(text: "escolha", at: NSPoint(x: center.x, y: center.y + 4 * font), size: 14 * font, weight: .semibold, color: TangerineTheme.inkFaint, width: 100 * font)
-            draw(text: "no anel externo", at: NSPoint(x: center.x, y: center.y - 14 * font), size: 9.5 * font, weight: .regular, color: TangerineTheme.inkFaint, width: 100 * font)
+            draw(text: "escolha", at: NSPoint(x: center.x, y: center.y + 4 * font), size: 14 * font, weight: .semibold, color: FilesTheme.inkFaint, width: 100 * font)
+            draw(text: "no anel externo", at: NSPoint(x: center.x, y: center.y - 14 * font), size: 9.5 * font, weight: .regular, color: FilesTheme.inkFaint, width: 100 * font)
         }
         if !headline.isEmpty {
             capsule(text: headline, centerY: center.y + outerOut + 16 * font, size: 11.5 * font, weight: .semibold)

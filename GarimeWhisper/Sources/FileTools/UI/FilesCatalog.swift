@@ -1,6 +1,6 @@
 import Foundation
 
-enum TangerineCategory: String, CaseIterable {
+enum FilesCategory: String, CaseIterable {
     case images
     case video
     case audio
@@ -27,7 +27,7 @@ enum TangerineCategory: String, CaseIterable {
         }
     }
 
-    static func of(_ url: URL) -> TangerineCategory? {
+    static func of(_ url: URL) -> FilesCategory? {
         switch url.pathExtension.lowercased() {
         case "jpg", "jpeg", "png", "webp", "heic", "heif", "tiff", "tif", "gif", "bmp", "svg":
             return .images
@@ -45,7 +45,7 @@ enum TangerineCategory: String, CaseIterable {
     }
 }
 
-enum TangerineValue: Equatable {
+enum FilesValue: Equatable {
     case number(Double)
     case text(String)
 
@@ -60,17 +60,17 @@ enum TangerineValue: Equatable {
     }
 }
 
-struct TangerineChoice: Equatable {
+struct FilesChoice: Equatable {
     let value: String
     let label: String
 }
 
-struct TangerineParam: Equatable {
+struct FilesParam: Equatable {
     enum Kind: Equatable {
         case seconds
         case integer(min: Int, max: Int)
         case decimal(min: Double, max: Double)
-        case choice([TangerineChoice])
+        case choice([FilesChoice])
         case color
     }
 
@@ -81,13 +81,13 @@ struct TangerineParam: Equatable {
     let hint: String
 
     enum Parsed: Equatable {
-        case value(TangerineValue)
+        case value(FilesValue)
         case problem(String)
 
         static func value(_ number: Double) -> Parsed { .value(.number(number)) }
     }
 
-    var choices: [TangerineChoice] {
+    var choices: [FilesChoice] {
         if case let .choice(options) = kind { return options }
         return []
     }
@@ -110,7 +110,7 @@ struct TangerineParam: Equatable {
         }
     }
 
-    private func parseChoice(_ raw: String, options: [TangerineChoice]) -> Parsed {
+    private func parseChoice(_ raw: String, options: [FilesChoice]) -> Parsed {
         let text = raw.trimmingCharacters(in: .whitespaces).lowercased()
         guard !text.isEmpty else { return .problem("\(label): vazio") }
         if let hit = options.first(where: { $0.value.lowercased() == text || $0.label.lowercased() == text }) {
@@ -167,19 +167,19 @@ struct TangerineParam: Equatable {
     }
 }
 
-enum TangerineArity: Equatable {
+enum FilesArity: Equatable {
     case perFile
     case batch
 }
 
-struct TangerineOption: Equatable {
+struct FilesOption: Equatable {
     let kind: String
 
     let format: String?
     let title: String
     let detail: String
-    let params: [TangerineParam]
-    let arity: TangerineArity
+    let params: [FilesParam]
+    let arity: FilesArity
 
     var id: String { format.map { "\(kind):\($0)" } ?? kind }
     var needsParams: Bool { !params.isEmpty }
@@ -190,8 +190,8 @@ struct TangerineOption: Equatable {
         format: String? = nil,
         title: String,
         detail: String = "",
-        params: [TangerineParam] = [],
-        arity: TangerineArity = .perFile
+        params: [FilesParam] = [],
+        arity: FilesArity = .perFile
     ) {
         self.kind = kind
         self.format = format
@@ -202,25 +202,25 @@ struct TangerineOption: Equatable {
     }
 }
 
-struct TangerineGroup: Equatable {
+struct FilesGroup: Equatable {
     let title: String
-    let options: [TangerineOption]
+    let options: [FilesOption]
 }
 
-enum TangerineMode: Equatable {
+enum FilesMode: Equatable {
     case convert
     case tools
 
     var title: String { self == .convert ? "Converter" : "Ferramentas" }
 }
 
-struct TangerineCapability: Equatable {
+struct FilesCapability: Equatable {
     let known: Bool
     let kinds: Set<String>
     let formats: Set<String>
     let batchKinds: Set<String>
 
-    static let unknown = TangerineCapability(known: false, kinds: [], formats: [], batchKinds: [])
+    static let unknown = FilesCapability(known: false, kinds: [], formats: [], batchKinds: [])
 
     private init(known: Bool, kinds: Set<String>, formats: Set<String>, batchKinds: Set<String>) {
         self.known = known
@@ -235,11 +235,11 @@ struct TangerineCapability: Equatable {
 
     var isBarren: Bool { known && kinds.isEmpty && batchKinds.isEmpty }
 
-    func withBatchKinds(_ next: Set<String>) -> TangerineCapability {
-        TangerineCapability(known: known, kinds: kinds, formats: formats, batchKinds: next)
+    func withBatchKinds(_ next: Set<String>) -> FilesCapability {
+        FilesCapability(known: known, kinds: kinds, formats: formats, batchKinds: next)
     }
 
-    func allows(_ option: TangerineOption) -> Bool {
+    func allows(_ option: FilesOption) -> Bool {
         guard known else { return true }
         if option.isBatch { return batchKinds.contains(option.kind) }
         guard kinds.contains(option.kind) else { return false }
@@ -248,23 +248,23 @@ struct TangerineCapability: Equatable {
         return formats.contains(format)
     }
 
-    func intersection(_ other: TangerineCapability) -> TangerineCapability {
+    func intersection(_ other: FilesCapability) -> FilesCapability {
         guard known else { return other }
         guard other.known else { return self }
-        return TangerineCapability(
+        return FilesCapability(
             kinds: kinds.intersection(other.kinds),
             formats: formats.intersection(other.formats),
             batchKinds: batchKinds.intersection(other.batchKinds)
         )
     }
 
-    static func intersection(_ capabilities: [TangerineCapability]) -> TangerineCapability {
+    static func intersection(_ capabilities: [FilesCapability]) -> FilesCapability {
         capabilities.reduce(.unknown) { $0.intersection($1) }
     }
 }
 
-enum TangerineCatalog {
-    static let convertTargets: [TangerineCategory: [String]] = [
+enum FilesCatalog {
+    static let convertTargets: [FilesCategory: [String]] = [
         .images: ["png", "jpg", "webp", "heic", "tiff", "pdf"],
         .video: ["mp4", "mov", "mkv", "gif", "mp3", "m4a"],
         .audio: ["wav", "flac", "m4a", "mp3", "mp4"],
@@ -309,7 +309,7 @@ enum TangerineCatalog {
         "rar": "RAR",
     ]
 
-    private static let quality = TangerineParam(
+    private static let quality = FilesParam(
         id: "quality",
         label: "Qualidade",
         kind: .integer(min: 1, max: 100),
@@ -317,82 +317,82 @@ enum TangerineCatalog {
         hint: "1–100"
     )
 
-    private static func toolOptions(for category: TangerineCategory) -> [TangerineGroup] {
+    private static func toolOptions(for category: FilesCategory) -> [FilesGroup] {
         let cropParams = [
-            TangerineParam(id: "x", label: "X", kind: .integer(min: 0, max: 100_000), fallback: "0", hint: "px"),
-            TangerineParam(id: "y", label: "Y", kind: .integer(min: 0, max: 100_000), fallback: "0", hint: "px"),
-            TangerineParam(id: "width", label: "Largura", kind: .integer(min: 1, max: 100_000), fallback: "1000", hint: "px"),
-            TangerineParam(id: "height", label: "Altura", kind: .integer(min: 1, max: 100_000), fallback: "1000", hint: "px"),
+            FilesParam(id: "x", label: "X", kind: .integer(min: 0, max: 100_000), fallback: "0", hint: "px"),
+            FilesParam(id: "y", label: "Y", kind: .integer(min: 0, max: 100_000), fallback: "0", hint: "px"),
+            FilesParam(id: "width", label: "Largura", kind: .integer(min: 1, max: 100_000), fallback: "1000", hint: "px"),
+            FilesParam(id: "height", label: "Altura", kind: .integer(min: 1, max: 100_000), fallback: "1000", hint: "px"),
         ]
         let trimParams = [
-            TangerineParam(id: "start", label: "Início", kind: .seconds, fallback: "0", hint: "s ou mm:ss"),
-            TangerineParam(id: "duration", label: "Duração", kind: .seconds, fallback: "10", hint: "s ou mm:ss"),
+            FilesParam(id: "start", label: "Início", kind: .seconds, fallback: "0", hint: "s ou mm:ss"),
+            FilesParam(id: "duration", label: "Duração", kind: .seconds, fallback: "10", hint: "s ou mm:ss"),
         ]
         let speedParam = [
-            TangerineParam(id: "speed", label: "Velocidade", kind: .decimal(min: 0.25, max: 4), fallback: "1.5", hint: "0.25–4×"),
+            FilesParam(id: "speed", label: "Velocidade", kind: .decimal(min: 0.25, max: 4), fallback: "1.5", hint: "0.25–4×"),
         ]
         let snapshotParam = [
-            TangerineParam(id: "time", label: "Instante", kind: .seconds, fallback: "1", hint: "s ou mm:ss"),
+            FilesParam(id: "time", label: "Instante", kind: .seconds, fallback: "1", hint: "s ou mm:ss"),
         ]
         let splitParam = [
-            TangerineParam(id: "segment", label: "Trecho", kind: .seconds, fallback: "60", hint: "segundos"),
+            FilesParam(id: "segment", label: "Trecho", kind: .seconds, fallback: "60", hint: "segundos"),
         ]
         let channelsParam = [
-            TangerineParam(id: "channels", label: "Canais", kind: .integer(min: 1, max: 8), fallback: "1", hint: "1 = mono"),
+            FilesParam(id: "channels", label: "Canais", kind: .integer(min: 1, max: 8), fallback: "1", hint: "1 = mono"),
         ]
 
-        let compress = TangerineOption(kind: "compress", title: "Comprimir", detail: "qualidade", params: [quality])
+        let compress = FilesOption(kind: "compress", title: "Comprimir", detail: "qualidade", params: [quality])
 
-        let clean = TangerineOption(kind: "removeMetadata", title: "Metadados", detail: "EXIF fora")
-        let crop = TangerineOption(kind: "crop", title: "Recortar", detail: "retângulo", params: cropParams)
-        let qr = TangerineOption(kind: "scanQRCode", title: "Ler QR Code", detail: "texto")
-        let trim = TangerineOption(kind: "trim", title: "Cortar", detail: "início/duração", params: trimParams)
-        let mute = TangerineOption(kind: "mute", title: "Sem áudio", detail: "faixa muda")
-        let speed = TangerineOption(kind: "speed", title: "Velocidade", detail: "ritmo", params: speedParam)
+        let clean = FilesOption(kind: "removeMetadata", title: "Metadados", detail: "EXIF fora")
+        let crop = FilesOption(kind: "crop", title: "Recortar", detail: "retângulo", params: cropParams)
+        let qr = FilesOption(kind: "scanQRCode", title: "Ler QR Code", detail: "texto")
+        let trim = FilesOption(kind: "trim", title: "Cortar", detail: "início/duração", params: trimParams)
+        let mute = FilesOption(kind: "mute", title: "Sem áudio", detail: "faixa muda")
+        let speed = FilesOption(kind: "speed", title: "Velocidade", detail: "ritmo", params: speedParam)
 
-        let snapshot = TangerineOption(kind: "snapshot", title: "Quadro", detail: snapshotFormatLabel, params: snapshotParam)
-        let split = TangerineOption(kind: "split", title: "Dividir", detail: "em trechos", params: splitParam)
-        let normalize = TangerineOption(kind: "normalize", title: "Normalizar", detail: "loudness")
-        let channels = TangerineOption(kind: "channels", title: "Canais", detail: "mono/estéreo", params: channelsParam)
-        let extract = TangerineOption(kind: "extract", title: "Extrair", detail: "descompactar")
+        let snapshot = FilesOption(kind: "snapshot", title: "Quadro", detail: snapshotFormatLabel, params: snapshotParam)
+        let split = FilesOption(kind: "split", title: "Dividir", detail: "em trechos", params: splitParam)
+        let normalize = FilesOption(kind: "normalize", title: "Normalizar", detail: "loudness")
+        let channels = FilesOption(kind: "channels", title: "Canais", detail: "mono/estéreo", params: channelsParam)
+        let extract = FilesOption(kind: "extract", title: "Extrair", detail: "descompactar")
 
         switch category {
         case .images:
             return [
-                TangerineGroup(title: "Tamanho", options: [compress, crop]),
-                TangerineGroup(title: "Conteúdo", options: [clean, qr]),
+                FilesGroup(title: "Tamanho", options: [compress, crop]),
+                FilesGroup(title: "Conteúdo", options: [clean, qr]),
             ]
         case .video:
             return [
-                TangerineGroup(title: "Tempo", options: [trim, split, speed, snapshot]),
-                TangerineGroup(title: "Faixa", options: [compress, mute, crop, clean]),
+                FilesGroup(title: "Tempo", options: [trim, split, speed, snapshot]),
+                FilesGroup(title: "Faixa", options: [compress, mute, crop, clean]),
             ]
         case .audio:
 
             return [
-                TangerineGroup(title: "Tempo", options: [trim, split]),
-                TangerineGroup(title: "Som", options: [normalize, channels, compress, clean]),
+                FilesGroup(title: "Tempo", options: [trim, split]),
+                FilesGroup(title: "Som", options: [normalize, channels, compress, clean]),
             ]
         case .documents:
 
-            let pages = TangerineOption(kind: "split", title: "Páginas", detail: "1 por página")
+            let pages = FilesOption(kind: "split", title: "Páginas", detail: "1 por página")
             return [
-                TangerineGroup(title: "Tamanho", options: [compress, pages]),
-                TangerineGroup(title: "Conteúdo", options: [clean, qr]),
+                FilesGroup(title: "Tamanho", options: [compress, pages]),
+                FilesGroup(title: "Conteúdo", options: [clean, qr]),
             ]
         case .archives:
 
             return [
-                TangerineGroup(title: "Conteúdo", options: [extract]),
+                FilesGroup(title: "Conteúdo", options: [extract]),
             ]
         }
     }
 
     static func convertGroups(
-        category: TangerineCategory,
+        category: FilesCategory,
         sourceExtension: String,
-        capability: TangerineCapability = .unknown
-    ) -> [TangerineGroup] {
+        capability: FilesCapability = .unknown
+    ) -> [FilesGroup] {
         let source = normalize(sourceExtension)
         var targets: [String]
         if capability.known {
@@ -410,28 +410,28 @@ enum TangerineCatalog {
             targets = fallback + packageTargets
         }
         targets = targets.filter { $0 != source }
-        var groups: [TangerineGroup] = []
+        var groups: [FilesGroup] = []
         let mediaTargets = targets.filter { !documentFormats.contains($0) && !packageFormats.contains($0) }
         let docs = targets.filter { documentFormats.contains($0) }
         let package = targets.filter { packageFormats.contains($0) }
         if !mediaTargets.isEmpty {
-            groups.append(TangerineGroup(title: "Mídia", options: mediaTargets.map(option(format:))))
+            groups.append(FilesGroup(title: "Mídia", options: mediaTargets.map(option(format:))))
         }
         if !docs.isEmpty {
-            groups.append(TangerineGroup(title: "Documento", options: docs.map(option(format:))))
+            groups.append(FilesGroup(title: "Documento", options: docs.map(option(format:))))
         }
         if !package.isEmpty {
-            groups.append(TangerineGroup(title: "Pacote", options: package.map(option(format:))))
+            groups.append(FilesGroup(title: "Pacote", options: package.map(option(format:))))
         }
         return groups
     }
 
-    static func toolGroups(category: TangerineCategory, capability: TangerineCapability = .unknown) -> [TangerineGroup] {
+    static func toolGroups(category: FilesCategory, capability: FilesCapability = .unknown) -> [FilesGroup] {
         filter(toolOptions(for: category), capability: capability)
     }
 
 
-    static let mergeTargets: [TangerineCategory: [String]] = [
+    static let mergeTargets: [FilesCategory: [String]] = [
         .images: ["pdf"],
         .documents: ["pdf"],
         .video: ["mp4", "mkv"],
@@ -441,38 +441,38 @@ enum TangerineCatalog {
 
     static let collageTargets = ["png", "jpg", "pdf"]
 
-    static let collageParams: [TangerineParam] = [
-        TangerineParam(
+    static let collageParams: [FilesParam] = [
+        FilesParam(
             id: "layout",
             label: "Arranjo",
             kind: .choice([
-                TangerineChoice(value: "grid", label: "grade"),
-                TangerineChoice(value: "row", label: "linha"),
-                TangerineChoice(value: "column", label: "coluna"),
-                TangerineChoice(value: "featured", label: "destaque"),
+                FilesChoice(value: "grid", label: "grade"),
+                FilesChoice(value: "row", label: "linha"),
+                FilesChoice(value: "column", label: "coluna"),
+                FilesChoice(value: "featured", label: "destaque"),
             ]),
             fallback: "grid",
             hint: "grade/linha/coluna/destaque"
         ),
-        TangerineParam(id: "columns", label: "Colunas", kind: .integer(min: 1, max: 64), fallback: "2", hint: "≤ nº de imagens"),
-        TangerineParam(id: "spacing", label: "Espaço", kind: .integer(min: 0, max: 512), fallback: "16", hint: "px entre fotos"),
-        TangerineParam(id: "margin", label: "Margem", kind: .integer(min: 0, max: 512), fallback: "24", hint: "px na borda"),
-        TangerineParam(id: "width", label: "Largura", kind: .integer(min: 320, max: 16_384), fallback: "2400", hint: "px da tela"),
-        TangerineParam(
+        FilesParam(id: "columns", label: "Colunas", kind: .integer(min: 1, max: 64), fallback: "2", hint: "≤ nº de imagens"),
+        FilesParam(id: "spacing", label: "Espaço", kind: .integer(min: 0, max: 512), fallback: "16", hint: "px entre fotos"),
+        FilesParam(id: "margin", label: "Margem", kind: .integer(min: 0, max: 512), fallback: "24", hint: "px na borda"),
+        FilesParam(id: "width", label: "Largura", kind: .integer(min: 320, max: 16_384), fallback: "2400", hint: "px da tela"),
+        FilesParam(
             id: "fit",
             label: "Ajuste",
             kind: .choice([
-                TangerineChoice(value: "contain", label: "conter"),
-                TangerineChoice(value: "cover", label: "cobrir"),
+                FilesChoice(value: "contain", label: "conter"),
+                FilesChoice(value: "cover", label: "cobrir"),
             ]),
             fallback: "contain",
             hint: "conter/cobrir"
         ),
-        TangerineParam(id: "background", label: "Fundo", kind: .color, fallback: "#ffffff", hint: "#rrggbb/transparent"),
+        FilesParam(id: "background", label: "Fundo", kind: .color, fallback: "#ffffff", hint: "#rrggbb/transparent"),
     ]
 
-    static func mergeOption(format: String) -> TangerineOption {
-        TangerineOption(
+    static func mergeOption(format: String) -> FilesOption {
+        FilesOption(
             kind: "merge",
             format: format,
             title: "Juntar \(format.uppercased())",
@@ -481,8 +481,8 @@ enum TangerineCatalog {
         )
     }
 
-    static func collageOption(format: String) -> TangerineOption {
-        TangerineOption(
+    static func collageOption(format: String) -> FilesOption {
+        FilesOption(
             kind: "collage",
             format: format,
             title: "Colagem \(format.uppercased())",
@@ -493,8 +493,8 @@ enum TangerineCatalog {
     }
 
     static func batchProblem(
-        option: TangerineOption,
-        values: [String: TangerineValue],
+        option: FilesOption,
+        values: [String: FilesValue],
         inputCount: Int
     ) -> String? {
         guard option.kind == "collage" else { return nil }
@@ -514,12 +514,12 @@ enum TangerineCatalog {
     }
 
     static func batchGroups(
-        category: TangerineCategory,
+        category: FilesCategory,
         inputCount: Int,
-        capability: TangerineCapability
-    ) -> [TangerineGroup] {
+        capability: FilesCapability
+    ) -> [FilesGroup] {
         guard inputCount >= 2 else { return [] }
-        var options: [TangerineOption] = []
+        var options: [FilesOption] = []
         for format in mergeTargets[category] ?? [] {
             let option = mergeOption(format: format)
             if capability.allows(option) { options.append(option) }
@@ -530,13 +530,13 @@ enum TangerineCatalog {
                 if capability.allows(option) { options.append(option) }
             }
         }
-        return options.isEmpty ? [] : [TangerineGroup(title: "Combinar", options: options)]
+        return options.isEmpty ? [] : [FilesGroup(title: "Combinar", options: options)]
     }
 
     static let snapshotFormatLabel = "PNG"
 
-    private static func option(format: String) -> TangerineOption {
-        TangerineOption(
+    private static func option(format: String) -> FilesOption {
+        FilesOption(
             kind: "convert",
             format: format,
             title: format.uppercased(),
@@ -554,11 +554,11 @@ enum TangerineCatalog {
         }
     }
 
-    static func filter(_ groups: [TangerineGroup], capability: TangerineCapability) -> [TangerineGroup] {
+    static func filter(_ groups: [FilesGroup], capability: FilesCapability) -> [FilesGroup] {
         guard capability.known else { return groups }
         return groups.compactMap { group in
             let options = group.options.filter { capability.allows($0) }
-            return options.isEmpty ? nil : TangerineGroup(title: group.title, options: options)
+            return options.isEmpty ? nil : FilesGroup(title: group.title, options: options)
         }
     }
 }

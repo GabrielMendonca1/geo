@@ -6,7 +6,7 @@ trap 'rm -rf "$TMP"' EXIT
 
 swiftc \
   "$ROOT/Sources/Dictation/Hotkey.swift" \
-  "$ROOT/Sources/FileTools/Selection/TangerineSelectionHotKeys.swift" \
+  "$ROOT/Sources/FileTools/Selection/FilesSelectionHotKeys.swift" \
   "$ROOT/Tests/SelectionHotKeys/main.swift" \
   -framework Carbon \
   -o "$TMP/selection-hotkeys-tests"

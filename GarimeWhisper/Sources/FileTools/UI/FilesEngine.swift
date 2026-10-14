@@ -1,70 +1,70 @@
 import Foundation
 
-protocol TangerineRunning: AnyObject {
-    func capability(for url: URL) -> TangerineCapability
+protocol FilesRunning: AnyObject {
+    func capability(for url: URL) -> FilesCapability
 
     func batchKinds(for urls: [URL]) -> Set<String>?
 
     func run(
         input: URL,
-        option: TangerineOption,
-        values: [String: TangerineValue],
+        option: FilesOption,
+        values: [String: FilesValue],
         outputDirectory: URL?
-    ) async throws -> TangerineOutcome
+    ) async throws -> FilesOutcome
 
     func runBatch(
         inputs: [URL],
-        option: TangerineOption,
-        values: [String: TangerineValue],
+        option: FilesOption,
+        values: [String: FilesValue],
         outputDirectory: URL?
-    ) async throws -> TangerineOutcome
+    ) async throws -> FilesOutcome
 }
 
-extension TangerineRunning {
+extension FilesRunning {
     func batchKinds(for urls: [URL]) -> Set<String>? { nil }
 
     func runBatch(
         inputs: [URL],
-        option: TangerineOption,
-        values: [String: TangerineValue],
+        option: FilesOption,
+        values: [String: FilesValue],
         outputDirectory: URL?
-    ) async throws -> TangerineOutcome {
-        throw TangerineUIError.batchUnavailable(option.title)
+    ) async throws -> FilesOutcome {
+        throw FilesUIError.batchUnavailable(option.title)
     }
 }
 
-struct TangerineOutcome {
+struct FilesOutcome {
     let outputs: [URL]
     let message: String?
 }
 
-enum TangerineJobState: Equatable {
+enum FilesJobState: Equatable {
     case running
     case done
     case failed
     case cancelled
 }
 
-final class TangerineJob {
+final class FilesJob {
     let id = UUID()
     let inputs: [URL]
-    let option: TangerineOption
-    let values: [String: TangerineValue]
+    let option: FilesOption
+    let values: [String: FilesValue]
     let startedAt = Date()
     private(set) var finishedAt: Date?
-    private(set) var state: TangerineJobState = .running
+    private(set) var state: FilesJobState = .running
     private(set) var cancelRequested = false
     private(set) var outputs: [URL] = []
     private(set) var message: String?
     var task: Task<Void, Never>?
 
-    init(inputs: [URL], option: TangerineOption, values: [String: TangerineValue]) {
+    init(inputs: [URL], option: FilesOption, values: [String: FilesValue]) {
         self.inputs = inputs
         self.option = option
         self.values = values
     }
 
-    convenience init(input: URL, option: TangerineOption, values: [String: TangerineValue]) {
+    convenience init(input: URL, option: FilesOption, values: [String: FilesValue]) {
         self.init(inputs: [input], option: option, values: values)
     }
 
@@ -124,13 +124,13 @@ extension TimeInterval {
     }
 }
 
-final class TangerineJobCenter {
+final class FilesJobCenter {
     static var playCompletedFeedback: (() -> Void)?
     static var playCancelledFeedback: (() -> Void)?
     static var playErrorFeedback: (() -> Void)?
 
-    private(set) var jobs: [TangerineJob] = []
-    private let engine: TangerineRunning
+    private(set) var jobs: [FilesJob] = []
+    private let engine: FilesRunning
     private let historyLimit = 30
     private var observers: [(id: String, block: () -> Void)] = []
 
@@ -139,23 +139,23 @@ final class TangerineJobCenter {
         observers.append((id, block))
     }
 
-    init(engine: TangerineRunning) {
+    init(engine: FilesRunning) {
         self.engine = engine
     }
 
     var hasRunning: Bool { jobs.contains { $0.state == .running } }
 
-    func capability(for url: URL) -> TangerineCapability {
+    func capability(for url: URL) -> FilesCapability {
         engine.capability(for: url)
     }
 
-    func capability(for urls: [URL]) -> TangerineCapability {
-        let perFile = TangerineCapability.intersection(urls.map { engine.capability(for: $0) })
+    func capability(for urls: [URL]) -> FilesCapability {
+        let perFile = FilesCapability.intersection(urls.map { engine.capability(for: $0) })
         guard let batch = engine.batchKinds(for: urls) else { return perFile }
         return perFile.withBatchKinds(batch)
     }
 
-    func rejects(option: TangerineOption, inputs: [URL]) -> [URL] {
+    func rejects(option: FilesOption, inputs: [URL]) -> [URL] {
         if option.isBatch {
             guard let batch = engine.batchKinds(for: inputs) else { return [] }
             return batch.contains(option.kind) ? [] : inputs
@@ -163,7 +163,7 @@ final class TangerineJobCenter {
         return inputs.filter { !engine.capability(for: $0).allows(option) }
     }
 
-    func blocker(option: TangerineOption, inputs: [URL]) -> String? {
+    func blocker(option: FilesOption, inputs: [URL]) -> String? {
         guard !inputs.isEmpty else { return "Escolha ao menos um arquivo." }
         if option.isBatch, inputs.count < 2 {
             return "\(option.title) precisa de pelo menos 2 arquivos."
@@ -181,14 +181,14 @@ final class TangerineJobCenter {
     @discardableResult
     func submit(
         inputs: [URL],
-        option: TangerineOption,
-        values: [String: TangerineValue],
+        option: FilesOption,
+        values: [String: FilesValue],
         outputDirectory: URL? = nil
-    ) -> [TangerineJob] {
+    ) -> [FilesJob] {
         guard !inputs.isEmpty else { return [] }
-        let created: [TangerineJob] = option.isBatch
-            ? [TangerineJob(inputs: inputs, option: option, values: values)]
-            : inputs.map { TangerineJob(input: $0, option: option, values: values) }
+        let created: [FilesJob] = option.isBatch
+            ? [FilesJob(inputs: inputs, option: option, values: values)]
+            : inputs.map { FilesJob(input: $0, option: option, values: values) }
         for job in created { start(job, outputDirectory: outputDirectory) }
         jobs.insert(contentsOf: created, at: 0)
         trim()
@@ -196,11 +196,11 @@ final class TangerineJobCenter {
         return created
     }
 
-    private func start(_ job: TangerineJob, outputDirectory: URL?) {
+    private func start(_ job: FilesJob, outputDirectory: URL?) {
         let engine = self.engine
         job.task = Task { [weak self] in
             do {
-                let outcome: TangerineOutcome
+                let outcome: FilesOutcome
                 if job.option.isBatch {
                     outcome = try await engine.runBatch(
                         inputs: job.inputs,
@@ -220,10 +220,10 @@ final class TangerineJobCenter {
                 await MainActor.run { [weak self] in
                     if interrupted, outcome.outputs.isEmpty {
                         job.markCancelled()
-                        TangerineJobCenter.playCancelledFeedback?()
+                        FilesJobCenter.playCancelledFeedback?()
                     } else {
                         job.finish(outputs: outcome.outputs, message: outcome.message)
-                        TangerineJobCenter.playCompletedFeedback?()
+                        FilesJobCenter.playCompletedFeedback?()
                     }
                     self?.notify()
                 }
@@ -233,10 +233,10 @@ final class TangerineJobCenter {
                 await MainActor.run { [weak self] in
                     if cancelled {
                         job.markCancelled()
-                        TangerineJobCenter.playCancelledFeedback?()
+                        FilesJobCenter.playCancelledFeedback?()
                     } else {
-                        job.fail(TangerineJobCenter.describe(error))
-                        TangerineJobCenter.playErrorFeedback?()
+                        job.fail(FilesJobCenter.describe(error))
+                        FilesJobCenter.playErrorFeedback?()
                     }
                     self?.notify()
                 }
@@ -244,7 +244,7 @@ final class TangerineJobCenter {
         }
     }
 
-    func cancel(_ job: TangerineJob) {
+    func cancel(_ job: FilesJob) {
         guard job.state == .running else { return }
         job.requestCancel()
         job.task?.cancel()
@@ -266,7 +266,7 @@ final class TangerineJobCenter {
 
     private func trim() {
         guard jobs.count > historyLimit else { return }
-        var kept: [TangerineJob] = []
+        var kept: [FilesJob] = []
         for job in jobs where kept.count < historyLimit || job.state == .running {
             kept.append(job)
         }

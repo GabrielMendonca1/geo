@@ -1,11 +1,11 @@
 import Foundation
 
-final class FileToolsBridge: TangerineRunning {
+final class FileToolsBridge: FilesRunning {
     private let backend = FileToolsBackend()
-    private var capabilityCache: [String: TangerineCapability] = [:]
+    private var capabilityCache: [String: FilesCapability] = [:]
     private let cacheLock = NSLock()
 
-    func capability(for url: URL) -> TangerineCapability {
+    func capability(for url: URL) -> FilesCapability {
         let key = url.path
         cacheLock.lock()
         if let cached = capabilityCache[key] {
@@ -14,7 +14,7 @@ final class FileToolsBridge: TangerineRunning {
         }
         cacheLock.unlock()
         let reported = backend.capabilities(for: url)
-        let capability = TangerineCapability(
+        let capability = FilesCapability(
             kinds: Set(reported.operations.map { FileToolsBridge.name(of: $0) }),
             formats: Set(reported.conversionTargets.map(\.rawValue))
         )
@@ -31,31 +31,31 @@ final class FileToolsBridge: TangerineRunning {
 
     func run(
         input: URL,
-        option: TangerineOption,
-        values: [String: TangerineValue],
+        option: FilesOption,
+        values: [String: FilesValue],
         outputDirectory: URL?
-    ) async throws -> TangerineOutcome {
+    ) async throws -> FilesOutcome {
         try await perform(inputs: [input], option: option, values: values, outputDirectory: outputDirectory)
     }
 
     func runBatch(
         inputs: [URL],
-        option: TangerineOption,
-        values: [String: TangerineValue],
+        option: FilesOption,
+        values: [String: FilesValue],
         outputDirectory: URL?
-    ) async throws -> TangerineOutcome {
+    ) async throws -> FilesOutcome {
         guard inputs.count > 1 else {
-            throw TangerineUIError.batchNeedsMoreInputs(option.title)
+            throw FilesUIError.batchNeedsMoreInputs(option.title)
         }
         return try await perform(inputs: inputs, option: option, values: values, outputDirectory: outputDirectory)
     }
 
     private func perform(
         inputs: [URL],
-        option: TangerineOption,
-        values: [String: TangerineValue],
+        option: FilesOption,
+        values: [String: FilesValue],
         outputDirectory: URL?
-    ) async throws -> TangerineOutcome {
+    ) async throws -> FilesOutcome {
         let operation = try FileToolsBridge.operation(option: option, values: values)
         let request = FileToolsRequest(
             inputURLs: inputs,
@@ -65,7 +65,7 @@ final class FileToolsBridge: TangerineRunning {
             maximumOutputBytes: 2 * 1024 * 1024 * 1024
         )
         let result = try await backend.perform(request)
-        return TangerineOutcome(outputs: result.outputURLs, message: result.message)
+        return FilesOutcome(outputs: result.outputURLs, message: result.message)
     }
 
     static func name(of kind: FileToolsOperationKind) -> String { kind.rawValue }
@@ -76,23 +76,23 @@ final class FileToolsBridge: TangerineRunning {
         return described
     }
 
-    private static func int(_ values: [String: TangerineValue], _ key: String, _ fallback: Int) -> Int {
+    private static func int(_ values: [String: FilesValue], _ key: String, _ fallback: Int) -> Int {
         values[key]?.number.map { Int($0.rounded()) } ?? fallback
     }
 
-    private static func double(_ values: [String: TangerineValue], _ key: String, _ fallback: Double) -> Double {
+    private static func double(_ values: [String: FilesValue], _ key: String, _ fallback: Double) -> Double {
         values[key]?.number ?? fallback
     }
 
-    private static func text(_ values: [String: TangerineValue], _ key: String, _ fallback: String) -> String {
+    private static func text(_ values: [String: FilesValue], _ key: String, _ fallback: String) -> String {
         values[key]?.string ?? fallback
     }
 
-    static func operation(option: TangerineOption, values: [String: TangerineValue]) throws -> FileToolsOperation {
+    static func operation(option: FilesOption, values: [String: FilesValue]) throws -> FileToolsOperation {
         switch option.kind {
         case "convert":
             guard let raw = option.format, let format = FileToolsFormat(rawValue: raw) else {
-                throw TangerineUIError.unknownFormat(option.format ?? "?")
+                throw FilesUIError.unknownFormat(option.format ?? "?")
             }
             return .convert(to: format)
         case "compress":
@@ -126,12 +126,12 @@ final class FileToolsBridge: TangerineRunning {
             return .extract
         case "merge":
             guard let raw = option.format, let format = FileToolsFormat(rawValue: raw) else {
-                throw TangerineUIError.unknownFormat(option.format ?? "?")
+                throw FilesUIError.unknownFormat(option.format ?? "?")
             }
             return .merge(to: format)
         case "collage":
             guard let raw = option.format, let format = FileToolsFormat(rawValue: raw) else {
-                throw TangerineUIError.unknownFormat(option.format ?? "?")
+                throw FilesUIError.unknownFormat(option.format ?? "?")
             }
             let layout = FileToolsCollageLayout(rawValue: text(values, "layout", "grid")) ?? .grid
             let options = FileToolsCollageOptions(
@@ -145,12 +145,12 @@ final class FileToolsBridge: TangerineRunning {
             )
             return .collage(options: options, format: format)
         default:
-            throw TangerineUIError.unknownOperation(option.kind)
+            throw FilesUIError.unknownOperation(option.kind)
         }
     }
 }
 
-enum TangerineUIError: LocalizedError {
+enum FilesUIError: LocalizedError {
     case unknownFormat(String)
     case unknownOperation(String)
     case batchNeedsMoreInputs(String)

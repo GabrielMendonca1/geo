@@ -17,27 +17,27 @@ func pump(_ seconds: TimeInterval, until ready: () -> Bool = { false }) {
     }
 }
 
-final class RecordingEngine: TangerineRunning {
+final class RecordingEngine: FilesRunning {
     private let lock = NSLock()
-    private var recordedRuns: [(URL, TangerineOption, [String: TangerineValue])] = []
-    var capabilities: [String: TangerineCapability] = [:]
+    private var recordedRuns: [(URL, FilesOption, [String: FilesValue])] = []
+    var capabilities: [String: FilesCapability] = [:]
 
-    var runs: [(URL, TangerineOption, [String: TangerineValue])] {
+    var runs: [(URL, FilesOption, [String: FilesValue])] {
         lock.withLock { recordedRuns }
     }
 
-    func capability(for url: URL) -> TangerineCapability {
+    func capability(for url: URL) -> FilesCapability {
         capabilities[url.pathExtension] ?? .unknown
     }
 
     func run(
         input: URL,
-        option: TangerineOption,
-        values: [String: TangerineValue],
+        option: FilesOption,
+        values: [String: FilesValue],
         outputDirectory: URL?
-    ) async throws -> TangerineOutcome {
+    ) async throws -> FilesOutcome {
         lock.withLock { recordedRuns.append((input, option, values)) }
-        return TangerineOutcome(outputs: [input], message: nil)
+        return FilesOutcome(outputs: [input], message: nil)
     }
 }
 
@@ -88,23 +88,23 @@ defer { try? fm.removeItem(at: fixtureRoot) }
 let first = fixtureRoot.appendingPathComponent("first.png")
 let second = fixtureRoot.appendingPathComponent("second.png")
 let remote = URL(string: "https://example.test/image.png")!
-let direct = TangerineOption(kind: "removeMetadata", title: "Metadados")
-let crop = TangerineOption(
+let direct = FilesOption(kind: "removeMetadata", title: "Metadados")
+let crop = FilesOption(
     kind: "crop",
     title: "Recortar",
-    params: [TangerineParam(id: "width", label: "Largura", kind: .integer(min: 1, max: 100), fallback: "10", hint: "px")]
+    params: [FilesParam(id: "width", label: "Largura", kind: .integer(min: 1, max: 100), fallback: "10", hint: "px")]
 )
 
 print("== unidade da política de ação compacta ==")
 let engine = RecordingEngine()
-engine.capabilities["png"] = TangerineCapability(
+engine.capabilities["png"] = FilesCapability(
     kinds: ["convert", "removeMetadata", "crop"],
     formats: ["jpg", "webp"]
 )
-let center = TangerineJobCenter(engine: engine)
+let center = FilesJobCenter(engine: engine)
 var parameterPresentations = 0
-var submitted: [TangerineJob] = []
-let action = TangerineCompactAction(jobs: center) { _, _ in parameterPresentations += 1 }
+var submitted: [FilesJob] = []
+let action = FilesCompactAction(jobs: center) { _, _ in parameterPresentations += 1 }
 action.onSubmitted = { submitted = $0 }
 
 var selectionSounds = 0
@@ -143,9 +143,9 @@ let fixture = fixtureRoot.appendingPathComponent("metadata-fixture.png")
 try makeMetadataPNGFixture(at: fixture)
 check("fixture PNG é decodificável e contém metadata", imageProperties(fixture) != nil && pngAuthor(fixture) == "Garime RadialActions")
 
-var realSubmitted: [TangerineJob] = []
+var realSubmitted: [FilesJob] = []
 var realDashboardPresented = false
-let realController = TangerineController(
+let realController = FilesController(
     engine: FileToolsBridge(),
     presentDashboard: { realDashboardPresented = true },
     onSubmitted: { realSubmitted = $0 }
@@ -170,7 +170,7 @@ var dashboardPresented = false
 var compactPresented = false
 var compactPresentedBeforeDropReturned = false
 var dropReturned = false
-let controller = TangerineController(
+let controller = FilesController(
     engine: engine,
     presentDashboard: { dashboardPresented = true },
     presentCompactParameters: { _, _ in

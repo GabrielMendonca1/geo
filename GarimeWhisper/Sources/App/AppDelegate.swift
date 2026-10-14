@@ -28,15 +28,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let capture = CaptureWatcher()
     private var captureLine: String?
     private let tasksController = TasksController()
-    private let tangerine = TangerineController()
-    private let tangerineSelectionHotKeys = TangerineSelectionHotKeys()
+    private let files = FilesController()
+    private let filesSelectionHotKeys = FilesSelectionHotKeys()
 
     private var phase: Phase = .idle
     private var generation = 0
     private var autoStop: DispatchWorkItem?
     private var resetIcon: DispatchWorkItem?
     private var blockingError: String?
-    private var tangerineShortcutError: String?
+    private var filesShortcutError: String?
     private var awaitingMicrophone = false
 
     private var session: DictationSession?
@@ -61,8 +61,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let callStatusItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let notesItem = NSMenuItem(title: "Abrir o Vault", action: nil, keyEquivalent: "")
     private let refreshItem = NSMenuItem(title: "Atualizar tarefas", action: nil, keyEquivalent: "")
-    private let tangerineShortcutErrorItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-    private let tangerineShortcutRetryItem = NSMenuItem(title: "Tentar registrar atalhos novamente", action: nil, keyEquivalent: "")
+    private let filesShortcutErrorItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let filesShortcutRetryItem = NSMenuItem(title: "Tentar registrar atalhos novamente", action: nil, keyEquivalent: "")
     private let hubPanel = HubPanel()
     private var openProject: String?
     private var projectCache: (at: Date, projects: [ProjectStatus])?
@@ -75,22 +75,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             sectorChanged: { [weak self] in self?.playFeedback(.sectorChanged) },
             selection: { [weak self] in self?.playFeedback(.selection) }
         )
-        TangerineJobCenter.playCompletedFeedback = { [weak self] in self?.playFeedback(.completed) }
-        TangerineJobCenter.playCancelledFeedback = { [weak self] in self?.playFeedback(.cancelled) }
-        TangerineJobCenter.playErrorFeedback = { [weak self] in self?.playFeedback(.error) }
+        FilesJobCenter.playCompletedFeedback = { [weak self] in self?.playFeedback(.completed) }
+        FilesJobCenter.playCancelledFeedback = { [weak self] in self?.playFeedback(.cancelled) }
+        FilesJobCenter.playErrorFeedback = { [weak self] in self?.playFeedback(.error) }
         icon = StatusIcon()
         buildMenu()
         let appItems = menuController.items(in: .app)
         let moduleActions = appItems.compactMap(\.action)
-        NSLog("GarimeWhisper modules ready: Tangerine=%d Sound=%d",
-              moduleActions.contains(#selector(menuTangerine)) ? 1 : 0,
+        NSLog("GarimeWhisper modules ready: Files=%d Sound=%d",
+              moduleActions.contains(#selector(menuFiles)) ? 1 : 0,
               moduleActions.contains(#selector(menuFeedback)) ? 1 : 0)
-        tangerine.start()
-        tangerineSelectionHotKeys.onConvert = { [weak self] in
-            self?.tangerine.invokeSelection(mode: .convert)
+        files.start()
+        filesSelectionHotKeys.onConvert = { [weak self] in
+            self?.files.invokeSelection(mode: .convert)
         }
-        tangerineSelectionHotKeys.onTools = { [weak self] in
-            self?.tangerine.invokeSelection(mode: .tools)
+        filesSelectionHotKeys.onTools = { [weak self] in
+            self?.files.invokeSelection(mode: .tools)
         }
 
         recorder.onRouteChange = { [weak self] in
@@ -128,7 +128,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if let missing = Preflight.missingDependency() {
             blockingError = missing
         }
-        registerTangerineSelectionHotKeys()
+        registerFilesSelectionHotKeys()
 
         insomnia.reconcileOnLaunch()
         let watcher = CapsWatcher { [weak self] _ in
@@ -152,16 +152,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         call.stop()
         capture.stop()
         tasksController.stop()
-        tangerineSelectionHotKeys.onConvert = nil
-        tangerineSelectionHotKeys.onTools = nil
-        tangerineSelectionHotKeys.unregister()
-        tangerine.stop()
+        filesSelectionHotKeys.onConvert = nil
+        filesSelectionHotKeys.onTools = nil
+        filesSelectionHotKeys.unregister()
+        files.stop()
         RadialMenuView.playSectorChangedFeedback = nil
         RadialMenuView.playSelectionFeedback = nil
         FloatingRadialView.installFeedback(sectorChanged: nil, selection: nil)
-        TangerineJobCenter.playCompletedFeedback = nil
-        TangerineJobCenter.playCancelledFeedback = nil
-        TangerineJobCenter.playErrorFeedback = nil
+        FilesJobCenter.playCompletedFeedback = nil
+        FilesJobCenter.playCancelledFeedback = nil
+        FilesJobCenter.playErrorFeedback = nil
         session?.cancel()
         decoder?.cancel()
         recorder.abort()
@@ -196,9 +196,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         refreshItem.target = self
         refreshItem.action = #selector(menuRefresh)
 
-        tangerineShortcutErrorItem.isEnabled = false
-        tangerineShortcutRetryItem.target = self
-        tangerineShortcutRetryItem.action = #selector(menuRetryTangerineSelectionHotKeys)
+        filesShortcutErrorItem.isEnabled = false
+        filesShortcutRetryItem.target = self
+        filesShortcutRetryItem.action = #selector(menuRetryFilesSelectionHotKeys)
 
         icon.menu.delegate = self
         icon.onPrimaryClick = { [weak self] in self?.togglePanel() }
@@ -211,11 +211,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menuController.set(.meeting, items: [meetingToggleItem, meetingStatusItem, callToggleItem, callStatusItem])
         menuController.set(.insomnia, items: [insomniaItem])
         menuController.set(.personalTasks, items: [notesItem, refreshItem])
-        let filesItem = NSMenuItem(title: "Tangerine — painel utilitário…", action: #selector(menuTangerine), keyEquivalent: "")
+        let filesItem = NSMenuItem(title: "Arquivos — painel utilitário…", action: #selector(menuFiles), keyEquivalent: "")
         filesItem.target = self
         let feedbackItem = NSMenuItem(title: "Sons…", action: #selector(menuFeedback), keyEquivalent: "")
         feedbackItem.target = self
-        let selectionItem = NSMenuItem(title: "Tangerine — seleção ⌃⌥Space / ⇧⌃⌥Space e permissões…", action: #selector(menuTangerineSelection), keyEquivalent: "")
+        let selectionItem = NSMenuItem(title: "Arquivos — seleção ⌃⌥Space / ⇧⌃⌥Space e permissões…", action: #selector(menuFilesSelection), keyEquivalent: "")
         selectionItem.target = self
         appTailItems = [selectionItem, filesItem, feedbackItem, quit]
         refreshAppMenu()
@@ -256,38 +256,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return words > 0 ? "Ditando — \(words) palavras" : "Gravando…"
     }
 
-    private func registerTangerineSelectionHotKeys() {
-        if tangerineSelectionHotKeys.register() {
-            tangerineShortcutError = nil
-            NSLog("GarimeWhisper Tangerine shortcuts registered: Ctrl+Option+Space, Shift+Ctrl+Option+Space; dictation Option+Space unchanged")
+    private func registerFilesSelectionHotKeys() {
+        if filesSelectionHotKeys.register() {
+            filesShortcutError = nil
+            NSLog("GarimeWhisper Files shortcuts registered: Ctrl+Option+Space, Shift+Ctrl+Option+Space; dictation Option+Space unchanged")
         } else {
-            let detail = tangerineSelectionHotKeys.registrationError ?? "falha desconhecida"
-            tangerineShortcutError = "Atalhos do Tangerine indisponíveis — \(detail)"
-            NSLog("GarimeWhisper Tangerine shortcuts error: %@", detail)
+            let detail = filesSelectionHotKeys.registrationError ?? "falha desconhecida"
+            filesShortcutError = "Atalhos de Arquivos indisponíveis — \(detail)"
+            NSLog("GarimeWhisper Files shortcuts error: %@", detail)
         }
-        refreshTangerineShortcutMenuItems()
+        refreshFilesShortcutMenuItems()
     }
 
-    private func refreshTangerineShortcutMenuItems() {
+    private func refreshFilesShortcutMenuItems() {
         appTailItems.removeAll {
-            $0 === tangerineShortcutErrorItem || $0 === tangerineShortcutRetryItem
+            $0 === filesShortcutErrorItem || $0 === filesShortcutRetryItem
         }
-        guard let tangerineShortcutError else {
+        guard let filesShortcutError else {
             refreshAppMenu()
             return
         }
-        tangerineShortcutErrorItem.title = tangerineShortcutError
+        filesShortcutErrorItem.title = filesShortcutError
         let insertionIndex = min(1, appTailItems.count)
-        appTailItems.insert(contentsOf: [tangerineShortcutErrorItem, tangerineShortcutRetryItem], at: insertionIndex)
+        appTailItems.insert(contentsOf: [filesShortcutErrorItem, filesShortcutRetryItem], at: insertionIndex)
         refreshAppMenu()
     }
 
-    @objc private func menuRetryTangerineSelectionHotKeys() {
-        registerTangerineSelectionHotKeys()
+    @objc private func menuRetryFilesSelectionHotKeys() {
+        registerFilesSelectionHotKeys()
     }
 
-    @objc private func menuTangerine() { tangerine.showSettings() }
-    @objc private func menuTangerineSelection() { tangerine.showSelectionSettings() }
+    @objc private func menuFiles() { files.showSettings() }
+    @objc private func menuFilesSelection() { files.showSelectionSettings() }
     @objc private func menuFeedback() { SoundFeedback.shared.showSettings() }
     @objc private func menuToggle() { toggle() }
 

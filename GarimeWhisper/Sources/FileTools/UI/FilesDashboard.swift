@@ -1,46 +1,46 @@
 import AppKit
 
-final class TangerineDashboard: NSObject, NSWindowDelegate {
-    private let jobs: TangerineJobCenter
+final class FilesDashboard: NSObject, NSWindowDelegate {
+    private let jobs: FilesJobCenter
     private let window: NSWindow
     private let root: DashboardRootView
 
     private let convertWheel = RadialMenuView(frame: .zero)
     private let toolsWheel = RadialMenuView(frame: .zero)
-    private let convertCard = TangerineCard(frame: .zero)
-    private let toolsCard = TangerineCard(frame: .zero)
-    private let convertTitle = TangerineTheme.label("Converter formatos", size: 13, weight: .semibold)
-    private let toolsTitle = TangerineTheme.label("Ferramentas avançadas", size: 13, weight: .semibold)
-    private let convertCaps = TangerineKeycaps(caps: ["⇧", "shift"])
-    private let toolsCaps = TangerineKeycaps(caps: ["⇧", "shift", "+", "⌥", "option"])
-    private let convertHint = TangerineTheme.label(
+    private let convertCard = FilesCard(frame: .zero)
+    private let toolsCard = FilesCard(frame: .zero)
+    private let convertTitle = FilesTheme.label("Converter formatos", size: 13, weight: .semibold)
+    private let toolsTitle = FilesTheme.label("Ferramentas avançadas", size: 13, weight: .semibold)
+    private let convertCaps = FilesKeycaps(caps: ["⇧", "shift"])
+    private let toolsCaps = FilesKeycaps(caps: ["⇧", "shift", "+", "⌥", "option"])
+    private let convertHint = FilesTheme.label(
         "clique num setor aplica · Tab troca de roda",
         size: 10.5,
         weight: .regular,
-        color: TangerineTheme.inkFaint
+        color: FilesTheme.inkFaint
     )
-    private let toolsHint = TangerineTheme.label(
+    private let toolsHint = FilesTheme.label(
         "setas navegam · Enter aplica",
         size: 10.5,
         weight: .regular,
-        color: TangerineTheme.inkFaint
+        color: FilesTheme.inkFaint
     )
 
-    private let titleLabel = TangerineTheme.label("Tangerine", size: 20, weight: .bold)
-    private let subtitleLabel = TangerineTheme.label(
+    private let titleLabel = FilesTheme.label("Arquivos", size: 20, weight: .bold)
+    private let subtitleLabel = FilesTheme.label(
         "converta e ajuste arquivos localmente · Shift+arraste no Finder",
         size: 11.5,
         weight: .regular,
-        color: TangerineTheme.inkFaint
+        color: FilesTheme.inkFaint
     )
-    private let coverageLabel = TangerineTheme.label("", size: 11, weight: .medium, color: TangerineTheme.inkFaint)
-    private let choosePill: TangerinePill
-    private let filesCard = TangerineCard(frame: .zero)
-    private let jobsCard = TangerineCard(frame: .zero)
-    private let filesHeader = TangerineTheme.label("Arquivos", size: 13, weight: .semibold)
-    private let paramsHeader = TangerineTheme.label("Ajustes", size: 13, weight: .semibold)
-    private let jobsHeader = TangerineTheme.label("Trabalhos", size: 13, weight: .semibold)
-    private let clearPill: TangerinePill
+    private let coverageLabel = FilesTheme.label("", size: 11, weight: .medium, color: FilesTheme.inkFaint)
+    private let choosePill: FilesPill
+    private let filesCard = FilesCard(frame: .zero)
+    private let jobsCard = FilesCard(frame: .zero)
+    private let filesHeader = FilesTheme.label("Arquivos", size: 13, weight: .semibold)
+    private let paramsHeader = FilesTheme.label("Ajustes", size: 13, weight: .semibold)
+    private let jobsHeader = FilesTheme.label("Trabalhos", size: 13, weight: .semibold)
+    private let clearPill: FilesPill
     private let dropZone = DashboardDropView(frame: .zero)
     private let fileList = FlippedContainer(frame: .zero)
     private let fileScroll = NSScrollView(frame: .zero)
@@ -48,27 +48,27 @@ final class TangerineDashboard: NSObject, NSWindowDelegate {
     private let paramsScroll = NSScrollView(frame: .zero)
     private let jobsList = FlippedContainer(frame: .zero)
     private let jobsScroll = NSScrollView(frame: .zero)
-    private let statusLabel = TangerineTheme.label("", size: 11.5, weight: .medium, color: TangerineTheme.inkSoft)
-    private var tabPills: [TangerineCategory: TangerinePill] = [:]
-    private let applyPill: TangerinePill
+    private let statusLabel = FilesTheme.label("", size: 11.5, weight: .medium, color: FilesTheme.inkSoft)
+    private var tabPills: [FilesCategory: FilesPill] = [:]
+    private let applyPill: FilesPill
 
     private var inputs: [URL] = []
-    private var category: TangerineCategory = .images
-    private var mode: TangerineMode = .convert
+    private var category: FilesCategory = .images
+    private var mode: FilesMode = .convert
     private var paramValues: [String: String] = [:]
     private var paramFields: [String: NSTextField] = [:]
     private var paramChoices: [String: NSPopUpButton] = [:]
     private var paramSwatches: [String: NSView] = [:]
     private var ticker: Timer?
 
-    private var capability: TangerineCapability = .unknown
+    private var capability: FilesCapability = .unknown
 
     static let minimumWidth: CGFloat = 1080
     static let minimumHeight: CGFloat = 780
     private let width: CGFloat = 1180
     private let height: CGFloat = 840
 
-    init(jobs: TangerineJobCenter) {
+    init(jobs: FilesJobCenter) {
         self.jobs = jobs
         window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: width, height: height),
@@ -77,22 +77,22 @@ final class TangerineDashboard: NSObject, NSWindowDelegate {
             defer: false
         )
         root = DashboardRootView(frame: NSRect(x: 0, y: 0, width: width, height: height))
-        choosePill = TangerinePill(frame: .zero, title: "Escolher arquivos…", handler: {})
-        clearPill = TangerinePill(frame: .zero, title: "Limpar prontos", handler: {})
-        applyPill = TangerinePill(frame: .zero, title: "Aplicar", handler: {})
+        choosePill = FilesPill(frame: .zero, title: "Escolher arquivos…", handler: {})
+        clearPill = FilesPill(frame: .zero, title: "Limpar prontos", handler: {})
+        applyPill = FilesPill(frame: .zero, title: "Aplicar", handler: {})
         super.init()
 
-        window.title = "Tangerine"
+        window.title = "Arquivos"
         window.titlebarAppearsTransparent = true
-        window.backgroundColor = TangerineTheme.panel
+        window.backgroundColor = FilesTheme.panel
         window.appearance = NSAppearance(named: .aqua)
         window.isReleasedWhenClosed = false
         window.delegate = self
         window.contentView = root
-        window.contentMinSize = NSSize(width: TangerineDashboard.minimumWidth, height: TangerineDashboard.minimumHeight)
+        window.contentMinSize = NSSize(width: FilesDashboard.minimumWidth, height: FilesDashboard.minimumHeight)
         root.dashboard = self
         root.wantsLayer = true
-        root.layer?.backgroundColor = TangerineTheme.panel.cgColor
+        root.layer?.backgroundColor = FilesTheme.panel.cgColor
 
         buildChrome()
         layoutChrome()
@@ -116,7 +116,7 @@ final class TangerineDashboard: NSObject, NSWindowDelegate {
     }
 
     @discardableResult
-    func load(inputs: [URL], option: TangerineOption, mode: TangerineMode) -> Bool {
+    func load(inputs: [URL], option: FilesOption, mode: FilesMode) -> Bool {
         setInputs(inputs)
         self.mode = mode
         rebuildGroups()
@@ -125,7 +125,7 @@ final class TangerineDashboard: NSObject, NSWindowDelegate {
         return available
     }
 
-    func present(inputs: [URL], option: TangerineOption, mode: TangerineMode) {
+    func present(inputs: [URL], option: FilesOption, mode: FilesMode) {
         let available = load(inputs: inputs, option: option, mode: mode)
         present()
         if available {
@@ -143,8 +143,8 @@ final class TangerineDashboard: NSObject, NSWindowDelegate {
         rewire(choosePill) { [weak self] in self?.chooseFiles() }
         root.addSubview(choosePill)
 
-        for category in TangerineCategory.allCases {
-            let pill = TangerinePill(frame: .zero, title: category.title) { [weak self] in
+        for category in FilesCategory.allCases {
+            let pill = FilesPill(frame: .zero, title: category.title) { [weak self] in
                 self?.selectCategory(category)
             }
             root.addSubview(pill)
@@ -229,15 +229,15 @@ final class TangerineDashboard: NSObject, NSWindowDelegate {
 
     func layoutChrome() {
         let full = root.bounds
-        let w = max(full.width, TangerineDashboard.minimumWidth)
-        let h = max(full.height, TangerineDashboard.minimumHeight)
+        let w = max(full.width, FilesDashboard.minimumWidth)
+        let h = max(full.height, FilesDashboard.minimumHeight)
 
         titleLabel.frame = NSRect(x: 24, y: 16, width: 260, height: 26)
         subtitleLabel.frame = NSRect(x: 24, y: 44, width: max(w - 260, 200), height: 16)
         choosePill.frame = NSRect(x: w - 200, y: 22, width: 176, height: 30)
 
         var x: CGFloat = 24
-        for category in TangerineCategory.allCases {
+        for category in FilesCategory.allCases {
             tabPills[category]?.frame = NSRect(x: x, y: 76, width: 112, height: 28)
             x += 118
         }
@@ -289,7 +289,7 @@ final class TangerineDashboard: NSObject, NSWindowDelegate {
         fileList.frame = NSRect(x: 0, y: 0, width: fileScroll.bounds.width, height: fileScroll.bounds.height)
     }
 
-    func wheelScale(for card: TangerineCard) -> CGFloat {
+    func wheelScale(for card: FilesCard) -> CGFloat {
         let bounds = card.bounds
         let top: CGFloat = 62
         let availableWidth = bounds.width - 24
@@ -300,10 +300,10 @@ final class TangerineDashboard: NSObject, NSWindowDelegate {
     }
 
     private func layoutWheelCard(
-        _ card: TangerineCard,
+        _ card: FilesCard,
         wheel: RadialMenuView,
         title: NSTextField,
-        caps: TangerineKeycaps,
+        caps: FilesKeycaps,
         hint: NSTextField
     ) {
         let bounds = card.bounds
@@ -332,7 +332,7 @@ final class TangerineDashboard: NSObject, NSWindowDelegate {
         jobsList.frame = NSRect(x: 0, y: 0, width: jobsScroll.bounds.width, height: jobsScroll.bounds.height)
     }
 
-    private func rewire(_ pill: TangerinePill, handler: @escaping () -> Void) {
+    private func rewire(_ pill: FilesPill, handler: @escaping () -> Void) {
         pill.action = handler
     }
 
@@ -375,12 +375,12 @@ final class TangerineDashboard: NSObject, NSWindowDelegate {
         let files = urls.filter { $0.isFileURL }
         guard !files.isEmpty else { return }
         inputs = files
-        if let detected = TangerineCategory.of(files[0]) {
+        if let detected = FilesCategory.of(files[0]) {
             category = detected
         }
         rebuildGroups()
         renderAll()
-        let mixed = Set(files.compactMap { TangerineCategory.of($0) }).count > 1
+        let mixed = Set(files.compactMap { FilesCategory.of($0) }).count > 1
         if capability.isBarren {
             status(
                 "Seleção incompatível: estes \(files.count) arquivos não têm nenhuma operação em comum.",
@@ -393,11 +393,11 @@ final class TangerineDashboard: NSObject, NSWindowDelegate {
         }
     }
 
-    private var effectiveCategory: TangerineCategory {
-        inputs.first.flatMap(TangerineCategory.of) ?? category
+    private var effectiveCategory: FilesCategory {
+        inputs.first.flatMap(FilesCategory.of) ?? category
     }
 
-    private func selectCategory(_ next: TangerineCategory) {
+    private func selectCategory(_ next: FilesCategory) {
         category = next
         rebuildGroups()
         renderAll()
@@ -406,19 +406,19 @@ final class TangerineDashboard: NSObject, NSWindowDelegate {
         }
     }
 
-    func wheel(for mode: TangerineMode) -> RadialMenuView {
+    func wheel(for mode: FilesMode) -> RadialMenuView {
         mode == .convert ? convertWheel : toolsWheel
     }
 
-    func card(for mode: TangerineMode) -> TangerineCard {
+    func card(for mode: FilesMode) -> FilesCard {
         mode == .convert ? convertCard : toolsCard
     }
 
-    var activeMode: TangerineMode { mode }
+    var activeMode: FilesMode { mode }
 
     private var activeWheel: RadialMenuView { wheel(for: mode) }
 
-    private func focus(_ next: TangerineMode) {
+    private func focus(_ next: FilesMode) {
         defer { renderFiles() }
         if mode != next {
             mode = next
@@ -437,8 +437,8 @@ final class TangerineDashboard: NSObject, NSWindowDelegate {
     }
 
     @discardableResult
-    private func selectOption(_ option: TangerineOption) -> Bool {
-        for candidate in [mode, mode == .convert ? .tools : TangerineMode.convert] {
+    private func selectOption(_ option: FilesOption) -> Bool {
+        for candidate in [mode, mode == .convert ? .tools : FilesMode.convert] {
             let view = wheel(for: candidate)
             for (groupIndex, group) in view.groups.enumerated() {
                 if let index = group.options.firstIndex(where: { $0.id == option.id }) {
@@ -455,40 +455,40 @@ final class TangerineDashboard: NSObject, NSWindowDelegate {
         return false
     }
 
-    func groups(for urls: [URL], mode: TangerineMode) -> [TangerineGroup] {
+    func groups(for urls: [URL], mode: FilesMode) -> [FilesGroup] {
         guard let first = urls.first else { return [] }
-        let category = TangerineCategory.of(first) ?? self.category
+        let category = FilesCategory.of(first) ?? self.category
         return groups(category: category, sources: urls, mode: mode, capability: jobs.capability(for: urls))
     }
 
     private func groups(
-        category: TangerineCategory,
+        category: FilesCategory,
         sources: [URL],
-        mode: TangerineMode,
-        capability: TangerineCapability
-    ) -> [TangerineGroup] {
-        let extensions = Set(sources.map { TangerineCatalog.normalize($0.pathExtension) })
+        mode: FilesMode,
+        capability: FilesCapability
+    ) -> [FilesGroup] {
+        let extensions = Set(sources.map { FilesCatalog.normalize($0.pathExtension) })
         let sourceExtension = extensions.count == 1 ? (extensions.first ?? "") : ""
         switch mode {
         case .convert:
-            return TangerineCatalog.convertGroups(
+            return FilesCatalog.convertGroups(
                 category: category,
                 sourceExtension: sourceExtension,
                 capability: capability
             )
         case .tools:
-            let batch = TangerineCatalog.batchGroups(
+            let batch = FilesCatalog.batchGroups(
                 category: category,
                 inputCount: sources.count,
                 capability: capability
             )
-            return TangerineCatalog.toolGroups(category: category, capability: capability) + batch
+            return FilesCatalog.toolGroups(category: category, capability: capability) + batch
         }
     }
 
     private func rebuildGroups() {
         capability = inputs.isEmpty ? .unknown : jobs.capability(for: inputs)
-        for candidate in [TangerineMode.convert, .tools] {
+        for candidate in [FilesMode.convert, .tools] {
             let view = wheel(for: candidate)
             let next = groups(category: effectiveCategory, sources: inputs, mode: candidate, capability: capability)
             view.groups = next
@@ -506,7 +506,7 @@ final class TangerineDashboard: NSObject, NSWindowDelegate {
     }
 
     private var selectionSummary: String {
-        let families = Set(inputs.compactMap { TangerineCategory.of($0) })
+        let families = Set(inputs.compactMap { FilesCategory.of($0) })
         if families.count == 1, let only = families.first { return only.title.lowercased() }
         return "tipos mistos"
     }
@@ -543,26 +543,26 @@ final class TangerineDashboard: NSObject, NSWindowDelegate {
         var y: CGFloat = 4
         let ordered = activeWheel.currentOption?.isBatch == true
         if inputs.isEmpty {
-            let empty = TangerineTheme.label("arraste arquivos aqui ou escolha acima", size: 11.5, weight: .regular, color: TangerineTheme.inkFaint)
+            let empty = FilesTheme.label("arraste arquivos aqui ou escolha acima", size: 11.5, weight: .regular, color: FilesTheme.inkFaint)
             empty.frame = NSRect(x: 12, y: y, width: width - 24, height: 18)
             fileList.addSubview(empty)
             y += rowHeight
         } else if inputs.count > 1 {
-            let summary = TangerineTheme.label(
+            let summary = FilesTheme.label(
                 "\(inputs.count) arquivos · \(selectionSummary)",
                 size: 12,
                 weight: .semibold,
-                color: TangerineTheme.ink
+                color: FilesTheme.ink
             )
             summary.frame = NSRect(x: 12, y: y, width: width - 24, height: 18)
             fileList.addSubview(summary)
             y += rowHeight
             if ordered {
-                let note = TangerineTheme.label(
+                let note = FilesTheme.label(
                     "a ordem abaixo é a ordem da combinação",
                     size: 10.5,
                     weight: .regular,
-                    color: TangerineTheme.accent
+                    color: FilesTheme.accent
                 )
                 note.frame = NSRect(x: 12, y: y, width: width - 24, height: 16)
                 fileList.addSubview(note)
@@ -572,32 +572,32 @@ final class TangerineDashboard: NSObject, NSWindowDelegate {
         let reorderable = inputs.count > 1
         for (index, url) in inputs.enumerated() {
             let prefix = reorderable ? "\(index + 1). " : "• "
-            let row = TangerineTheme.label(prefix + url.lastPathComponent, size: 12, weight: .regular, color: TangerineTheme.inkSoft)
+            let row = FilesTheme.label(prefix + url.lastPathComponent, size: 12, weight: .regular, color: FilesTheme.inkSoft)
             row.toolTip = url.path
             row.lineBreakMode = .byTruncatingMiddle
             let controlsWidth: CGFloat = reorderable ? 92 : 24
             row.frame = NSRect(x: 12, y: y, width: max(width - 24 - controlsWidth, 60), height: 18)
             fileList.addSubview(row)
             if reorderable {
-                let up = TangerinePill(frame: NSRect(x: width - 100, y: y - 2, width: 26, height: 22), title: "↑") { [weak self] in
+                let up = FilesPill(frame: NSRect(x: width - 100, y: y - 2, width: 26, height: 22), title: "↑") { [weak self] in
                     self?.moveInput(from: index, by: -1)
                 }
                 up.enabledAction = index > 0
                 fileList.addSubview(up)
-                let down = TangerinePill(frame: NSRect(x: width - 72, y: y - 2, width: 26, height: 22), title: "↓") { [weak self] in
+                let down = FilesPill(frame: NSRect(x: width - 72, y: y - 2, width: 26, height: 22), title: "↓") { [weak self] in
                     self?.moveInput(from: index, by: 1)
                 }
                 down.enabledAction = index < inputs.count - 1
                 fileList.addSubview(down)
             }
-            let drop = TangerinePill(frame: NSRect(x: width - 44, y: y - 2, width: 26, height: 22), title: "×") { [weak self] in
+            let drop = FilesPill(frame: NSRect(x: width - 44, y: y - 2, width: 26, height: 22), title: "×") { [weak self] in
                 self?.removeInput(at: index)
             }
             fileList.addSubview(drop)
             y += rowHeight + (reorderable ? 2 : 0)
         }
         if !inputs.isEmpty {
-            let clear = TangerinePill(frame: NSRect(x: 12, y: y + 2, width: 92, height: 22), title: "Limpar") { [weak self] in
+            let clear = FilesPill(frame: NSRect(x: 12, y: y + 2, width: 92, height: 22), title: "Limpar") { [weak self] in
                 self?.inputs = []
                 self?.rebuildGroups()
                 self?.renderAll()
@@ -617,7 +617,7 @@ final class TangerineDashboard: NSObject, NSWindowDelegate {
         paramSwatches.removeAll()
         let boxWidth = max(paramsScroll.bounds.width - 4, 120)
         func fill(_ text: String, color: NSColor, height: CGFloat = 18) {
-            let label = TangerineTheme.label(text, size: 11.5, weight: .regular, color: color)
+            let label = FilesTheme.label(text, size: 11.5, weight: .regular, color: color)
             label.maximumNumberOfLines = 2
             label.lineBreakMode = .byWordWrapping
             label.frame = NSRect(x: 0, y: 4, width: boxWidth, height: height)
@@ -626,20 +626,20 @@ final class TangerineDashboard: NSObject, NSWindowDelegate {
         }
         guard let option = activeWheel.currentOption else {
             applyPill.enabledAction = false
-            fill("escolha uma operação numa das rodas", color: TangerineTheme.inkFaint)
+            fill("escolha uma operação numa das rodas", color: FilesTheme.inkFaint)
             return
         }
         let blocker = jobs.blocker(option: option, inputs: inputs)
         applyPill.enabledAction = blocker == nil
         guard blocker == nil else {
-            fill(blocker ?? "", color: TangerineTheme.danger, height: 32)
+            fill(blocker ?? "", color: FilesTheme.danger, height: 32)
             return
         }
         guard option.needsParams else {
             let note = option.isBatch
                 ? "\(option.title): 1 trabalho para \(inputs.count) arquivos"
                 : "\(option.title) não pede ajustes"
-            fill(note, color: TangerineTheme.inkFaint)
+            fill(note, color: FilesTheme.inkFaint)
             return
         }
         let columns = option.params.count > 2 ? 2 : 1
@@ -651,7 +651,7 @@ final class TangerineDashboard: NSObject, NSWindowDelegate {
             rows = row + 1
             let x = CGFloat(column) * (cellWidth + 10)
             let y = CGFloat(row) * 44
-            let label = TangerineTheme.label("\(param.label) (\(param.hint))", size: 10, weight: .medium, color: TangerineTheme.inkFaint)
+            let label = FilesTheme.label("\(param.label) (\(param.hint))", size: 10, weight: .medium, color: FilesTheme.inkFaint)
             label.frame = NSRect(x: x + 2, y: y, width: cellWidth - 4, height: 14)
             paramsBox.addSubview(label)
             let identifier = key(option, param)
@@ -677,7 +677,7 @@ final class TangerineDashboard: NSObject, NSWindowDelegate {
                 swatch.layer?.cornerRadius = 4
                 swatch.layer?.borderWidth = 1
                 swatch.layer?.borderColor = NSColor(white: 0.78, alpha: 1).cgColor
-                swatch.layer?.backgroundColor = TangerineDashboard.color(from: current)?.cgColor
+                swatch.layer?.backgroundColor = FilesDashboard.color(from: current)?.cgColor
                 paramsBox.addSubview(swatch)
                 paramSwatches[identifier] = swatch
             }
@@ -701,7 +701,7 @@ final class TangerineDashboard: NSObject, NSWindowDelegate {
     }
 
     static func color(from raw: String) -> NSColor? {
-        let probe = TangerineParam(id: "p", label: "Fundo", kind: .color, fallback: "#ffffff", hint: "")
+        let probe = FilesParam(id: "p", label: "Fundo", kind: .color, fallback: "#ffffff", hint: "")
         guard case let .value(value) = probe.parse(raw), let text = value.string else { return nil }
         if text == "transparent" { return NSColor(white: 0.5, alpha: 0.15) }
         let digits = Array(text.dropFirst())
@@ -720,7 +720,7 @@ final class TangerineDashboard: NSObject, NSWindowDelegate {
         guard let id = sender.identifier?.rawValue else { return }
         paramValues[id] = sender.stringValue
         if let swatch = paramSwatches[id] {
-            swatch.layer?.backgroundColor = TangerineDashboard.color(from: sender.stringValue)?.cgColor
+            swatch.layer?.backgroundColor = FilesDashboard.color(from: sender.stringValue)?.cgColor
         }
     }
 
@@ -729,7 +729,7 @@ final class TangerineDashboard: NSObject, NSWindowDelegate {
         paramValues[id] = title
     }
 
-    private func key(_ option: TangerineOption, _ param: TangerineParam) -> String {
+    private func key(_ option: FilesOption, _ param: FilesParam) -> String {
         "\(option.id).\(param.id)"
     }
 
@@ -739,7 +739,7 @@ final class TangerineDashboard: NSObject, NSWindowDelegate {
         let rowHeight: CGFloat = 44
         var y: CGFloat = 0
         if jobs.jobs.isEmpty {
-            let empty = TangerineTheme.label("nenhum trabalho ainda", size: 11.5, weight: .regular, color: TangerineTheme.inkFaint)
+            let empty = FilesTheme.label("nenhum trabalho ainda", size: 11.5, weight: .regular, color: FilesTheme.inkFaint)
             empty.frame = NSRect(x: 8, y: 6, width: width - 16, height: 18)
             jobsList.addSubview(empty)
             y = 30
@@ -750,20 +750,20 @@ final class TangerineDashboard: NSObject, NSWindowDelegate {
             dot.wantsLayer = true
             dot.layer?.cornerRadius = 5
             switch job.state {
-            case .running: dot.layer?.backgroundColor = TangerineTheme.accent.cgColor
-            case .done: dot.layer?.backgroundColor = TangerineTheme.ok.cgColor
-            case .failed: dot.layer?.backgroundColor = TangerineTheme.danger.cgColor
-            case .cancelled: dot.layer?.backgroundColor = TangerineTheme.inkFaint.cgColor
+            case .running: dot.layer?.backgroundColor = FilesTheme.accent.cgColor
+            case .done: dot.layer?.backgroundColor = FilesTheme.ok.cgColor
+            case .failed: dot.layer?.backgroundColor = FilesTheme.danger.cgColor
+            case .cancelled: dot.layer?.backgroundColor = FilesTheme.inkFaint.cgColor
             }
             row.addSubview(dot)
 
-            let title = TangerineTheme.label(job.title, size: 12.5, weight: .semibold)
+            let title = FilesTheme.label(job.title, size: 12.5, weight: .semibold)
             title.toolTip = job.input.path
             title.frame = NSRect(x: 26, y: 6, width: width - 210, height: 17)
             row.addSubview(title)
 
-            let color: NSColor = job.state == .failed ? TangerineTheme.danger : TangerineTheme.inkSoft
-            let subtitle = TangerineTheme.label(job.subtitle, size: 11, weight: .regular, color: color)
+            let color: NSColor = job.state == .failed ? FilesTheme.danger : FilesTheme.inkSoft
+            let subtitle = FilesTheme.label(job.subtitle, size: 11, weight: .regular, color: color)
             subtitle.toolTip = job.subtitle
             subtitle.frame = NSRect(x: 26, y: 23, width: width - 210, height: 15)
             row.addSubview(subtitle)
@@ -775,21 +775,21 @@ final class TangerineDashboard: NSObject, NSWindowDelegate {
                 spinner.isIndeterminate = true
                 spinner.startAnimation(nil)
                 row.addSubview(spinner)
-                let cancel = TangerinePill(frame: NSRect(x: width - 186, y: 10, width: 84, height: 24), title: "Cancelar") { [weak self] in
+                let cancel = FilesPill(frame: NSRect(x: width - 186, y: 10, width: 84, height: 24), title: "Cancelar") { [weak self] in
                     self?.jobs.cancel(job)
                 }
                 row.addSubview(cancel)
             } else if job.state == .done, !job.outputs.isEmpty {
-                let reveal = TangerinePill(frame: NSRect(x: width - 186, y: 10, width: 84, height: 24), title: "Mostrar") {
+                let reveal = FilesPill(frame: NSRect(x: width - 186, y: 10, width: 84, height: 24), title: "Mostrar") {
                     NSWorkspace.shared.activateFileViewerSelecting(job.outputs)
                 }
                 row.addSubview(reveal)
-                let open = TangerinePill(frame: NSRect(x: width - 96, y: 10, width: 84, height: 24), title: "Abrir") {
+                let open = FilesPill(frame: NSRect(x: width - 96, y: 10, width: 84, height: 24), title: "Abrir") {
                     if let first = job.outputs.first { NSWorkspace.shared.open(first) }
                 }
                 row.addSubview(open)
             } else if job.state == .failed {
-                let retry = TangerinePill(frame: NSRect(x: width - 96, y: 10, width: 84, height: 24), title: "Repetir") { [weak self] in
+                let retry = FilesPill(frame: NSRect(x: width - 96, y: 10, width: 84, height: 24), title: "Repetir") { [weak self] in
                     self?.jobs.submit(inputs: job.inputs, option: job.option, values: job.values)
                 }
                 row.addSubview(retry)
@@ -805,7 +805,7 @@ final class TangerineDashboard: NSObject, NSWindowDelegate {
 
     private func status(_ text: String, warning: Bool) {
         statusLabel.stringValue = text
-        statusLabel.textColor = warning ? TangerineTheme.danger : TangerineTheme.inkSoft
+        statusLabel.textColor = warning ? FilesTheme.danger : FilesTheme.inkSoft
     }
 
     @discardableResult
@@ -822,7 +822,7 @@ final class TangerineDashboard: NSObject, NSWindowDelegate {
             status("\(blocker) Nada foi enviado.", warning: true)
             return false
         }
-        var values: [String: TangerineValue] = [:]
+        var values: [String: FilesValue] = [:]
         for param in option.params {
             let raw = paramFields[key(option, param)]?.stringValue
                 ?? paramValues[key(option, param)]
@@ -836,7 +836,7 @@ final class TangerineDashboard: NSObject, NSWindowDelegate {
                 return false
             }
         }
-        if let problem = TangerineCatalog.batchProblem(option: option, values: values, inputCount: inputs.count) {
+        if let problem = FilesCatalog.batchProblem(option: option, values: values, inputCount: inputs.count) {
             status(problem, warning: true)
             return false
         }
@@ -851,7 +851,7 @@ final class TangerineDashboard: NSObject, NSWindowDelegate {
     }
 
     @discardableResult
-    func run(inputs: [URL], option: TangerineOption) -> Bool {
+    func run(inputs: [URL], option: FilesOption) -> Bool {
         setInputs(inputs)
         guard selectOption(option) else {
             status("\(option.title) não serve a todos os arquivos escolhidos.", warning: true)
@@ -891,7 +891,7 @@ final class TangerineDashboard: NSObject, NSWindowDelegate {
         layoutChrome()
     }
 
-    func wheelFrameInRoot(for mode: TangerineMode) -> NSRect {
+    func wheelFrameInRoot(for mode: FilesMode) -> NSRect {
         let card = card(for: mode)
         return root.convert(wheel(for: mode).frame, from: card)
     }
@@ -928,7 +928,7 @@ final class FlippedContainer: NSView {
 
 final class DashboardRootView: NSView {
     override var isFlipped: Bool { true }
-    weak var dashboard: TangerineDashboard?
+    weak var dashboard: FilesDashboard?
     override var acceptsFirstResponder: Bool { true }
 
     override func layout() {
@@ -988,9 +988,9 @@ final class DashboardDropView: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 1, dy: 1), xRadius: 10, yRadius: 10)
-        (hot ? TangerineTheme.accentSoft : NSColor(white: 0.97, alpha: 1)).setFill()
+        (hot ? FilesTheme.accentSoft : NSColor(white: 0.97, alpha: 1)).setFill()
         path.fill()
-        (hot ? TangerineTheme.accent : NSColor(white: 0.80, alpha: 1)).setStroke()
+        (hot ? FilesTheme.accent : NSColor(white: 0.80, alpha: 1)).setStroke()
         path.lineWidth = hot ? 2 : 1
         let dashes: [CGFloat] = [5, 4]
         path.setLineDash(dashes, count: 2, phase: 0)
@@ -1001,7 +1001,7 @@ final class DashboardDropView: NSView {
         let text = "solte arquivos aqui"
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 12, weight: .medium),
-            .foregroundColor: hot ? TangerineTheme.accent : TangerineTheme.inkFaint,
+            .foregroundColor: hot ? FilesTheme.accent : FilesTheme.inkFaint,
             .paragraphStyle: style,
         ]
         (text as NSString).draw(

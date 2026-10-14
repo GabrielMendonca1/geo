@@ -1,16 +1,16 @@
 import AppKit
 
-final class TangerineToast {
+final class FilesToast {
     private let panel: NSPanel
-    private let card = TangerineCard(frame: NSRect(x: 0, y: 0, width: 340, height: 76))
-    private let title = TangerineTheme.label("", size: 12.5, weight: .semibold)
-    private let subtitle = TangerineTheme.label("", size: 11, weight: .regular, color: TangerineTheme.inkSoft)
+    private let card = FilesCard(frame: NSRect(x: 0, y: 0, width: 340, height: 76))
+    private let title = FilesTheme.label("", size: 12.5, weight: .semibold)
+    private let subtitle = FilesTheme.label("", size: 11, weight: .regular, color: FilesTheme.inkSoft)
     private let spinner = NSProgressIndicator(frame: NSRect(x: 14, y: 30, width: 16, height: 16))
-    private let actionPill: TangerinePill
+    private let actionPill: FilesPill
     private var hideWork: DispatchWorkItem?
 
-    private var batch: [TangerineJob] = []
-    private var onCancel: (([TangerineJob]) -> Void)?
+    private var batch: [FilesJob] = []
+    private var onCancel: (([FilesJob]) -> Void)?
     private var onOpenPanel: (() -> Void)?
 
     init() {
@@ -28,7 +28,7 @@ final class TangerineToast {
         panel.isReleasedWhenClosed = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         panel.appearance = NSAppearance(named: .aqua)
-        actionPill = TangerinePill(frame: NSRect(x: 236, y: 42, width: 90, height: 24), title: "Mostrar", handler: {})
+        actionPill = FilesPill(frame: NSRect(x: 236, y: 42, width: 90, height: 24), title: "Mostrar", handler: {})
 
         card.autoresizingMask = [.width, .height]
         panel.contentView = card
@@ -47,8 +47,8 @@ final class TangerineToast {
     }
 
     func show(
-        jobs: [TangerineJob],
-        onCancel: @escaping ([TangerineJob]) -> Void,
+        jobs: [FilesJob],
+        onCancel: @escaping ([FilesJob]) -> Void,
         onOpenPanel: @escaping () -> Void
     ) {
         guard !jobs.isEmpty else { return }
@@ -89,7 +89,7 @@ final class TangerineToast {
         title.stringValue = state.title
         subtitle.stringValue = state.subtitle
         subtitle.toolTip = state.subtitle
-        subtitle.textColor = state.failed ? TangerineTheme.danger : TangerineTheme.inkSoft
+        subtitle.textColor = state.failed ? FilesTheme.danger : FilesTheme.inkSoft
 
         if anyRunning {
             spinner.isHidden = false

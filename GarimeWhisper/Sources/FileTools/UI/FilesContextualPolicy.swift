@@ -1,20 +1,20 @@
 import AppKit
 import Foundation
 
-public enum TangerineWheelMode: String, Equatable {
+public enum FilesWheelMode: String, Equatable {
     case convert
     case tools
 }
 
-extension TangerineWheelMode {
-    init(_ mode: TangerineMode) {
+extension FilesWheelMode {
+    init(_ mode: FilesMode) {
         self = mode == .tools ? .tools : .convert
     }
 
-    var mode: TangerineMode { self == .tools ? .tools : .convert }
+    var mode: FilesMode { self == .tools ? .tools : .convert }
 }
 
-enum TangerineContextualDismissReason: String, Equatable {
+enum FilesContextualDismissReason: String, Equatable {
     case escape
     case commit
     case gap
@@ -24,18 +24,18 @@ enum TangerineContextualDismissReason: String, Equatable {
     case stopped
 }
 
-enum TangerineContextualArrow: Int, Equatable {
+enum FilesContextualArrow: Int, Equatable {
     case previous = -1
     case next = 1
 }
 
-enum TangerineContextualKey: Equatable {
+enum FilesContextualKey: Equatable {
     case escape
     case enter
-    case arrow(TangerineContextualArrow)
+    case arrow(FilesContextualArrow)
 }
 
-struct TangerineContextualPolicy: Equatable {
+struct FilesContextualPolicy: Equatable {
     struct Session: Equatable {
         let id: UUID
         let sourcePID: pid_t
@@ -53,17 +53,17 @@ struct TangerineContextualPolicy: Equatable {
     enum Input: Equatable {
         case present(Session)
         case hover(Int?)
-        case arrow(TangerineContextualArrow)
+        case arrow(FilesContextualArrow)
         case enter
         case click(Int?)
         case escape
-        case invalidate(TangerineContextualDismissReason)
+        case invalidate(FilesContextualDismissReason)
     }
 
     enum Effect: Equatable {
         case select(Int?)
         case commit(sessionID: UUID, index: Int)
-        case dismiss(TangerineContextualDismissReason)
+        case dismiss(FilesContextualDismissReason)
     }
 
     private(set) var session: Session?
@@ -142,7 +142,7 @@ struct TangerineContextualPolicy: Equatable {
     }
 }
 
-enum TangerineContextualFocus {
+enum FilesContextualFocus {
     static func shouldRestore(
         sourcePID: pid_t,
         frontmostPID: pid_t?,
@@ -163,7 +163,7 @@ enum TangerineContextualFocus {
     }
 }
 
-enum TangerineContextualFileKeys {
+enum FilesContextualFileKeys {
     static func keys(_ urls: [URL]) -> [String] {
         urls.map { $0.standardizedFileURL.path }
     }
@@ -173,7 +173,7 @@ enum TangerineContextualFileKeys {
     }
 }
 
-struct TangerineContextualNotice: Equatable {
+struct FilesContextualNotice: Equatable {
     enum Remedy: Equatable {
         case none
         case automation(String)
@@ -193,23 +193,23 @@ struct TangerineContextualNotice: Equatable {
     }
 }
 
-enum TangerineContextualNoticeFactory {
+enum FilesContextualNoticeFactory {
     static let finderBundleIdentifier = "com.apple.finder"
 
     static func isFinder(_ source: FileSelectionSource?) -> Bool {
         source?.bundleIdentifier == finderBundleIdentifier
     }
 
-    static func permissionNotice(source: FileSelectionSource?) -> TangerineContextualNotice {
+    static func permissionNotice(source: FileSelectionSource?) -> FilesContextualNotice {
         if isFinder(source) {
-            return TangerineContextualNotice(
+            return FilesContextualNotice(
                 title: "Falta permissão de Automação",
                 message: "O Whisper precisa da permissão de Automação para perguntar a seleção ao Finder. Conceda em Privacidade e Segurança › Automação › Whisper › Finder.",
                 remedy: .automation(finderBundleIdentifier)
             )
         }
         let app = source?.bundleIdentifier ?? "o app em primeiro plano"
-        return TangerineContextualNotice(
+        return FilesContextualNotice(
             title: "Falta permissão de Acessibilidade",
             message: "Para ler a seleção de \(app) o Whisper precisa de Acessibilidade. Conceda em Privacidade e Segurança › Acessibilidade.",
             remedy: .accessibility
@@ -219,18 +219,18 @@ enum TangerineContextualNoticeFactory {
     static func notice(
         for failure: FileSelectionFailure,
         source: FileSelectionSource?
-    ) -> TangerineContextualNotice {
+    ) -> FilesContextualNotice {
         switch failure {
         case .permissionDenied:
             return permissionNotice(source: source)
         case .noFrontmostApplication:
-            return TangerineContextualNotice(
+            return FilesContextualNotice(
                 title: "Nenhum app em primeiro plano",
                 message: "Não há app de origem para consultar a seleção.",
                 remedy: .none
             )
         case .noSelection:
-            return TangerineContextualNotice(
+            return FilesContextualNotice(
                 title: "Nada selecionado",
                 message: isFinder(source)
                     ? "Selecione arquivos no Finder ou na Mesa e chame de novo."
@@ -238,43 +238,43 @@ enum TangerineContextualNoticeFactory {
                 remedy: .none
             )
         case .unsupported:
-            return TangerineContextualNotice(
+            return FilesContextualNotice(
                 title: "Seleção não suportada",
                 message: "\(source?.bundleIdentifier ?? "O app de origem") não expõe arquivos selecionados de forma legível.",
                 remedy: .none
             )
         case .timeout:
-            return TangerineContextualNotice(
+            return FilesContextualNotice(
                 title: "A origem não respondeu",
                 message: "A consulta de seleção expirou. Tente de novo com a janela de origem ativa.",
                 remedy: .none
             )
         case .sourceChanged:
-            return TangerineContextualNotice(
+            return FilesContextualNotice(
                 title: "A origem mudou",
                 message: "Outro app ficou em primeiro plano durante a consulta; nada foi executado.",
                 remedy: .none
             )
         case .tooManyItems:
-            return TangerineContextualNotice(
+            return FilesContextualNotice(
                 title: "Seleção grande demais",
                 message: "Reduza a quantidade de arquivos selecionados.",
                 remedy: .none
             )
         case .symbolicLink:
-            return TangerineContextualNotice(
+            return FilesContextualNotice(
                 title: "Atalho não aceito",
                 message: "A seleção inclui link simbólico; use o arquivo original.",
                 remedy: .none
             )
         case .invalidURL, .providerError:
-            return TangerineContextualNotice(
+            return FilesContextualNotice(
                 title: "Não deu para ler a seleção",
                 message: "A origem devolveu uma resposta inválida; nada foi executado.",
                 remedy: .none
             )
         case .busy:
-            return TangerineContextualNotice(
+            return FilesContextualNotice(
                 title: "Consulta em andamento",
                 message: "Já existe uma leitura de seleção em curso.",
                 remedy: .none
@@ -282,16 +282,16 @@ enum TangerineContextualNoticeFactory {
         }
     }
 
-    static func documentOnlyNotice(source: FileSelectionSource?) -> TangerineContextualNotice {
-        TangerineContextualNotice(
+    static func documentOnlyNotice(source: FileSelectionSource?) -> FilesContextualNotice {
+        FilesContextualNotice(
             title: "Sem arquivos selecionados",
             message: "\(source?.bundleIdentifier ?? "O app de origem") só expôs o documento aberto. Selecione arquivos no Finder ou na Mesa para usar a roda.",
             remedy: .none
         )
     }
 
-    static func noActionsNotice(urls: [URL]) -> TangerineContextualNotice {
-        TangerineContextualNotice(
+    static func noActionsNotice(urls: [URL]) -> FilesContextualNotice {
+        FilesContextualNotice(
             title: "Nenhuma ação para esta seleção",
             message: urls.count == 1
                 ? "Não há operação disponível para \(urls[0].lastPathComponent)."
@@ -300,13 +300,13 @@ enum TangerineContextualNoticeFactory {
         )
     }
 
-    static let staleSelectionNotice = TangerineContextualNotice(
+    static let staleSelectionNotice = FilesContextualNotice(
         title: "A seleção mudou",
         message: "Os arquivos deixaram de ser os mesmos desde a abertura da roda; nada foi executado.",
         remedy: .none
     )
 
-    static let ownApplicationNotice = TangerineContextualNotice(
+    static let ownApplicationNotice = FilesContextualNotice(
         title: "O Whisper está em primeiro plano",
         message: "A roda lê a seleção do app de origem. Volte para o Finder (ou para o app com os arquivos) e chame de novo.",
         remedy: .none
@@ -315,10 +315,10 @@ enum TangerineContextualNoticeFactory {
     static func revalidationNotice(
         for failure: FileSelectionFailure,
         source: FileSelectionSource?
-    ) -> TangerineContextualNotice {
+    ) -> FilesContextualNotice {
         let base = notice(for: failure, source: source)
         guard !base.message.contains("nada foi executado") else { return base }
-        return TangerineContextualNotice(
+        return FilesContextualNotice(
             title: base.title,
             message: base.message + " A ação escolhida não foi executada.",
             remedy: base.remedy
