@@ -28,8 +28,8 @@ enum Config {
     static let meetingLabel = "test"
     static let callStartTimeout: TimeInterval = 1
     static let callStopTimeout: TimeInterval = 1
-    static let callPollInterval: TimeInterval = 60
-    static let backgroundPollTolerance: TimeInterval = 0
+    static let callLivenessInterval: TimeInterval = 60
+    static let slowPollTolerance: TimeInterval = 0
 }
 
 var passes = 0

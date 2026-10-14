@@ -314,10 +314,20 @@ grep -q 'Hotkey.shared.unregister()' "$(src AppDelegate)"
 check $? "termination unregisters the global hotkey"
 grep -q 'RemoveEventHandler' "$(src Hotkey)"
 check $? "hotkey teardown releases its Carbon handler"
-grep -q 'ticker.tolerance = Config.backgroundPollTolerance' "$(src CaptureWatcher)"
-check $? "capture polling is coalescible"
-grep -q 'ticker.tolerance = Config.backgroundPollTolerance' "$(src CallController)"
-check $? "call polling is coalescible"
+grep -q 'PathWatcher(paths:' "$(src CaptureWatcher)"
+check $? "capture waits for file events instead of a 5 s poll"
+grep -q 'ticker.tolerance = Config.slowPollTolerance' "$(src CaptureWatcher)"
+check $? "capture stale check is slow and coalescible"
+grep -q 'PathWatcher(paths:' "$(src CallController)"
+check $? "call waits for rec.state events instead of a 5 s poll"
+grep -q 'setLivenessTimer(active: probe?.active == true)' "$(src CallController)"
+check $? "call liveness timer only runs while a call records"
+[ ! -e "$ROOT/Sources/FileTools/UI/FinderDragOverlay.swift" ]
+check $? "legacy shift-drag overlay (20 Hz idle poll, global mouse monitors) is gone"
+grep -rq 'addGlobalMonitorForEvents(matching: \[.leftMouse' "$ROOT/Sources"
+check "$([ $? -ne 0 ] && echo 0 || echo 1)" "no global mouse monitor while idle"
+[ ! -d "$ROOT/Sources/MacDuo" ]
+check $? "Mac Duo is removed (no SwiftUI, Metal or ScreenCaptureKit at launch)"
 grep -q 'Timer' "$(src TasksController)"
 check "$([ $? -ne 0 ] && echo 0 || echo 1)" "idle task lifecycle has no timer"
 awk '/func start\(\)/,/^    }/' "$(src TasksController)" | grep -q 'refresh()'
@@ -439,6 +449,7 @@ swiftc -O -target "$(uname -m)-apple-macos14.0" -sdk "$(xcrun --show-sdk-path --
   "$(src VaultTasks)" \
   "$(src ProjectStatus)" \
   "$(src CallController)" \
+  "$(src PathWatcher)" \
   "$(src StatusTodoWriter)" \
   "$(src SleepBlocker)" \
   "$(src DotMatrix)" \

@@ -61,6 +61,7 @@ enum CaptureProbe {
 
 final class CaptureWatcher {
     private var timer: Timer?
+    private var watcher: PathWatcher?
     private var last = CaptureSnapshot()
     private var primed = false
     let root: String
@@ -75,10 +76,15 @@ final class CaptureWatcher {
     func start() {
         guard timer == nil else { return }
         poll()
-        let ticker = Timer(timeInterval: Config.capturePollInterval, repeats: true) { [weak self] _ in
+        let fm = FileManager.default
+        let watched = fm.fileExists(atPath: root) ? root : (root as NSString).deletingLastPathComponent
+        let fileWatcher = PathWatcher(paths: [watched], latency: 1) { [weak self] in self?.poll() }
+        fileWatcher.start()
+        watcher = fileWatcher
+        let ticker = Timer(timeInterval: Config.captureStaleCheckInterval, repeats: true) { [weak self] _ in
             self?.poll()
         }
-        ticker.tolerance = Config.backgroundPollTolerance
+        ticker.tolerance = Config.slowPollTolerance
         RunLoop.main.add(ticker, forMode: .common)
         timer = ticker
     }
@@ -86,6 +92,8 @@ final class CaptureWatcher {
     func stop() {
         timer?.invalidate()
         timer = nil
+        watcher?.stop()
+        watcher = nil
     }
 
     func poll(now: Date = Date()) {

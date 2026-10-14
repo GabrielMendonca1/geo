@@ -36,8 +36,6 @@
 	<string>O Whisper lê o arquivo que você selecionou e grava o resultado ao lado do original em Documentos.</string>
 	<key>NSDownloadsFolderUsageDescription</key>
 	<string>O Whisper lê o arquivo que você selecionou e grava o resultado ao lado do original em Downloads.</string>
-	<key>NSScreenCaptureUsageDescription</key>
-	<string>Mac Duo anima a tela conforme o ângulo da tampa. A captura permanece somente na memória deste Mac.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 </dict>

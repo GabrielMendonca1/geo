@@ -34,6 +34,7 @@ final class CallController {
     private let runner = ProcessRunner()
     private let queue = DispatchQueue(label: "ai.garime.whisper.call")
     private var timer: Timer?
+    private var watcher: PathWatcher?
     private var busy = false
     private var holdsFeedbackCapture = false
     private var absentPolls = 0
@@ -47,23 +48,38 @@ final class CallController {
     }
 
     func start() {
-        guard timer == nil else { return }
+        guard watcher == nil else { return }
         poll()
-        let ticker = Timer(timeInterval: Config.callPollInterval, repeats: true) { [weak self] _ in
-            self?.poll()
-        }
-        ticker.tolerance = Config.backgroundPollTolerance
-        RunLoop.main.add(ticker, forMode: .common)
-        timer = ticker
+        let directory = (Config.recStatePath as NSString).deletingLastPathComponent
+        try? FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
+        let fileWatcher = PathWatcher(paths: [directory]) { [weak self] in self?.poll() }
+        fileWatcher.start()
+        watcher = fileWatcher
     }
 
     func stop() {
-        timer?.invalidate()
-        timer = nil
+        watcher?.stop()
+        watcher = nil
+        setLivenessTimer(active: false)
         runner.cancel()
         if RecProbe.read(path: Config.recStatePath)?.active == true {
             setFeedbackCapture(active: true)
         }
+    }
+
+    private func setLivenessTimer(active: Bool) {
+        guard active != (timer != nil) else { return }
+        guard active else {
+            timer?.invalidate()
+            timer = nil
+            return
+        }
+        let ticker = Timer(timeInterval: Config.callLivenessInterval, repeats: true) { [weak self] _ in
+            self?.poll()
+        }
+        ticker.tolerance = Config.slowPollTolerance
+        RunLoop.main.add(ticker, forMode: .common)
+        timer = ticker
     }
 
     @discardableResult
@@ -100,6 +116,7 @@ final class CallController {
             absentPolls += 1
             next = state
         }
+        setLivenessTimer(active: probe?.active == true)
         if next != state {
             state = next
             onChange?()

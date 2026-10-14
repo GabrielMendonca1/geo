@@ -28,7 +28,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let capture = CaptureWatcher()
     private var captureLine: String?
     private let tasksController = TasksController()
-    private let macDuo = MacDuoController()
     private let tangerine = TangerineController()
     private let tangerineSelectionHotKeys = TangerineSelectionHotKeys()
 
@@ -68,8 +67,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var openProject: String?
     private var projectCache: (at: Date, projects: [ProjectStatus])?
     private var appTailItems: [NSMenuItem] = []
-    private var duoItem: NSMenuItem?
-    private var hubMenuOpen = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         RadialMenuView.playSectorChangedFeedback = { [weak self] in self?.playFeedback(.sectorChanged) }
@@ -85,12 +82,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         buildMenu()
         let appItems = menuController.items(in: .app)
         let moduleActions = appItems.compactMap(\.action)
-        NSLog("GarimeWhisper modules ready: MacDuo=%d Tangerine=%d Sound=%d",
-              appItems.contains { $0.title == "Mac Duo" && $0.submenu != nil } ? 1 : 0,
+        NSLog("GarimeWhisper modules ready: Tangerine=%d Sound=%d",
               moduleActions.contains(#selector(menuTangerine)) ? 1 : 0,
               moduleActions.contains(#selector(menuFeedback)) ? 1 : 0)
-        macDuo.onStateChange = { [weak self] in self?.refreshMacDuoMenu() }
-        macDuo.start()
         tangerine.start()
         tangerineSelectionHotKeys.onConvert = { [weak self] in
             self?.tangerine.invokeSelection(mode: .convert)
@@ -158,7 +152,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         call.stop()
         capture.stop()
         tasksController.stop()
-        macDuo.stop()
         tangerineSelectionHotKeys.onConvert = nil
         tangerineSelectionHotKeys.onTools = nil
         tangerineSelectionHotKeys.unregister()
@@ -225,17 +218,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let selectionItem = NSMenuItem(title: "Tangerine — seleção ⌃⌥Space / ⇧⌃⌥Space e permissões…", action: #selector(menuTangerineSelection), keyEquivalent: "")
         selectionItem.target = self
         appTailItems = [selectionItem, filesItem, feedbackItem, quit]
-        refreshMacDuoMenu()
+        refreshAppMenu()
     }
 
-    private func refreshMacDuoMenu() {
-        let fresh = macDuo.menuSubmenuItem()
-        if hubMenuOpen, let duoItem {
-            duoItem.submenu = fresh.submenu
-            return
-        }
-        duoItem = fresh
-        menuController.set(.app, items: [fresh] + appTailItems)
+    private func refreshAppMenu() {
+        menuController.set(.app, items: appTailItems)
     }
 
     private func refreshMenu() {
@@ -286,13 +273,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             $0 === tangerineShortcutErrorItem || $0 === tangerineShortcutRetryItem
         }
         guard let tangerineShortcutError else {
-            refreshMacDuoMenu()
+            refreshAppMenu()
             return
         }
         tangerineShortcutErrorItem.title = tangerineShortcutError
         let insertionIndex = min(1, appTailItems.count)
         appTailItems.insert(contentsOf: [tangerineShortcutErrorItem, tangerineShortcutRetryItem], at: insertionIndex)
-        refreshMacDuoMenu()
+        refreshAppMenu()
     }
 
     @objc private func menuRetryTangerineSelectionHotKeys() {
@@ -430,14 +417,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func menuWillOpen(_ menu: NSMenu) {
         guard menu === icon.menu else { return }
-        refreshMacDuoMenu()
-        hubMenuOpen = true
         tasksController.refreshIfStale()
-    }
-
-    func menuDidClose(_ menu: NSMenu) {
-        guard menu === icon.menu else { return }
-        hubMenuOpen = false
     }
 
     private func togglePanel() {

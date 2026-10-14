@@ -15,12 +15,10 @@ enum TangerineContextualRevalidation: Equatable {
 public final class TangerineController {
     private let engine: TangerineRunning
     private let jobs: TangerineJobCenter
-    private let dashboard: TangerineDashboard
+    private let dashboard: LazyDashboard
     private let compact: TangerineCompactAction
-    private let overlay: FinderDragOverlay
     private let toast = TangerineToast()
     private let presentDashboard: () -> Void
-    private let requestGestureAccess: () -> Void
     private let submissionObserver: (([TangerineJob]) -> Void)?
     private var running = false
 
@@ -59,7 +57,6 @@ public final class TangerineController {
         engine: TangerineRunning,
         presentDashboard: (() -> Void)? = nil,
         presentCompactParameters: (([URL], TangerineOption) -> Void)? = nil,
-        requestGestureAccess: (() -> Void)? = nil,
         onSubmitted: (([TangerineJob]) -> Void)? = nil,
         selectionResolver: TangerineSelectionResolving? = nil,
         contextualPresenter: TangerineContextualPresenting? = nil,
@@ -78,13 +75,10 @@ public final class TangerineController {
         self.engine = engine
         let jobs = TangerineJobCenter(engine: engine)
         self.jobs = jobs
-        let dashboard = TangerineDashboard(jobs: jobs)
+        let dashboard = LazyDashboard(jobs: jobs)
         self.dashboard = dashboard
         compact = TangerineCompactAction(jobs: jobs, presentParameters: presentCompactParameters)
-        let overlay = FinderDragOverlay()
-        self.overlay = overlay
-        self.presentDashboard = presentDashboard ?? { dashboard.present() }
-        self.requestGestureAccess = requestGestureAccess ?? { _ = overlay.requestInputMonitoringFromUserAction() }
+        self.presentDashboard = presentDashboard ?? { dashboard.window.present() }
         submissionObserver = onSubmitted
         self.selectionResolver = selectionResolver
         makeSelectionResolver = {
@@ -125,23 +119,31 @@ public final class TangerineController {
         wire()
     }
 
+    private final class LazyDashboard {
+        private let jobs: TangerineJobCenter
+        private var loaded: TangerineDashboard?
+
+        init(jobs: TangerineJobCenter) {
+            self.jobs = jobs
+        }
+
+        var window: TangerineDashboard {
+            if let loaded { return loaded }
+            let created = TangerineDashboard(jobs: jobs)
+            loaded = created
+            return created
+        }
+
+        func closeIfLoaded() {
+            loaded?.close()
+        }
+    }
+
     private final class NoticePanelBox {
         lazy var panel = TangerineContextualNoticePanel()
     }
 
     private func wire() {
-        overlay.provideGroups = { [weak self] urls, mode in
-            guard let self else { return nil }
-            let groups = self.compact.groups(for: urls, mode: mode)
-            guard !groups.isEmpty else { return nil }
-            let headline = urls.count == 1
-                ? urls[0].lastPathComponent
-                : "\(urls.count) arquivos"
-            return (groups, headline)
-        }
-        overlay.commit = { [weak self] urls, option in
-            self?.handleFinderDrop(urls: urls, option: option)
-        }
         compact.onSubmitted = { [weak self] created in
             self?.submissionObserver?(created)
             self?.showToast(for: created)
@@ -159,14 +161,10 @@ public final class TangerineController {
         }
     }
 
-    func handleFinderDrop(urls: [URL], option: TangerineOption) {
-        compact.perform(inputs: urls, option: option)
-    }
-
     @discardableResult
     func performSelectionAction(urls: [URL], option: TangerineOption) -> Bool {
         guard !urls.isEmpty else { return false }
-        handleFinderDrop(urls: urls, option: option)
+        compact.perform(inputs: urls, option: option)
         return true
     }
 
@@ -411,7 +409,6 @@ public final class TangerineController {
     public func start() {
         guard !running else { return }
         running = true
-        overlay.start()
         activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification,
             object: nil,
@@ -426,26 +423,9 @@ public final class TangerineController {
         presentDashboard()
     }
 
-    public func showGestureSettings() {
-        let alert = NSAlert()
-        alert.alertStyle = .informational
-        alert.messageText = "Gestos de arquivo"
-        alert.informativeText = "Estado: \(overlay.status.summary).\n\nSegure ⇧ durante um arraste de arquivo; adicione ⌥ para ferramentas. A roda só aparece após receber URLs reais do arraste. Soltar no centro/vão cancela; solte ⇧ antes de continuar um arraste normal.\n\nMonitoramento de Entrada habilita observação de teclado, incluindo Esc fora do app. A permissão só é pedida ao clicar em Ativar. Depois de conceder, reabra o Whisper. A prova de arraste externo ainda depende do seu teste; não foi validada por automação."
-        alert.addButton(withTitle: "Ativar Monitoramento de Entrada")
-        alert.addButton(withTitle: "Agora não")
-        NSApp.activate(ignoringOtherApps: true)
-        handleGestureSettingsResponse(alert.runModal())
-    }
-
-    func handleGestureSettingsResponse(_ response: NSApplication.ModalResponse) {
-        guard response == .alertFirstButtonReturn else { return }
-        requestGestureAccess()
-    }
-
     public func stop() {
         guard running else { return }
         running = false
-        overlay.stop()
         if let activationObserver {
             NSWorkspace.shared.notificationCenter.removeObserver(activationObserver)
             self.activationObserver = nil
@@ -454,7 +434,7 @@ public final class TangerineController {
         toast.hide()
         compact.close()
         jobs.cancelAll()
-        dashboard.close()
+        dashboard.closeIfLoaded()
     }
 
     public var isRunning: Bool { running }

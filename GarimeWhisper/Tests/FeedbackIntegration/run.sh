@@ -20,6 +20,7 @@ swiftc \
   "$ROOT/Sources/Feedback/SoundFeedback.swift" \
   "$ROOT/Sources/Feedback/FeedbackSettings.swift" \
   "$ROOT/Sources/Sessions/CallController.swift" \
+  "$ROOT/Sources/System/PathWatcher.swift" \
   "$ROOT/Tests/FeedbackIntegration/main.swift"
 
 "$TMP/feedback-integration"
@@ -40,6 +41,7 @@ for source in \
   "$ROOT/Sources/App/AppDelegate.swift" \
   "$ROOT/Sources/Audio/Recorder.swift" \
   "$ROOT/Sources/Sessions/CallController.swift" \
+  "$ROOT/Sources/System/PathWatcher.swift" \
   "$ROOT/Sources/Sessions/MeetingController.swift" \
   "$ROOT/Sources/FileTools/UI/RadialMenuView.swift"; do
   ! grep -Eq '(^|[^:])//|/\*' "$source"

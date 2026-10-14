@@ -78,8 +78,9 @@ enum Config {
     static let meetingElapsedRefresh: TimeInterval = 60
 
     static let captureRoot = NSHomeDirectory() + "/Library/Application Support/Garime/GarimeCapture"
-    static let capturePollInterval: TimeInterval = 5
+    static let captureStaleCheckInterval: TimeInterval = 60
     static let backgroundPollTolerance: TimeInterval = 1
+    static let slowPollTolerance: TimeInterval = 10
     static let captureHeartbeatMaxAge: TimeInterval = 300
 
     static let hubDirectory = NSHomeDirectory() + "/Library/Application Support/Garime/Hub"
@@ -129,7 +130,7 @@ enum Config {
     static let recScript = NSHomeDirectory() + "/Garime/brain/skills/record/scripts/rec.sh"
     static let recStatePath = NSHomeDirectory() + "/.cache/whisper/rec.state"
     static let recPath = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
-    static let callPollInterval: TimeInterval = 5
+    static let callLivenessInterval: TimeInterval = 60
     static let callStartTimeout: TimeInterval = 30
     static let callStopTimeout: TimeInterval = 3600
 }

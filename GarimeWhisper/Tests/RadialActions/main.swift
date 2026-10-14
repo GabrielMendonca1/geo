@@ -150,7 +150,7 @@ let realController = TangerineController(
     presentDashboard: { realDashboardPresented = true },
     onSubmitted: { realSubmitted = $0 }
 )
-realController.handleFinderDrop(urls: [fixture], option: direct)
+realController.performSelectionAction(urls: [fixture], option: direct)
 check("commit radial direto cria um job real", realSubmitted.count == 1)
 check("commit radial simples não navega ao dashboard", !realDashboardPresented)
 pump(15) { realSubmitted.first?.state != .running }
@@ -170,33 +170,26 @@ var dashboardPresented = false
 var compactPresented = false
 var compactPresentedBeforeDropReturned = false
 var dropReturned = false
-var gestureAccessRequested = false
 let controller = TangerineController(
     engine: engine,
     presentDashboard: { dashboardPresented = true },
     presentCompactParameters: { _, _ in
         compactPresentedBeforeDropReturned = !dropReturned
         compactPresented = true
-    },
-    requestGestureAccess: { gestureAccessRequested = true }
+    }
 )
 
-controller.handleFinderDrop(urls: [first], option: direct)
+controller.performSelectionAction(urls: [first], option: direct)
 check("caminho simples não apresenta dashboard", !dashboardPresented)
 check("caminho simples não apresenta editor compacto", !compactPresented)
-check("permissão não é solicitada automaticamente", !gestureAccessRequested)
 
-controller.handleFinderDrop(urls: [first], option: crop)
+controller.performSelectionAction(urls: [first], option: crop)
 check("ação complexa não ativa UI antes de o drop retornar", !compactPresented && !dashboardPresented)
 dropReturned = true
 pump(0.2) { compactPresented }
 check("ação complexa apresenta somente o editor compacto", compactPresented && !dashboardPresented)
 check("editor compacto só é ativado depois do commit retornar", !compactPresentedBeforeDropReturned)
 
-controller.handleGestureSettingsResponse(.alertSecondButtonReturn)
-check("cancelar alerta não pede Input Monitoring", !gestureAccessRequested)
-controller.handleGestureSettingsResponse(.alertFirstButtonReturn)
-check("botão explícito pede Input Monitoring", gestureAccessRequested)
 controller.showSettings()
 check("dashboard permanece uma ação secundária explícita", dashboardPresented)
 
