@@ -47,6 +47,7 @@ Testes isolados, sem lançar o hub completo:
 ./Tests/SelectionHotKeys/run.sh
 ./Tests/ContextualWheel/run.sh
 ./Tests/SelectionPipeline/run.sh
+./Tests/Soak/run.sh 4        # ditado real (whisper-cli) N vezes: memória estável e 0 leaks
 ```
 
 **Cuidado operacional:** `smoke.sh` lança instâncias completas; a reconciliação de insônia pode executar pmset e registrar hooks globais. `install.sh` para o agente existente e substitui o bundle; não executar durante sessões ativas sem aprovação específica.

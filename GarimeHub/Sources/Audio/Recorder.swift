@@ -203,6 +203,11 @@ final class Recorder {
         return true
     }
 
+    func releaseStream() {
+        guard engine == nil else { return }
+        stream.reset(keepingCapacity: false)
+    }
+
     func abort() {
         if let result = stop() {
             try? FileManager.default.removeItem(at: result.url)

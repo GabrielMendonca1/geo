@@ -845,6 +845,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         decoder?.cancel()
         decoder = nil
         focusGate.release()
+        recorder.releaseStream()
     }
 
     private func handle(_ text: String) {

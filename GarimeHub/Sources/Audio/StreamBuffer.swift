@@ -47,10 +47,10 @@ final class StreamBuffer: WindowSource {
         os_unfair_lock_unlock(lock)
     }
 
-    func reset() {
+    func reset(keepingCapacity: Bool = true) {
         os_unfair_lock_lock(lock)
-        chunks.removeAll(keepingCapacity: true)
-        offsets.removeAll(keepingCapacity: true)
+        chunks.removeAll(keepingCapacity: keepingCapacity)
+        offsets.removeAll(keepingCapacity: keepingCapacity)
         count = 0
         os_unfair_lock_unlock(lock)
     }

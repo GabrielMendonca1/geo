@@ -28,16 +28,25 @@ final class SystemFocusGate: FocusGate {
         }
         anchoredPid = pid
         anchoredElement = focusedElement()
-        return anchoredElement != nil
+        if anchoredElement == nil {
+            SystemFocusGate.exposeAccessibility(of: pid)
+            anchoredElement = focusedElement()
+        }
+        return true
     }
 
     func stillFocused() -> Bool {
-        guard let anchoredPid, let anchoredElement else { return false }
+        guard let anchoredPid else { return false }
         guard NSWorkspace.shared.frontmostApplication?.processIdentifier == anchoredPid else {
             return false
         }
-        guard let current = focusedElement() else { return false }
+        guard let anchoredElement, let current = focusedElement() else { return true }
         return CFEqual(current, anchoredElement)
+    }
+
+    static func exposeAccessibility(of pid: pid_t) {
+        let application = AXUIElementCreateApplication(pid)
+        AXUIElementSetAttributeValue(application, "AXManualAccessibility" as CFString, kCFBooleanTrue)
     }
 
     func release() {
