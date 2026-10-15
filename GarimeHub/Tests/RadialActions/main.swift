@@ -108,9 +108,9 @@ let action = FilesCompactAction(jobs: center) { _, _ in parameterPresentations +
 action.onSubmitted = { submitted = $0 }
 
 var selectionSounds = 0
-let oldSound = RadialMenuView.playSelectionFeedback
-RadialMenuView.playSelectionFeedback = { selectionSounds += 1 }
-defer { RadialMenuView.playSelectionFeedback = oldSound }
+let oldSound = FloatingRadialView.playSelectionFeedback
+FloatingRadialView.playSelectionFeedback = { selectionSounds += 1 }
+defer { FloatingRadialView.playSelectionFeedback = oldSound }
 
 let result = action.perform(inputs: [second, first], option: direct)
 check("ação simples é enviada diretamente", result == .submitted(2))
@@ -144,15 +144,12 @@ try makeMetadataPNGFixture(at: fixture)
 check("fixture PNG é decodificável e contém metadata", imageProperties(fixture) != nil && pngAuthor(fixture) == "Garime RadialActions")
 
 var realSubmitted: [FilesJob] = []
-var realDashboardPresented = false
 let realController = FilesController(
     engine: FileToolsBridge(),
-    presentDashboard: { realDashboardPresented = true },
     onSubmitted: { realSubmitted = $0 }
 )
 realController.performSelectionAction(urls: [fixture], option: direct)
 check("commit radial direto cria um job real", realSubmitted.count == 1)
-check("commit radial simples não navega ao dashboard", !realDashboardPresented)
 pump(15) { realSubmitted.first?.state != .running }
 let realJob = realSubmitted.first
 check("FileToolsBridge conclui o job", realJob?.state == .done, realJob?.message ?? "sem job")
@@ -166,13 +163,11 @@ check("saída continua sendo PNG válido 32×20",
 check("ação real remove a metadata da fixture", output.flatMap(pngAuthor) == nil, String(describing: output.flatMap(pngAuthor)))
 
 print("\n== integração do controller: superfícies e permissão explícita ==")
-var dashboardPresented = false
 var compactPresented = false
 var compactPresentedBeforeDropReturned = false
 var dropReturned = false
 let controller = FilesController(
     engine: engine,
-    presentDashboard: { dashboardPresented = true },
     presentCompactParameters: { _, _ in
         compactPresentedBeforeDropReturned = !dropReturned
         compactPresented = true
@@ -180,18 +175,16 @@ let controller = FilesController(
 )
 
 controller.performSelectionAction(urls: [first], option: direct)
-check("caminho simples não apresenta dashboard", !dashboardPresented)
 check("caminho simples não apresenta editor compacto", !compactPresented)
 
 controller.performSelectionAction(urls: [first], option: crop)
-check("ação complexa não ativa UI antes de o drop retornar", !compactPresented && !dashboardPresented)
+check("ação complexa não ativa UI antes de o drop retornar", !compactPresented)
 dropReturned = true
 pump(0.2) { compactPresented }
-check("ação complexa apresenta somente o editor compacto", compactPresented && !dashboardPresented)
+check("ação complexa apresenta somente o editor compacto", compactPresented)
 check("editor compacto só é ativado depois do commit retornar", !compactPresentedBeforeDropReturned)
 
-controller.showSettings()
-check("dashboard permanece uma ação secundária explícita", dashboardPresented)
+check("o painel utilitário não existe mais", !FileManager.default.fileExists(atPath: "Sources/FileTools/UI/FilesDashboard.swift"))
 
 if failures == 0 {
     print("\n\(checks)/\(checks) checks passaram")

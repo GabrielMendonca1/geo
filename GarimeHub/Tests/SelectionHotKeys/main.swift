@@ -61,8 +61,7 @@ check("convert action invokes selection convert mode", appSource.contains("files
 check("tools action invokes selection tools mode", appSource.contains("files.invokeSelection(mode: .tools)"))
 check("primary Arquivos menu explains selection shortcuts and permissions", appSource.contains("Arquivos — seleção ⌃⌥Space / ⇧⌃⌥Space e permissões…") && appSource.contains("files.showSelectionSettings()"))
 let selectionMenuRange = appSource.range(of: "selectionItem = NSMenuItem")
-let tailOrderRange = appSource.range(of: "appTailItems = [selectionItem, filesItem")
-check("utility dashboard remains secondary", selectionMenuRange != nil && tailOrderRange != nil)
+check("selection menu exists and the utility dashboard is gone", selectionMenuRange != nil && !appSource.contains("painel utilitário"))
 check("dictation remains Option+Space", dictationSource.contains("UInt32(kVK_Space)") && dictationSource.contains("UInt32(optionKey)"))
 
 print("\npasses: \(checks - failures)  failures: \(failures)")

@@ -65,8 +65,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var appTailItems: [NSMenuItem] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        RadialMenuView.playSectorChangedFeedback = { [weak self] in self?.playFeedback(.sectorChanged) }
-        RadialMenuView.playSelectionFeedback = { [weak self] in self?.playFeedback(.selection) }
         FloatingRadialView.installFeedback(
             sectorChanged: { [weak self] in self?.playFeedback(.sectorChanged) },
             selection: { [weak self] in self?.playFeedback(.selection) }
@@ -76,11 +74,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         FilesJobCenter.playErrorFeedback = { [weak self] in self?.playFeedback(.error) }
         icon = StatusIcon()
         buildMenu()
-        let appItems = menuController.items(in: .app)
-        let moduleActions = appItems.compactMap(\.action)
-        NSLog("GarimeHub modules ready: Files=%d Sound=%d",
-              moduleActions.contains(#selector(menuFiles)) ? 1 : 0,
-              moduleActions.contains(#selector(menuFeedback)) ? 1 : 0)
         files.start()
         filesSelectionHotKeys.onConvert = { [weak self] in
             self?.files.invokeSelection(mode: .convert)
@@ -150,8 +143,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         filesSelectionHotKeys.onTools = nil
         filesSelectionHotKeys.unregister()
         files.stop()
-        RadialMenuView.playSectorChangedFeedback = nil
-        RadialMenuView.playSelectionFeedback = nil
         FloatingRadialView.installFeedback(sectorChanged: nil, selection: nil)
         FilesJobCenter.playCompletedFeedback = nil
         FilesJobCenter.playCancelledFeedback = nil
@@ -205,13 +196,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menuController.set(.meeting, items: [meetingToggleItem, meetingStatusItem, callToggleItem, callStatusItem])
         menuController.set(.insomnia, items: [insomniaItem])
         menuController.set(.personalTasks, items: [notesItem, refreshItem])
-        let filesItem = NSMenuItem(title: "Arquivos — painel utilitário…", action: #selector(menuFiles), keyEquivalent: "")
-        filesItem.target = self
         let feedbackItem = NSMenuItem(title: "Sons…", action: #selector(menuFeedback), keyEquivalent: "")
         feedbackItem.target = self
         let selectionItem = NSMenuItem(title: "Arquivos — seleção ⌃⌥Space / ⇧⌃⌥Space e permissões…", action: #selector(menuFilesSelection), keyEquivalent: "")
         selectionItem.target = self
-        appTailItems = [selectionItem, filesItem, feedbackItem, quit]
+        appTailItems = [selectionItem, feedbackItem, quit]
         refreshAppMenu()
     }
 
@@ -280,7 +269,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         registerFilesSelectionHotKeys()
     }
 
-    @objc private func menuFiles() { files.showSettings() }
     @objc private func menuFilesSelection() { files.showSelectionSettings() }
     @objc private func menuFeedback() { SoundFeedback.shared.showSettings() }
     @objc private func menuToggle() { toggle() }

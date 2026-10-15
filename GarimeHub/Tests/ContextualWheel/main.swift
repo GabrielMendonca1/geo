@@ -370,7 +370,6 @@ final class FakePresenter: FilesContextualPresenting {
     }
 }
 
-var dashboardCalls = 0
 var notices: [FilesContextualNotice] = []
 var noticeGrants: [(() -> Void)?] = []
 var grants: [FilesContextualNotice.Remedy] = []
@@ -389,7 +388,6 @@ func makeController(
 ) -> FilesController {
     FilesController(
         engine: engine,
-        presentDashboard: { dashboardCalls += 1 },
         onSubmitted: { submitted.append($0) },
         selectionResolver: resolver,
         contextualPresenter: presenter,
@@ -445,7 +443,6 @@ successResolver.queued = [resolution(source: finderSource, selected: [png, jpg],
 successController.invokeSelection(mode: .convert)
 check("invocação apresenta a roda uma vez", successPresenter.presented.count == 1)
 check("apresenta só selectedURLs", successPresenter.presented.first?.urls == [png, jpg])
-check("nunca abre o painel de ajustes", dashboardCalls == 0)
 check("sucesso não emite erro", notices.isEmpty)
 check("modo convert chega à roda", successPresenter.presented.first?.mode == .convert)
 check("modo tools é respeitado", {
@@ -464,7 +461,6 @@ if let sessionID {
 pump(seconds: 0.4) { !submitted.isEmpty }
 check("commit válido cria trabalho real", submitted.count == 1)
 check("commit devolve foco à origem quando o painel estava à frente", activations == [300])
-check("commit não abre o painel de ajustes", dashboardCalls == 0)
 
 let docResolver = FakeResolver()
 let docPresenter = FakePresenter()
@@ -811,7 +807,6 @@ settingsController.handleSelectionSettingsResponse(.alertFirstButtonReturn)
 settingsController.handleSelectionSettingsResponse(.alertSecondButtonReturn)
 check("botões dos ajustes pedem TCC por ação explícita",
       grants == [.automation("com.apple.finder"), .accessibility])
-check("ajustes de seleção não abrem o dashboard", dashboardCalls == 0)
 
 let sources = (try? FileManager.default.contentsOfDirectory(atPath: uiSources)) ?? []
 let contextualSources = sources.filter { $0.hasPrefix("FilesContextual") }

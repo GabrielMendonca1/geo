@@ -33,17 +33,17 @@ grep -q 'preflightFeedback: (() -> Bool)?' "$ROOT/Sources/Sessions/MeetingContro
 grep -q 'meeting.preflightFeedback.*call.preflightFeedback()' "$ROOT/Sources/App/AppDelegate.swift"
 grep -q 'let probe = RecProbe.read(path: Config.recStatePath)' "$ROOT/Sources/Sessions/CallController.swift"
 grep -q 'reportedNothing' "$ROOT/Sources/Sessions/CallController.swift"
-grep -q 'RadialMenuView.playSectorChangedFeedback = { \[weak self\] in self?.playFeedback(.sectorChanged) }' "$ROOT/Sources/App/AppDelegate.swift"
-grep -q 'RadialMenuView.playSelectionFeedback = { \[weak self\] in self?.playFeedback(.selection) }' "$ROOT/Sources/App/AppDelegate.swift"
-grep -q 'Self.playSectorChangedFeedback?()' "$ROOT/Sources/FileTools/UI/RadialMenuView.swift"
-grep -q 'Self.playSelectionFeedback?()' "$ROOT/Sources/FileTools/UI/RadialMenuView.swift"
+grep -q 'sectorChanged: { \[weak self\] in self?.playFeedback(.sectorChanged) }' "$ROOT/Sources/App/AppDelegate.swift"
+grep -q 'selection: { \[weak self\] in self?.playFeedback(.selection) }' "$ROOT/Sources/App/AppDelegate.swift"
+grep -q 'Self.playSectorChangedFeedback?()' "$ROOT/Sources/FileTools/UI/FloatingRadialView.swift"
+grep -q 'Self.playSelectionFeedback?()' "$ROOT/Sources/FileTools/UI/FloatingRadialView.swift"
 for source in \
   "$ROOT/Sources/App/AppDelegate.swift" \
   "$ROOT/Sources/Audio/Recorder.swift" \
   "$ROOT/Sources/Sessions/CallController.swift" \
   "$ROOT/Sources/System/PathWatcher.swift" \
   "$ROOT/Sources/Sessions/MeetingController.swift" \
-  "$ROOT/Sources/FileTools/UI/RadialMenuView.swift"; do
+  "$ROOT/Sources/FileTools/UI/FloatingRadialView.swift"; do
   ! grep -Eq '(^|[^:])//|/\*' "$source"
 done
 echo "feedback wiring checks passed"

@@ -71,7 +71,7 @@ final class FilesCompactAction {
         }
         let created = jobs.submit(inputs: inputs, option: option, values: [:])
         guard !created.isEmpty else { return .rejected }
-        RadialMenuView.playSelectionFeedback?()
+        FloatingRadialView.playSelectionFeedback?()
         onSubmitted?(created)
         return .submitted(created.count)
     }
@@ -244,7 +244,7 @@ private final class FilesCompactPanel: NSObject, NSWindowDelegate {
             }
             let created = jobs.submit(inputs: inputs, option: option, values: values)
             guard !created.isEmpty else { return }
-            RadialMenuView.playSelectionFeedback?()
+            FloatingRadialView.playSelectionFeedback?()
             onSubmitted(created)
             close()
         }

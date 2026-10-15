@@ -272,158 +272,13 @@ pump(seconds: 2.0) { abortJob.state != .running }
 check("cancelamento sem saída continua cancelado", abortJob.state == .cancelled, String(describing: abortJob.state))
 check("cancelado não inventa saída", abortJob.outputs.isEmpty)
 
-let wheel = RadialMenuView(frame: NSRect(x: 0, y: 0, width: RadialMenuView.side(scale: 0.72), height: RadialMenuView.side(scale: 0.72)))
-wheel.scale = 0.72
-wheel.groups = FilesCatalog.toolGroups(category: .video)
-wheel.selection = RadialMenuView.Selection(group: 0, option: 0)
-let rendered = wheel.bitmapImageRepForCachingDisplay(in: wheel.bounds)
-if let rendered {
-    wheel.cacheDisplay(in: wheel.bounds, to: rendered)
-}
-check("roda renderiza sem estourar os limites", rendered != nil)
-
-let cueWheel = RadialMenuView(frame: NSRect(x: 0, y: 0, width: RadialMenuView.side(scale: 1), height: RadialMenuView.side(scale: 1)))
-cueWheel.groups = FilesCatalog.convertGroups(category: .video, sourceExtension: "mp4", capability: bridge.capability(for: mp4))
-cueWheel.selection = RadialMenuView.Selection(group: 0, option: 0)
-var sectorCues = 0
-var selectionCues = 0
-let savedSector = RadialMenuView.playSectorChangedFeedback
-let savedSelection = RadialMenuView.playSelectionFeedback
-RadialMenuView.playSectorChangedFeedback = { sectorCues += 1 }
-RadialMenuView.playSelectionFeedback = { selectionCues += 1 }
-cueWheel.moveOption(1)
-check("mudar de setor toca o cue ambiente uma vez", sectorCues == 1, String(sectorCues))
-cueWheel.moveOption(0)
-check("ficar no mesmo setor não toca nada", sectorCues == 1, String(sectorCues))
-cueWheel.commit()
-check("confirmar toca o cue de seleção", selectionCues == 1, String(selectionCues))
 check("os cues do anel existem no catálogo de feedback",
       FeedbackCue(rawValue: "sectorChanged") != nil && FeedbackCue(rawValue: "selection") != nil)
 check("tick de navegação é ambiente e confirmação não é alarme",
       FeedbackCue.sectorChanged.priority == .ambient && FeedbackCue.selection.priority == .lifecycle,
       "\(FeedbackCue.sectorChanged.priority) \(FeedbackCue.selection.priority)")
-let appDelegateText = (try? String(contentsOfFile: appDelegateSource, encoding: .utf8)) ?? ""
-func wiresHook(_ hook: String, _ cue: String) -> Bool {
-    appDelegateText.split(separator: "\n").contains {
-        $0.contains("\(hook) =") && $0.contains(".\(cue)")
-    }
-}
-check("AppDelegate continua ligando os dois ganchos de som",
-      wiresHook("RadialMenuView.playSectorChangedFeedback", "sectorChanged")
-        && wiresHook("RadialMenuView.playSelectionFeedback", "selection"),
-      appDelegateSource)
-RadialMenuView.playSectorChangedFeedback = savedSector
-RadialMenuView.playSelectionFeedback = savedSelection
-check("ganchos voltam ao estado anterior",
-      RadialMenuView.playSectorChangedFeedback == nil && RadialMenuView.playSelectionFeedback == nil)
-
-func innerOverflow(scale: CGFloat, groups: [FilesGroup]) -> [String] {
-    let side = RadialMenuView.side(scale: scale)
-    let view = RadialMenuView(frame: NSRect(x: 0, y: 0, width: side, height: side))
-    view.scale = scale
-    view.groups = groups
-    return view.innerLabelOverflow()
-}
-
-let wheelCases: [(String, FilesCategory)] = [
-    ("vídeo", .video), ("imagens", .images), ("áudio", .audio),
-    ("documentos", .documents), ("arquivos", .archives),
-]
-for scale in [0.72, 1.0] as [CGFloat] {
-    for (name, category) in wheelCases {
-        let tools = innerOverflow(scale: scale, groups: FilesCatalog.toolGroups(category: category))
-        let convert = innerOverflow(
-            scale: scale,
-            groups: FilesCatalog.convertGroups(category: category, sourceExtension: "", capability: .unknown)
-        )
-        check("rótulo do anel interno cabe na faixa · \(name) · escala \(scale)",
-              tools.isEmpty && convert.isEmpty, (tools + convert).description)
-    }
-    for url in [png, gif, mp4, wav, pdf, tar] {
-        let real = innerOverflow(
-            scale: scale,
-            groups: FilesCatalog.convertGroups(
-                category: FilesCategory.of(url) ?? .documents,
-                sourceExtension: url.pathExtension,
-                capability: bridge.capability(for: url)
-            )
-        )
-        check("rótulo cabe na roda real do backend · \(url.lastPathComponent) · escala \(scale)",
-              real.isEmpty, real.description)
-    }
-}
-
-final class ShotlessEngine: FilesRunning {
-    private let realBridge = FileToolsBridge()
-    func capability(for url: URL) -> FilesCapability { realBridge.capability(for: url) }
-    func run(input: URL, option: FilesOption, values: [String: FilesValue], outputDirectory: URL?) async throws -> FilesOutcome {
-        FilesOutcome(outputs: [], message: nil)
-    }
-}
-
-check("cartão do painel é branco de verdade", FilesCard(frame: NSRect(x: 0, y: 0, width: 10, height: 10)).backgroundIsWhite)
-
 _ = NSApplication.shared
 NSApp.setActivationPolicy(.prohibited)
-
-let dashboard = FilesDashboard(jobs: FilesJobCenter(engine: ShotlessEngine()))
-let photo = fixture("foto.heic")
-let pngOption = FilesOption(kind: "convert", format: "png", title: "PNG", detail: "sem perdas")
-dashboard.load(inputs: [photo], option: pngOption, mode: .convert)
-
-let convertWheel = dashboard.wheel(for: .convert)
-let toolsWheel = dashboard.wheel(for: .tools)
-check("as duas rodas ficam montadas ao mesmo tempo",
-      !convertWheel.groups.isEmpty && !toolsWheel.groups.isEmpty,
-      "convert=\(convertWheel.groups.count) tools=\(toolsWheel.groups.count)")
-check("roda da esquerda é a de conversão (Shift)", convertWheel.mode == .convert)
-check("roda da direita é a de ferramentas (Shift+Option)", toolsWheel.mode == .tools)
-check("escolha do usuário marca só a roda ativa",
-      convertWheel.currentOption?.format == "png" && toolsWheel.currentOption == nil,
-      "\(String(describing: convertWheel.currentOption?.id)) / \(String(describing: toolsWheel.currentOption?.id))")
-check("roda inativa fica apagada, sem laranja", !convertWheel.dimmed && toolsWheel.dimmed)
-check("cartão ativo é o da roda escolhida",
-      dashboard.card(for: .convert).active && !dashboard.card(for: .tools).active)
-check("os dois cartões das rodas são brancos",
-      dashboard.card(for: .convert).backgroundIsWhite && dashboard.card(for: .tools).backgroundIsWhite)
-
-for (w, h) in [(FilesDashboard.minimumWidth, FilesDashboard.minimumHeight), (1180, 840), (1600, 1020)] as [(CGFloat, CGFloat)] {
-    dashboard.resizeForTests(width: w, height: h)
-    let left = dashboard.card(for: .convert)
-    let right = dashboard.card(for: .tools)
-    check("rodas lado a lado sem sobreposição · \(Int(w))x\(Int(h))",
-          left.frame.maxX <= right.frame.minX && abs(left.frame.width - right.frame.width) < 0.5,
-          "\(left.frame) \(right.frame)")
-    check("cartões das rodas cabem na janela · \(Int(w))x\(Int(h))",
-          right.frame.maxX <= w - 20 && right.frame.maxY <= h,
-          right.frame.debugDescription)
-    for mode in [FilesMode.convert, .tools] {
-        let card = dashboard.card(for: mode)
-        let wheelView = dashboard.wheel(for: mode)
-        check("roda \(mode.title) dentro do cartão · \(Int(w))x\(Int(h))",
-              card.bounds.insetBy(dx: -0.5, dy: -0.5).contains(wheelView.frame),
-              "\(wheelView.frame) em \(card.bounds)")
-        check("escala responsiva mantém rótulos inteiros · \(mode.title) · \(Int(w))x\(Int(h))",
-              wheelView.innerLabelOverflow().isEmpty,
-              wheelView.innerLabelOverflow().description)
-    }
-}
-
-dashboard.resizeForTests(width: 1180, height: 840)
-for category in FilesCategory.allCases {
-    for mode in [FilesMode.convert, .tools] {
-        let scale = dashboard.wheelScale(for: dashboard.card(for: mode))
-        let side = RadialMenuView.side(scale: scale)
-        let probe = RadialMenuView(frame: NSRect(x: 0, y: 0, width: side, height: side))
-        probe.scale = scale
-        probe.groups = mode == .convert
-            ? FilesCatalog.convertGroups(category: category, sourceExtension: "", capability: .unknown)
-            : FilesCatalog.toolGroups(category: category, capability: .unknown)
-        check("rótulo cabe na escala do painel · \(category.title) · \(mode.title)",
-              probe.innerLabelOverflow().isEmpty,
-              probe.innerLabelOverflow().description)
-    }
-}
 
 // MARK: - combinação multi-entrada (merge / collage) contra o backend real
 
@@ -512,11 +367,6 @@ check("PDF oferece juntar mas não colagem", pdfBatchIDs == ["merge:pdf"], pdfBa
 check("imagem + PDF continua podendo juntar",
       realBridge.batchKinds(for: [photoA, docA]) == ["merge"],
       String(describing: realBridge.batchKinds(for: [photoA, docA])))
-let mixedDocDashboard = FilesDashboard(jobs: FilesJobCenter(engine: realBridge))
-mixedDocDashboard.load(inputs: [photoA, docA], option: FilesCatalog.mergeOption(format: "pdf"), mode: .tools)
-check("painel acha Juntar PDF para imagem + PDF",
-      mixedDocDashboard.wheel(for: .tools).currentOption?.id == "merge:pdf",
-      String(describing: mixedDocDashboard.wheel(for: .tools).currentOption?.id))
 
 check("todo formato de Combinar existe no backend",
       (FilesCatalog.mergeTargets.values.flatMap { $0 } + FilesCatalog.collageTargets)
@@ -744,75 +594,6 @@ if case .failure = badCollage {
     check("backend recusa colunas impossíveis", false, "aceitou colunas > imagens")
 }
 
-// parâmetros ricos e ordem no painel
-let orderDashboard = FilesDashboard(jobs: FilesJobCenter(engine: realBridge))
-orderDashboard.load(inputs: [photoA, photoB, png], option: FilesOption(kind: "convert", format: "jpg", title: "JPG"), mode: .convert)
-check("painel guarda a ordem recebida",
-      orderDashboard.orderedInputs.map(\.lastPathComponent) == [photoA, photoB, png].map(\.lastPathComponent))
-check("mover para cima troca vizinhos", orderDashboard.moveInput(from: 1, by: -1))
-check("ordem depois de mover",
-      orderDashboard.orderedInputs.map(\.lastPathComponent) == [photoB, photoA, png].map(\.lastPathComponent),
-      orderDashboard.orderedInputs.map(\.lastPathComponent).description)
-check("não move além da borda", !orderDashboard.moveInput(from: 0, by: -1) && !orderDashboard.moveInput(from: 2, by: 1))
-check("remover tira exatamente um", orderDashboard.removeInput(at: 2) && orderDashboard.orderedInputs.count == 2)
-check("remover fora da lista não faz nada", !orderDashboard.removeInput(at: 7))
-
-let batchDashboard = FilesDashboard(jobs: FilesJobCenter(engine: spy))
-batchDashboard.load(inputs: [photoA, photoB], option: FilesCatalog.collageOption(format: "png"), mode: .tools)
-check("painel encontra a colagem na roda de ferramentas",
-      batchDashboard.wheel(for: .tools).currentOption?.id == "collage:png",
-      String(describing: batchDashboard.wheel(for: .tools).currentOption?.id))
-check("colagem mostra os sete ajustes reais",
-      batchDashboard.wheel(for: .tools).currentOption?.params.map(\.id) == ["layout", "columns", "spacing", "margin", "width", "fit", "background"],
-      String(describing: batchDashboard.wheel(for: .tools).currentOption?.params.map(\.id)))
-let before = spy.batchCalls.count
-check("aplicar colagem envia um único trabalho", batchDashboard.runSelection())
-pump(seconds: 1.0) { spy.batchCalls.count > before }
-check("painel enviou pelo caminho multi-entrada", spy.batchCalls.count == before + 1, spy.batchCalls.count.description)
-check("painel enviou as duas imagens juntas",
-      spy.batchCalls.last?.count == 2,
-      String(describing: spy.batchCalls.last?.count))
-check("cor inválida vira quadradinho vazio, não cor falsa", FilesDashboard.color(from: "laranja") == nil)
-check("cor válida vira quadradinho de verdade", FilesDashboard.color(from: "#ff0000") != nil)
-
-// parâmetros de conflito: a roda de combinação some quando o arquivo é um só
-let soloDashboard = FilesDashboard(jobs: FilesJobCenter(engine: realBridge))
-soloDashboard.load(inputs: [photoA], option: FilesOption(kind: "compress", title: "Comprimir"), mode: .tools)
-check("um arquivo só não mostra Combinar",
-      !soloDashboard.wheel(for: .tools).groups.contains { $0.title == "Combinar" },
-      soloDashboard.wheel(for: .tools).groups.map(\.title).description)
-
-// várias entradas do mesmo tipo não oferecem o próprio tipo
-let sameTypeDashboard = FilesDashboard(jobs: FilesJobCenter(engine: realBridge))
-sameTypeDashboard.load(inputs: [photoA, photoB], option: FilesOption(kind: "compress", title: "Comprimir"), mode: .tools)
-let sameTypeFormats = Set(sameTypeDashboard.wheel(for: .convert).groups.flatMap(\.options).compactMap(\.format))
-check("duas PNGs não oferecem converter para PNG", !sameTypeFormats.contains("png"), sameTypeFormats.sorted().description)
-check("duas PNGs ainda oferecem os outros destinos", sameTypeFormats.contains("jpg") && sameTypeFormats.contains("tiff"))
-let mixedDashboard = FilesDashboard(jobs: FilesJobCenter(engine: realBridge))
-mixedDashboard.load(inputs: [photoA, gif], option: FilesOption(kind: "compress", title: "Comprimir"), mode: .tools)
-let mixedTypeFormats = Set(mixedDashboard.wheel(for: .convert).groups.flatMap(\.options).compactMap(\.format))
-check("tipos diferentes na mesma família mantêm os dois destinos",
-      mixedTypeFormats.contains("png") && mixedTypeFormats.contains("jpg"),
-      mixedTypeFormats.sorted().description)
-
-// contador honesto de cobertura
-let coverDashboard = FilesDashboard(jobs: FilesJobCenter(engine: realBridge))
-check("sem arquivos o contador não promete nada",
-      coverDashboard.coverageSummary == "escolha arquivos para ver o que dá",
-      coverDashboard.coverageSummary)
-coverDashboard.load(inputs: [photoA, photoB], option: FilesOption(kind: "compress", title: "Comprimir"), mode: .tools)
-let coverText = coverDashboard.coverageSummary
-let coverConversions = coverDashboard.wheel(for: .convert).groups.flatMap(\.options).count
-let coverCombos = coverDashboard.wheel(for: .tools).groups.flatMap(\.options).filter(\.isBatch).count
-check("contador reflete as rodas montadas",
-      coverText.hasPrefix("\(coverConversions) conversões") && coverText.contains("\(coverCombos) combinações"),
-      coverText)
-check("contador não inventa as 82 do site", !coverText.contains("82"), coverText)
-check("contador conta conversões reais do backend",
-      coverConversions == Set(backend.capabilities(for: photoA).conversionTargets.map(\.rawValue))
-        .subtracting(["png"]).count,
-      "\(coverConversions)")
-
 // paridade catalogo x backend, incluindo TXT
 let txt = fixture("nota.txt")
 check("TXT é documento na UI", FilesCategory.of(txt) == .documents)
@@ -849,41 +630,6 @@ check("inteiro infinito é recusado", integerParam.parse("1e400") == .problem("Q
 check("nan é recusado", secondsParam.parse("nan") == .problem("Início: número inválido"),
       String(describing: secondsParam.parse("nan")))
 
-final class KeySpyEngine: FilesRunning {
-    private let realBridge = FileToolsBridge()
-    var runs = 0
-    func capability(for url: URL) -> FilesCapability { realBridge.capability(for: url) }
-    func run(input: URL, option: FilesOption, values: [String: FilesValue], outputDirectory: URL?) async throws -> FilesOutcome {
-        runs += 1
-        return FilesOutcome(outputs: [input], message: nil)
-    }
-}
-
-let keyEngine = KeySpyEngine()
-let keyDashboard = FilesDashboard(jobs: FilesJobCenter(engine: keyEngine))
-keyDashboard.load(inputs: [photoA], option: FilesOption(kind: "convert", format: "jpg", title: "JPG"), mode: .convert)
-var keySelectionCues = 0
-RadialMenuView.playSelectionFeedback = { keySelectionCues += 1 }
-let returnEvent = NSEvent.keyEvent(
-    with: .keyDown,
-    location: .zero,
-    modifierFlags: [],
-    timestamp: 0,
-    windowNumber: 0,
-    context: nil,
-    characters: "\r",
-    charactersIgnoringModifiers: "\r",
-    isARepeat: false,
-    keyCode: 36
-)
-check("evento de Enter foi criado", returnEvent != nil)
-if let returnEvent {
-    keyDashboard.rootView.keyDown(with: returnEvent)
-}
-check("Enter toca o cue de confirmação uma vez", keySelectionCues == 1, String(keySelectionCues))
-pump(seconds: 2.0) { keyEngine.runs > 0 }
-check("Enter envia exatamente um trabalho", keyEngine.runs == 1, String(keyEngine.runs))
-RadialMenuView.playSelectionFeedback = nil
 
 var completedCues = 0
 var errorCues = 0
@@ -919,6 +665,15 @@ check("cancelamento toca o cue de cancelado", cancelledCues == 1 && cancelJob.st
       "\(cancelledCues) \(String(describing: cancelJob.state))")
 check("cancelamento não toca conclusão extra", completedCues == 1, String(completedCues))
 
+let appDelegateText = (try? String(contentsOfFile: appDelegateSource, encoding: .utf8)) ?? ""
+func wiresHook(_ hook: String, _ cue: String) -> Bool {
+    appDelegateText.split(separator: "\n").contains {
+        $0.contains("\(hook) =") && $0.contains(".\(cue)")
+    }
+}
+check("AppDelegate liga os ganchos de som da roda",
+      appDelegateText.contains("sectorChanged: { [weak self] in self?.playFeedback(.sectorChanged) }")
+        && appDelegateText.contains("selection: { [weak self] in self?.playFeedback(.selection) }"))
 check("AppDelegate liga os ganchos de som dos trabalhos",
       wiresHook("FilesJobCenter.playCompletedFeedback", "completed")
         && wiresHook("FilesJobCenter.playCancelledFeedback", "cancelled")

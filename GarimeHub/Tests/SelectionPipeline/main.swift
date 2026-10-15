@@ -134,12 +134,10 @@ print("== seleção contextual → escolha capturada → backend real ==")
 let successPresenter = CapturingPresenter()
 let successAX = NeverUsedAccessibility()
 let selected = RawFileSelection(selectedURLs: [input], documentURL: nil)
-var dashboardCalls = 0
 var compactCalls = 0
 var submitted: [FilesJob] = []
 let successController = FilesController(
     engine: FileToolsBridge(), // production default bridge; owns a real FileToolsBackend
-    presentDashboard: { dashboardCalls += 1 },
     presentCompactParameters: { _, _ in compactCalls += 1 },
     onSubmitted: { submitted = $0 },
     selectionResolver: resolver(source: source, results: [selected, selected], accessibility: successAX),
@@ -175,7 +173,7 @@ check("saída tem conteúdo de imagem válido 37×23", output.flatMap(dimensions
 check("original permanece byte a byte inalterado", (try? Data(contentsOf: input)) == originalData)
 let attributesAfter = try fm.attributesOfItem(atPath: input.path)
 check("original não foi substituído", originalAttributes[.systemFileNumber] as? NSNumber == attributesAfter[.systemFileNumber] as? NSNumber)
-check("pipeline não abre dashboard nem import/drag", dashboardCalls == 0 && compactCalls == 0)
+check("pipeline não abre import/drag", compactCalls == 0)
 
 print("\n== revalidação estrita recusa seleção trocada ==")
 let mismatchRoot = root.appendingPathComponent("mismatch", isDirectory: true)
@@ -190,7 +188,6 @@ var mismatchJobs: [FilesJob] = []
 var mismatchNotices: [FilesContextualNotice] = []
 let mismatchController = FilesController(
     engine: FileToolsBridge(),
-    presentDashboard: { dashboardCalls += 1 },
     onSubmitted: { mismatchJobs = $0 },
     selectionResolver: resolver(
         source: source,
@@ -230,7 +227,7 @@ let hotkeySource = try String(
 check("ditado continua em Option+Space",
       hotkeySource.contains("UInt32(kVK_Space)") && hotkeySource.contains("UInt32(optionKey)"))
 check("teste não usa Finder/TCC/painel/drag/import reais",
-      dashboardCalls == 0 && compactCalls == 0)
+      compactCalls == 0)
 
 print("\npasses: \(checks - failures)  failures: \(failures)")
 exit(failures == 0 ? 0 : 1)

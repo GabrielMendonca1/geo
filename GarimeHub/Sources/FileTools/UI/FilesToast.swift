@@ -11,7 +11,6 @@ final class FilesToast {
 
     private var batch: [FilesJob] = []
     private var onCancel: (([FilesJob]) -> Void)?
-    private var onOpenPanel: (() -> Void)?
 
     init() {
         panel = NSPanel(
@@ -48,13 +47,11 @@ final class FilesToast {
 
     func show(
         jobs: [FilesJob],
-        onCancel: @escaping ([FilesJob]) -> Void,
-        onOpenPanel: @escaping () -> Void
+        onCancel: @escaping ([FilesJob]) -> Void
     ) {
         guard !jobs.isEmpty else { return }
         batch = jobs
         self.onCancel = onCancel
-        self.onOpenPanel = onOpenPanel
         refresh()
         position()
         panel.orderFrontRegardless()
@@ -110,8 +107,9 @@ final class FilesToast {
         if state.failed {
             actionPill.isHidden = false
             actionPill.selected = false
-            actionPill.title = "Ver painel"
-            actionPill.action = { [weak self] in self?.onOpenPanel?() }
+            actionPill.title = "Detalhes"
+            let failures = batch.filter { $0.state == .failed }.map { "\($0.title): \($0.subtitle)" }
+            actionPill.action = { [weak self] in self?.showFailures(failures) }
             scheduleHide(after: 12)
         } else {
             let outputs = batch.flatMap { $0.outputs }
@@ -147,6 +145,22 @@ final class FilesToast {
     private func cancelHide() {
         hideWork?.cancel()
         hideWork = nil
+    }
+
+    private func showFailures(_ failures: [String]) {
+        cancelHide()
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = failures.count == 1 ? "A ação falhou" : "\(failures.count) arquivos falharam"
+        alert.informativeText = failures.joined(separator: "\n")
+        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: "Copiar")
+        NSApp.activate(ignoringOtherApps: true)
+        if alert.runModal() == .alertSecondButtonReturn {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(failures.joined(separator: "\n"), forType: .string)
+        }
+        hide()
     }
 
     func hide() {

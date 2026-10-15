@@ -67,58 +67,6 @@ final class FilesCard: NSView {
     }
 }
 
-final class FilesKeycaps: NSView {
-    var caps: [String] { didSet { needsDisplay = true } }
-
-    override var isFlipped: Bool { true }
-
-    init(caps: [String]) {
-        self.caps = caps
-        super.init(frame: .zero)
-    }
-
-    required init?(coder: NSCoder) { nil }
-
-    private var font: NSFont { NSFont.systemFont(ofSize: 10, weight: .semibold) }
-
-    private func capWidth(_ text: String) -> CGFloat {
-        let size = (text as NSString).size(withAttributes: [.font: font])
-        return text == "+" ? size.width + 8 : size.width + 14
-    }
-
-    var fittedWidth: CGFloat {
-        caps.reduce(0) { $0 + capWidth($1) } + CGFloat(max(caps.count - 1, 0)) * 4
-    }
-
-    override func draw(_ dirtyRect: NSRect) {
-        var x: CGFloat = 0
-        let height = min(bounds.height, 18)
-        let y = (bounds.height - height) / 2
-        for cap in caps {
-            let width = capWidth(cap)
-            let box = NSRect(x: x, y: y, width: width, height: height)
-            if cap != "+" {
-                let path = NSBezierPath(roundedRect: box.insetBy(dx: 0.5, dy: 0.5), xRadius: 5, yRadius: 5)
-                NSColor.white.setFill()
-                path.fill()
-                NSColor(white: 0, alpha: 0.16).setStroke()
-                path.lineWidth = 1
-                path.stroke()
-            }
-            let attributes: [NSAttributedString.Key: Any] = [
-                .font: font,
-                .foregroundColor: cap == "+" ? FilesTheme.inkFaint : FilesTheme.inkSoft,
-            ]
-            let size = (cap as NSString).size(withAttributes: attributes)
-            (cap as NSString).draw(
-                at: NSPoint(x: box.midX - size.width / 2, y: box.midY - size.height / 2),
-                withAttributes: attributes
-            )
-            x += width + 4
-        }
-    }
-}
-
 final class FilesPill: NSView {
     var title: String { didSet { needsDisplay = true } }
     var action: () -> Void

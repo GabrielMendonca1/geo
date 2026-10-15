@@ -15,10 +15,8 @@ enum FilesContextualRevalidation: Equatable {
 public final class FilesController {
     private let engine: FilesRunning
     private let jobs: FilesJobCenter
-    private let dashboard: LazyDashboard
     private let compact: FilesCompactAction
     private let toast = FilesToast()
-    private let presentDashboard: () -> Void
     private let submissionObserver: (([FilesJob]) -> Void)?
     private var running = false
 
@@ -55,7 +53,6 @@ public final class FilesController {
 
     init(
         engine: FilesRunning,
-        presentDashboard: (() -> Void)? = nil,
         presentCompactParameters: (([URL], FilesOption) -> Void)? = nil,
         onSubmitted: (([FilesJob]) -> Void)? = nil,
         selectionResolver: FilesSelectionResolving? = nil,
@@ -75,10 +72,7 @@ public final class FilesController {
         self.engine = engine
         let jobs = FilesJobCenter(engine: engine)
         self.jobs = jobs
-        let dashboard = LazyDashboard(jobs: jobs)
-        self.dashboard = dashboard
         compact = FilesCompactAction(jobs: jobs, presentParameters: presentCompactParameters)
-        self.presentDashboard = presentDashboard ?? { dashboard.window.present() }
         submissionObserver = onSubmitted
         self.selectionResolver = selectionResolver
         makeSelectionResolver = {
@@ -117,26 +111,6 @@ public final class FilesController {
         self.ownPID = ownPID
         self.revalidation = revalidation
         wire()
-    }
-
-    private final class LazyDashboard {
-        private let jobs: FilesJobCenter
-        private var loaded: FilesDashboard?
-
-        init(jobs: FilesJobCenter) {
-            self.jobs = jobs
-        }
-
-        var window: FilesDashboard {
-            if let loaded { return loaded }
-            let created = FilesDashboard(jobs: jobs)
-            loaded = created
-            return created
-        }
-
-        func closeIfLoaded() {
-            loaded?.close()
-        }
     }
 
     private final class NoticePanelBox {
@@ -401,8 +375,7 @@ public final class FilesController {
         guard !created.isEmpty else { return }
         toast.show(
             jobs: created,
-            onCancel: { [weak self] batch in batch.forEach { self?.jobs.cancel($0) } },
-            onOpenPanel: { [weak self] in self?.showSettings() }
+            onCancel: { [weak self] batch in batch.forEach { self?.jobs.cancel($0) } }
         )
     }
 
@@ -419,10 +392,6 @@ public final class FilesController {
         }
     }
 
-    public func showSettings() {
-        presentDashboard()
-    }
-
     public func stop() {
         guard running else { return }
         running = false
@@ -434,7 +403,6 @@ public final class FilesController {
         toast.hide()
         compact.close()
         jobs.cancelAll()
-        dashboard.closeIfLoaded()
     }
 
     public var isRunning: Bool { running }
