@@ -1,7 +1,5 @@
 import AppKit
 
-/// Copies each new macOS screenshot to the clipboard as soon as it lands in the screenshot
-/// folder, so a print is both saved and ready to paste. Read-only on disk; no OCR.
 final class ScreenshotClipboard {
     private var watcher: PathWatcher?
     private var folder = ""
