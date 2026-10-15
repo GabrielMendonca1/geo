@@ -25,6 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var meetingDirectory: URL?
     private let call = CallController()
     private var callDirectory: String?
+    private let screenshots = ScreenshotClipboard()
     private let tasksController = TasksController()
     private let files = FilesController()
     private let filesSelectionHotKeys = FilesSelectionHotKeys()
@@ -110,6 +111,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         call.onChange = { [weak self] in self?.callChanged() }
         call.start()
+        screenshots.start()
 
 
         tasksController.onChange = { [weak self] in self?.tasksChanged() }
@@ -144,6 +146,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         insomnia.deactivate()
         meeting.abort()
         call.stop()
+        screenshots.stop()
         tasksController.stop()
         filesSelectionHotKeys.onConvert = nil
         filesSelectionHotKeys.onTools = nil
