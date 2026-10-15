@@ -35,7 +35,7 @@ enum FilesCategory: String, CaseIterable {
             return .video
         case "mp3", "m4a", "wav", "flac", "aac", "ogg", "opus", "aiff", "aif", "caf":
             return .audio
-        case "pdf", "txt", "md", "docx", "rtf":
+        case "pdf", "txt", "md", "docx", "doc", "odt", "rtf", "xlsx", "xls", "ods", "csv", "pptx", "ppt", "odp":
             return .documents
         case "zip", "tar", "gz", "tgz", "gzip", "rar", "7z", "bz2", "xz":
             return .archives
@@ -279,11 +279,11 @@ enum FilesCatalog {
     static let formatOrder = [
         "png", "jpg", "webp", "heic", "tiff", "gif",
         "mp4", "mov", "mkv", "mp3", "m4a", "wav", "flac",
-        "pdf", "txt", "docx",
+        "pdf", "txt", "docx", "xlsx", "csv",
         "tar", "zip", "gzip", "rar",
     ]
 
-    private static let documentFormats: Set<String> = ["pdf", "txt", "docx"]
+    private static let documentFormats: Set<String> = ["pdf", "txt", "docx", "xlsx", "csv"]
     private static let packageFormats: Set<String> = ["tar", "zip", "gzip", "rar"]
 
     static let formatDetail: [String: String] = [
@@ -294,6 +294,8 @@ enum FilesCatalog {
         "tiff": "arquivo mestre",
         "pdf": "documento",
         "docx": "Word",
+        "xlsx": "Excel",
+        "csv": "planilha em texto",
         "mp4": "H.264",
         "mov": "QuickTime",
         "mkv": "container",

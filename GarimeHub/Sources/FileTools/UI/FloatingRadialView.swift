@@ -27,6 +27,8 @@ enum FloatingRadialOptions {
         "pdf",
         "txt",
         "docx",
+        "xlsx",
+        "csv",
     ]
 
     static let toolOrder = [

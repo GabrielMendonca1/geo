@@ -5,6 +5,7 @@ public enum FileToolsFormat: String, CaseIterable, Sendable {
     case mp4, mov, mkv, gif, mp3, m4a
     case wav, flac
     case jpg, txt
+    case xlsx, csv
     case gzip, rar, tar, zip
 }
 

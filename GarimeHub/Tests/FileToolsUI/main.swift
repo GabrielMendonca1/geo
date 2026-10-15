@@ -612,6 +612,19 @@ for url in [png, gif, heif, aiff, caf, mp4, wav, pdf, tar, txt] {
           "ui=\(offeredFormats.sorted()) backend=\(announced.sorted())")
 }
 
+let sheet = fixture("Demanda.xlsx")
+check("planilha é documento na UI", FilesCategory.of(sheet) == .documents)
+if FileManager.default.isExecutableFile(atPath: "/opt/homebrew/bin/soffice") {
+    let sheetOffered = FloatingRadialOptions.convert(
+        category: .documents, sourceExtension: "xlsx", capability: realBridge.capability(for: sheet)
+    ).compactMap(\.format)
+    check("planilha oferece PDF e CSV na roda", sheetOffered.contains("pdf") && sheetOffered.contains("csv"), sheetOffered.description)
+    let wordOffered = FloatingRadialOptions.convert(
+        category: .documents, sourceExtension: "docx", capability: realBridge.capability(for: fixture("Carta.docx"))
+    ).compactMap(\.format)
+    check("Word oferece PDF e TXT na roda", wordOffered.contains("pdf") && wordOffered.contains("txt"), wordOffered.description)
+}
+
 let secondsParam = FilesParam(id: "start", label: "Início", kind: .seconds, fallback: "0", hint: "s")
 let decimalParam = FilesParam(id: "rate", label: "Velocidade", kind: .decimal(min: 0.25, max: 4), fallback: "1", hint: "x")
 let integerParam = FilesParam(id: "quality", label: "Qualidade", kind: .integer(min: 1, max: 100), fallback: "80", hint: "1-100")

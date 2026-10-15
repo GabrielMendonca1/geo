@@ -42,6 +42,9 @@ public final class FileToolsBackend: @unchecked Sendable {
             return .init(operations: [.convert], conversionTargets: [.pdf, .png, .jpg] + package)
         case .archive:
             return .init(operations: [.convert, .extract], conversionTargets: package)
+        case .office:
+            let office = Self.officeExecutable() == nil ? [] : Self.officeTargets(inputURL.pathExtension)
+            return .init(operations: [.convert], conversionTargets: office + package)
         case .other:
             return .init(operations: [.convert], conversionTargets: package)
         }
@@ -221,7 +224,7 @@ public final class FileToolsBackend: @unchecked Sendable {
         return FileToolsResult(outputURLs: published, message: message, committed: true)
     }
 
-    private enum Category: Equatable { case image, svg, video, audio, pdf, text, archive, other }
+    private enum Category: Equatable { case image, svg, video, audio, pdf, text, archive, office, other }
 
     private func category(_ url: URL) -> Category {
         let ext = url.pathExtension.lowercased()
@@ -232,6 +235,7 @@ public final class FileToolsBackend: @unchecked Sendable {
         if ext == "pdf" { return .pdf }
         if ext == "txt" { return .text }
         if ["zip", "tar", "tgz", "gz", "gzip", "rar"].contains(ext) { return .archive }
+        if Self.officeTargets(ext) != [] { return .office }
         return .other
     }
 
@@ -301,6 +305,9 @@ public final class FileToolsBackend: @unchecked Sendable {
         case .text:
             guard [.pdf, .png, .jpg].contains(format) else { throw FileToolsError.unsupported("TXT → \(format.rawValue)") }
             return try renderText(input, format: format, workspace: workspace, request: request, cancellation: cancellation)
+        case .office:
+            guard Self.officeTargets(input.pathExtension).contains(format) else { throw FileToolsError.unsupported("\(input.pathExtension) → \(format.rawValue)") }
+            return [try office(input, to: format, workspace: workspace, request: request, cancellation: cancellation)]
         default: throw FileToolsError.unsupported("conversão desse tipo")
         }
     }
@@ -950,6 +957,51 @@ public final class FileToolsBackend: @unchecked Sendable {
         let properties: CFDictionary = format == .jpg ? [kCGImageDestinationLossyCompressionQuality: 0.9] as CFDictionary : [:] as CFDictionary
         CGImageDestinationAddImage(destination, image, properties)
         guard CGImageDestinationFinalize(destination) else { throw FileToolsError.processFailed("não foi possível gravar imagem") }
+    }
+
+    static func officeTargets(_ fileExtension: String) -> [FileToolsFormat] {
+        let ext = fileExtension.lowercased()
+        let targets: [FileToolsFormat]
+        switch ext {
+        case "xlsx", "xls", "ods", "csv": targets = [.pdf, .xlsx, .csv]
+        case "docx", "doc", "odt", "rtf": targets = [.pdf, .docx, .txt]
+        case "pptx", "ppt", "odp": targets = [.pdf]
+        default: return []
+        }
+        return targets.filter { $0.rawValue != ext }
+    }
+
+    private static func officeExecutable() -> URL? {
+        findExecutable("soffice", extras: ["/opt/homebrew/bin/soffice", "/usr/local/bin/soffice", "/Applications/LibreOffice.app/Contents/MacOS/soffice"])
+    }
+
+    private func office(_ input: URL, to format: FileToolsFormat, workspace: URL, request: FileToolsRequest, cancellation: FileToolsCancellation) throws -> URL {
+        guard let soffice = Self.officeExecutable() else { throw FileToolsError.dependencyMissing("soffice (LibreOffice)") }
+        let filter: String
+        switch format {
+        case .pdf: filter = "pdf"
+        case .xlsx: filter = "xlsx:Calc MS Excel 2007 XML"
+        case .csv: filter = "csv:Text - txt - csv (StarCalc):44,34,76,1"
+        case .docx: filter = "docx:MS Word 2007 XML"
+        case .txt: filter = "txt:Text (encoded):UTF8"
+        default: throw FileToolsError.unsupported("office → \(format.rawValue)")
+        }
+        let scratch = workspace.deletingLastPathComponent().appendingPathComponent("inputs/office-\(UUID().uuidString)", isDirectory: true)
+        let profile = scratch.appendingPathComponent("profile", isDirectory: true)
+        let outdir = scratch.appendingPathComponent("out", isDirectory: true)
+        try fm.createDirectory(at: outdir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        let snapshot = scratch.appendingPathComponent("source.\(input.pathExtension.lowercased())")
+        try copyRegularFile(from: input, to: snapshot, maximumBytes: request.maximumInputBytes, cancellation: cancellation)
+        try run(soffice, [
+            "-env:UserInstallation=" + profile.absoluteString,
+            "--headless", "--norestore", "--nolockcheck", "--nodefault", "--nologo",
+            "--convert-to", filter, "--outdir", outdir.path, snapshot.path,
+        ], request, cancellation, currentDirectory: scratch)
+        let produced = outdir.appendingPathComponent("source.\(format.rawValue)")
+        guard fm.fileExists(atPath: produced.path) else { throw FileToolsError.unsupported("o LibreOffice não gerou \(format.rawValue)") }
+        let output = workspace.appendingPathComponent("converted.\(format.rawValue)")
+        try fm.moveItem(at: produced, to: output)
+        return output
     }
 
     private func required(_ name: String, extras: [String]) throws -> URL {
