@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>ai.garime.hub</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/Users/biel/Applications/Garime Hub.app/Contents/MacOS/GarimeHub</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<false/>
+	<key>ThrottleInterval</key>
+	<integer>10</integer>
+	<key>ProcessType</key>
+	<string>Interactive</string>
+	<key>StandardErrorPath</key>
+	<string>/Users/biel/Library/Logs/garime/garimehub.err</string>
+	<key>StandardOutPath</key>
+	<string>/Users/biel/Library/Logs/garime/garimehub.out</string>
+</dict>
+</plist>

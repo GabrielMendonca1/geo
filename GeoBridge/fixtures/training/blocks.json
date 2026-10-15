@@ -1,0 +1,28 @@
+{
+  "schema": "vitals.blocks/1",
+  "version": 1,
+  "blocks": [
+    {
+      "id": "demo.corpo-inteiro-a",
+      "version": 1,
+      "name": "Corpo inteiro A (demo)",
+      "items": [
+        {
+          "exerciseId": "demo.agachamento-caixa",
+          "sets": [[8, 10], [8, 10]],
+          "restSec": 90
+        },
+        {
+          "exerciseId": "demo.remada-maquina",
+          "sets": [[10, 12], [10, 12]],
+          "restSec": 90
+        },
+        {
+          "exerciseId": "demo.elevacao-panturrilha",
+          "sets": [[10, 12], [10, 12]],
+          "restSec": 60
+        }
+      ]
+    }
+  ]
+}

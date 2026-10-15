@@ -1,0 +1,9 @@
+[Unit]
+Description=garime agente: timer do push de fim de task (1 min)
+
+[Timer]
+OnBootSec=90s
+OnUnitActiveSec=60s
+
+[Install]
+WantedBy=timers.target

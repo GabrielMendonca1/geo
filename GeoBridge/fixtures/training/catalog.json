@@ -1,0 +1,32 @@
+{
+  "schema": "vitals.catalog/1",
+  "id": "demo-catalog",
+  "version": 1,
+  "updatedAt": "2026-08-24T18:00:00Z",
+  "exercises": [
+    {
+      "id": "demo.agachamento-caixa",
+      "name": "Agachamento para caixa (demo)",
+      "status": "active",
+      "muscles": ["quadriceps", "gluteal"],
+      "equipment": "box",
+      "tags": ["lower", "demo"]
+    },
+    {
+      "id": "demo.remada-maquina",
+      "name": "Remada na máquina (demo)",
+      "status": "active",
+      "muscles": ["upper-back"],
+      "equipment": "machine",
+      "tags": ["pull", "demo"]
+    },
+    {
+      "id": "demo.elevacao-panturrilha",
+      "name": "Elevação de panturrilha (demo)",
+      "status": "active",
+      "muscles": ["calves"],
+      "equipment": "bodyweight",
+      "tags": ["lower", "demo"]
+    }
+  ]
+}

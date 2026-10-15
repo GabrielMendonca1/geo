@@ -10,7 +10,8 @@ import time
 import urllib.request
 import xml.etree.ElementTree as ET
 
-VAULT = "/mnt/garime/Vault"
+VAULT = "/mnt/garime/Gabriel"
+TASKS = "/mnt/garime/state/tasks"
 MOUNT = "/mnt/garime"
 SYNC_CONFIG = "/mnt/garime/.syncthing-config/config.xml"
 MAC_NAME = "biel-macbook-pro"
@@ -147,7 +148,7 @@ def probe_tasks():
         return len(
             [
                 f
-                for f in os.listdir(os.path.join(VAULT, "Tasks"))
+                for f in os.listdir(TASKS)
                 if not f.startswith(".")
             ]
         )

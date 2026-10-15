@@ -1,0 +1,94 @@
+{
+  "schema": "vitals.routine/1",
+  "id": "routine.ficha-abcd",
+  "version": 1,
+  "status": "approved-by-user",
+  "publicationState": "not-published",
+  "approvedAt": "2026-09-14T09:19:00-03:00",
+  "requiresAuthorizationId": "auth.ficha-abcd-2026-09-14",
+  "catalogId": "gabriel-catalog",
+  "catalogVersion": 2,
+  "blocksId": "gabriel-blocks-ficha-abcd",
+  "blocksVersion": 1,
+  "repeatsWeekly": true,
+  "intensity": {
+    "rirRange": [
+      2,
+      3
+    ],
+    "toFailure": false,
+    "restSecCompound": [
+      120,
+      180
+    ],
+    "restSecIsolation": [
+      60,
+      90
+    ]
+  },
+  "days": [
+    {
+      "weekday": 1,
+      "kind": "training",
+      "label": "A · Pernas",
+      "blockIds": [
+        "bl.ficha-a"
+      ]
+    },
+    {
+      "weekday": 2,
+      "kind": "cardio",
+      "label": "Cardio leve · 20–30 min",
+      "cardio": {
+        "minutes": [
+          20,
+          30
+        ],
+        "mode": "caminhada rápida ou bicicleta",
+        "effort": "ritmo conversável"
+      }
+    },
+    {
+      "weekday": 3,
+      "kind": "training",
+      "label": "B · Costas e bíceps",
+      "blockIds": [
+        "bl.ficha-b"
+      ]
+    },
+    {
+      "weekday": 4,
+      "kind": "training",
+      "label": "C · Peito, ombros e tríceps",
+      "blockIds": [
+        "bl.ficha-c"
+      ]
+    },
+    {
+      "weekday": 5,
+      "kind": "cardio",
+      "label": "Cardio leve · 20–30 min",
+      "cardio": {
+        "minutes": [
+          20,
+          30
+        ],
+        "mode": "caminhada rápida ou bicicleta",
+        "effort": "ritmo conversável"
+      }
+    },
+    {
+      "weekday": 6,
+      "kind": "training",
+      "label": "D · Braços",
+      "blockIds": [
+        "bl.ficha-d"
+      ]
+    },
+    {
+      "weekday": 7,
+      "kind": "recovery",
+      "label": "Recuperação · caminhada leve opcional"
+    }
+  ]
+}

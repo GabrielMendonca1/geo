@@ -43,6 +43,23 @@ extension Color {
     }
 }
 
+/// Superfícies "papel": fundo cinza-claro, cartões brancos, tile cinza (invertido no escuro).
+/// É a linguagem das abas redesenhadas (Dinheiro, Treino).
+extension Color {
+    static let paperCanvas = Color(uiColor: .systemGroupedBackground)
+    static let paperCard = Color(uiColor: .secondarySystemGroupedBackground)
+    static let paperTile = Color(uiColor: .tertiarySystemGroupedBackground)
+    /// Cor do texto sobre um preenchimento `Color.primary` (branco no claro, preto no escuro).
+    static let paperInk = Color(uiColor: UIColor { trait in
+        trait.userInterfaceStyle == .dark ? .black : .white
+    })
+}
+
+enum PaperRadius {
+    static let card: CGFloat = 24
+    static let tile: CGFloat = 12
+}
+
 enum AirRadius {
     static let card: CGFloat = 14
     static let image: CGFloat = 11
@@ -112,49 +129,6 @@ enum AirSpacing {
     static let element: CGFloat = 8
     static let card: CGFloat = 20
     static let section: CGFloat = 48
-}
-
-extension View {
-    func settingsToolbar() -> some View {
-        modifier(SettingsToolbar())
-    }
-}
-
-private struct SettingsToolbar: ViewModifier {
-    @State private var showSettings = false
-
-    func body(content: Content) -> some View {
-        content
-            .toolbar {
-                settingsToolbarItem
-            }
-            .sheet(isPresented: $showSettings) {
-                SettingsView()
-            }
-    }
-
-    @ToolbarContentBuilder
-    private var settingsToolbarItem: some ToolbarContent {
-        if #available(iOS 26.0, *) {
-            ToolbarItem(placement: .topBarTrailing) {
-                settingsButton
-            }
-            .sharedBackgroundVisibility(.hidden)
-        } else {
-            ToolbarItem(placement: .topBarTrailing) {
-                settingsButton
-            }
-        }
-    }
-
-    private var settingsButton: some View {
-        Button {
-            showSettings = true
-        } label: {
-            Image(systemName: "gearshape")
-                .foregroundStyle(Color.slateTextDim)
-        }
-    }
 }
 
 enum AirAppearance {

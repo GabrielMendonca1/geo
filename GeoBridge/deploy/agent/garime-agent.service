@@ -1,0 +1,17 @@
+[Unit]
+Description=garime agente unico (sessao tmux garime-agent)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=biel
+Environment=HOME=/home/biel
+Environment=GARIME_AGENT_ENV=/opt/garime/agent/agent.env
+ExecStartPre=/usr/bin/mountpoint -q /mnt/garime
+ExecStart=/opt/garime/agent/garime-agent-launch.sh
+ExecStop=/usr/bin/tmux kill-session -t =garime-agent
+
+[Install]
+WantedBy=multi-user.target

@@ -27,6 +27,7 @@ common = {
   "ENABLE_PREVIEWS" => "YES",
   "INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription" => "Geo shows your calendar events in the day agenda.",
   "INFOPLIST_KEY_NSRemindersFullAccessUsageDescription" => "Geo reads and completes the reminders your Mac mirrors here.",
+  "INFOPLIST_KEY_NSCameraUsageDescription" => "O garime usa a câmera para você fotografar e mandar pro agente.",
   "INFOPLIST_KEY_NSMicrophoneUsageDescription" => "O garime usa o microfone para ditar mensagens ao agente.",
   "INFOPLIST_KEY_NSSpeechRecognitionUsageDescription" => "A fala vira texto no próprio iPhone para você revisar antes de enviar.",
   "INFOPLIST_FILE" => "Garime/Info.plist",
