@@ -11,7 +11,6 @@ installed at `~/Applications/Garime Hub.app`. Map of every feature: [`MAP.md`](M
 | Call | start/stop the `/record` skill's `rec.sh` (BlackHole mix); recordings started from the terminal show up too, mirrored from `~/.cache/whisper/rec.state` | subprocess, `env` with a homebrew PATH |
 | Manter acordado | **Caps Lock on = the Mac never sleeps** (the capsomnia contract), plus an automatic hold while any recording runs; the menu toggle is only for holding it by hand | native `IOPMAssertion` stacked over named holds, no `caffeinate` |
 | Tarefas | open Vault tasks, read-only, refreshed lazily over `ssh garime` when the hub/menu opens, offline cache with an age stamp | `ssh` BatchMode + cache in `~/Library/Application Support/Garime/Hub/` |
-| Projetos | unchecked `- [ ]` items from every `STATUS.md` under `Config.projectRoots` (`~/Garime ~/Omni ~/Omni/Clients ~/ARCA ~/ARCA/Clients ~/ARCA/Clients/mac ~/Lab ~/.claude`, root + 1 level) | local parse, cached 30 s |
 | Arquivos | select files in Finder/Mesa, **⌃⌥Space** converts, **⇧⌃⌥Space** tools — a radial wheel at the cursor | native backend + ffmpeg/poppler/gs |
 
 The icon carries state: a filled triangle (idle), an animated triangular matrix (dictating,
@@ -74,7 +73,7 @@ Sources/Dictation/      DictationSession, Hotkey, Paster, Typist, FocusAnchor
 Sources/Sessions/       MeetingController, MeetingArchive, CallController
 Sources/System/         InsomniaController, SleepBlocker, CapsWatcher, ProcessRunner, PathWatcher
 Sources/UI/             StatusIcon, IconAnimation, DotMatrix, HubPanel, MenuController
-Sources/Integrations/   CaptureWatcher, TasksController, VaultTasks, ProjectStatus, StatusTodoWriter
+Sources/Integrations/   TasksController, VaultTasks, ScreenshotClipboard
 Sources/FileTools/      Backend seguro e UI radial/Finder
 Sources/Feedback/       síntese original, playback em memória, política e ajustes persistentes
 Tests/<Suite>/main.swift  one harness per suite (Transcriber, Units, Decoder, Icon, Stream, Recorder, Bench)

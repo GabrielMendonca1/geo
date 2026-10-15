@@ -87,42 +87,20 @@ enum Config {
     static let tasksFetchTimeout: TimeInterval = 20
     static let tasksStaleAfter: TimeInterval = 120
     static let tasksMenuLimit = 15
-    static let taskTitleLimit = 58
-    static let panelWidth: CGFloat = 380
-    static let panelInset: CGFloat = 20
-    static let panelTopPad: CGFloat = 18
-    static let panelBottomPad: CGFloat = 18
-    static let panelSectionGap: CGFloat = 20
-    static let panelHeaderGap: CGFloat = 20
-    static let panelRowHeight: CGFloat = 34
-    static let panelGlyphX: CGFloat = 30
-    static let panelTextX: CGFloat = 54
-    static let panelCornerRadius: CGFloat = 14
-    static let panelActionSize: CGFloat = 34
+    static let panelWidth: CGFloat = 360
+    static let panelInset: CGFloat = 16
+    static let panelTopPad: CGFloat = 14
+    static let panelRowHeight: CGFloat = 28
+    static let panelActionSize: CGFloat = 30
     static let panelFadeSeconds: TimeInterval = 0.16
     static let panelSlideRise: CGFloat = 10
     static let panelYieldSeconds: TimeInterval = 0.18
-    static let panelTodoLimit = 12
     static let panelListLimit = 200
     static let capsPollSeconds: TimeInterval = 30
     static let capsPollTolerance: TimeInterval = 5
     static let panelMaxBodyHeight: CGFloat = 420
     static let vaultDirectory = NSHomeDirectory() + "/Gabriel"
     static let panelGap: CGFloat = 6
-    static let panelProjectLimit = 6
-
-    static let projectRoots = [
-        NSHomeDirectory() + "/Garime",
-        NSHomeDirectory() + "/Omni",
-        NSHomeDirectory() + "/Omni/Clients",
-        NSHomeDirectory() + "/ARCA",
-        NSHomeDirectory() + "/ARCA/Clients",
-        NSHomeDirectory() + "/ARCA/Clients/mac",
-        NSHomeDirectory() + "/Lab",
-        NSHomeDirectory() + "/.claude",
-    ]
-    static let projectScanMaxAge: TimeInterval = 30
-    static let projectTodoLimit = 10
 
     static let recScript = NSHomeDirectory() + "/Garime/brain/skills/record/scripts/rec.sh"
     static let recStatePath = NSHomeDirectory() + "/.cache/whisper/rec.state"

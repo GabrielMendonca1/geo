@@ -292,10 +292,6 @@ grep -q 'darkAqua' "$(src HubPanel)"
 check "$([ $? -ne 0 ] && echo 0 || echo 1)" "the card follows the system theme instead of forcing dark"
 grep -q 'calibratedWhite' "$(src HubPanel)"
 check "$([ $? -ne 0 ] && echo 0 || echo 1)" "no baked-in white: every ink is semantic so light mode stays readable"
-grep -q 'Vault' "$(src StatusTodoWriter)"
-check "$([ $? -ne 0 ] && echo 0 || echo 1)" "checking a todo never writes anywhere near the Vault"
-grep -q 'replaceItemAt' "$(src StatusTodoWriter)"
-check $? "STATUS.md is rewritten atomically"
 
 grep -q 'case .awake: return NSColor' "$(src StatusIcon)"
 check $? "caps lock has its own colour"
@@ -341,8 +337,8 @@ grep -q 'blocker.apply(false)' "$(src InsomniaController)"
 check $? "sleep is always handed back when the hold ends"
 grep -q 'reconcileOnLaunch' "$(src AppDelegate)"
 check $? "a crash never leaves the Mac awake forever (reconciled on launch)"
-grep -q 'checkable: false' "$(src HubPanel)"
-check $? "vault tasks stay read-only in the panel"
+grep -q 'onCheck\|checkable' "$(src HubPanel)"
+check "$([ $? -ne 0 ] && echo 0 || echo 1)" "vault tasks stay read-only in the panel"
 grep -q 'button.image' "$(src StatusIcon)"
 check $? "status item still renders through button.image, not a custom view"
 grep -q 'image.isTemplate = paint == nil' "$(src StatusIcon)"
@@ -395,12 +391,10 @@ grep -q '"-nt"' "$(src MeetingArchive)"
 check "$([ $? -ne 0 ] && echo 0 || echo 1)" "meeting decode never uses -nt (it silently drops segments)"
 grep -q '"-mc", "0"' "$(src MeetingArchive)"
 check $? "meeting decode disables carried context (no repetition loops)"
+grep -q 'addObserver' "$(src HubPanel)"
+check "$([ $? -ne 0 ] && echo 0 || echo 1)" "hub panel registers no observers (nothing to leak per open)"
 grep -q '"-osrt"' "$(src MeetingArchive)"
 check $? "meeting writes transcript.srt with segment times for search"
-grep -q 'removeObserver(boundsObserver)' "$(src HubPanel)"
-check $? "hub panel scroller removes its bounds observer (no leak per open)"
-grep -q 'scan(roots: Config.projectRoots)' "$(src AppDelegate)"
-check $? "card projects come from a folder scan, not a fixed list"
 grep -q 'IOPMAssertionCreateWithName' "$(src InsomniaController)"
 check $? "insomnia holds a native IOPM assertion"
 grep -q 'maskAlphaShift' "$(src CapsWatcher)"
@@ -416,8 +410,6 @@ grep -q 'BatchMode=yes' "$(src TasksController)"
 check $? "tasks fetch never prompts for credentials"
 grep -q '"cat " + Config.tasksRemoteGlob' "$(src TasksController)"
 check $? "the remote tasks command is exactly a cat of the glob"
-grep -q 'createFile\|write(to\|removeItem' "$(src ProjectStatus)"
-check "$([ $? -ne 0 ] && echo 0 || echo 1)" "the STATUS.md scanner is strictly read-only"
 grep -q 'Config.recScript' "$(src CallController)"
 check $? "call recording drives the /record skill script"
 grep -q '"PATH=" + Config.recPath' "$(src CallController)"
@@ -440,10 +432,8 @@ swiftc -O -target "$(uname -m)-apple-macos14.0" -sdk "$(xcrun --show-sdk-path --
   "$(src Transcriber)" \
   "$(src MeetingArchive)" \
   "$(src VaultTasks)" \
-  "$(src ProjectStatus)" \
   "$(src CallController)" \
   "$(src PathWatcher)" \
-  "$(src StatusTodoWriter)" \
   "$(src SleepBlocker)" \
   "$(src DotMatrix)" \
   "$(src HubPanel)" \

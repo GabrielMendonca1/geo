@@ -17,32 +17,19 @@ struct HubActionSpec: Equatable {
     let on: Bool
 }
 
+enum HubDueTone: Equatable {
+    case none
+    case later
+    case today
+    case overdue
+}
+
 struct HubRow: Equatable {
     let id: String
-    let symbol: String
     let title: String
     let trailing: String?
-    let chevron: Bool
-    let checkable: Bool
+    let tone: HubDueTone
     let tip: String?
-
-    init(
-        id: String,
-        symbol: String,
-        title: String,
-        trailing: String?,
-        chevron: Bool,
-        checkable: Bool,
-        tip: String? = nil
-    ) {
-        self.id = id
-        self.symbol = symbol
-        self.title = title
-        self.trailing = trailing
-        self.chevron = chevron
-        self.checkable = checkable
-        self.tip = tip
-    }
 }
 
 struct HubSection: Equatable {
@@ -54,20 +41,13 @@ struct HubSection: Equatable {
 }
 
 enum HubModel {
-    static func truncate(_ text: String, limit: Int) -> String {
-        guard text.count > limit else { return text }
-        let cut = text.prefix(limit)
-        let head = cut.lastIndex(of: " ").map { String(cut[..<$0]) } ?? String(cut)
-        return head + "…"
-    }
-
     static func dateHeader(_ date: Date, locale: Locale) -> (String, String) {
         let weekday = DateFormatter()
         weekday.locale = locale
         weekday.dateFormat = "EEEE"
         let rest = DateFormatter()
         rest.locale = locale
-        rest.dateFormat = "d 'de' MMMM 'de' yyyy"
+        rest.dateFormat = "d 'de' MMMM"
         let name = weekday.string(from: date)
         return (name.prefix(1).uppercased() + name.dropFirst(), rest.string(from: date))
     }
@@ -93,86 +73,54 @@ enum HubModel {
         return parts.joined(separator: " · ")
     }
 
-    static func tasksSection(_ tasks: [VaultTask], limit: Int, titleLimit: Int) -> HubSection {
+    static func dueTone(_ due: Date?, now: Date, calendar: Calendar = .current) -> HubDueTone {
+        guard let due else { return .none }
+        if calendar.isDate(due, inSameDayAs: now) { return .today }
+        return due < calendar.startOfDay(for: now) ? .overdue : .later
+    }
+
+    static func dueText(_ due: Date?, tone: HubDueTone) -> String? {
+        switch tone {
+        case .none: return nil
+        case .today: return "hoje"
+        case .later, .overdue: return VaultTasks.dueLabel(due)
+        }
+    }
+
+    static func tasksSection(_ tasks: [VaultTask], limit: Int, now: Date = Date()) -> HubSection {
         var rows = tasks.prefix(limit).map { task in
-            HubRow(
+            let tone = dueTone(task.due, now: now)
+            return HubRow(
                 id: "task:" + task.id,
-                symbol: "circle",
-                title: truncate(task.title, limit: titleLimit),
-                trailing: VaultTasks.dueLabel(task.due),
-                chevron: false,
-                checkable: false,
+                title: task.title,
+                trailing: dueText(task.due, tone: tone),
+                tone: tone,
                 tip: taskTip(task)
             )
         }
         let hidden = tasks.count - rows.count
         if hidden > 0 {
-            rows.append(HubRow(
-                id: "task:more",
-                symbol: "ellipsis",
-                title: "e mais \(hidden)",
-                trailing: nil,
-                chevron: false,
-                checkable: false
-            ))
+            rows.append(HubRow(id: "task:more", title: "e mais \(hidden)", trailing: nil, tone: .none, tip: nil))
         }
         let strong: String
         switch tasks.count {
-        case 0: strong = "nenhuma tarefa"
+        case 0: strong = "Nenhuma tarefa"
         case 1: strong = "1 tarefa"
         default: strong = "\(tasks.count) tarefas"
         }
+        let overdue = tasks.filter { dueTone($0.due, now: now) == .overdue }.count
+        var post = tasks.count == 1 ? " aberta" : " abertas"
+        if overdue > 0 { post += overdue == 1 ? " · 1 atrasada" : " · \(overdue) atrasadas" }
         return HubSection(
-            pre: "Você tem ",
+            pre: "",
             strong: strong,
-            post: tasks.count == 1 ? " aberta" : " abertas",
+            post: post,
             rows: rows,
-            empty: tasks.isEmpty ? "tudo limpo por aqui" : nil
+            empty: tasks.isEmpty ? "Tudo limpo por aqui" : nil
         )
     }
 
-    static func projectsSection(_ projects: [ProjectStatus], limit: Int, titleLimit: Int) -> HubSection {
-        let ordered = projects.sorted { $0.todos.count > $1.todos.count }
-        var rows = ordered.prefix(limit).map { project in
-            HubRow(
-                id: "project:" + project.path,
-                symbol: "circle.dotted",
-                title: truncate(project.name, limit: titleLimit),
-                trailing: "\(project.todos.count)",
-                chevron: true,
-                checkable: false
-            )
-        }
-        let hidden = ordered.count - rows.count
-        if hidden > 0 {
-            rows.append(HubRow(
-                id: "project:more",
-                symbol: "ellipsis",
-                title: "e mais \(hidden)",
-                trailing: nil,
-                chevron: false,
-                checkable: false
-            ))
-        }
-        let strong: String
-        switch ordered.count {
-        case 0: strong = "nenhum projeto"
-        case 1: strong = "1 projeto"
-        default: strong = "\(ordered.count) projetos"
-        }
-        return HubSection(
-            pre: "Você tem ",
-            strong: strong,
-            post: " com pendências",
-            rows: rows,
-            empty: ordered.isEmpty ? "nenhum STATUS.md com todos" : nil
-        )
-    }
-
-    static func actionSpecs(
-        dictating: Bool,
-        meeting: Bool
-    ) -> [HubActionSpec] {
+    static func actionSpecs(dictating: Bool, meeting: Bool) -> [HubActionSpec] {
         [
             HubActionSpec(
                 action: .dictate,
@@ -186,60 +134,29 @@ enum HubModel {
                 tooltip: meeting ? "Parar reunião" : "Gravar reunião",
                 on: meeting
             ),
-            HubActionSpec(
-                action: .notes,
-                symbol: "lock.square",
-                tooltip: "Abrir o Vault",
-                on: false
-            ),
-            HubActionSpec(
-                action: .refresh,
-                symbol: "arrow.clockwise",
-                tooltip: "Atualizar tarefas agora",
-                on: false
-            ),
+            HubActionSpec(action: .notes, symbol: "folder", tooltip: "Abrir o Vault", on: false),
+            HubActionSpec(action: .refresh, symbol: "arrow.clockwise", tooltip: "Atualizar tarefas agora", on: false),
         ]
-    }
-
-    static func todosSection(_ project: ProjectStatus, titleLimit: Int) -> HubSection {
-        let rows = project.todos.map { todo in
-            HubRow(
-                id: "todo:" + todo,
-                symbol: "circle",
-                title: truncate(todo, limit: titleLimit),
-                trailing: nil,
-                chevron: false,
-                checkable: true,
-                tip: todo
-            )
-        }
-        let strong: String
-        switch rows.count {
-        case 0: strong = "nenhum todo"
-        case 1: strong = "1 todo"
-        default: strong = "\(rows.count) todos"
-        }
-        return HubSection(
-            pre: "",
-            strong: strong,
-            post: rows.count == 1 ? " em aberto" : " em aberto",
-            rows: rows,
-            empty: rows.isEmpty ? "nada pendente" : nil
-        )
     }
 }
 
 enum HubInk {
-    static let title = NSColor.labelColor
-    static let strong = NSColor.labelColor
-    static let muted = NSColor.tertiaryLabelColor
-    static let body = NSColor.secondaryLabelColor
-    static let glyph = NSColor.tertiaryLabelColor
-    static let rail = NSColor.separatorColor
-    static let faint = NSColor.quaternaryLabelColor
-    static let hover = NSColor.labelColor.withAlphaComponent(0.08)
-}
+    static func due(_ tone: HubDueTone) -> NSColor {
+        switch tone {
+        case .overdue: return .systemRed
+        case .today: return .systemOrange
+        case .later, .none: return .secondaryLabelColor
+        }
+    }
 
+    static func glyph(_ tone: HubDueTone) -> NSColor {
+        switch tone {
+        case .overdue: return NSColor.systemRed.withAlphaComponent(0.8)
+        case .today: return NSColor.systemOrange.withAlphaComponent(0.8)
+        case .later, .none: return .tertiaryLabelColor
+        }
+    }
+}
 
 final class FlippedView: NSView {
     override var isFlipped: Bool { true }
@@ -282,18 +199,11 @@ final class ClosureButton: NSButton {
     }
 
     override func mouseEntered(with event: NSEvent) {
-        syncHover(windowPoint: event.locationInWindow, visible: nil)
+        layer?.backgroundColor = hoverFill ?? restingFill
     }
 
     override func mouseExited(with event: NSEvent) {
         layer?.backgroundColor = restingFill
-    }
-
-    func syncHover(windowPoint: NSPoint, visible: NSRect?) {
-        guard let hoverFill else { return }
-        var inside = bounds.contains(convert(windowPoint, from: nil))
-        if let visible { inside = inside && visible.contains(windowPoint) }
-        layer?.backgroundColor = inside ? hoverFill : restingFill
     }
 
     @objc private func fire() {
@@ -301,108 +211,10 @@ final class ClosureButton: NSButton {
     }
 }
 
-final class HubRowView: NSView {
-    private var handler: (() -> Void)?
-    private var tracking: NSTrackingArea?
-    private var hot = false
-
-    override var isFlipped: Bool { true }
-
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-
-    convenience init(frame: NSRect, handler: (() -> Void)?) {
-        self.init(frame: frame)
-        self.handler = handler
-        wantsLayer = true
-        layer?.cornerRadius = 8
-    }
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let tracking { removeTrackingArea(tracking) }
-        guard handler != nil else { return }
-        let area = NSTrackingArea(
-            rect: bounds,
-            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
-            owner: self
-        )
-        addTrackingArea(area)
-        tracking = area
-    }
-
-    override func mouseEntered(with event: NSEvent) {
-        syncHover(windowPoint: event.locationInWindow, visible: nil)
-    }
-
-    override func mouseExited(with event: NSEvent) {
-        hot = false
-        layer?.backgroundColor = NSColor.clear.cgColor
-    }
-
-    func syncHover(windowPoint: NSPoint, visible: NSRect?) {
-        guard handler != nil else { return }
-        var inside = bounds.contains(convert(windowPoint, from: nil))
-        if let visible { inside = inside && visible.contains(windowPoint) }
-        hot = inside
-        layer?.backgroundColor = inside ? HubInk.hover.cgColor : NSColor.clear.cgColor
-    }
-
-    override func mouseUp(with event: NSEvent) {
-        guard hot else { return }
-        handler?()
-    }
-}
-
-final class HubScrollView: NSScrollView {
-    private var boundsObserver: NSObjectProtocol?
-
-    deinit {
-        if let boundsObserver {
-            NotificationCenter.default.removeObserver(boundsObserver)
-        }
-    }
-
-    func followBounds() {
-        guard boundsObserver == nil else { return }
-        contentView.postsBoundsChangedNotifications = true
-        boundsObserver = NotificationCenter.default.addObserver(
-            forName: NSView.boundsDidChangeNotification,
-            object: contentView,
-            queue: .main
-        ) { [weak self] _ in
-            self?.syncHover()
-        }
-    }
-
-    override func scrollWheel(with event: NSEvent) {
-        super.scrollWheel(with: event)
-        syncHover()
-    }
-
-    func syncHover() {
-        guard let document = documentView, let window else { return }
-        let point = window.mouseLocationOutsideOfEventStream
-        let visible = contentView.convert(contentView.bounds, to: nil)
-        HubScrollView.walk(document) { view in
-            (view as? HubRowView)?.syncHover(windowPoint: point, visible: visible)
-            (view as? ClosureButton)?.syncHover(windowPoint: point, visible: visible)
-        }
-    }
-
-    private static func walk(_ view: NSView, _ body: (NSView) -> Void) {
-        for child in view.subviews {
-            body(child)
-            walk(child, body)
-        }
-    }
-}
-
 struct HubContent {
     let headerStrong: String
     let headerRest: String
-    let back: Bool
     let sections: [HubSection]
-    let notice: String?
     let footer: String
     let actions: [HubActionSpec]
 }
@@ -410,262 +222,173 @@ struct HubContent {
 enum HubPanelView {
     static func build(
         content: HubContent,
-        onRow: @escaping (String) -> Void,
-        onCheck: @escaping (String) -> Void,
-        onBack: @escaping () -> Void,
         onAction: @escaping (HubAction) -> Void
     ) -> NSView {
         let width = Config.panelWidth
         let inset = Config.panelInset
         let rowHeight = Config.panelRowHeight
 
-        var bodyHeight: CGFloat = 0
+        var bodyHeight: CGFloat = 6
         for section in content.sections {
-            if !section.strong.isEmpty { bodyHeight += 20 + 8 }
             bodyHeight += CGFloat(max(section.rows.count, section.empty == nil ? 0 : 1)) * rowHeight
-            bodyHeight += Config.panelSectionGap
         }
+        bodyHeight += 6
         let visibleBody = min(bodyHeight, Config.panelMaxBodyHeight)
-
-        var height = Config.panelTopPad + 22 + Config.panelHeaderGap
-        if content.notice != nil { height += 24 }
-        height += visibleBody
-        if !content.actions.isEmpty { height += Config.panelActionSize + 14 }
-        height += 18 + Config.panelBottomPad
+        let headerHeight: CGFloat = Config.panelTopPad + 20 + 4 + 16 + 12
+        let footerHeight: CGFloat = Config.panelActionSize + 20
+        let height = headerHeight + 1 + visibleBody + 1 + footerHeight
 
         let container = FlippedView(frame: NSRect(x: 0, y: 0, width: width, height: height))
         var y = Config.panelTopPad
-        var titleX = inset
-
-        if content.back {
-            let back = ClosureButton(
-                frame: NSRect(x: inset - 6, y: y - 3, width: 26, height: 26),
-                handler: onBack
-            )
-            back.isBordered = false
-            back.image = NSImage(systemSymbolName: "chevron.left", accessibilityDescription: "Voltar")?
-                .withSymbolConfiguration(.init(pointSize: 14, weight: .semibold))
-            back.contentTintColor = HubInk.body
-            back.imagePosition = .imageOnly
-            back.layer?.cornerRadius = 13
-            back.trackHover(resting: .clear, hover: NSColor.labelColor.withAlphaComponent(0.12))
-            container.addSubview(back)
-            titleX = inset + 24
-        }
 
         let title = NSMutableAttributedString()
-        title.append(NSAttributedString(string: content.headerStrong + " ", attributes: [
-            .font: NSFont.systemFont(ofSize: 17, weight: .bold),
-            .foregroundColor: HubInk.title,
+        title.append(NSAttributedString(string: content.headerStrong, attributes: [
+            .font: NSFont.systemFont(ofSize: 15, weight: .semibold),
+            .foregroundColor: NSColor.labelColor,
         ]))
-        title.append(NSAttributedString(string: content.headerRest, attributes: [
-            .font: NSFont.systemFont(ofSize: 17, weight: .regular),
-            .foregroundColor: HubInk.title,
+        title.append(NSAttributedString(string: "  " + content.headerRest, attributes: [
+            .font: NSFont.systemFont(ofSize: 15, weight: .regular),
+            .foregroundColor: NSColor.secondaryLabelColor,
         ]))
         let titleLabel = NSTextField(labelWithAttributedString: title)
         titleLabel.lineBreakMode = .byTruncatingTail
-        titleLabel.maximumNumberOfLines = 1
-        titleLabel.frame = NSRect(x: titleX, y: y, width: width - titleX - inset, height: 22)
+        titleLabel.frame = NSRect(x: inset, y: y, width: width - inset * 2, height: 20)
         container.addSubview(titleLabel)
-        y += 22 + Config.panelHeaderGap
+        y += 24
 
-        if let notice = content.notice {
-            let label = NSTextField(labelWithString: notice)
-            label.font = NSFont.systemFont(ofSize: 13, weight: .medium)
-            label.textColor = HubInk.body
-            label.frame = NSRect(x: inset, y: y, width: width - inset * 2, height: 16)
-            container.addSubview(label)
-            y += 24
+        if let section = content.sections.first {
+            let summary = NSTextField(labelWithString: section.strong + section.post)
+            summary.font = NSFont.systemFont(ofSize: 12)
+            summary.textColor = .secondaryLabelColor
+            summary.frame = NSRect(x: inset, y: y, width: width - inset * 2, height: 16)
+            container.addSubview(summary)
         }
+        y = headerHeight
+
+        container.addSubview(divider(y: y, width: width))
+        y += 1
 
         let body = FlippedView(frame: NSRect(x: 0, y: 0, width: width, height: bodyHeight))
-        let bodyTop = y
-        y = 0
-
+        var rowY: CGFloat = 6
         for section in content.sections {
-            if !section.strong.isEmpty {
-                let head = NSMutableAttributedString()
-                head.append(NSAttributedString(string: section.pre, attributes: [
-                    .font: NSFont.systemFont(ofSize: 15),
-                    .foregroundColor: HubInk.muted,
-                ]))
-                head.append(NSAttributedString(string: section.strong, attributes: [
-                    .font: NSFont.systemFont(ofSize: 15, weight: .bold),
-                    .foregroundColor: HubInk.strong,
-                ]))
-                head.append(NSAttributedString(string: section.post, attributes: [
-                    .font: NSFont.systemFont(ofSize: 15),
-                    .foregroundColor: HubInk.muted,
-                ]))
-                let headLabel = NSTextField(labelWithAttributedString: head)
-                headLabel.frame = NSRect(x: inset, y: y, width: width - inset * 2, height: 20)
-                body.addSubview(headLabel)
-                y += 20 + 8
-            }
-
             if section.rows.isEmpty, let empty = section.empty {
                 let label = NSTextField(labelWithString: empty)
-                label.font = NSFont.systemFont(ofSize: 14)
-                label.textColor = HubInk.faint
-                label.frame = NSRect(
-                    x: Config.panelTextX,
-                    y: y + 8,
-                    width: width - Config.panelTextX - inset,
-                    height: 18
-                )
+                label.font = NSFont.systemFont(ofSize: 13)
+                label.textColor = .tertiaryLabelColor
+                label.frame = NSRect(x: inset, y: rowY + (rowHeight - 17) / 2, width: width - inset * 2, height: 17)
                 body.addSubview(label)
-                y += rowHeight
+                rowY += rowHeight
             }
-
             for row in section.rows {
-                let clickable = row.chevron
-                let holder = HubRowView(
-                    frame: NSRect(x: inset - 8, y: y, width: width - inset * 2 + 16, height: rowHeight),
-                    handler: clickable ? { onRow(row.id) } : nil
-                )
-                body.addSubview(holder)
-
-                let rail = NSView(frame: NSRect(x: 8, y: 7, width: 2, height: rowHeight - 14))
-                rail.wantsLayer = true
-                rail.layer?.backgroundColor = HubInk.rail.cgColor
-                rail.layer?.cornerRadius = 1
-                holder.addSubview(rail)
-
-                let glyphFrame = NSRect(
-                    x: Config.panelGlyphX - inset + 8,
-                    y: (rowHeight - 18) / 2,
-                    width: 18,
-                    height: 18
-                )
-                if row.checkable {
-                    let check = ClosureButton(frame: glyphFrame) { onCheck(row.id) }
-                    check.isBordered = false
-                    check.image = NSImage(systemSymbolName: "circle", accessibilityDescription: "Concluir")?
-                        .withSymbolConfiguration(.init(pointSize: 15, weight: .light))
-                    check.alternateImage = NSImage(
-                        systemSymbolName: "checkmark.circle.fill",
-                        accessibilityDescription: nil
-                    )?.withSymbolConfiguration(.init(pointSize: 15, weight: .regular))
-                    check.setButtonType(.momentaryChange)
-                    check.contentTintColor = HubInk.glyph
-                    check.imagePosition = .imageOnly
-                    check.toolTip = row.tip.map { $0 + " — clique para marcar como feito" }
-                        ?? "Marcar como feito"
-                    check.trackHover(
-                        resting: .clear,
-                        hover: NSColor.labelColor.withAlphaComponent(0.12)
-                    )
-                    holder.addSubview(check)
-                } else {
-                    let glyph = NSImageView(frame: glyphFrame)
-                    glyph.image = NSImage(systemSymbolName: row.symbol, accessibilityDescription: nil)?
-                        .withSymbolConfiguration(.init(pointSize: 15, weight: .light))
-                    glyph.contentTintColor = HubInk.glyph
-                    holder.addSubview(glyph)
-                }
-
-                let text = NSMutableAttributedString()
-                text.append(NSAttributedString(string: row.title, attributes: [
-                    .font: NSFont.systemFont(ofSize: 15),
-                    .foregroundColor: HubInk.body,
-                ]))
-                if let trailing = row.trailing {
-                    text.append(NSAttributedString(string: "  " + trailing, attributes: [
-                        .font: NSFont.systemFont(ofSize: 15, weight: .semibold),
-                        .foregroundColor: HubInk.strong,
-                    ]))
-                }
-                let label = NSTextField(labelWithAttributedString: text)
-                label.lineBreakMode = .byTruncatingTail
-                label.maximumNumberOfLines = 1
-                let textX = Config.panelTextX - inset + 8
-                label.frame = NSRect(
-                    x: textX,
-                    y: (rowHeight - 18) / 2,
-                    width: holder.bounds.width - textX - (row.chevron ? 26 : 10),
-                    height: 18
-                )
-                holder.addSubview(label)
-                if let tip = row.tip { holder.toolTip = tip }
-
-                if row.chevron {
-                    let arrow = NSImageView(frame: NSRect(
-                        x: holder.bounds.width - 24,
-                        y: (rowHeight - 14) / 2,
-                        width: 14,
-                        height: 14
-                    ))
-                    arrow.image = NSImage(systemSymbolName: "chevron.right", accessibilityDescription: nil)?
-                        .withSymbolConfiguration(.init(pointSize: 11, weight: .semibold))
-                    arrow.contentTintColor = HubInk.faint
-                    holder.addSubview(arrow)
-                }
-
-                y += rowHeight
+                body.addSubview(rowView(row, y: rowY, width: width))
+                rowY += rowHeight
             }
-            y += Config.panelSectionGap
         }
 
-        if bodyHeight > visibleBody {
-            let scroller = HubScrollView(frame: NSRect(
-                x: 0,
-                y: bodyTop,
-                width: width,
-                height: visibleBody
-            ))
-            scroller.drawsBackground = false
-            scroller.hasVerticalScroller = true
-            scroller.scrollerStyle = .overlay
-            scroller.autohidesScrollers = true
-            scroller.horizontalScrollElasticity = .none
-            scroller.verticalScroller?.knobStyle = .light
-            scroller.documentView = body
-            scroller.followBounds()
-            container.addSubview(scroller)
-        } else {
-            body.setFrameOrigin(NSPoint(x: 0, y: bodyTop))
-            container.addSubview(body)
-        }
-        y = bodyTop + visibleBody
+        let scroller = NSScrollView(frame: NSRect(x: 0, y: y, width: width, height: visibleBody))
+        scroller.drawsBackground = false
+        scroller.hasVerticalScroller = bodyHeight > visibleBody
+        scroller.scrollerStyle = .overlay
+        scroller.autohidesScrollers = true
+        scroller.horizontalScrollElasticity = .none
+        scroller.verticalScrollElasticity = bodyHeight > visibleBody ? .allowed : .none
+        scroller.automaticallyAdjustsContentInsets = false
+        scroller.documentView = body
+        container.addSubview(scroller)
+        y += visibleBody
 
-        if !content.actions.isEmpty {
-            var x = inset
-            for spec in content.actions {
-                let button = ClosureButton(
-                    frame: NSRect(x: x, y: y, width: Config.panelActionSize, height: Config.panelActionSize),
-                    handler: { onAction(spec.action) }
-                )
-                button.isBordered = false
-                button.wantsLayer = true
-                button.layer?.cornerRadius = Config.panelActionSize / 2
-                button.trackHover(
-                    resting: spec.on
-                        ? NSColor.labelColor.withAlphaComponent(0.92)
-                        : NSColor.labelColor.withAlphaComponent(0.10),
-                    hover: spec.on
-                        ? NSColor.labelColor
-                        : NSColor.labelColor.withAlphaComponent(0.20)
-                )
-                button.image = NSImage(systemSymbolName: spec.symbol, accessibilityDescription: spec.tooltip)?
-                    .withSymbolConfiguration(.init(pointSize: 14, weight: .medium))
-                button.contentTintColor = spec.on
-                    ? NSColor.windowBackgroundColor
-                    : HubInk.body
-                button.imagePosition = .imageOnly
-                button.toolTip = spec.tooltip
-                container.addSubview(button)
-                x += Config.panelActionSize + 10
-            }
-            y += Config.panelActionSize + 14
+        container.addSubview(divider(y: y, width: width))
+        y += 1
+
+        let barY = y + (footerHeight - Config.panelActionSize) / 2
+        var x = inset - 6
+        for spec in content.actions {
+            container.addSubview(actionButton(spec, frame: NSRect(
+                x: x,
+                y: barY,
+                width: Config.panelActionSize,
+                height: Config.panelActionSize
+            ), onAction: onAction))
+            x += Config.panelActionSize + 4
         }
 
         let stamp = NSTextField(labelWithString: content.footer)
-        stamp.font = NSFont.systemFont(ofSize: 12)
-        stamp.textColor = HubInk.faint
-        stamp.frame = NSRect(x: inset, y: y, width: width - inset * 2, height: 16)
+        stamp.font = NSFont.systemFont(ofSize: 11)
+        stamp.textColor = .secondaryLabelColor
+        stamp.alignment = .right
+        stamp.lineBreakMode = .byTruncatingHead
+        stamp.frame = NSRect(x: x + 8, y: barY + (Config.panelActionSize - 14) / 2, width: width - inset - x - 8, height: 14)
         container.addSubview(stamp)
 
         return container
+    }
+
+    private static func divider(y: CGFloat, width: CGFloat) -> NSView {
+        let line = NSBox(frame: NSRect(x: 0, y: y, width: width, height: 1))
+        line.boxType = .separator
+        return line
+    }
+
+    private static func rowView(_ row: HubRow, y: CGFloat, width: CGFloat) -> NSView {
+        let inset = Config.panelInset
+        let rowHeight = Config.panelRowHeight
+        let holder = FlippedView(frame: NSRect(x: 0, y: y, width: width, height: rowHeight))
+        holder.toolTip = row.tip
+
+        let more = row.id.hasSuffix(":more")
+        let glyph = NSImageView(frame: NSRect(x: inset, y: (rowHeight - 14) / 2, width: 14, height: 14))
+        glyph.image = NSImage(systemSymbolName: more ? "ellipsis" : "circle", accessibilityDescription: nil)?
+            .withSymbolConfiguration(.init(pointSize: 12, weight: .regular))
+        glyph.contentTintColor = HubInk.glyph(row.tone)
+        holder.addSubview(glyph)
+
+        let dueWidth: CGFloat = row.trailing == nil ? 0 : 44
+        if let trailing = row.trailing {
+            let due = NSTextField(labelWithString: trailing)
+            due.font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: row.tone == .later ? .regular : .medium)
+            due.textColor = HubInk.due(row.tone)
+            due.alignment = .right
+            due.frame = NSRect(x: width - inset - dueWidth, y: (rowHeight - 15) / 2, width: dueWidth, height: 15)
+            holder.addSubview(due)
+        }
+
+        let textX = inset + 24
+        let label = NSTextField(labelWithString: row.title)
+        label.font = NSFont.systemFont(ofSize: 13)
+        label.textColor = more ? .secondaryLabelColor : .labelColor
+        label.lineBreakMode = .byTruncatingTail
+        label.maximumNumberOfLines = 1
+        label.cell?.truncatesLastVisibleLine = true
+        label.frame = NSRect(
+            x: textX,
+            y: (rowHeight - 17) / 2,
+            width: width - textX - inset - dueWidth - (dueWidth > 0 ? 8 : 0),
+            height: 17
+        )
+        holder.addSubview(label)
+        return holder
+    }
+
+    private static func actionButton(
+        _ spec: HubActionSpec,
+        frame: NSRect,
+        onAction: @escaping (HubAction) -> Void
+    ) -> NSButton {
+        let button = ClosureButton(frame: frame, handler: { onAction(spec.action) })
+        button.isBordered = false
+        button.wantsLayer = true
+        button.layer?.cornerRadius = 8
+        button.trackHover(
+            resting: spec.on ? NSColor.systemRed.withAlphaComponent(0.9) : .clear,
+            hover: spec.on ? NSColor.systemRed : NSColor.labelColor.withAlphaComponent(0.1)
+        )
+        button.image = NSImage(systemSymbolName: spec.symbol, accessibilityDescription: spec.tooltip)?
+            .withSymbolConfiguration(.init(pointSize: 15, weight: .regular))
+        button.contentTintColor = spec.on ? .white : .secondaryLabelColor
+        button.imagePosition = .imageOnly
+        button.toolTip = spec.tooltip
+        button.setAccessibilityLabel(spec.tooltip)
+        return button
     }
 }
 
@@ -687,8 +410,8 @@ final class HubPanel {
     }
 
     private func fit(_ content: NSView, below button: NSStatusBarButton?) -> NSView {
-        guard let window = button?.window else { return content }
-        let anchor = window.convertToScreen(button!.convert(button!.bounds, to: nil))
+        guard let button, let window = button.window else { return content }
+        let anchor = window.convertToScreen(button.convert(button.bounds, to: nil))
         let visible = (window.screen ?? NSScreen.main)?.visibleFrame ?? anchor
         let ceiling = HubPanel.availableHeight(anchorBottom: anchor.minY, screenBottom: visible.minY)
         guard content.frame.height > ceiling else { return content }
@@ -697,7 +420,6 @@ final class HubPanel {
         scroll.hasVerticalScroller = true
         scroll.scrollerStyle = .overlay
         scroll.autohidesScrollers = true
-        scroll.verticalScrollElasticity = .allowed
         scroll.documentView = content
         content.frame.origin = .zero
         return scroll

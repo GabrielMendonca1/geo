@@ -62,8 +62,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let filesShortcutErrorItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let filesShortcutRetryItem = NSMenuItem(title: "Tentar registrar atalhos novamente", action: nil, keyEquivalent: "")
     private let hubPanel = HubPanel()
-    private var openProject: String?
-    private var projectCache: (at: Date, projects: [ProjectStatus])?
     private var appTailItems: [NSMenuItem] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -421,7 +419,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             hubPanel.close()
             return
         }
-        openProject = nil
         tasksController.refreshIfStale()
         presentPanel()
     }
@@ -448,79 +445,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func panelContent() -> NSView {
-        let projects = scannedProjects()
-        let content: HubContent
-        if let openProject, let project = projects.first(where: { $0.path == openProject }) {
-            content = HubContent(
-                headerStrong: project.name,
-                headerRest: "",
-                back: true,
-                sections: [HubModel.todosSection(project, titleLimit: Config.taskTitleLimit)],
-                notice: nil,
-                footer: project.updated.map { "atualizado: \($0)" } ?? "sem carimbo de data",
-                actions: panelActionSpecs()
-            )
-        } else {
-            let header = HubModel.dateHeader(Date(), locale: Locale(identifier: "pt_BR"))
-            content = HubContent(
-                headerStrong: header.0,
-                headerRest: header.1,
-                back: false,
-                sections: [
-                    HubModel.tasksSection(
-                        VaultTasks.open(tasksController.tasks),
-                        limit: Config.panelListLimit,
-                        titleLimit: Config.taskTitleLimit
-                    ),
-                    HubModel.projectsSection(
-                        projects,
-                        limit: Config.panelListLimit,
-                        titleLimit: Config.taskTitleLimit
-                    ),
-                ],
-                notice: nil,
-                footer: panelFooter(),
-                actions: panelActionSpecs()
-            )
-        }
-        return HubPanelView.build(
-            content: content,
-            onRow: { [weak self] id in self?.panelOpenRow(id) },
-            onCheck: { [weak self] id in self?.panelCheck(id) },
-            onBack: { [weak self] in
-                self?.openProject = nil
-                self?.presentPanel()
-            },
-            onAction: { [weak self] action in self?.panelRun(action) }
+        let header = HubModel.dateHeader(Date(), locale: Locale(identifier: "pt_BR"))
+        let content = HubContent(
+            headerStrong: header.0,
+            headerRest: header.1,
+            sections: [HubModel.tasksSection(VaultTasks.open(tasksController.tasks), limit: Config.panelListLimit)],
+            footer: panelFooter(),
+            actions: panelActionSpecs()
         )
-    }
-
-    private func scannedProjects() -> [ProjectStatus] {
-        let now = Date()
-        if let projectCache, now.timeIntervalSince(projectCache.at) < Config.projectScanMaxAge {
-            return projectCache.projects
-        }
-        let projects = ProjectStatusScanner.scan(roots: Config.projectRoots)
-        projectCache = (now, projects)
-        return projects
-    }
-
-    private func panelOpenRow(_ id: String) {
-        guard id.hasPrefix("project:") else { return }
-        let path = String(id.dropFirst("project:".count))
-        guard path != "more" else { return }
-        openProject = path
-        presentPanel()
-    }
-
-    private func panelCheck(_ id: String) {
-        guard id.hasPrefix("todo:"), let path = openProject else { return }
-        let todo = String(id.dropFirst("todo:".count))
-        if StatusTodoWriter.complete(path: path, todo: todo) {
-            projectCache = nil
-            icon.flash("checkmark.circle.fill")
-        }
-        presentPanel()
+        return HubPanelView.build(content: content, onAction: { [weak self] action in self?.panelRun(action) })
     }
 
     private func panelRun(_ action: HubAction) {

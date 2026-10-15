@@ -881,55 +881,6 @@ equal(VaultTasks.age(from: origin, to: origin.addingTimeInterval(600)), "há 10 
 equal(VaultTasks.age(from: origin, to: origin.addingTimeInterval(7200)), "há 2 h", "hours label")
 equal(VaultTasks.age(from: origin, to: origin.addingTimeInterval(259_200)), "há 3 d", "days label")
 
-print("== project status: canonical template parses ==")
-let canonical = """
-# STATUS — brain
-
-> atualizado: 2026-08-17
-
-## Todo
-- [ ] endurecer o sandbox da lane pi
-- [ ] fechar o pane do herdr
-
-## Feito
-- [x] executor omni nativo (2026-08-13)
-- [ ] um aberto perdido na seção errada
-"""
-let brain = ProjectStatusScanner.parse(markdown: canonical, fallbackName: "dir", path: "/x/STATUS.md")
-equal(brain.name, "brain", "name comes from the heading")
-equal(brain.updated, "2026-08-17", "updated stamp parses")
-equal(brain.todos.count, 2, "only unchecked boxes under Todo count")
-equal(brain.todos.first, "endurecer o sandbox da lane pi", "todo text is clean")
-
-let offTemplate = ProjectStatusScanner.parse(
-    markdown: "# STATUS\n\nprosa livre sem checkbox\n",
-    fallbackName: "legado",
-    path: "/y/STATUS.md"
-)
-equal(offTemplate.name, "legado", "a bare heading falls back to the dir name")
-equal(offTemplate.todos.count, 0, "free prose yields no todos")
-check(offTemplate.updated == nil, "no stamp reads as nil")
-
-print("== project status: scan finds root and depth-1 files ==")
-let scanRoot = NSTemporaryDirectory() + "harness-projects-" + UUID().uuidString
-func plant(_ relative: String, _ contents: String) {
-    let path = scanRoot + "/" + relative
-    try? FileManager.default.createDirectory(
-        atPath: (path as NSString).deletingLastPathComponent,
-        withIntermediateDirectories: true
-    )
-    FileManager.default.createFile(atPath: path, contents: Data(contents.utf8))
-}
-plant("STATUS.md", "# STATUS — raiz\n\n## Todo\n- [ ] a\n")
-plant("alpha/STATUS.md", "# STATUS — alpha\n\n## Todo\n- [ ] b\n- [ ] c\n")
-plant("beta/STATUS.md", "# STATUS — beta\n\n## Todo\n\n## Feito\n- [x] tudo (2026-01-01)\n")
-plant("gamma/deep/STATUS.md", "# STATUS — fundo\n\n## Todo\n- [ ] d\n")
-plant(".hidden/STATUS.md", "# STATUS — oculto\n\n## Todo\n- [ ] e\n")
-let scanned = ProjectStatusScanner.scan(roots: [scanRoot])
-equal(scanned.map(\.name), ["raiz", "alpha"], "root and depth-1 with todos, nothing hidden or deeper")
-equal(scanned[1].todos.count, 2, "todos ride along")
-try? FileManager.default.removeItem(atPath: scanRoot)
-
 print("== icon identity: triangle everywhere, colour by situation ==")
 equal(IconAnimation.plan(for: .idle, reduceMotion: false).render, IconRender.triangle, "idle is the plain triangle")
 equal(IconAnimation.plan(for: .idle, reduceMotion: false).tint, IconTint.neutral, "idle stays monochrome so it adapts to the bar")
@@ -961,7 +912,7 @@ check(calmActions.allSatisfy { !$0.on }, "nothing is lit when nothing is running
 check(calmActions.allSatisfy { !$0.tooltip.isEmpty }, "every button says what it does")
 check(Set(calmActions.map(\.symbol)).count == calmActions.count, "no two buttons share a glyph")
 equal(calmActions[1].symbol, "record.circle", "the meeting button reads as a recorder")
-equal(calmActions[2].symbol, "lock.square", "the vault button reads as a safe")
+equal(calmActions[2].symbol, "folder", "the vault button reads as a folder")
 let busyActions = HubModel.actionSpecs(dictating: true, meeting: true)
 equal(busyActions[0].symbol, "mic.fill", "dictation fills its mic while live")
 equal(busyActions[1].symbol, "stop.fill", "a running meeting offers stop")
@@ -1082,154 +1033,66 @@ check(SleepBlocker.arguments(on: true).allSatisfy { !$0.contains("*") }, "no wil
 check(SleepBlocker.arguments(on: true).first(where: { $0.hasPrefix("/") }) == "/usr/bin/pmset", "the binary is absolute, never PATH-resolved")
 equal(SleepBlocker.arguments(on: true).count, SleepBlocker.arguments(on: false).count, "on and off share one shape")
 
-print("== status.md write-back ==")
-let board = """
-# STATUS — demo
-
-> atualizado: 2026-08-18
-
-## Todo
-- [ ] primeira coisa
-- [ ] segunda coisa
-
-## Feito
-- [x] coisa antiga (2026-01-01)
-"""
-let marked = StatusTodoWriter.complete(markdown: board, todo: "primeira coisa", on: "2026-08-18")
-check(marked != nil, "a known todo is found")
-check(!marked!.contains("- [ ] primeira coisa"), "the todo leaves the Todo section")
-check(marked!.contains("- [x] primeira coisa (2026-08-18)"), "it lands in Feito with the date")
-check(marked!.contains("- [ ] segunda coisa"), "the other todos survive untouched")
-check(marked!.contains("> atualizado: 2026-08-18"), "the rest of the file is preserved")
-let doneIndex = marked!.range(of: "## Feito")!.lowerBound
-let entryIndex = marked!.range(of: "- [x] primeira coisa")!.lowerBound
-check(doneIndex < entryIndex, "the entry goes under the Feito heading")
-check(StatusTodoWriter.complete(markdown: board, todo: "nao existe", on: "2026-08-18") == nil, "an unknown todo changes nothing")
-check(
-    StatusTodoWriter.complete(markdown: board, todo: "coisa antiga", on: "2026-08-18") == nil,
-    "already-done lines are never re-marked"
-)
-let noSection = StatusTodoWriter.complete(
-    markdown: "# STATUS — x\n\n## Todo\n- [ ] só isso\n",
-    todo: "só isso",
-    on: "2026-08-18"
-)
-check(noSection!.contains("## Feito"), "a missing Feito section is created")
-
-print("== status.md write-back touches the real file atomically ==")
-let boardPath = NSTemporaryDirectory() + "harness-status-" + UUID().uuidString + ".md"
-FileManager.default.createFile(atPath: boardPath, contents: Data(board.utf8))
-check(StatusTodoWriter.complete(path: boardPath, todo: "segunda coisa"), "the write reports success")
-let reread = try! String(contentsOfFile: boardPath, encoding: .utf8)
-check(reread.contains("- [x] segunda coisa ("), "the file on disk carries the completion")
-check(reread.contains("- [ ] primeira coisa"), "the untouched todo is still there")
-check(!FileManager.default.fileExists(atPath: boardPath + ".garime-tmp"), "no temp file is left behind")
-check(!StatusTodoWriter.complete(path: "/nonexistent/STATUS.md", todo: "x"), "a missing file fails quietly")
-try? FileManager.default.removeItem(atPath: boardPath)
-
 print("== hub panel model ==")
-equal(HubModel.truncate("curta", limit: 58), "curta", "short titles pass through")
-let long = "revisar o contrato da ponte com o time de infra antes do deploy de sexta"
-let cut = HubModel.truncate(long, limit: 40)
-check(cut.hasSuffix("…"), "long titles gain an ellipsis")
-check(cut.count <= 42, "truncation respects the limit")
-check(!cut.contains("  "), "truncation cuts on a word boundary")
-
+let panelNow = Date(timeIntervalSince1970: 1_760_000_000)
+let dayLength: TimeInterval = 86_400
 let panelTasks = (1...5).map {
     VaultTask(id: "\($0)", title: "tarefa \($0)", status: "pending", priority: "unset", due: nil, reminders: 0)
 }
-let todosProject = ProjectStatus(
-    name: "demo",
-    updated: "2026-08-18",
-    todos: ["alfa", "beta"],
-    path: "/demo/STATUS.md"
-)
-let todos = HubModel.todosSection(todosProject, titleLimit: 58)
-equal(todos.rows.count, 2, "every todo of the project shows up")
-check(todos.rows.allSatisfy(\.checkable), "project todos can be checked off")
-equal(todos.rows.first?.id, "todo:alfa", "the row id carries the exact todo text")
-equal(HubModel.projectsSection([todosProject], limit: 5, titleLimit: 58).rows.first?.id, "project:/demo/STATUS.md", "project rows address the file")
-check(HubModel.projectsSection([todosProject], limit: 5, titleLimit: 58).rows.first!.chevron, "projects are navigable")
-check(!HubModel.tasksSection(panelTasks, limit: 3, titleLimit: 58).rows.contains { $0.checkable }, "vault tasks stay read-only in the panel")
-
-let taskSection = HubModel.tasksSection(panelTasks, limit: 3, titleLimit: 58)
+let taskSection = HubModel.tasksSection(panelTasks, limit: 3, now: panelNow)
 equal(taskSection.strong, "5 tarefas", "the header carries the full count")
 equal(taskSection.rows.count, 4, "three rows plus the overflow line")
 equal(taskSection.rows.last?.title, "e mais 2", "overflow names how many are hidden")
-equal(taskSection.rows.first?.symbol, "circle", "tasks use the open circle glyph")
-equal(HubModel.tasksSection([], limit: 3, titleLimit: 58).strong, "nenhuma tarefa", "empty state reads naturally")
+equal(HubModel.tasksSection([], limit: 3, now: panelNow).strong, "Nenhuma tarefa", "empty state reads naturally")
+equal(HubModel.tasksSection([panelTasks[0]], limit: 3, now: panelNow).post, " aberta", "singular agrees with the count")
+let longTitle = "revisar o contrato da ponte com o time de infra antes do deploy de sexta e avisar o jurídico"
 equal(
-    HubModel.tasksSection([panelTasks[0]], limit: 3, titleLimit: 58).post,
-    " aberta",
-    "singular agrees with the count"
+    HubModel.tasksSection([VaultTask(id: "l", title: longTitle, status: "pending", priority: "unset", due: nil, reminders: 0)], limit: 3, now: panelNow).rows.first?.title,
+    longTitle,
+    "titles are never cut by character count; the label truncates with an ellipsis"
 )
 
-let manyProjects = (1...40).map {
-    ProjectStatus(name: "p\($0)", updated: nil, todos: ["a"], path: "/p\($0)")
+equal(HubModel.dueTone(nil, now: panelNow), .none, "no due date has no tone")
+equal(HubModel.dueTone(panelNow, now: panelNow), .today, "due today reads as today")
+equal(HubModel.dueTone(panelNow - 3 * dayLength, now: panelNow), .overdue, "a past date is overdue")
+equal(HubModel.dueTone(panelNow + 3 * dayLength, now: panelNow), .later, "a future date is later")
+let dueTasks = [
+    VaultTask(id: "a", title: "a", status: "pending", priority: "unset", due: panelNow - 2 * dayLength, reminders: 0),
+    VaultTask(id: "b", title: "b", status: "pending", priority: "unset", due: panelNow, reminders: 0),
+    VaultTask(id: "c", title: "c", status: "pending", priority: "unset", due: panelNow - 5 * dayLength, reminders: 0),
+]
+let dueSection = HubModel.tasksSection(dueTasks, limit: 10, now: panelNow)
+equal(dueSection.rows[1].trailing, "hoje", "today is spelled out")
+equal(dueSection.post, " abertas · 2 atrasadas", "the summary counts overdue tasks")
+
+let manyTasks = (1...40).map {
+    VaultTask(id: "\($0)", title: "tarefa \($0)", status: "pending", priority: "unset", due: nil, reminders: 0)
 }
-let bigSection = HubModel.projectsSection(manyProjects, limit: Config.panelListLimit, titleLimit: 58)
-equal(bigSection.rows.count, 40, "the panel lists every project instead of hiding them")
-check(!bigSection.rows.contains { $0.id.hasSuffix(":more") }, "no overflow line when the list scrolls")
 let bigCard = HubPanelView.build(
     content: HubContent(
         headerStrong: "Hoje",
         headerRest: "",
-        back: false,
-        sections: [bigSection],
-        notice: nil,
+        sections: [HubModel.tasksSection(manyTasks, limit: Config.panelListLimit, now: panelNow)],
         footer: "agora",
         actions: HubModel.actionSpecs(dictating: false, meeting: false)
     ),
-    onRow: { _ in },
-    onCheck: { _ in },
-    onBack: {},
     onAction: { _ in }
 )
-check(
-    bigCard.frame.height < Config.panelMaxBodyHeight + 200,
-    "a long list stays inside the card instead of growing it forever"
-)
-check(
-    bigCard.subviews.contains { $0 is NSScrollView },
-    "the overflowing body becomes a scroll view"
-)
+check(bigCard.frame.height < Config.panelMaxBodyHeight + 200, "a long list stays inside the card instead of growing it forever")
+let bigScroll = bigCard.subviews.compactMap { $0 as? NSScrollView }.first
+check(bigScroll != nil, "the task list lives in a scroll view")
+let actionTop = bigCard.subviews.compactMap { $0 as? ClosureButton }.map(\.frame.minY).min() ?? 0
+check(bigScroll.map { $0.frame.maxY <= actionTop } ?? false, "the action bar never sits on top of the list")
 
-let tipTask = VaultTask(
-    id: "t1",
-    title: "revisar contrato",
-    status: "pending",
-    priority: "high",
-    due: Date(timeIntervalSince1970: 1_755_500_000),
-    reminders: 2
-)
+let tipTask = VaultTask(id: "t1", title: "revisar contrato", status: "pending", priority: "high", due: Date(timeIntervalSince1970: 1_755_500_000), reminders: 2)
 let tip = HubModel.taskTip(tipTask)
 check(tip.hasPrefix("revisar contrato"), "the tooltip opens with the full title")
 check(tip.contains("prioridade alta"), "the tooltip spells out the priority")
 check(tip.contains("2 lembretes"), "the tooltip counts the reminders")
-equal(
-    HubModel.taskTip(panelTasks[0]),
-    "tarefa 1",
-    "a bare task tooltip is just its title"
-)
-equal(
-    HubModel.tasksSection([tipTask], limit: 3, titleLimit: 58).rows.first?.tip,
-    tip,
-    "task rows carry the tooltip"
-)
-equal(todos.rows.first?.tip, "alfa", "todo rows keep the untruncated text as tooltip")
+equal(HubModel.taskTip(panelTasks[0]), "tarefa 1", "a bare task tooltip is just its title")
+equal(HubModel.tasksSection([tipTask], limit: 3, now: panelNow).rows.first?.tip, tip, "task rows carry the tooltip")
 
-let panelProjects = [
-    ProjectStatus(name: "pequeno", updated: nil, todos: ["a"], path: "/p"),
-    ProjectStatus(name: "grande", updated: nil, todos: ["a", "b", "c"], path: "/g"),
-]
-let projectSection = HubModel.projectsSection(panelProjects, limit: 5, titleLimit: 58)
-equal(projectSection.rows.first?.title, "grande", "projects sort by pending count")
-equal(projectSection.rows.first?.trailing, "3", "the trailing badge is the todo count")
-
-let header = HubModel.dateHeader(
-    Date(timeIntervalSince1970: 1_755_500_000),
-    locale: Locale(identifier: "pt_BR")
-)
+let header = HubModel.dateHeader(Date(timeIntervalSince1970: 1_755_500_000), locale: Locale(identifier: "pt_BR"))
 check(header.0.first?.isUppercase == true, "the weekday is capitalised")
 check(header.1.contains("de"), "the date reads in full portuguese")
 

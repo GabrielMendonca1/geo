@@ -10,7 +10,6 @@ Bundle `ai.garime.hub`, LaunchAgent `ai.garime.hub`, logs em `~/Library/Logs/gar
 | Call — mic + áudio do sistema | menu | `CallController.begin()` → `rec.sh` do `/record`; estado por FSEvents em `rec.state` | `~/Garime/brain/skills/record/scripts/rec.sh`, BlackHole |
 | Manter acordado | Caps Lock ligado, gravação ativa ou toggle | `InsomniaController.hold()`, `CapsWatcher` | `IOPMAssertion`; tampa fechada via `/etc/sudoers.d/garime-whisper` |
 | Tarefas do Vault | abrir menu/cartão | `TasksController.refreshIfStale()` | `ssh garime`, cache em `…/Garime/Hub/` |
-| Projetos — todos dos `STATUS.md`, marcar feito | cartão | `ProjectStatusScanner.scan(roots: Config.projectRoots)`, cache 30 s; `StatusTodoWriter.complete` | `STATUS.md` na raiz ou 1 nível abaixo de cada root |
 | Arquivos — converter e ferramentas por roda radial | ⌃⌥Space / ⇧⌃⌥Space com arquivos selecionados | `FilesController.invokeSelection` → `FileToolsBackend` | ffmpeg/ffprobe, cwebp, poppler, gs; Automação → Finder |
 | Sons | automático; menu "Sons…" | `SoundFeedback.play` | defaults `ai.garime.hub.feedback.*` |
 
