@@ -24,7 +24,7 @@ final class ScreenshotClipboard {
         startedAt = Date()
         let watcher = PathWatcher(
             paths: [folder],
-            latency: 0.2,
+            latency: 0.05,
             accepts: { Self.isScreenshot(($0 as NSString).lastPathComponent) },
             onChange: { [weak self] in self?.scan() }
         )
