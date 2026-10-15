@@ -45,6 +45,7 @@ public final class FilesController {
         let urls: [URL]
         let mode: FilesMode
         let anchor: NSPoint
+        let revalidate: Bool
     }
 
     public convenience init() {
@@ -224,6 +225,34 @@ public final class FilesController {
             show(notice, at: anchor)
             return
         }
+        presentWheel(urls: urls, mode: mode, sourcePID: expected.pid, anchor: anchor, revalidate: true)
+    }
+
+    public func invokeFiles(_ rawURLs: [URL], mode: FilesWheelMode) {
+        invokeFiles(rawURLs, wheelMode: mode.mode)
+    }
+
+    func invokeFiles(_ rawURLs: [URL], wheelMode mode: FilesMode) {
+        let anchor = anchorProvider()
+        invalidateContextual(reason: .reinvoked)
+        let urls: [URL]
+        do {
+            urls = try FileSelectionURLPolicy().validate(rawURLs)
+        } catch let failure as FileSelectionFailure {
+            show(FilesContextualNoticeFactory.notice(for: failure, source: nil), at: anchor)
+            return
+        } catch {
+            show(FilesContextualNoticeFactory.notice(for: .invalidURL, source: nil), at: anchor)
+            return
+        }
+        guard !urls.isEmpty else {
+            show(FilesContextualNoticeFactory.notice(for: .noSelection, source: nil), at: anchor)
+            return
+        }
+        presentWheel(urls: urls, mode: mode, sourcePID: frontmostPIDProvider() ?? ownPID, anchor: anchor, revalidate: false)
+    }
+
+    private func presentWheel(urls: [URL], mode: FilesMode, sourcePID: pid_t, anchor: NSPoint, revalidate: Bool) {
         let groups = compact.groups(for: urls, mode: mode)
         guard !groups.isEmpty else {
             show(FilesContextualNoticeFactory.noActionsNotice(urls: urls), at: anchor)
@@ -232,17 +261,18 @@ public final class FilesController {
         let invocation = FilesContextualInvocation(
             urls: urls,
             mode: mode,
-            sourcePID: expected.pid,
+            sourcePID: sourcePID,
             anchor: anchor,
             groups: groups,
             headline: Self.headline(urls)
         )
         contextualSession = ContextualSession(
             id: invocation.id,
-            sourcePID: expected.pid,
+            sourcePID: sourcePID,
             urls: urls,
             mode: mode,
-            anchor: anchor
+            anchor: anchor,
+            revalidate: revalidate
         )
         guard presenter.present(invocation) else {
             contextualSession = nil
@@ -274,7 +304,7 @@ public final class FilesController {
             show(FilesContextualNoticeFactory.staleSelectionNotice, at: session.anchor)
             return
         }
-        guard revalidation == .strict else {
+        guard revalidation == .strict, session.revalidate else {
             performSelectionAction(urls: urls, option: option)
             return
         }

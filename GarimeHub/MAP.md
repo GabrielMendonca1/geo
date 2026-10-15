@@ -5,19 +5,19 @@ Bundle `ai.garime.hub`, LaunchAgent `ai.garime.hub`, logs em `~/Library/Logs/gar
 
 | Função | Gatilho | Entrada no código | Depende de |
 |---|---|---|---|
+| Print → clipboard | print novo do macOS | `ScreenshotClipboard` (FSEvents na pasta de prints) | `com.apple.screencapture location` |
 | Ditado — fala vira texto no app em foco, streaming | ⌥Space | `AppDelegate.toggle()` → `WindowedDecoder` + `DictationSession` → `Typist`/`Paster` | `whisper-cli`, `ffmpeg`, `~/.cache/whisper/ggml-large-v3-turbo.bin`, Microfone, Acessibilidade |
 | Reunião — grava o mic, transcreve no fim | menu / cartão | `MeetingController.begin()` → `MeetingArchive.produce` (`-mc 0`, `.txt` + `.srt`) | `~/Recordings/<stamp>-reuniao/` |
 | Call — mic + áudio do sistema | menu | `CallController.begin()` → `rec.sh` do `/record`; estado por FSEvents em `rec.state` | `~/Garime/brain/skills/record/scripts/rec.sh`, BlackHole |
 | Manter acordado | Caps Lock ligado, gravação ativa ou toggle | `InsomniaController.hold()`, `CapsWatcher` | `IOPMAssertion`; tampa fechada via `/etc/sudoers.d/garime-whisper` |
-| Tarefas do Vault | abrir menu/cartão | `TasksController.refreshIfStale()` | `ssh garime`, cache em `…/Garime/Hub/` |
-| Arquivos — converter e ferramentas por roda radial | ⌃⌥Space / ⇧⌃⌥Space com arquivos selecionados | `FilesController.invokeSelection` → `FileToolsBackend` | ffmpeg/ffprobe, cwebp, poppler, gs; Automação → Finder |
+| Tarefas do Vault — cartão com lista rolável, vencimentos e atrasadas | abrir menu/cartão | `TasksController.refreshIfStale()` | `ssh garime`, cache em `…/Garime/Hub/` |
+| Arquivos — converter e ferramentas por roda radial | ⌃⌥Space / ⇧⌃⌥Space com arquivos selecionados, ou botão direito no Finder › Converter com Garime… / Ferramentas do Garime… (`FilesServices`) | `FilesController.invokeSelection` → `FileToolsBackend` | ffmpeg/ffprobe, cwebp, poppler, gs; Automação → Finder |
 | Sons | automático; menu "Sons…" | `SoundFeedback.play` | defaults `ai.garime.hub.feedback.*` |
 
 ## O que roda com o app parado
 
 | O quê | Frequência |
 |---|---|
-| Checagem de heartbeat parado do Capture | 60 s, tolerância 10 s |
 | Liveness da call | 60 s, **só enquanto uma call grava** |
 | `CapsWatcher` | monitor de `flagsChanged` + 30 s |
 | Ícone | sem timer parado; anima só gravando/transcrevendo |

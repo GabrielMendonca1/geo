@@ -26,6 +26,10 @@ pkill -x GarimeHub 2>/dev/null || true
 echo "install: copying to $DEST"
 rm -rf "$DEST"
 cp -R "$SRC" "$DEST"
+LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+"$LSREGISTER" -u "$SRC" >/dev/null 2>&1 || true
+"$LSREGISTER" -f "$DEST" >/dev/null 2>&1 || true
+/System/Library/CoreServices/pbs -update >/dev/null 2>&1 || true
 
 echo "install: writing $AGENT"
 sed -e "s#/Users/biel/Library/Logs/garime#$LOGS#g" \

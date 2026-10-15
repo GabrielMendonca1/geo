@@ -204,7 +204,7 @@ enum FilesContextualNoticeFactory {
         if isFinder(source) {
             return FilesContextualNotice(
                 title: "Falta permissão de Automação",
-                message: "O Garime Hub precisa da permissão de Automação para perguntar a seleção ao Finder. Conceda em Privacidade e Segurança › Automação › Whisper › Finder.",
+                message: "O atalho precisa de Automação para perguntar a seleção ao Finder (Privacidade e Segurança › Automação › Garime Hub › Finder). Sem permissão: clique com o botão direito nos arquivos › Converter com Garime.",
                 remedy: .automation(finderBundleIdentifier)
             )
         }

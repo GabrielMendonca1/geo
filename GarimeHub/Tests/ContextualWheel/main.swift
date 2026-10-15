@@ -831,6 +831,30 @@ check("diagnóstico de teclado não pede TCC global de teclado",
           && !contextualText.contains("CGEventTap")
           && !controllerText.contains("addGlobalMonitorForEvents"))
 
+let serviceResolver = FakeResolver()
+let servicePresenter = FakePresenter()
+let serviceController = makeController(
+    resolver: serviceResolver,
+    presenter: servicePresenter,
+    engine: StubEngine(),
+    frontmost: finderSource,
+    frontmostPID: 300,
+    revalidation: .strict
+)
+let submittedBeforeService = submitted.count
+let servicePNG = URL(fileURLWithPath: String(cString: realpath(png.path, nil)))
+serviceController.invokeFiles([servicePNG], mode: .convert)
+check("botão direito apresenta a roda com os arquivos recebidos", servicePresenter.presented.last?.urls == [servicePNG])
+check("botão direito não pergunta a seleção ao Finder", serviceResolver.calls == 0)
+if let serviceSession = servicePresenter.presented.last?.id {
+    serviceController.handleContextualCommit(sessionID: serviceSession, option: sampleOptions[0])
+}
+pump(seconds: 0.4) { submitted.count > submittedBeforeService }
+check("commit do botão direito executa sem revalidar pelo Finder", submitted.count == submittedBeforeService + 1 && serviceResolver.calls == 0)
+let noticesBeforeService = notices.count
+serviceController.invokeFiles([URL(string: "https://example.com/x.png")!], mode: .convert)
+check("URL remota pelo botão direito vira aviso, não roda", notices.count == noticesBeforeService + 1 && servicePresenter.presented.count == 1)
+
 print("")
 print("\(checks - failures)/\(checks) verificações ok")
 exit(failures == 0 ? 0 : 1)

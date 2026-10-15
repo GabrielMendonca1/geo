@@ -26,6 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let call = CallController()
     private var callDirectory: String?
     private let screenshots = ScreenshotClipboard()
+    private var filesServices: FilesServices?
     private let tasksController = TasksController()
     private let files = FilesController()
     private let filesSelectionHotKeys = FilesSelectionHotKeys()
@@ -75,6 +76,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         icon = StatusIcon()
         buildMenu()
         files.start()
+        let services = FilesServices(files: files)
+        filesServices = services
+        NSApp.servicesProvider = services
+        NSUpdateDynamicServices()
         filesSelectionHotKeys.onConvert = { [weak self] in
             self?.files.invokeSelection(mode: .convert)
         }
@@ -138,6 +143,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         meeting.abort()
         call.stop()
         screenshots.stop()
+        NSApp.servicesProvider = nil
+        filesServices = nil
         tasksController.stop()
         filesSelectionHotKeys.onConvert = nil
         filesSelectionHotKeys.onTools = nil
