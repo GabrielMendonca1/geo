@@ -1,10 +1,10 @@
 import AppKit
+import ImageIO
 
 final class ScreenshotClipboard {
     private var watcher: PathWatcher?
     private var folder = ""
-    private var startedAt = Date()
-    private var lastCopied = ""
+    private var lastCopiedAt = Date.distantPast
 
     static func folder(defaults: UserDefaults? = UserDefaults(suiteName: "com.apple.screencapture")) -> String {
         let configured = defaults?.string(forKey: "location") ?? ""
@@ -14,14 +14,15 @@ final class ScreenshotClipboard {
 
     static func isScreenshot(_ name: String) -> Bool {
         let lower = name.lowercased()
-        return !name.hasPrefix(".") && lower.hasPrefix("screenshot")
+        let prefixes = ["screenshot", "screen shot", "captura de tela"]
+        return !name.hasPrefix(".") && prefixes.contains(where: lower.hasPrefix)
             && (lower.hasSuffix(".png") || lower.hasSuffix(".jpg") || lower.hasSuffix(".heic"))
     }
 
     func start() {
         guard watcher == nil else { return }
         folder = Self.folder()
-        startedAt = Date()
+        lastCopiedAt = Date()
         let watcher = PathWatcher(
             paths: [folder],
             latency: 0.05,
@@ -47,20 +48,19 @@ final class ScreenshotClipboard {
             .filter { Self.isScreenshot($0.lastPathComponent) }
             .compactMap { entry -> (URL, Date)? in
                 guard let created = try? entry.resourceValues(forKeys: Set(keys)).creationDate,
-                      created >= startedAt else { return nil }
+                      created > lastCopiedAt else { return nil }
                 return (entry, created)
             }
             .max { $0.1 < $1.1 }
-        guard let (file, _) = newest, file.path != lastCopied,
-              let data = try? Data(contentsOf: file), !data.isEmpty else { return }
-        lastCopied = file.path
+        guard let (file, created) = newest,
+              let data = try? Data(contentsOf: file), !data.isEmpty,
+              let source = CGImageSourceCreateWithData(data as CFData, nil),
+              CGImageSourceGetStatus(source) == .statusComplete,
+              CGImageSourceCreateImageAtIndex(source, 0, nil) != nil else { return }
+        lastCopiedAt = created
+        let types: [String: String] = ["png": "public.png", "jpg": "public.jpeg", "heic": "public.heic"]
         let item = NSPasteboardItem()
-        let type: NSPasteboard.PasteboardType = file.pathExtension.lowercased() == "png" ? .png : .tiff
-        if type == .png {
-            item.setData(data, forType: .png)
-        } else if let tiff = NSImage(data: data)?.tiffRepresentation {
-            item.setData(tiff, forType: .tiff)
-        }
+        item.setData(data, forType: NSPasteboard.PasteboardType(types[file.pathExtension.lowercased()] ?? "public.png"))
         item.setString(file.absoluteString, forType: .fileURL)
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
