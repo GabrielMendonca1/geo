@@ -10,13 +10,15 @@ private enum DraftKind: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .task: return "tarefa"
-        case .event: return "evento"
-        case .milestone: return "marco"
+        case .task: return "Tarefa"
+        case .event: return "Evento"
+        case .milestone: return "Marco"
         }
     }
 }
 
+/// Folha de nova tarefa no estilo papel: campo grande em tile,
+/// linhas de cartão branco para data/hora e chips para tipo/prioridade.
 struct NewTaskSheet: View {
     @Environment(\.dismiss) private var dismiss
     @FocusState private var titleFocused: Bool
@@ -28,11 +30,11 @@ struct NewTaskSheet: View {
 
     static func priorityLabel(_ priority: TaskPriority) -> String {
         switch priority {
-        case .urgent: return "urgente"
-        case .high: return "alta"
-        case .medium: return "média"
-        case .low: return "baixa"
-        case .unset: return "nenhuma"
+        case .urgent: return "Urgente"
+        case .high: return "Alta"
+        case .medium: return "Média"
+        case .low: return "Baixa"
+        case .unset: return "Nenhuma"
         }
     }
 
@@ -53,107 +55,116 @@ struct NewTaskSheet: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    TextField("", text: $title, prompt: Text("título").foregroundStyle(.tertiary))
-                        .font(.system(size: 22, weight: .semibold))
-                        .foregroundStyle(.primary)
-                        .focused($titleFocused)
-                        .submitLabel(.done)
-                        .frame(minHeight: 44)
+            ScrollView {
+                VStack(spacing: 16) {
+                    headerCard
+                    scheduleCard
+                    priorityCard
                 }
-
-                Section {
-                    kindPicker
-                        .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
-                }
-
-                Section {
-                    HStack(spacing: 12) {
-                        Text("quando")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        DatePicker("", selection: $due)
-                            .labelsHidden()
-                            .environment(\.locale, Locale(identifier: "pt_BR"))
-                    }
-                    .frame(minHeight: 44)
-
-                    HStack(spacing: 12) {
-                        Text("prioridade")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        Picker("", selection: $priority) {
-                            ForEach(TaskPriority.allCases) { priority in
-                                Text(Self.priorityLabel(priority)).tag(priority)
-                            }
-                        }
-                        .labelsHidden()
-                    }
-                    .frame(minHeight: 44)
-                }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .padding(.bottom, 24)
             }
-            .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
-            .environment(\.defaultMinListRowHeight, 44)
-            .navigationTitle("nova tarefa")
+            .background(Color.paperCanvas)
+            .scrollDismissesKeyboard(.interactively)
+            .navigationTitle("Nova tarefa")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("cancelar") { dismiss() }
-                        .foregroundStyle(.secondary)
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    saveButton
+                    Button("Cancelar") { dismiss() }
+                        .foregroundStyle(Color.primary)
                 }
             }
+            .safeAreaInset(edge: .bottom) { footer }
         }
-        .glassSheet(detents: [.large])
-        .tint(Color.slateText)
-        .animation(.spring(response: 0.34, dampingFraction: 1), value: kind)
+        .tint(Color.primary)
+        .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
+        .animation(.spring(response: 0.3, dampingFraction: 0.9), value: kind)
         .task {
             try? await Task.sleep(nanoseconds: 250_000_000)
             titleFocused = true
         }
     }
 
-    private var kindPicker: some View {
-        GlassChrome {
+    // MARK: - Blocos
+
+    private var headerCard: some View {
+        VStack(spacing: 12) {
+            TextField("", text: $title, prompt: Text("Título").foregroundStyle(.tertiary))
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(Color.primary)
+                .focused($titleFocused)
+                .submitLabel(.done)
+                .padding(.horizontal, 14)
+                .frame(minHeight: 64)
+                .background(
+                    RoundedRectangle(cornerRadius: PaperRadius.tile, style: .continuous)
+                        .fill(Color.paperTile)
+                )
+                .accessibilityIdentifier("new-task-title")
+
             HStack(spacing: 8) {
                 ForEach(DraftKind.allCases) { option in
-                    chip(option)
-                        .contentShape(Capsule())
-                        .onTapGesture {
-                            withAnimation(.spring(response: 0.34, dampingFraction: 1)) {
-                                kind = option
-                            }
-                        }
+                    chip(option.label, selected: kind == option) {
+                        kind = option
+                    }
                 }
             }
         }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: PaperRadius.card, style: .continuous)
+                .fill(Color.paperCard)
+        )
     }
 
-    @ViewBuilder
-    private func chip(_ option: DraftKind) -> some View {
-        let label = Text(option.label)
-            .font(.subheadline)
-            .frame(maxWidth: .infinity, minHeight: 44)
-
-        if kind == option {
-            label
-                .foregroundStyle(Color.slateCanvas)
-                .background(Color.slateText, in: Capsule())
-        } else {
-            label
-                .foregroundStyle(.primary)
-                .glassSurface(shape: Capsule(), interactive: true)
+    private var scheduleCard: some View {
+        VStack(spacing: 0) {
+            row(label: kind == .event ? "Início" : "Quando") {
+                DatePicker("", selection: $due, displayedComponents: [.date])
+                    .labelsHidden()
+                    .environment(\.locale, Locale(identifier: "pt_BR"))
+            }
+            divider
+            row(label: "Hora") {
+                DatePicker("", selection: $due, displayedComponents: [.hourAndMinute])
+                    .labelsHidden()
+                    .environment(\.locale, Locale(identifier: "pt_BR"))
+            }
         }
+        .background(
+            RoundedRectangle(cornerRadius: PaperRadius.card, style: .continuous)
+                .fill(Color.paperCard)
+        )
     }
 
-    private var saveButton: some View {
+    private var priorityCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Prioridade")
+                .font(.system(size: 15))
+                .foregroundStyle(.secondary)
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: 96), spacing: 8)],
+                alignment: .leading,
+                spacing: 8
+            ) {
+                ForEach(TaskPriority.allCases) { option in
+                    chip(Self.priorityLabel(option), selected: priority == option) {
+                        priority = option
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: PaperRadius.card, style: .continuous)
+                .fill(Color.paperCard)
+        )
+    }
+
+    private var footer: some View {
         Button {
             onCreate(TaskDraft(
                 title: trimmedTitle,
@@ -163,12 +174,67 @@ struct NewTaskSheet: View {
             ))
             dismiss()
         } label: {
-            Text("adicionar")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.primary)
+            Text("Adicionar")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(Color.paperInk)
+                .frame(maxWidth: .infinity, minHeight: 54)
+                .background(
+                    RoundedRectangle(cornerRadius: PaperRadius.tile, style: .continuous)
+                        .fill(Color(uiColor: .label))
+                )
         }
+        .buttonStyle(.plain)
         .disabled(trimmedTitle.isEmpty)
         .opacity(trimmedTitle.isEmpty ? 0.35 : 1)
-        .animation(.spring(response: 0.34, dampingFraction: 1), value: trimmedTitle.isEmpty)
+        .animation(.spring(response: 0.3, dampingFraction: 0.9), value: trimmedTitle.isEmpty)
+        .padding(.horizontal, 16)
+        .padding(.top, 10)
+        .padding(.bottom, 12)
+        .background(Color.paperCanvas)
+        .accessibilityIdentifier("new-task-add")
     }
+
+    // MARK: - Peças
+
+    private func row<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
+        HStack(spacing: 12) {
+            Text(label)
+                .font(.system(size: 16))
+                .foregroundStyle(Color.primary)
+            Spacer(minLength: 8)
+            content()
+        }
+        .padding(.horizontal, 16)
+        .frame(minHeight: 56)
+    }
+
+    private var divider: some View {
+        Rectangle()
+            .fill(Color.primary.opacity(0.08))
+            .frame(height: 1)
+            .padding(.leading, 16)
+    }
+
+    private func chip(_ label: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) { action() }
+        } label: {
+            Text(label)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(selected ? Color.paperInk : Color.primary)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .background(
+                    RoundedRectangle(cornerRadius: PaperRadius.tile, style: .continuous)
+                        .fill(selected ? Color(uiColor: .label) : Color.paperTile)
+                )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+#Preview {
+    Color.paperCanvas
+        .sheet(isPresented: .constant(true)) {
+            NewTaskSheet { _ in }
+        }
 }

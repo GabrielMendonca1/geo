@@ -1,0 +1,175 @@
+{
+  "schema": "vitals.plan/1",
+  "id": "plan-2026-W35.r1",
+  "week": "2026-W35",
+  "revision": 1,
+  "frozenAt": "2026-08-24T18:00:00Z",
+  "source": {
+    "catalogId": "demo-catalog",
+    "catalogVersion": 1,
+    "blocks": [
+      {
+        "blockId": "demo.corpo-inteiro-a",
+        "blockVersion": 1
+      }
+    ],
+    "generator": "manual"
+  },
+  "days": [
+    {
+      "date": "2026-08-24",
+      "label": "Corpo inteiro A (demo)",
+      "rest": false,
+      "items": [
+        {
+          "exerciseId": "demo.agachamento-caixa",
+          "name": "Agachamento para caixa (demo)",
+          "muscles": [
+            "quadriceps",
+            "gluteal"
+          ],
+          "sets": [
+            [
+              8,
+              10
+            ],
+            [
+              8,
+              10
+            ]
+          ],
+          "restSec": 90
+        },
+        {
+          "exerciseId": "demo.remada-maquina",
+          "name": "Remada na máquina (demo)",
+          "muscles": [
+            "upper-back"
+          ],
+          "sets": [
+            [
+              10,
+              12
+            ],
+            [
+              10,
+              12
+            ]
+          ],
+          "restSec": 90
+        }
+      ]
+    },
+    {
+      "date": "2026-08-25",
+      "label": "Descanso",
+      "rest": true,
+      "items": []
+    },
+    {
+      "date": "2026-08-26",
+      "label": "Corpo inteiro A (demo)",
+      "rest": false,
+      "items": [
+        {
+          "exerciseId": "demo.agachamento-caixa",
+          "name": "Agachamento para caixa (demo)",
+          "muscles": [
+            "quadriceps",
+            "gluteal"
+          ],
+          "sets": [
+            [
+              8,
+              10
+            ],
+            [
+              8,
+              10
+            ]
+          ],
+          "restSec": 90
+        },
+        {
+          "exerciseId": "demo.elevacao-panturrilha",
+          "name": "Elevação de panturrilha (demo)",
+          "muscles": [
+            "calves"
+          ],
+          "sets": [
+            [
+              10,
+              12
+            ],
+            [
+              10,
+              12
+            ]
+          ],
+          "restSec": 60
+        }
+      ]
+    },
+    {
+      "date": "2026-08-27",
+      "label": "Descanso",
+      "rest": true,
+      "items": []
+    },
+    {
+      "date": "2026-08-28",
+      "label": "Corpo inteiro A (demo)",
+      "rest": false,
+      "items": [
+        {
+          "exerciseId": "demo.remada-maquina",
+          "name": "Remada na máquina (demo)",
+          "muscles": [
+            "upper-back"
+          ],
+          "sets": [
+            [
+              10,
+              12
+            ],
+            [
+              10,
+              12
+            ]
+          ],
+          "restSec": 90
+        },
+        {
+          "exerciseId": "demo.elevacao-panturrilha",
+          "name": "Elevação de panturrilha (demo)",
+          "muscles": [
+            "calves"
+          ],
+          "sets": [
+            [
+              10,
+              12
+            ],
+            [
+              10,
+              12
+            ]
+          ],
+          "restSec": 60
+        }
+      ]
+    },
+    {
+      "date": "2026-08-29",
+      "label": "Descanso",
+      "rest": true,
+      "items": []
+    },
+    {
+      "date": "2026-08-30",
+      "label": "Descanso",
+      "rest": true,
+      "items": []
+    }
+  ]
+}

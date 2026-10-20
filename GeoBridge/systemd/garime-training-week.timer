@@ -1,0 +1,11 @@
+[Unit]
+Description=Ensure the approved workout exists for the current week
+
+[Timer]
+OnBootSec=2min
+OnCalendar=hourly
+Persistent=true
+Unit=garime-training-week.service
+
+[Install]
+WantedBy=timers.target

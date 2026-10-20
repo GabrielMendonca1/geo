@@ -27,13 +27,17 @@ private struct BodySideView: View {
             ZStack {
                 ForEach(shape.parts.indices, id: \.self) { index in
                     let part = shape.parts[index]
-                    part.path
+                    let path = part.path
                         .applying(
                             CGAffineTransform(translationX: -box.minX, y: -box.minY)
                                 .concatenating(CGAffineTransform(scaleX: scale, y: scale))
                                 .concatenating(CGAffineTransform(translationX: offsetX, y: offsetY))
                         )
+                    path
                         .fill(color(for: part.slug))
+                        .overlay {
+                            path.stroke(Color.slateInk(0.18), lineWidth: 0.5)
+                        }
                 }
             }
         }
@@ -48,14 +52,10 @@ private struct BodySideView: View {
 }
 
 enum BodyMapPalette {
-    static let body = Color.slateElevated
-    static let head = Color.slateInk(0.28)
-    static let highlight = Color(
-        UIColor { $0.userInterfaceStyle == .dark
-            ? UIColor(red: 0.42, green: 0.60, blue: 0.97, alpha: 1)
-            : UIColor(red: 0.24, green: 0.45, blue: 0.90, alpha: 1)
-        }
-    )
+    // Keep the unworked muscles visible on both canvas and glass cards.
+    static let body = Color.slateInk(0.14)
+    static let head = Color.slateInk(0.18)
+    static let highlight = Color.primary
 }
 
 struct BodyPart {

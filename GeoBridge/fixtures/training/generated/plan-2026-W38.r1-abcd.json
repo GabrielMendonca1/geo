@@ -1,0 +1,595 @@
+{
+  "days": [
+    {
+      "date": "2026-09-14",
+      "items": [
+        {
+          "doseType": "reps",
+          "exerciseId": "agachamento-livre",
+          "muscles": [
+            "quadriceps",
+            "gluteal",
+            "lower-back"
+          ],
+          "name": "Agachamento livre",
+          "restSec": 150,
+          "sets": [
+            [
+              6,
+              10
+            ],
+            [
+              6,
+              10
+            ]
+          ]
+        },
+        {
+          "doseType": "reps",
+          "exerciseId": "stiff-halteres",
+          "muscles": [
+            "hamstring",
+            "gluteal",
+            "lower-back"
+          ],
+          "name": "Stiff com halteres",
+          "restSec": 150,
+          "sets": [
+            [
+              8,
+              12
+            ],
+            [
+              8,
+              12
+            ]
+          ]
+        },
+        {
+          "doseType": "reps",
+          "exerciseId": "leg-press",
+          "muscles": [
+            "quadriceps",
+            "gluteal"
+          ],
+          "name": "Leg press",
+          "restSec": 150,
+          "sets": [
+            [
+              10,
+              15
+            ],
+            [
+              10,
+              15
+            ]
+          ]
+        },
+        {
+          "doseType": "reps",
+          "exerciseId": "mesa-flexora",
+          "muscles": [
+            "hamstring"
+          ],
+          "name": "Mesa flexora",
+          "restSec": 90,
+          "sets": [
+            [
+              10,
+              15
+            ],
+            [
+              10,
+              15
+            ],
+            [
+              10,
+              15
+            ]
+          ]
+        },
+        {
+          "doseType": "reps",
+          "exerciseId": "passada-reversa",
+          "muscles": [
+            "quadriceps",
+            "gluteal"
+          ],
+          "name": "Passada reversa · 8–12 por perna",
+          "restSec": 90,
+          "sets": [
+            [
+              8,
+              12
+            ],
+            [
+              8,
+              12
+            ]
+          ]
+        },
+        {
+          "doseType": "reps",
+          "exerciseId": "panturrilha-em-pe",
+          "muscles": [
+            "calves"
+          ],
+          "name": "Panturrilha em pé",
+          "restSec": 60,
+          "sets": [
+            [
+              12,
+              20
+            ],
+            [
+              12,
+              20
+            ],
+            [
+              12,
+              20
+            ]
+          ]
+        },
+        {
+          "doseType": "reps",
+          "exerciseId": "dead-bug",
+          "muscles": [
+            "abs",
+            "obliques"
+          ],
+          "name": "Dead bug · 8–12 por lado",
+          "restSec": 60,
+          "sets": [
+            [
+              8,
+              12
+            ],
+            [
+              8,
+              12
+            ]
+          ]
+        }
+      ],
+      "label": "A · Pernas",
+      "rest": false
+    },
+    {
+      "date": "2026-09-15",
+      "items": [],
+      "label": "Cardio leve · 20–30 min",
+      "rest": true
+    },
+    {
+      "date": "2026-09-16",
+      "items": [
+        {
+          "doseType": "reps",
+          "exerciseId": "puxada-alta",
+          "muscles": [
+            "upper-back",
+            "biceps"
+          ],
+          "name": "Puxada frontal",
+          "restSec": 150,
+          "sets": [
+            [
+              8,
+              12
+            ],
+            [
+              8,
+              12
+            ],
+            [
+              8,
+              12
+            ]
+          ]
+        },
+        {
+          "doseType": "reps",
+          "exerciseId": "remada-apoio-peito",
+          "muscles": [
+            "upper-back",
+            "biceps"
+          ],
+          "name": "Remada com apoio no peito",
+          "restSec": 150,
+          "sets": [
+            [
+              10,
+              15
+            ],
+            [
+              10,
+              15
+            ],
+            [
+              10,
+              15
+            ]
+          ]
+        },
+        {
+          "doseType": "reps",
+          "exerciseId": "voador-inverso",
+          "muscles": [
+            "deltoids",
+            "upper-back"
+          ],
+          "name": "Voador inverso",
+          "restSec": 75,
+          "sets": [
+            [
+              12,
+              20
+            ],
+            [
+              12,
+              20
+            ]
+          ]
+        },
+        {
+          "doseType": "reps",
+          "exerciseId": "rosca-scott",
+          "muscles": [
+            "biceps",
+            "forearm"
+          ],
+          "name": "Rosca Scott",
+          "restSec": 75,
+          "sets": [
+            [
+              10,
+              15
+            ],
+            [
+              10,
+              15
+            ]
+          ]
+        },
+        {
+          "doseType": "reps",
+          "exerciseId": "rotacao-externa-elastico",
+          "muscles": [
+            "deltoids",
+            "upper-back"
+          ],
+          "name": "Rotação externa com elástico",
+          "restSec": 60,
+          "sets": [
+            [
+              12,
+              20
+            ],
+            [
+              12,
+              20
+            ]
+          ]
+        }
+      ],
+      "label": "B · Costas e bíceps",
+      "rest": false
+    },
+    {
+      "date": "2026-09-17",
+      "items": [
+        {
+          "doseType": "reps",
+          "exerciseId": "supino-inclinado",
+          "muscles": [
+            "chest",
+            "deltoids",
+            "triceps"
+          ],
+          "name": "Supino inclinado na máquina",
+          "restSec": 150,
+          "sets": [
+            [
+              8,
+              12
+            ],
+            [
+              8,
+              12
+            ],
+            [
+              8,
+              12
+            ]
+          ]
+        },
+        {
+          "doseType": "reps",
+          "exerciseId": "supino",
+          "muscles": [
+            "chest",
+            "triceps",
+            "deltoids"
+          ],
+          "name": "Supino reto na máquina (sem alongamento máximo)",
+          "restSec": 150,
+          "sets": [
+            [
+              10,
+              15
+            ],
+            [
+              10,
+              15
+            ]
+          ]
+        },
+        {
+          "doseType": "reps",
+          "exerciseId": "elevacao-lateral",
+          "muscles": [
+            "deltoids"
+          ],
+          "name": "Elevação lateral (até ~80–90°)",
+          "restSec": 75,
+          "sets": [
+            [
+              12,
+              20
+            ],
+            [
+              12,
+              20
+            ],
+            [
+              12,
+              20
+            ]
+          ]
+        },
+        {
+          "doseType": "reps",
+          "exerciseId": "triceps-polia-alta",
+          "muscles": [
+            "triceps"
+          ],
+          "name": "Tríceps na polia alta",
+          "restSec": 75,
+          "sets": [
+            [
+              10,
+              15
+            ],
+            [
+              10,
+              15
+            ],
+            [
+              10,
+              15
+            ]
+          ]
+        },
+        {
+          "doseType": "reps",
+          "exerciseId": "flexao-escapular-parede",
+          "muscles": [
+            "trapezius",
+            "chest"
+          ],
+          "name": "Flexão escapular na parede",
+          "restSec": 60,
+          "sets": [
+            [
+              10,
+              15
+            ],
+            [
+              10,
+              15
+            ]
+          ]
+        }
+      ],
+      "label": "C · Peito, ombros e tríceps",
+      "rest": false
+    },
+    {
+      "date": "2026-09-18",
+      "items": [],
+      "label": "Cardio leve · 20–30 min",
+      "rest": true
+    },
+    {
+      "date": "2026-09-19",
+      "items": [
+        {
+          "doseType": "reps",
+          "exerciseId": "rosca-alternada",
+          "muscles": [
+            "biceps",
+            "forearm"
+          ],
+          "name": "Rosca alternada · supersérie D1 com tríceps francês — alternar séries",
+          "restSec": 75,
+          "sets": [
+            [
+              10,
+              15
+            ],
+            [
+              10,
+              15
+            ]
+          ]
+        },
+        {
+          "doseType": "reps",
+          "exerciseId": "triceps-frances",
+          "muscles": [
+            "triceps"
+          ],
+          "name": "Tríceps francês · supersérie D1 com rosca alternada — alternar séries",
+          "restSec": 75,
+          "sets": [
+            [
+              10,
+              15
+            ],
+            [
+              10,
+              15
+            ]
+          ]
+        },
+        {
+          "doseType": "reps",
+          "exerciseId": "rosca-scott",
+          "muscles": [
+            "biceps",
+            "forearm"
+          ],
+          "name": "Rosca Scott · supersérie D2 com tríceps na polia alta — alternar séries",
+          "restSec": 75,
+          "sets": [
+            [
+              10,
+              15
+            ],
+            [
+              10,
+              15
+            ]
+          ]
+        },
+        {
+          "doseType": "reps",
+          "exerciseId": "triceps-polia-alta",
+          "muscles": [
+            "triceps"
+          ],
+          "name": "Tríceps na polia alta · supersérie D2 com rosca Scott — alternar séries",
+          "restSec": 75,
+          "sets": [
+            [
+              10,
+              15
+            ],
+            [
+              10,
+              15
+            ]
+          ]
+        },
+        {
+          "doseType": "reps",
+          "exerciseId": "rotacao-externa-elastico",
+          "muscles": [
+            "deltoids",
+            "upper-back"
+          ],
+          "name": "Rotação externa com elástico",
+          "restSec": 60,
+          "sets": [
+            [
+              15,
+              20
+            ],
+            [
+              15,
+              20
+            ]
+          ]
+        },
+        {
+          "doseType": "reps",
+          "exerciseId": "pallof-press",
+          "muscles": [
+            "abs",
+            "obliques"
+          ],
+          "name": "Pallof press · 10–12 por lado",
+          "restSec": 60,
+          "sets": [
+            [
+              10,
+              12
+            ],
+            [
+              10,
+              12
+            ]
+          ]
+        },
+        {
+          "doseType": "reps",
+          "exerciseId": "panturrilha-sentada",
+          "muscles": [
+            "calves"
+          ],
+          "name": "Panturrilha sentada",
+          "restSec": 60,
+          "sets": [
+            [
+              12,
+              20
+            ],
+            [
+              12,
+              20
+            ],
+            [
+              12,
+              20
+            ]
+          ]
+        }
+      ],
+      "label": "D · Braços",
+      "rest": false
+    },
+    {
+      "date": "2026-09-20",
+      "items": [],
+      "label": "Recuperação · caminhada leve opcional",
+      "rest": true
+    }
+  ],
+  "frozenAt": "2026-09-14T00:00:00Z",
+  "id": "plan-2026-W38.r1",
+  "revision": 1,
+  "schema": "vitals.plan/1",
+  "source": {
+    "authorizationId": "auth.ficha-abcd-2026-09-14",
+    "blocks": [
+      {
+        "blockId": "bl.ficha-a",
+        "blockVersion": 1
+      },
+      {
+        "blockId": "bl.ficha-b",
+        "blockVersion": 1
+      },
+      {
+        "blockId": "bl.ficha-c",
+        "blockVersion": 1
+      },
+      {
+        "blockId": "bl.ficha-d",
+        "blockVersion": 1
+      }
+    ],
+    "blocksId": "gabriel-blocks-ficha-abcd",
+    "blocksVersion": 1,
+    "catalogId": "gabriel-catalog",
+    "catalogVersion": 2,
+    "generator": "conversation",
+    "routineId": "routine.ficha-abcd",
+    "routineStatus": "approved-by-user",
+    "routineVersion": 1,
+    "safetyId": "gabriel-shoulder-safety",
+    "safetyVersion": 2
+  },
+  "week": "2026-W38"
+}

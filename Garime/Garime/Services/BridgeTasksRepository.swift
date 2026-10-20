@@ -114,8 +114,12 @@ struct BridgeTasksRepository: TasksRepository {
         return item
     }
 
+    /// POST /tasks/{id} com o item completo (o bridge substitui o arquivo).
     func update(_ task: TaskItem) async throws {
-        throw BridgeError.unsupported("update")
+        _ = try await client.postData(
+            BridgeEndpoint.taskUpdate(id: task.id).path,
+            body: try BridgeClient.iso8601Encoder.encode(task)
+        )
     }
 
     func delete(id: String) async throws {

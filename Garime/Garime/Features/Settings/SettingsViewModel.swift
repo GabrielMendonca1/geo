@@ -35,14 +35,15 @@ final class SettingsViewModel: ObservableObject {
     @Published private(set) var isTesting = false
     @Published private(set) var testResult: String?
     @Published private(set) var urlError: String?
+    @Published private(set) var keychainError: String?
 
     let client: any BridgeAPI
 
     init(client: any BridgeAPI = BridgeClient.shared) {
         self.client = client
         baseURL = BridgeConfig.baseURLString
-        token = BridgeConfig.token
-        termToken = BridgeConfig.termToken
+        token = BridgeConfig.token ?? ""
+        termToken = BridgeConfig.termToken ?? ""
     }
 
     var activeBaseURL: String {
@@ -65,8 +66,13 @@ final class SettingsViewModel: ObservableObject {
 
     @discardableResult
     func save() -> Bool {
-        BridgeConfig.token = token.trimmingCharacters(in: .whitespacesAndNewlines)
-        BridgeConfig.termToken = termToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        let savedToken = BridgeConfig.setToken(token.trimmingCharacters(in: .whitespacesAndNewlines))
+        let savedTermToken = BridgeConfig.setTermToken(termToken.trimmingCharacters(in: .whitespacesAndNewlines))
+        guard savedToken && savedTermToken else {
+            keychainError = "não foi possível salvar os tokens no keychain"
+            return false
+        }
+        keychainError = nil
         let trimmedURL = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
         guard BridgeConfig.isAllowedBaseURL(trimmedURL) else {
             urlError = "URL must be https, or http to a tailnet IP (100.64.0.0/10)"

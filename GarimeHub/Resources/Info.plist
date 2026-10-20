@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>pt_BR</string>
+	<key>CFBundleExecutable</key>
+	<string>GarimeHub</string>
+	<key>CFBundleIdentifier</key>
+	<string>ai.garime.hub</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>GarimeHub</string>
+	<key>CFBundleDisplayName</key>
+	<string>Garime Hub</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>2.0</string>
+	<key>CFBundleVersion</key>
+	<string>20261015.1</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>O garime usa o microfone para transcrever sua fala em texto neste Mac.</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>O Garime Hub consulta somente os arquivos selecionados no Finder quando você chama a roda contextual.</string>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>O Garime Hub lê o arquivo que você selecionou e grava o resultado ao lado do original na Mesa.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>O Garime Hub lê o arquivo que você selecionou e grava o resultado ao lado do original em Documentos.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>O Garime Hub lê o arquivo que você selecionou e grava o resultado ao lado do original em Downloads.</string>
+	<key>NSServices</key>
+	<array>
+		<dict>
+			<key>NSMenuItem</key>
+			<dict>
+				<key>default</key>
+				<string>Converter com Garime…</string>
+			</dict>
+			<key>NSMessage</key>
+			<string>convertFiles</string>
+			<key>NSPortName</key>
+			<string>GarimeHub</string>
+			<key>NSRequiredContext</key>
+			<dict/>
+			<key>NSSendFileTypes</key>
+			<array>
+				<string>public.item</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSMenuItem</key>
+			<dict>
+				<key>default</key>
+				<string>Ferramentas do Garime…</string>
+			</dict>
+			<key>NSMessage</key>
+			<string>fileTools</string>
+			<key>NSPortName</key>
+			<string>GarimeHub</string>
+			<key>NSRequiredContext</key>
+			<dict/>
+			<key>NSSendFileTypes</key>
+			<array>
+				<string>public.item</string>
+			</array>
+		</dict>
+	</array>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+</dict>
+</plist>

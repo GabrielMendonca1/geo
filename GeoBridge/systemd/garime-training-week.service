@@ -1,0 +1,14 @@
+[Unit]
+Description=Repeat Gabriel's explicitly approved weekly workout (append-only)
+After=garime-bridge.service
+ConditionPathExists=/opt/garime/training/active-template.json
+
+[Service]
+Type=oneshot
+User=biel
+Environment=TZ=America/Sao_Paulo
+ExecStart=/usr/bin/python3 /opt/garime/tools/repeat_week_plan.py --template /opt/garime/training/active-template.json --safety /mnt/garime/state/health/safety.json --token-file /etc/garime/bridge.token
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only

@@ -1,0 +1,480 @@
+{
+  "schema": "vitals.blocks/1",
+  "id": "gabriel-blocks-ficha-abcd",
+  "version": 1,
+  "updatedAt": "2026-09-14T09:19:00-03:00",
+  "blocks": [
+    {
+      "id": "bl.ficha-a",
+      "version": 1,
+      "name": "A · Pernas",
+      "publishable": true,
+      "blockedReasons": [],
+      "estimatedMinutes": 46.0,
+      "items": [
+        {
+          "exerciseId": "agachamento-livre",
+          "sets": [
+            [
+              6,
+              10
+            ],
+            [
+              6,
+              10
+            ]
+          ],
+          "restSec": 150,
+          "restClass": "compound",
+          "doseType": "reps"
+        },
+        {
+          "exerciseId": "stiff-halteres",
+          "sets": [
+            [
+              8,
+              12
+            ],
+            [
+              8,
+              12
+            ]
+          ],
+          "restSec": 150,
+          "restClass": "compound",
+          "doseType": "reps"
+        },
+        {
+          "exerciseId": "leg-press",
+          "sets": [
+            [
+              10,
+              15
+            ],
+            [
+              10,
+              15
+            ]
+          ],
+          "restSec": 150,
+          "restClass": "compound",
+          "doseType": "reps"
+        },
+        {
+          "exerciseId": "mesa-flexora",
+          "sets": [
+            [
+              10,
+              15
+            ],
+            [
+              10,
+              15
+            ],
+            [
+              10,
+              15
+            ]
+          ],
+          "restSec": 90,
+          "restClass": "isolation",
+          "doseType": "reps"
+        },
+        {
+          "exerciseId": "passada-reversa",
+          "sets": [
+            [
+              8,
+              12
+            ],
+            [
+              8,
+              12
+            ]
+          ],
+          "restSec": 90,
+          "restClass": "isolation",
+          "doseType": "reps",
+          "note": "8–12 por perna"
+        },
+        {
+          "exerciseId": "panturrilha-em-pe",
+          "sets": [
+            [
+              12,
+              20
+            ],
+            [
+              12,
+              20
+            ],
+            [
+              12,
+              20
+            ]
+          ],
+          "restSec": 60,
+          "restClass": "isolation",
+          "doseType": "reps"
+        },
+        {
+          "exerciseId": "dead-bug",
+          "sets": [
+            [
+              8,
+              12
+            ],
+            [
+              8,
+              12
+            ]
+          ],
+          "restSec": 60,
+          "restClass": "isolation",
+          "doseType": "reps",
+          "note": "8–12 por lado"
+        }
+      ]
+    },
+    {
+      "id": "bl.ficha-b",
+      "version": 1,
+      "name": "B · Costas e bíceps",
+      "publishable": false,
+      "blockedReasons": [
+        "requires-authorization:auth.ficha-abcd-2026-09-14"
+      ],
+      "requiresAuthorizationId": "auth.ficha-abcd-2026-09-14",
+      "estimatedMinutes": 38.0,
+      "items": [
+        {
+          "exerciseId": "puxada-alta",
+          "sets": [
+            [
+              8,
+              12
+            ],
+            [
+              8,
+              12
+            ],
+            [
+              8,
+              12
+            ]
+          ],
+          "restSec": 150,
+          "restClass": "compound",
+          "doseType": "reps"
+        },
+        {
+          "exerciseId": "remada-apoio-peito",
+          "sets": [
+            [
+              10,
+              15
+            ],
+            [
+              10,
+              15
+            ],
+            [
+              10,
+              15
+            ]
+          ],
+          "restSec": 150,
+          "restClass": "compound",
+          "doseType": "reps"
+        },
+        {
+          "exerciseId": "voador-inverso",
+          "sets": [
+            [
+              12,
+              20
+            ],
+            [
+              12,
+              20
+            ]
+          ],
+          "restSec": 75,
+          "restClass": "isolation",
+          "doseType": "reps"
+        },
+        {
+          "exerciseId": "rosca-scott",
+          "sets": [
+            [
+              10,
+              15
+            ],
+            [
+              10,
+              15
+            ]
+          ],
+          "restSec": 75,
+          "restClass": "isolation",
+          "doseType": "reps"
+        },
+        {
+          "exerciseId": "rotacao-externa-elastico",
+          "sets": [
+            [
+              12,
+              20
+            ],
+            [
+              12,
+              20
+            ]
+          ],
+          "restSec": 60,
+          "restClass": "isolation",
+          "doseType": "reps"
+        }
+      ]
+    },
+    {
+      "id": "bl.ficha-c",
+      "version": 1,
+      "name": "C · Peito, ombros e tríceps",
+      "publishable": false,
+      "blockedReasons": [
+        "requires-authorization:auth.ficha-abcd-2026-09-14"
+      ],
+      "requiresAuthorizationId": "auth.ficha-abcd-2026-09-14",
+      "estimatedMinutes": 40.0,
+      "items": [
+        {
+          "exerciseId": "supino-inclinado",
+          "sets": [
+            [
+              8,
+              12
+            ],
+            [
+              8,
+              12
+            ],
+            [
+              8,
+              12
+            ]
+          ],
+          "restSec": 150,
+          "restClass": "compound",
+          "doseType": "reps"
+        },
+        {
+          "exerciseId": "supino",
+          "sets": [
+            [
+              10,
+              15
+            ],
+            [
+              10,
+              15
+            ]
+          ],
+          "restSec": 150,
+          "restClass": "compound",
+          "doseType": "reps"
+        },
+        {
+          "exerciseId": "elevacao-lateral",
+          "sets": [
+            [
+              12,
+              20
+            ],
+            [
+              12,
+              20
+            ],
+            [
+              12,
+              20
+            ]
+          ],
+          "restSec": 75,
+          "restClass": "isolation",
+          "doseType": "reps"
+        },
+        {
+          "exerciseId": "triceps-polia-alta",
+          "sets": [
+            [
+              10,
+              15
+            ],
+            [
+              10,
+              15
+            ],
+            [
+              10,
+              15
+            ]
+          ],
+          "restSec": 75,
+          "restClass": "isolation",
+          "doseType": "reps"
+        },
+        {
+          "exerciseId": "flexao-escapular-parede",
+          "sets": [
+            [
+              10,
+              15
+            ],
+            [
+              10,
+              15
+            ]
+          ],
+          "restSec": 60,
+          "restClass": "isolation",
+          "doseType": "reps"
+        }
+      ]
+    },
+    {
+      "id": "bl.ficha-d",
+      "version": 1,
+      "name": "D · Braços",
+      "publishable": false,
+      "blockedReasons": [
+        "requires-authorization:auth.ficha-abcd-2026-09-14"
+      ],
+      "requiresAuthorizationId": "auth.ficha-abcd-2026-09-14",
+      "estimatedMinutes": 38.0,
+      "items": [
+        {
+          "exerciseId": "rosca-alternada",
+          "sets": [
+            [
+              10,
+              15
+            ],
+            [
+              10,
+              15
+            ]
+          ],
+          "restSec": 75,
+          "restClass": "isolation",
+          "doseType": "reps",
+          "note": "supersérie D1 com tríceps francês — alternar séries"
+        },
+        {
+          "exerciseId": "triceps-frances",
+          "sets": [
+            [
+              10,
+              15
+            ],
+            [
+              10,
+              15
+            ]
+          ],
+          "restSec": 75,
+          "restClass": "isolation",
+          "doseType": "reps",
+          "note": "supersérie D1 com rosca alternada — alternar séries"
+        },
+        {
+          "exerciseId": "rosca-scott",
+          "sets": [
+            [
+              10,
+              15
+            ],
+            [
+              10,
+              15
+            ]
+          ],
+          "restSec": 75,
+          "restClass": "isolation",
+          "doseType": "reps",
+          "note": "supersérie D2 com tríceps na polia alta — alternar séries"
+        },
+        {
+          "exerciseId": "triceps-polia-alta",
+          "sets": [
+            [
+              10,
+              15
+            ],
+            [
+              10,
+              15
+            ]
+          ],
+          "restSec": 75,
+          "restClass": "isolation",
+          "doseType": "reps",
+          "note": "supersérie D2 com rosca Scott — alternar séries"
+        },
+        {
+          "exerciseId": "rotacao-externa-elastico",
+          "sets": [
+            [
+              15,
+              20
+            ],
+            [
+              15,
+              20
+            ]
+          ],
+          "restSec": 60,
+          "restClass": "isolation",
+          "doseType": "reps"
+        },
+        {
+          "exerciseId": "pallof-press",
+          "sets": [
+            [
+              10,
+              12
+            ],
+            [
+              10,
+              12
+            ]
+          ],
+          "restSec": 60,
+          "restClass": "isolation",
+          "doseType": "reps",
+          "note": "10–12 por lado"
+        },
+        {
+          "exerciseId": "panturrilha-sentada",
+          "sets": [
+            [
+              12,
+              20
+            ],
+            [
+              12,
+              20
+            ],
+            [
+              12,
+              20
+            ]
+          ],
+          "restSec": 60,
+          "restClass": "isolation",
+          "doseType": "reps"
+        }
+      ]
+    }
+  ]
+}
