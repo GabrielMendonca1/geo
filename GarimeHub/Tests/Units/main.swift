@@ -1,6 +1,5 @@
 import AppKit
 import Foundation
-import IOKit.pwr_mgt
 
 var passes = 0
 var failures = 0
@@ -808,84 +807,10 @@ equal(DictationSession.remainder(full: "um dois tres", typed: "um dois"), "tres"
 equal(DictationSession.remainder(full: "um dois", typed: ""), "um dois", "remainder is everything when nothing was typed")
 equal(DictationSession.remainder(full: "um dois", typed: "um dois"), "", "remainder is empty when all was typed")
 
-print("== meeting archive naming ==")
-equal(MeetingArchive.slugify("Reunião do Board"), "reunio-do-board", "slug lowercases, maps spaces, drops accents")
-equal(MeetingArchive.slugify("!!!"), "reuniao", "an unusable label falls back to reuniao")
-equal(MeetingArchive.slugify(String(repeating: "a", count: 60)).count, 40, "slug caps at 40 chars")
-let meetingsRoot = NSTemporaryDirectory() + "harness-meetings-" + UUID().uuidString
-let meetingDate = Date(timeIntervalSince1970: 1_790_000_000)
-let firstDir = MeetingArchive.directory(root: meetingsRoot, date: meetingDate, label: "reuniao")
-check(
-    firstDir.lastPathComponent.range(
-        of: "^[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{4}-reuniao$",
-        options: .regularExpression
-    ) != nil,
-    "directory is stamp-slug [\(firstDir.lastPathComponent)]"
-)
-try? FileManager.default.createDirectory(at: firstDir, withIntermediateDirectories: true)
-let secondDir = MeetingArchive.directory(root: meetingsRoot, date: meetingDate, label: "reuniao")
-equal(secondDir.lastPathComponent, firstDir.lastPathComponent + "-2", "a colliding minute appends -2")
-try? FileManager.default.createDirectory(at: secondDir, withIntermediateDirectories: true)
-let thirdDir = MeetingArchive.directory(root: meetingsRoot, date: meetingDate, label: "reuniao")
-equal(thirdDir.lastPathComponent, firstDir.lastPathComponent + "-3", "the suffix keeps counting")
-try? FileManager.default.removeItem(atPath: meetingsRoot)
-
-print("== vault tasks: concatenated json splits on brace depth ==")
-let concatenated = """
-{
-  "title" : "Pagar boleto { com chave }",
-  "status" : "pending",
-  "priority" : "high",
-  "id" : "A",
-  "reminders" : [ 1, 2 ],
-  "body" : {
-    "kind" : "task",
-    "due" : "2026-08-20T12:00:00Z"
-  }
-}{
-  "title" : "Tarefa concluída",
-  "status" : "completed",
-  "id" : "B"
-}{
-  "title" : "Sem due \\"aspas}\\" dentro",
-  "status" : "pending",
-  "priority" : "unset",
-  "id" : "C",
-  "reminders" : [ ]
-}
-"""
-let parsed = VaultTasks.parse(Data(concatenated.utf8))
-equal(parsed.count, 3, "three concatenated objects parse")
-equal(parsed[0].title, "Pagar boleto { com chave }", "braces inside strings do not break the splitter")
-equal(parsed[2].title, "Sem due \"aspas}\" dentro", "escaped quotes and braces survive")
-equal(parsed[0].reminders, 2, "reminders count decodes")
-check(parsed[0].due != nil, "iso8601 due decodes")
-check(parsed[2].due == nil, "a task without due has no date")
-
-print("== vault tasks: open filter and ordering ==")
-let openTasks = VaultTasks.open(parsed)
-equal(openTasks.count, 2, "completed tasks are dropped")
-equal(openTasks[0].id, "A", "a dated task outranks an undated one")
-let unsorted = [
-    VaultTask(id: "1", title: "b", status: "pending", priority: "unset", due: nil, reminders: 0),
-    VaultTask(id: "2", title: "a", status: "pending", priority: "high", due: nil, reminders: 0),
-    VaultTask(id: "3", title: "c", status: "pending", priority: "unset", due: Date(timeIntervalSince1970: 2_000_000_000), reminders: 0),
-    VaultTask(id: "4", title: "d", status: "pending", priority: "unset", due: Date(timeIntervalSince1970: 1_000_000_000), reminders: 0),
-]
-equal(VaultTasks.open(unsorted).map(\.id), ["4", "3", "2", "1"], "due asc, then priority, then title")
-
-print("== vault tasks: age labels ==")
-let origin = Date(timeIntervalSince1970: 1_000_000)
-equal(VaultTasks.age(from: origin, to: origin.addingTimeInterval(30)), "agora", "fresh is agora")
-equal(VaultTasks.age(from: origin, to: origin.addingTimeInterval(600)), "há 10 min", "minutes label")
-equal(VaultTasks.age(from: origin, to: origin.addingTimeInterval(7200)), "há 2 h", "hours label")
-equal(VaultTasks.age(from: origin, to: origin.addingTimeInterval(259_200)), "há 3 d", "days label")
-
 print("== icon identity: triangle everywhere, colour by situation ==")
 equal(IconAnimation.plan(for: .idle, reduceMotion: false).render, IconRender.triangle, "idle is the plain triangle")
 equal(IconAnimation.plan(for: .idle, reduceMotion: false).tint, IconTint.neutral, "idle stays monochrome so it adapts to the bar")
 equal(IconAnimation.plan(for: .recording, reduceMotion: false).tint, IconTint.live, "capture burns red")
-equal(IconAnimation.plan(for: .meeting, reduceMotion: false).tint, IconTint.live, "a meeting burns red too")
 equal(IconAnimation.plan(for: .transcribing, reduceMotion: false).tint, IconTint.work, "transcription is amber")
 equal(IconAnimation.plan(for: .success, reduceMotion: false).tint, IconTint.good, "success is green")
 for calmState in [IconState.idle, .transcribing, .flushing, .success, .error] {
@@ -893,8 +818,6 @@ for calmState in [IconState.idle, .transcribing, .flushing, .success, .error] {
     check(render != .symbol("mic") && render != .symbol("mic.fill"), "no mic glyph outside capture for \(calmState)")
 }
 equal(IconAnimation.plan(for: .recording, reduceMotion: false).render, IconRender.triangleLevel, "dictation drives the triangle with the level")
-check(IconAnimation.plan(for: .meeting, reduceMotion: false).repeats, "the meeting triangle beats forever")
-check(!IconAnimation.plan(for: .meeting, reduceMotion: true).isAnimated, "Reduce Motion stills the beat")
 
 print("== icon: level and beat scaling ==")
 check(IconAnimation.triangleScale(level: 0, peak: 0) < IconAnimation.triangleScale(level: 1, peak: 1), "louder means bigger")
@@ -903,21 +826,6 @@ check(IconAnimation.triangleScale(level: -3, peak: -3) > 0.5, "silence still dra
 let beats = (0..<24).map { IconAnimation.beatScale(frame: $0, frameCount: 24) }
 check(beats.allSatisfy { $0 >= 0.8 && $0 <= 1.01 }, "the beat stays inside a calm range")
 check(beats.max()! - beats.min()! > 0.1, "the beat is actually visible")
-
-print("== hub actions: one button per verb, icon follows state ==")
-let calmActions = HubModel.actionSpecs(dictating: false, meeting: false)
-equal(calmActions.map(\.action), [.dictate, .meeting, .notes, .refresh], "the button row is the four verbs that earn their place")
-check(!calmActions.contains { $0.action == .call || $0.action == .insomnia }, "call and insomnia live in the native menu, not in the card")
-check(calmActions.allSatisfy { !$0.on }, "nothing is lit when nothing is running")
-check(calmActions.allSatisfy { !$0.tooltip.isEmpty }, "every button says what it does")
-check(Set(calmActions.map(\.symbol)).count == calmActions.count, "no two buttons share a glyph")
-equal(calmActions[1].symbol, "record.circle", "the meeting button reads as a recorder")
-equal(calmActions[2].symbol, "folder", "the vault button reads as a folder")
-let busyActions = HubModel.actionSpecs(dictating: true, meeting: true)
-equal(busyActions[0].symbol, "mic.fill", "dictation fills its mic while live")
-equal(busyActions[1].symbol, "stop.fill", "a running meeting offers stop")
-check(busyActions.prefix(2).allSatisfy(\.on), "live verbs light up")
-check(busyActions.map(\.tooltip) != calmActions.map(\.tooltip), "tooltips flip with the state")
 
 print("== batch transcript cleanup keeps every segment ==")
 let rawBatch = """
@@ -984,27 +892,6 @@ let chaseFrames = (0..<12).map { DotMatrix.chase(matrix, frame: $0, frameCount: 
 check(chaseFrames.allSatisfy { $0.allSatisfy { $0 >= 0 && $0 <= 1 } }, "the chase stays in range")
 check(Set(chaseFrames.map { $0.map { Int($0 * 100) } }).count > 6, "the chase actually moves frame to frame")
 
-print("== caps lock: matrix rain falling down the dots ==")
-let awake = IconAnimation.awakePlan(reduceMotion: false)
-equal(awake.render, IconRender.triangleRain, "caps lock makes the matrix rain")
-equal(awake.tint, IconTint.awake, "the rain is orange, not a grey badge")
-check(awake.repeats, "it keeps raining while caps stays on")
-let awakeStill = IconAnimation.awakePlan(reduceMotion: true)
-check(!awakeStill.isAnimated, "Reduce Motion stops the rain")
-equal(awakeStill.tint, IconTint.awake, "but it stays orange so the state is still visible")
-let rainDots = DotMatrix.triangle()
-let rainFrames = (0..<22).map { DotMatrix.rain(rainDots, frame: $0, frameCount: 22) }
-check(rainFrames.allSatisfy { $0.allSatisfy { $0 >= 0.14 && $0 <= 1 } }, "the rain never blanks the icon")
-func brightestFrame(row: Int) -> Int {
-    let index = rainDots.firstIndex { $0.row == row && abs($0.x - 0.5) < 0.001 } ?? rainDots.firstIndex { $0.row == row }!
-    return rainFrames.enumerated().max(by: { $0.element[index] < $1.element[index] })!.offset
-}
-check(brightestFrame(row: 0) < brightestFrame(row: 1), "the drop falls from the apex to the second row")
-check(brightestFrame(row: 1) < brightestFrame(row: 2), "and keeps falling downward")
-check(brightestFrame(row: 2) < brightestFrame(row: 3), "reaching the base last")
-check(rainFrames.contains { $0.contains { $0 > 0.9 } }, "the head of the drop burns bright")
-check(rainFrames.contains { frame in frame.contains { $0 < 0.2 } }, "unlit dots stay dim so the drop reads")
-
 print("== dictation: the dots rise and fall with the voice ==")
 let voiceDots = DotMatrix.triangle()
 func lit(_ level: Float, frame: Int = 0) -> [Double] {
@@ -1025,147 +912,16 @@ let loudRipple = Set((0..<18).map { lit(0.85, frame: $0).map { Int($0 * 20) } })
 check(quietRipple <= loudRipple, "a quiet voice ripples less than a loud one")
 equal(lit(0.7, frame: 18), lit(0.7, frame: 0), "the ripple loops seamlessly")
 
-print("== lid-close blocker: exact commands, never a wildcard ==")
-equal(SleepBlocker.arguments(on: true), ["-n", "/usr/bin/pmset", "-a", "disablesleep", "1"], "blocking asks pmset for exactly this")
-equal(SleepBlocker.arguments(on: false), ["-n", "/usr/bin/pmset", "-a", "disablesleep", "0"], "releasing is the mirror command")
-check(SleepBlocker.arguments(on: true).contains("-n"), "sudo never waits on a password prompt")
-check(SleepBlocker.arguments(on: true).allSatisfy { !$0.contains("*") }, "no wildcard ever reaches sudo")
-check(SleepBlocker.arguments(on: true).first(where: { $0.hasPrefix("/") }) == "/usr/bin/pmset", "the binary is absolute, never PATH-resolved")
-equal(SleepBlocker.arguments(on: true).count, SleepBlocker.arguments(on: false).count, "on and off share one shape")
-
-print("== hub panel model ==")
-let panelNow = Date(timeIntervalSince1970: 1_760_000_000)
-let dayLength: TimeInterval = 86_400
-let panelTasks = (1...5).map {
-    VaultTask(id: "\($0)", title: "tarefa \($0)", status: "pending", priority: "unset", due: nil, reminders: 0)
+print("== minimal dictation card ==")
+for (status, title) in [("Pronto", "Ditar (⌥Space)"), ("Gravando…", "Parar e transcrever (⌥Space)"), ("Transcrevendo…", "Cancelar (⌥Space)")] {
+    var actions: [HubAction] = []
+    let card = HubPanelView.build(status: status, dictationTitle: title) { actions.append($0) }
+    equal(card.subviews.compactMap { ($0 as? NSTextField)?.stringValue }, [status], "card shows dictation state only")
+    let buttons = card.subviews.compactMap { $0 as? NSButton }
+    equal(buttons.map(\.title), [title, "Sons…", "Sair"], "card exposes only the approved actions")
+    buttons.forEach { $0.performClick(nil) }
+    equal(actions, [.dictate, .sounds, .quit], "card dispatches the matching actions")
 }
-let taskSection = HubModel.tasksSection(panelTasks, limit: 3, now: panelNow)
-equal(taskSection.strong, "5 tarefas", "the header carries the full count")
-equal(taskSection.rows.count, 4, "three rows plus the overflow line")
-equal(taskSection.rows.last?.title, "e mais 2", "overflow names how many are hidden")
-equal(HubModel.tasksSection([], limit: 3, now: panelNow).strong, "Nenhuma tarefa", "empty state reads naturally")
-equal(HubModel.tasksSection([panelTasks[0]], limit: 3, now: panelNow).post, " aberta", "singular agrees with the count")
-let longTitle = "revisar o contrato da ponte com o time de infra antes do deploy de sexta e avisar o jurídico"
-equal(
-    HubModel.tasksSection([VaultTask(id: "l", title: longTitle, status: "pending", priority: "unset", due: nil, reminders: 0)], limit: 3, now: panelNow).rows.first?.title,
-    longTitle,
-    "titles are never cut by character count; the label truncates with an ellipsis"
-)
-
-equal(HubModel.dueTone(nil, now: panelNow), .none, "no due date has no tone")
-equal(HubModel.dueTone(panelNow, now: panelNow), .today, "due today reads as today")
-equal(HubModel.dueTone(panelNow - 3 * dayLength, now: panelNow), .overdue, "a past date is overdue")
-equal(HubModel.dueTone(panelNow + 3 * dayLength, now: panelNow), .later, "a future date is later")
-let dueTasks = [
-    VaultTask(id: "a", title: "a", status: "pending", priority: "unset", due: panelNow - 2 * dayLength, reminders: 0),
-    VaultTask(id: "b", title: "b", status: "pending", priority: "unset", due: panelNow, reminders: 0),
-    VaultTask(id: "c", title: "c", status: "pending", priority: "unset", due: panelNow - 5 * dayLength, reminders: 0),
-]
-let dueSection = HubModel.tasksSection(dueTasks, limit: 10, now: panelNow)
-equal(dueSection.rows[1].trailing, "hoje", "today is spelled out")
-equal(dueSection.post, " abertas · 2 atrasadas", "the summary counts overdue tasks")
-
-let manyTasks = (1...40).map {
-    VaultTask(id: "\($0)", title: "tarefa \($0)", status: "pending", priority: "unset", due: nil, reminders: 0)
-}
-let bigCard = HubPanelView.build(
-    content: HubContent(
-        headerStrong: "Hoje",
-        headerRest: "",
-        sections: [HubModel.tasksSection(manyTasks, limit: Config.panelListLimit, now: panelNow)],
-        footer: "agora",
-        actions: HubModel.actionSpecs(dictating: false, meeting: false)
-    ),
-    onAction: { _ in }
-)
-check(bigCard.frame.height < Config.panelMaxBodyHeight + 200, "a long list stays inside the card instead of growing it forever")
-let bigScroll = bigCard.subviews.compactMap { $0 as? NSScrollView }.first
-check(bigScroll != nil, "the task list lives in a scroll view")
-let actionTop = bigCard.subviews.compactMap { $0 as? ClosureButton }.map(\.frame.minY).min() ?? 0
-check(bigScroll.map { $0.frame.maxY <= actionTop } ?? false, "the action bar never sits on top of the list")
-
-let tipTask = VaultTask(id: "t1", title: "revisar contrato", status: "pending", priority: "high", due: Date(timeIntervalSince1970: 1_755_500_000), reminders: 2)
-let tip = HubModel.taskTip(tipTask)
-check(tip.hasPrefix("revisar contrato"), "the tooltip opens with the full title")
-check(tip.contains("prioridade alta"), "the tooltip spells out the priority")
-check(tip.contains("2 lembretes"), "the tooltip counts the reminders")
-equal(HubModel.taskTip(panelTasks[0]), "tarefa 1", "a bare task tooltip is just its title")
-equal(HubModel.tasksSection([tipTask], limit: 3, now: panelNow).rows.first?.tip, tip, "task rows carry the tooltip")
-
-let header = HubModel.dateHeader(Date(timeIntervalSince1970: 1_755_500_000), locale: Locale(identifier: "pt_BR"))
-check(header.0.first?.isUppercase == true, "the weekday is capitalised")
-check(header.1.contains("de"), "the date reads in full portuguese")
-
-print("== rec.state probe ==")
-let liveState = RecProbe.parse("/Users/x/Recordings/2026-08-18-1010-reuniao\n123\n\n") { _ in true }
-check(liveState == RecState(
-    directory: "/Users/x/Recordings/2026-08-18-1010-reuniao",
-    pid: 123,
-    active: true
-), "a live pid reads as an active recording")
-let deadState = RecProbe.parse("/Users/x/Recordings/dir\n123\nSpeakers\n") { _ in false }
-equal(deadState?.active, false, "a dead pid reads as inactive")
-check(RecProbe.parse("\n123\n") { _ in true } == nil, "an empty directory line is rejected")
-check(RecProbe.parse("/tmp/dir\nabc\n") { _ in true } == nil, "a non-numeric pid is rejected")
-check(RecProbe.parse("/tmp/dir") { _ in true } == nil, "a truncated state file is rejected")
-check(RecProbe.read(path: "/nonexistent/rec.state") == nil, "a missing state file reads as nil")
-
-func ownSleepAssertions() -> Int {
-    var raw: Unmanaged<CFDictionary>?
-    guard IOPMCopyAssertionsByProcess(&raw) == kIOReturnSuccess,
-          let dict = raw?.takeRetainedValue() as? [NSNumber: [[String: Any]]]
-    else { return -1 }
-    let mine = dict[NSNumber(value: getpid())] ?? []
-    return mine.filter { ($0["AssertType"] as? String) == kIOPMAssertionTypePreventSystemSleep }.count
-}
-
-print("== insomnia controller holds a real power assertion ==")
-let insomnia = InsomniaController()
-equal(ownSleepAssertions(), 0, "no sleep assertion before activation")
-check(insomnia.toggle(), "toggle reports active")
-check(insomnia.isActive, "controller tracks the active state")
-equal(ownSleepAssertions(), 1, "exactly one PreventSystemSleep assertion is held")
-insomnia.activate()
-equal(ownSleepAssertions(), 1, "a second activate does not stack assertions")
-check(!insomnia.toggle(), "toggle reports inactive")
-check(!insomnia.isActive, "controller tracks the inactive state")
-equal(ownSleepAssertions(), 0, "the assertion is released on deactivate")
-insomnia.deactivate()
-equal(ownSleepAssertions(), 0, "a second deactivate is a no-op")
-
-check(CapsState.isOn(rawEventFlags: CGEventFlags.maskAlphaShift.rawValue), "caps lock is read straight off the event flags")
-check(!CapsState.isOn(rawEventFlags: CGEventFlags.maskShift.rawValue), "plain shift is not caps lock")
-check(CapsState.isOn([.capsLock, .command]), "caps lock is seen next to other modifiers")
-check(!CapsState.isOn([.option]), "no caps lock, no hold")
-insomnia.hold("caps", on: true)
-check(insomnia.isActive, "caps lock alone keeps the Mac awake, capsomnia style")
-insomnia.hold("caps", on: false)
-check(!insomnia.isActive, "dropping caps lock lets it sleep again")
-
-insomnia.hold("reuniao", on: true)
-check(insomnia.isActive, "a running recording keeps the Mac awake by itself")
-check(insomnia.isAutomatic, "that hold is automatic, not a manual toggle")
-equal(ownSleepAssertions(), 1, "the automatic hold takes exactly one assertion")
-insomnia.hold("call", on: true)
-equal(ownSleepAssertions(), 1, "two holds still share a single assertion")
-insomnia.hold("reuniao", on: false)
-check(insomnia.isActive, "the assertion survives while another recording runs")
-insomnia.hold("call", on: false)
-check(!insomnia.isActive, "the last recording to stop lets the Mac sleep again")
-equal(ownSleepAssertions(), 0, "no assertion leaks after the holds are gone")
-insomnia.toggle()
-insomnia.hold("reuniao", on: true)
-insomnia.hold("reuniao", on: false)
-check(insomnia.isActive, "an automatic hold never cancels an explicit manual request")
-check(!insomnia.isAutomatic, "a manual request is not reported as automatic")
-insomnia.deactivate()
-equal(ownSleepAssertions(), 0, "deactivate clears manual and automatic alike")
-do {
-    let scoped = InsomniaController()
-    scoped.activate()
-    equal(ownSleepAssertions(), 1, "a scoped controller holds its assertion")
-}
-equal(ownSleepAssertions(), 0, "deinit releases a forgotten assertion")
 
 print("")
 print("units passed: \(passes)   failed: \(failures)")

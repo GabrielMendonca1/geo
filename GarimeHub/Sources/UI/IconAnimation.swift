@@ -7,7 +7,6 @@ enum IconState: Equatable {
     case recording
     case transcribing
     case flushing
-    case meeting
     case success
     case error
     case cancelled
@@ -15,7 +14,6 @@ enum IconState: Equatable {
 
 enum IconOverlay: Hashable {
     case alert
-    case awake
 }
 
 enum IconTint: Equatable {
@@ -24,7 +22,6 @@ enum IconTint: Equatable {
     case work
     case good
     case warn
-    case awake
 }
 
 enum IconRender: Equatable {
@@ -32,7 +29,6 @@ enum IconRender: Equatable {
     case triangle
     case triangleLevel
     case triangleBeat
-    case triangleRain
     case triangleSweep
     case spinner
     case blocked
@@ -53,21 +49,6 @@ struct IconPlan: Equatable {
 }
 
 enum IconAnimation {
-    static func awakePlan(reduceMotion: Bool) -> IconPlan {
-        IconPlan(
-            render: reduceMotion ? .triangle : .triangleRain,
-            tint: .awake,
-            frameCount: reduceMotion ? 1 : Config.iconRainFrames,
-            interval: reduceMotion ? 0 : Config.iconRainInterval,
-            repeats: !reduceMotion,
-            levelDriven: false,
-            minimumRedrawInterval: 0,
-            followUp: nil,
-            followUpDelay: 0
-        )
-    }
-
-
     static func plan(for state: IconState, reduceMotion: Bool) -> IconPlan {
         switch state {
         case .idle:
@@ -112,19 +93,6 @@ enum IconAnimation {
                 minimumRedrawInterval: reduceMotion
                     ? Config.iconReducedLevelInterval
                     : Config.iconLevelInterval,
-                followUp: nil,
-                followUpDelay: 0
-            )
-        case .meeting:
-            guard !reduceMotion else { return still(.triangle, tint: .live) }
-            return IconPlan(
-                render: .triangleBeat,
-                tint: .live,
-                frameCount: Config.iconBeatFrames,
-                interval: Config.iconBeatInterval,
-                repeats: true,
-                levelDriven: false,
-                minimumRedrawInterval: 0,
                 followUp: nil,
                 followUpDelay: 0
             )

@@ -207,7 +207,6 @@ chmod +x "$TMP/ffmpeg-stub" "$TMP/whisper-hang" "$TMP/whisper-ok"
 
 swiftc -O -target "$(uname -m)-apple-macos14.0" -sdk "$(xcrun --show-sdk-path --sdk macosx)" \
   -o "$TMP/harness" "$(src Transcriber)" "$(src ProcessRunner)" \
-  "$(src MeetingArchive)" \
   "${feedback_sources[@]}" \
   "$ROOT/Tests/Transcriber/main.swift" 2>"$TMP/harness.log"
 check $? "harness compiles against the real Transcriber.swift"
@@ -240,21 +239,6 @@ if [ -x "$TMP/harness" ]; then
   awk -v e="$ELAPSED" 'BEGIN { exit !(e > 0 && e < 5) }'
   check $? "cancel returns promptly ($ELAPSED s)"
 
-  RESULT="$(HARNESS_FFMPEG="$TMP/ffmpeg-stub" HARNESS_WHISPER="$TMP/whisper-ok" \
-    HARNESS_TIMEOUT=10 "$TMP/harness" meeting)"
-  case "$RESULT" in
-    meeting-ok\ wav=true\ rawGone=true\ originalGone=true\ transcript=ola\ do\ stub*) \
-      check 0 "meeting archive writes wav+transcript and consumes the capture -> $RESULT" ;;
-    *) check 1 "meeting archive writes wav+transcript and consumes the capture -> $RESULT" ;;
-  esac
-
-  RESULT="$(HARNESS_FFMPEG="$TMP/ffmpeg-stub" HARNESS_WHISPER="$TMP/whisper-hang" \
-    HARNESS_TIMEOUT=2 "$TMP/harness" meeting)"
-  case "$RESULT" in
-    meeting-fail\ wav=true\ originalGone=true\ error=timedOut*) \
-      check 0 "a wedged meeting whisper times out but the audio survives -> $RESULT" ;;
-    *) check 1 "a wedged meeting whisper times out but the audio survives -> $RESULT" ;;
-  esac
 else
   no "harness binary missing, process-control checks skipped"
 fi
@@ -293,52 +277,16 @@ check "$([ $? -ne 0 ] && echo 0 || echo 1)" "the card follows the system theme i
 grep -q 'calibratedWhite' "$(src HubPanel)"
 check "$([ $? -ne 0 ] && echo 0 || echo 1)" "no baked-in white: every ink is semantic so light mode stays readable"
 
-grep -q 'case .awake: return NSColor' "$(src StatusIcon)"
-check $? "caps lock has its own colour"
-grep -q 'triangleRain' "$(src IconAnimation)"
-check $? "caps lock rains down the matrix instead of moving the icon around"
-grep -q 'cup.and.saucer.fill' "$(src StatusIcon)"
-check "$([ $? -ne 0 ] && echo 0 || echo 1)" "caps lock no longer draws a badge glyph"
-
 grep -q 'symbol("triangle.fill")' "$(src StatusIcon)"
 check $? "the idle menu bar icon is a filled triangle"
 grep -q 'DotMatrix.triangle' "$(src StatusIcon)"
 check $? "active states retain the animated triangular matrix"
-grep -q 'ticker.tolerance = Config.capsPollTolerance' "$(src CapsWatcher)"
-check $? "caps safety polling is coalescible"
 grep -q 'Hotkey.shared.unregister()' "$(src AppDelegate)"
 check $? "termination unregisters the global hotkey"
 grep -q 'RemoveEventHandler' "$(src Hotkey)"
 check $? "hotkey teardown releases its Carbon handler"
-grep -q 'PathWatcher(' "$(src CallController)"
-check $? "call waits for rec.state events instead of a 5 s poll"
-grep -q 'setLivenessTimer(active: probe?.active == true)' "$(src CallController)"
-check $? "call liveness timer only runs while a call records"
-[ ! -e "$ROOT/Sources/FileTools/UI/FinderDragOverlay.swift" ]
-check $? "legacy shift-drag overlay (20 Hz idle poll, global mouse monitors) is gone"
 grep -rq 'addGlobalMonitorForEvents(matching: \[.leftMouse' "$ROOT/Sources"
 check "$([ $? -ne 0 ] && echo 0 || echo 1)" "no global mouse monitor while idle"
-[ ! -d "$ROOT/Sources/MacDuo" ]
-check $? "Mac Duo is removed (no SwiftUI, Metal or ScreenCaptureKit at launch)"
-grep -q 'Timer' "$(src TasksController)"
-check "$([ $? -ne 0 ] && echo 0 || echo 1)" "idle task lifecycle has no timer"
-awk '/func start\(\)/,/^    }/' "$(src TasksController)" | grep -q 'refresh()'
-check "$([ $? -ne 0 ] && echo 0 || echo 1)" "task startup loads cache without launch-time SSH"
-
-grep -q 'disablesleep' "$(src SleepBlocker)"
-check $? "the lid-close blocker drives pmset disablesleep"
-grep -rq 'sudoers' "$ROOT/install-sleep.sh"
-check $? "the privileged rule has its own opt-in installer"
-grep -q 'visudo -c' "$ROOT/install-sleep.sh"
-check $? "the sudoers rule is validated before it goes live"
-grep -q 'ALL=(root) NOPASSWD: /usr/bin/pmset -a disablesleep 1, /usr/bin/pmset -a disablesleep 0' "$ROOT/install-sleep.sh"
-check $? "the rule pins two exact commands and no wildcard"
-grep -q 'blocker.apply(false)' "$(src InsomniaController)"
-check $? "sleep is always handed back when the hold ends"
-grep -q 'reconcileOnLaunch' "$(src AppDelegate)"
-check $? "a crash never leaves the Mac awake forever (reconciled on launch)"
-grep -q 'onCheck\|checkable' "$(src HubPanel)"
-check "$([ $? -ne 0 ] && echo 0 || echo 1)" "vault tasks stay read-only in the panel"
 grep -q 'button.image' "$(src StatusIcon)"
 check $? "status item still renders through button.image, not a custom view"
 grep -q 'image.isTemplate = paint == nil' "$(src StatusIcon)"
@@ -387,36 +335,8 @@ grep -q '"-mc", "0"' "$(src Transcriber)"
 check $? "batch decode disables carried context (no repetition loops)"
 grep -q '"-nt"' "$(src Transcriber)"
 check "$([ $? -ne 0 ] && echo 0 || echo 1)" "batch decode never uses -nt (it silently drops segments)"
-grep -q '"-nt"' "$(src MeetingArchive)"
-check "$([ $? -ne 0 ] && echo 0 || echo 1)" "meeting decode never uses -nt (it silently drops segments)"
-grep -q '"-mc", "0"' "$(src MeetingArchive)"
-check $? "meeting decode disables carried context (no repetition loops)"
 grep -q 'addObserver' "$(src HubPanel)"
 check "$([ $? -ne 0 ] && echo 0 || echo 1)" "hub panel registers no observers (nothing to leak per open)"
-grep -q '"-osrt"' "$(src MeetingArchive)"
-check $? "meeting writes transcript.srt with segment times for search"
-grep -q 'IOPMAssertionCreateWithName' "$(src InsomniaController)"
-check $? "insomnia holds a native IOPM assertion"
-grep -q 'maskAlphaShift' "$(src CapsWatcher)"
-check $? "caps lock drives the assertion, capsomnia style"
-grep -q 'insomnia.hold("caps"' "$(src AppDelegate)"
-check $? "caps lock is wired into the sleep hold"
-grep -rq 'caffeinate' "$ROOT/Sources" --include='*.swift'
-check "$([ $? -ne 0 ] && echo 0 || echo 1)" "no caffeinate subprocess anywhere"
-RELEASES="$(grep -c 'IOPMAssertionRelease' "$(src InsomniaController)")"
-[ "$RELEASES" -ge 2 ]
-check $? "assertion is released on deactivate and deinit"
-grep -q 'BatchMode=yes' "$(src TasksController)"
-check $? "tasks fetch never prompts for credentials"
-grep -q '"cat " + Config.tasksRemoteGlob' "$(src TasksController)"
-check $? "the remote tasks command is exactly a cat of the glob"
-grep -q 'Config.recScript' "$(src CallController)"
-check $? "call recording drives the /record skill script"
-grep -q '"PATH=" + Config.recPath' "$(src CallController)"
-check $? "rec.sh gets a PATH with homebrew under launchd"
-[ -x "$HOME/Garime/brain/skills/record/scripts/rec.sh" ]
-check $? "rec.sh exists and is executable"
-
 echo "== 15. pure unit suite (stabilizer, chunker, meter, icon, session) =="
 swiftc -O -target "$(uname -m)-apple-macos14.0" -sdk "$(xcrun --show-sdk-path --sdk macosx)" \
   -o "$TMP/units" \
@@ -426,15 +346,9 @@ swiftc -O -target "$(uname -m)-apple-macos14.0" -sdk "$(xcrun --show-sdk-path --
   "$(src LevelMeter)" \
   "$(src IconAnimation)" \
   "$(src DictationSession)" \
-  "$(src InsomniaController)" \
-  "$(src CapsWatcher)" \
   "$(src ProcessRunner)" \
   "$(src Transcriber)" \
-  "$(src MeetingArchive)" \
-  "$(src VaultTasks)" \
-  "$(src CallController)" \
   "$(src PathWatcher)" \
-  "$(src SleepBlocker)" \
   "$(src DotMatrix)" \
   "$(src HubPanel)" \
   "${feedback_sources[@]}" \

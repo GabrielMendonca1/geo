@@ -3,10 +3,6 @@ import AppKit
 enum MenuSectionID: Int, CaseIterable {
     case status
     case dictation
-    case meeting
-    case insomnia
-    case personalTasks
-    case projects
     case app
 }
 

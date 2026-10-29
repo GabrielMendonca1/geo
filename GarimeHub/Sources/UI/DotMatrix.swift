@@ -75,21 +75,6 @@ enum DotMatrix {
         (dots.map(\.column).max() ?? 0) + 1
     }
 
-    static func rain(_ dots: [MatrixDot], frame: Int, frameCount: Int) -> [Double] {
-        let rows = rowCount(dots)
-        let count = max(1, frameCount)
-        let span = Double(rows) + 1.6
-        let head = Double(frame % count) / Double(count) * span
-        let tail = 1.7
-        return dots.map { dot in
-            let lag = abs(dot.x - 0.5) * 0.7
-            let distance = head - (Double(dot.row) + lag)
-            guard distance >= 0, distance <= tail else { return 0.15 }
-            let glow = 1 - distance / tail
-            return 0.15 + 0.85 * glow * glow
-        }
-    }
-
     static func chase(_ dots: [MatrixDot], frame: Int, frameCount: Int) -> [Double] {
         let count = max(1, frameCount)
         let head = Double(frame % count) / Double(count)

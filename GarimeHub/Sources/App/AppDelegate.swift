@@ -11,7 +11,7 @@ enum Phase: Equatable {
 }
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate {
     private var icon: StatusIcon!
     private var menuController: MenuController!
     private let recorder = Recorder()
@@ -19,24 +19,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let paster = Paster()
     private let typist = Typist()
     private let focusGate = SystemFocusGate()
-    private let insomnia = InsomniaController()
-    private var caps: CapsWatcher?
-    private let meeting = MeetingController()
-    private var meetingDirectory: URL?
-    private let call = CallController()
-    private var callDirectory: String?
     private let screenshots = ScreenshotClipboard()
-    private var filesServices: FilesServices?
-    private let tasksController = TasksController()
-    private let files = FilesController()
-    private let filesSelectionHotKeys = FilesSelectionHotKeys()
 
     private var phase: Phase = .idle
     private var generation = 0
     private var autoStop: DispatchWorkItem?
     private var resetIcon: DispatchWorkItem?
     private var blockingError: String?
-    private var filesShortcutError: String?
     private var awaitingMicrophone = false
 
     private var session: DictationSession?
@@ -53,40 +42,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let statusItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let toggleItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let accessibilityItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-    private let insomniaItem = NSMenuItem(title: "Manter acordado", action: nil, keyEquivalent: "")
-    private let meetingToggleItem = NSMenuItem(title: "Gravar reunião", action: nil, keyEquivalent: "")
-    private let meetingStatusItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-    private let callToggleItem = NSMenuItem(title: "Gravar call", action: nil, keyEquivalent: "")
-    private let callStatusItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-    private let notesItem = NSMenuItem(title: "Abrir o Vault", action: nil, keyEquivalent: "")
-    private let refreshItem = NSMenuItem(title: "Atualizar tarefas", action: nil, keyEquivalent: "")
-    private let filesShortcutErrorItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-    private let filesShortcutRetryItem = NSMenuItem(title: "Tentar registrar atalhos novamente", action: nil, keyEquivalent: "")
     private let hubPanel = HubPanel()
     private var appTailItems: [NSMenuItem] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        FloatingRadialView.installFeedback(
-            sectorChanged: { [weak self] in self?.playFeedback(.sectorChanged) },
-            selection: { [weak self] in self?.playFeedback(.selection) }
-        )
-        FilesJobCenter.playCompletedFeedback = { [weak self] in self?.playFeedback(.completed) }
-        FilesJobCenter.playCancelledFeedback = { [weak self] in self?.playFeedback(.cancelled) }
-        FilesJobCenter.playErrorFeedback = { [weak self] in self?.playFeedback(.error) }
         icon = StatusIcon()
         buildMenu()
-        files.start()
-        let services = FilesServices(files: files)
-        filesServices = services
-        NSApp.servicesProvider = services
-        NSUpdateDynamicServices()
-        filesSelectionHotKeys.onConvert = { [weak self] in
-            self?.files.invokeSelection(mode: .convert)
-        }
-        filesSelectionHotKeys.onTools = { [weak self] in
-            self?.files.invokeSelection(mode: .tools)
-        }
-
         recorder.onRouteChange = { [weak self] in
             guard let self, case .recording = self.phase else { return }
             self.recorder.abort()
@@ -102,16 +63,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self.icon.updateLevel(self.meter.level, peak: self.meter.peak)
         }
 
-        meeting.onChange = { [weak self] in self?.meetingChanged() }
-        meeting.preflightFeedback = { [weak self] in self?.call.preflightFeedback() ?? false }
-
-        call.onChange = { [weak self] in self?.callChanged() }
-        call.start()
         screenshots.start()
-
-
-        tasksController.onChange = { [weak self] in self?.tasksChanged() }
-        tasksController.start()
 
         Hotkey.shared.onTrigger = { [weak self] in self?.toggle() }
         if !Hotkey.shared.register() {
@@ -120,15 +72,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if let missing = Preflight.missingDependency() {
             blockingError = missing
         }
-        registerFilesSelectionHotKeys()
-
-        insomnia.reconcileOnLaunch()
-        let watcher = CapsWatcher { [weak self] _ in
-            self?.refreshMenu()
-        }
-        watcher.start()
-        caps = watcher
-
         if blockingError != nil {
             icon.apply(.error)
         }
@@ -138,22 +81,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         Hotkey.shared.onTrigger = nil
         Hotkey.shared.unregister()
-        caps?.stop()
-        insomnia.deactivate()
-        meeting.abort()
-        call.stop()
         screenshots.stop()
-        NSApp.servicesProvider = nil
-        filesServices = nil
-        tasksController.stop()
-        filesSelectionHotKeys.onConvert = nil
-        filesSelectionHotKeys.onTools = nil
-        filesSelectionHotKeys.unregister()
-        files.stop()
-        FloatingRadialView.installFeedback(sectorChanged: nil, selection: nil)
-        FilesJobCenter.playCompletedFeedback = nil
-        FilesJobCenter.playCancelledFeedback = nil
-        FilesJobCenter.playErrorFeedback = nil
         session?.cancel()
         decoder?.cancel()
         recorder.abort()
@@ -172,27 +100,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         accessibilityItem.action = #selector(menuAccessibility)
         accessibilityItem.title = "Ativar colagem automática…"
 
-        insomniaItem.target = self
-        insomniaItem.action = #selector(menuInsomnia)
-
-        meetingToggleItem.target = self
-        meetingToggleItem.action = #selector(menuMeeting)
-        meetingStatusItem.isHidden = true
-
-        callToggleItem.target = self
-        callToggleItem.action = #selector(menuCall)
-        callStatusItem.isHidden = true
-
-        notesItem.target = self
-        notesItem.action = #selector(menuNotes)
-        refreshItem.target = self
-        refreshItem.action = #selector(menuRefresh)
-
-        filesShortcutErrorItem.isEnabled = false
-        filesShortcutRetryItem.target = self
-        filesShortcutRetryItem.action = #selector(menuRetryFilesSelectionHotKeys)
-
-        icon.menu.delegate = self
         icon.onPrimaryClick = { [weak self] in self?.togglePanel() }
 
         let quit = NSMenuItem(title: "Sair", action: #selector(menuQuit), keyEquivalent: "q")
@@ -200,14 +107,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         menuController.set(.status, items: [statusItem])
         menuController.set(.dictation, items: [toggleItem, accessibilityItem])
-        menuController.set(.meeting, items: [meetingToggleItem, meetingStatusItem, callToggleItem, callStatusItem])
-        menuController.set(.insomnia, items: [insomniaItem])
-        menuController.set(.personalTasks, items: [notesItem, refreshItem])
         let feedbackItem = NSMenuItem(title: "Sons…", action: #selector(menuFeedback), keyEquivalent: "")
         feedbackItem.target = self
-        let selectionItem = NSMenuItem(title: "Arquivos — seleção ⌃⌥Space / ⇧⌃⌥Space e permissões…", action: #selector(menuFilesSelection), keyEquivalent: "")
-        selectionItem.target = self
-        appTailItems = [selectionItem, feedbackItem, quit]
+        appTailItems = [feedbackItem, quit]
         refreshAppMenu()
     }
 
@@ -216,7 +118,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func refreshMenu() {
-        syncInsomniaHolds()
         statusItem.title = statusText()
         switch phase {
         case .recording: toggleItem.title = "Parar e transcrever (⌥Space)"
@@ -224,6 +125,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         default: toggleItem.title = "Ditar (⌥Space)"
         }
         accessibilityItem.isHidden = paster.accessibilityTrusted
+        if hubPanel.isOpen { presentPanel() }
     }
 
     private func statusText() -> String {
@@ -246,175 +148,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return words > 0 ? "Ditando — \(words) palavras" : "Gravando…"
     }
 
-    private func registerFilesSelectionHotKeys() {
-        if filesSelectionHotKeys.register() {
-            filesShortcutError = nil
-            NSLog("GarimeHub Files shortcuts registered: Ctrl+Option+Space, Shift+Ctrl+Option+Space; dictation Option+Space unchanged")
-        } else {
-            let detail = filesSelectionHotKeys.registrationError ?? "falha desconhecida"
-            filesShortcutError = "Atalhos de Arquivos indisponíveis — \(detail)"
-            NSLog("GarimeHub Files shortcuts error: %@", detail)
-        }
-        refreshFilesShortcutMenuItems()
-    }
-
-    private func refreshFilesShortcutMenuItems() {
-        appTailItems.removeAll {
-            $0 === filesShortcutErrorItem || $0 === filesShortcutRetryItem
-        }
-        guard let filesShortcutError else {
-            refreshAppMenu()
-            return
-        }
-        filesShortcutErrorItem.title = filesShortcutError
-        let insertionIndex = min(1, appTailItems.count)
-        appTailItems.insert(contentsOf: [filesShortcutErrorItem, filesShortcutRetryItem], at: insertionIndex)
-        refreshAppMenu()
-    }
-
-    @objc private func menuRetryFilesSelectionHotKeys() {
-        registerFilesSelectionHotKeys()
-    }
-
-    @objc private func menuFilesSelection() { files.showSelectionSettings() }
     @objc private func menuFeedback() { SoundFeedback.shared.showSettings() }
     @objc private func menuToggle() { toggle() }
-
-    @objc private func menuCall() {
-        if call.isRecording {
-            call.finish()
-            return
-        }
-        if meeting.isRecording {
-            icon.flash("mic.slash.fill")
-            return
-        }
-        switch phase {
-        case .idle, .done, .failed:
-            break
-        default:
-            icon.flash("mic.slash.fill")
-            return
-        }
-        call.begin()
-    }
-
-    @objc private func menuOpenCall() {
-        guard let callDirectory else { return }
-        NSWorkspace.shared.open(URL(fileURLWithPath: callDirectory))
-    }
-
-    private func callChanged() {
-        switch call.state {
-        case .idle:
-            callToggleItem.title = "Gravar call"
-            callStatusItem.isHidden = true
-            callStatusItem.action = nil
-            restoreIdleIconAfterMeeting()
-        case .recording:
-            callToggleItem.title = "Parar call"
-            callStatusItem.isHidden = true
-            callStatusItem.action = nil
-            icon.apply(.meeting)
-        case .stopping:
-            callToggleItem.title = "Parando…"
-            callStatusItem.isHidden = false
-            callStatusItem.action = nil
-            callStatusItem.title = "Transcrevendo call…"
-            restoreIdleIconAfterMeeting()
-        case .done(let directory):
-            callDirectory = directory
-            callToggleItem.title = "Gravar call"
-            callStatusItem.isHidden = false
-            callStatusItem.target = self
-            callStatusItem.action = #selector(menuOpenCall)
-            callStatusItem.title = "Call pronta — abrir pasta"
-            icon.flash("checkmark.circle.fill")
-        case .failed(let message):
-            callToggleItem.title = "Gravar call"
-            callStatusItem.isHidden = false
-            callStatusItem.action = nil
-            callStatusItem.title = "Erro na call: \(message)"
-            restoreIdleIconAfterMeeting()
-        }
-        refreshMenu()
-    }
-
-    @objc private func menuMeeting() {
-        if meeting.isRecording {
-            meeting.stop()
-            return
-        }
-        if call.isRecording {
-            icon.flash("mic.slash.fill")
-            return
-        }
-        switch phase {
-        case .idle, .done, .failed:
-            break
-        default:
-            icon.flash("mic.slash.fill")
-            return
-        }
-        guard !recorder.isRecording, !awaitingMicrophone else { return }
-        meeting.begin()
-    }
-
-    @objc private func menuOpenMeeting() {
-        guard let meetingDirectory else { return }
-        NSWorkspace.shared.open(meetingDirectory)
-    }
-
-    private func meetingChanged() {
-        switch meeting.state {
-        case .idle:
-            meetingToggleItem.title = "Gravar reunião"
-            meetingStatusItem.isHidden = true
-            meetingStatusItem.action = nil
-            restoreIdleIconAfterMeeting()
-        case .recording:
-            let minutes = meeting.elapsedMinutes()
-            meetingToggleItem.title = minutes > 0
-                ? "Parar reunião (\(minutes) min)"
-                : "Parar reunião"
-            meetingStatusItem.isHidden = true
-            meetingStatusItem.action = nil
-            icon.apply(.meeting)
-        case .transcribing:
-            meetingToggleItem.title = "Gravar reunião"
-            meetingStatusItem.isHidden = false
-            meetingStatusItem.action = nil
-            meetingStatusItem.title = "Transcrevendo reunião…"
-            restoreIdleIconAfterMeeting()
-        case .done(let directory):
-            meetingDirectory = directory
-            meetingToggleItem.title = "Gravar reunião"
-            meetingStatusItem.isHidden = false
-            meetingStatusItem.target = self
-            meetingStatusItem.action = #selector(menuOpenMeeting)
-            meetingStatusItem.title = "Reunião pronta — abrir pasta"
-            icon.flash("checkmark.circle.fill")
-        case .failed(let message):
-            meetingToggleItem.title = "Gravar reunião"
-            meetingStatusItem.isHidden = false
-            meetingStatusItem.action = nil
-            meetingStatusItem.title = "Erro na reunião: \(message)"
-            restoreIdleIconAfterMeeting()
-        }
-        refreshMenu()
-    }
-
-    func menuWillOpen(_ menu: NSMenu) {
-        guard menu === icon.menu else { return }
-        tasksController.refreshIfStale()
-    }
 
     private func togglePanel() {
         if hubPanel.isOpen {
             hubPanel.close()
             return
         }
-        tasksController.refreshIfStale()
         presentPanel()
     }
 
@@ -422,97 +163,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         hubPanel.show(content: panelContent(), below: icon.button)
     }
 
-    private func panelFooter() -> String {
-        if let fetchedAt = tasksController.fetchedAt {
-            let age = VaultTasks.age(from: fetchedAt, to: Date())
-            return tasksController.offline
-                ? "offline — cache de \(age)"
-                : "atualizado \(age)"
-        }
-        return tasksController.offline ? "offline — sem cache" : "carregando…"
-    }
-
-    private func panelActionSpecs() -> [HubActionSpec] {
-        HubModel.actionSpecs(
-            dictating: phase == .recording,
-            meeting: meeting.isRecording
-        )
-    }
-
     private func panelContent() -> NSView {
-        let header = HubModel.dateHeader(Date(), locale: Locale(identifier: "pt_BR"))
-        let content = HubContent(
-            headerStrong: header.0,
-            headerRest: header.1,
-            sections: [HubModel.tasksSection(VaultTasks.open(tasksController.tasks), limit: Config.panelListLimit)],
-            footer: panelFooter(),
-            actions: panelActionSpecs()
-        )
-        return HubPanelView.build(content: content, onAction: { [weak self] action in self?.panelRun(action) })
-    }
-
-    private func panelRun(_ action: HubAction) {
-        switch action {
-        case .dictate:
-            hubPanel.close()
-            menuToggle()
-        case .meeting:
-            hubPanel.close()
-            menuMeeting()
-        case .call:
-            hubPanel.close()
-            menuCall()
-        case .insomnia:
-            menuInsomnia()
-            presentPanel()
-        case .notes:
-            hubPanel.close()
-            NSWorkspace.shared.open(URL(fileURLWithPath: Config.vaultDirectory))
-        case .refresh:
-            tasksController.refresh()
-            presentPanel()
-        case .quit:
-            menuQuit()
+        HubPanelView.build(status: statusText(), dictationTitle: toggleItem.title) { [weak self] action in
+            guard let self else { return }
+            self.hubPanel.close()
+            switch action {
+            case .dictate:
+                NSApp.hide(nil)
+                DispatchQueue.main.asyncAfter(deadline: .now() + Config.panelYieldSeconds) { [weak self] in
+                    self?.toggle()
+                }
+            case .sounds: self.menuFeedback()
+            case .quit: self.menuQuit()
+            }
         }
-    }
-
-    private func tasksChanged() {
-        guard hubPanel.isOpen else { return }
-        hubPanel.show(content: panelContent(), below: icon.button)
-    }
-
-    private func restoreIdleIconAfterMeeting() {
-        guard !meeting.isRecording, !call.isRecording else { return }
-        if case .idle = phase {
-            icon.apply(.idle)
-        }
-    }
-
-    private func syncInsomniaHolds() {
-        insomnia.hold("caps", on: caps?.isOn ?? false)
-        insomnia.hold("reuniao", on: meeting.isRecording)
-        insomnia.hold("call", on: call.isRecording)
-        if case .recording = phase {
-            insomnia.hold("ditado", on: true)
-        } else {
-            insomnia.hold("ditado", on: false)
-        }
-        insomniaItem.state = insomnia.isActive ? .on : .off
-        insomniaItem.title = insomniaTitle()
-        icon.setOverlay(.awake, enabled: insomnia.isActive)
-    }
-
-    private func insomniaTitle() -> String {
-        let lid = insomnia.coversClosedLid ? "" : " (tampa aberta)"
-        if caps?.isOn == true { return "Acordado\(lid) — Caps Lock ligado" }
-        if insomnia.isAutomatic { return "Acordado\(lid) enquanto grava" }
-        if insomnia.isActive { return "Acordado\(lid)" }
-        return "Manter acordado"
-    }
-
-    @objc private func menuInsomnia() {
-        insomnia.toggle()
-        syncInsomniaHolds()
     }
 
     @objc private func menuAccessibility() {
@@ -520,9 +184,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         paster.openAccessibilitySettings()
     }
 
-    @objc private func menuNotes() { panelRun(.notes) }
-
-    @objc private func menuRefresh() { tasksController.refresh() }
 
     @objc private func menuQuit() { NSApp.terminate(nil) }
 
@@ -533,10 +194,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             DispatchQueue.main.asyncAfter(deadline: .now() + Config.panelYieldSeconds) { [weak self] in
                 self?.toggle()
             }
-            return
-        }
-        if meeting.isRecording || call.isRecording {
-            icon.flash("mic.slash.fill")
             return
         }
         if let missing = Preflight.missingDependency() {
@@ -771,7 +428,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func playFeedback(_ cue: FeedbackCue) {
-        guard call.preflightFeedback() else { return }
         SoundFeedback.shared.play(cue)
     }
 

@@ -65,49 +65,11 @@ enum Config {
     static let iconDotRadius: CGFloat = 1.8
     static let iconSwellFrames = 18
     static let iconSwellInterval: TimeInterval = 0.06
-    static let iconRainFrames = 22
-    static let iconRainInterval: TimeInterval = 0.075
-    static let iconBeatFrames = 24
-    static let iconBeatInterval: TimeInterval = 0.07
 
-    static let meetingsDirectory = NSHomeDirectory() + "/Recordings"
-    static let meetingLabel = "reuniao"
-    static let meetingMinSeconds: TimeInterval = 1.0
-    static let meetingConvertTimeout: TimeInterval = 900
-    static let meetingTranscribeTimeout: TimeInterval = 3600
-    static let meetingElapsedRefresh: TimeInterval = 60
-
-    static let backgroundPollTolerance: TimeInterval = 1
-    static let slowPollTolerance: TimeInterval = 10
-
-    static let hubDirectory = NSHomeDirectory() + "/Library/Application Support/Garime/Hub"
-    static let sshBinary = "/usr/bin/ssh"
-    static let tasksHost = "garime"
-    static let tasksRemoteGlob = "/mnt/garime/state/tasks/" + "*.json"
-    static let tasksFetchTimeout: TimeInterval = 20
-    static let tasksStaleAfter: TimeInterval = 120
-    static let tasksMenuLimit = 15
     static let panelWidth: CGFloat = 360
     static let panelInset: CGFloat = 16
-    static let panelTopPad: CGFloat = 14
-    static let panelRowHeight: CGFloat = 28
-    static let panelActionSize: CGFloat = 30
-    static let panelFadeSeconds: TimeInterval = 0.16
-    static let panelSlideRise: CGFloat = 10
     static let panelYieldSeconds: TimeInterval = 0.18
-    static let panelListLimit = 200
-    static let capsPollSeconds: TimeInterval = 30
-    static let capsPollTolerance: TimeInterval = 5
-    static let panelMaxBodyHeight: CGFloat = 420
-    static let vaultDirectory = NSHomeDirectory() + "/Gabriel"
     static let panelGap: CGFloat = 6
-
-    static let recScript = NSHomeDirectory() + "/Garime/brain/skills/record/scripts/rec.sh"
-    static let recStatePath = NSHomeDirectory() + "/.cache/whisper/rec.state"
-    static let recPath = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
-    static let callLivenessInterval: TimeInterval = 60
-    static let callStartTimeout: TimeInterval = 30
-    static let callStopTimeout: TimeInterval = 3600
 }
 
 enum Preflight {

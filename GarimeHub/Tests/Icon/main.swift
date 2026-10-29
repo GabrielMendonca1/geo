@@ -25,7 +25,6 @@ let states: [(IconState, String)] = [
     (.recording, "recording"),
     (.transcribing, "transcribing"),
     (.flushing, "flushing"),
-    (.meeting, "meeting"),
     (.success, "success"),
     (.error, "error"),
     (.cancelled, "cancelled"),
@@ -118,19 +117,7 @@ let badged = icon.renderedImage
 check(badged != nil, "alert overlay renders")
 check(badged !== bare, "alert overlay changes the rendered image")
 check(badged?.isTemplate == true, "overlaid image stays a template")
-icon.setOverlay(.awake, enabled: true)
-let mooned = icon.renderedImage
-check(mooned != nil, "moon overlay renders")
-check(mooned !== badged, "moon overlay changes the rendered image")
-check(icon.activeOverlays == [.alert, .awake], "both overlays are tracked")
-icon.apply(.transcribing)
-check(icon.activeOverlays == [.alert, .awake], "overlays survive a state change")
-icon.apply(.idle)
 icon.setOverlay(.alert, enabled: false)
-icon.setOverlay(.awake, enabled: false)
-check(icon.activeOverlays.isEmpty, "overlays clear")
-check(icon.renderedImage === bare, "without overlays the cached base image returns")
-
 print("== status icon: flash is transient ==")
 icon.apply(.idle)
 let preFlash = icon.renderedImage
@@ -159,13 +146,13 @@ check(
 )
 controller.set(.dictation, items: [])
 check(icon.menu.items.map(\.title) == ["Pronto", "", "Sair"], "an emptied section disappears with its separator")
-let replacement = NSMenuItem(title: "Gravar", action: nil, keyEquivalent: "")
-controller.set(.meeting, items: [replacement])
+let replacement = NSMenuItem(title: "Ditar novamente", action: nil, keyEquivalent: "")
+controller.set(.dictation, items: [replacement])
 check(
-    icon.menu.items.map(\.title) == ["Pronto", "", "Gravar", "", "Sair"],
+    icon.menu.items.map(\.title) == ["Pronto", "", "Ditar novamente", "", "Sair"],
     "a later section slots between its neighbours"
 )
-check(controller.items(in: .meeting) == [replacement], "section contents are queryable")
+check(controller.items(in: .dictation) == [replacement], "section contents are queryable")
 
 print("")
 print("icon passed: \(passes)   failed: \(failures)")

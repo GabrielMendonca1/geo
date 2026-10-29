@@ -1,31 +1,16 @@
 # Mapa do Garime Hub
 
-Um ícone na barra de menu. Clique esquerdo abre o cartão (`HubPanel`); clique direito abre o menu (`MenuController`).
+Um ícone na barra de menu. Clique esquerdo abre o cartão (`HubPanel`): estado do ditado, Ditar, Sons…, Sair. Clique direito abre o menu (`MenuController`), com acesso aos ajustes de Acessibilidade quando necessário.
 Bundle `ai.garime.hub`, LaunchAgent `ai.garime.hub`, logs em `~/Library/Logs/garime/garimehub.{out,err}`.
 
 | Função | Gatilho | Entrada no código | Depende de |
 |---|---|---|---|
-| Print → clipboard | print novo do macOS | `ScreenshotClipboard` (FSEvents na pasta de prints) | `com.apple.screencapture location` |
-| Ditado — fala vira texto no app em foco, streaming | ⌥Space | `AppDelegate.toggle()` → `WindowedDecoder` + `DictationSession` → `Typist`/`Paster` | `whisper-cli`, `ffmpeg`, `~/.cache/whisper/ggml-large-v3-turbo.bin`, Microfone, Acessibilidade |
-| Reunião — grava o mic, transcreve no fim | menu / cartão | `MeetingController.begin()` → `MeetingArchive.produce` (`-mc 0`, `.txt` + `.srt`) | `~/Recordings/<stamp>-reuniao/` |
-| Call — mic + áudio do sistema | menu | `CallController.begin()` → `rec.sh` do `/record`; estado por FSEvents em `rec.state` | `~/Garime/brain/skills/record/scripts/rec.sh`, BlackHole |
-| Manter acordado | Caps Lock ligado, gravação ativa ou toggle | `InsomniaController.hold()`, `CapsWatcher` | `IOPMAssertion`; tampa fechada via `/etc/sudoers.d/garime-whisper` |
-| Tarefas do Vault — cartão com lista rolável, vencimentos e atrasadas | abrir menu/cartão | `TasksController.refreshIfStale()` | `ssh garime`, cache em `…/Garime/Hub/` |
-| Arquivos — converter e ferramentas por roda radial | ⌃⌥Space / ⇧⌃⌥Space com arquivos selecionados, ou botão direito no Finder › Converter com Garime… / Ferramentas do Garime… (`FilesServices`) | `FilesController.invokeSelection` → `FileToolsBackend` | ffmpeg/ffprobe, cwebp, poppler, gs; Automação → Finder |
-| Sons | automático; menu "Sons…" | `SoundFeedback.play` | defaults `ai.garime.hub.feedback.*` |
+| Print → clipboard | print novo do macOS | `ScreenshotClipboard` → `PathWatcher` (FSEvents na pasta de prints) | `com.apple.screencapture location` |
+| Ditado — fala vira texto no app em foco, streaming | ⌥Space | `AppDelegate.toggle()` → `WindowedDecoder` + `DictationSession` → `Typist`/`Paster`; fallback `Transcriber` | `whisper-cli`, `ffmpeg`, `~/.cache/whisper/ggml-large-v3-turbo.bin`, Microfone, Acessibilidade |
+| Sons e ícone/animação | automático; menu/cartão “Sons…” | `SoundFeedback`, `StatusIcon`, `IconAnimation`, `DotMatrix`, `LevelMeter` | defaults `ai.garime.hub.feedback.*`; Reduce Motion do macOS |
 
-## O que roda com o app parado
+O ícone não tem timer parado; anima enquanto prepara, grava ou transcreve. O feedback sonoro é bloqueado durante a captura do microfone.
 
-| O quê | Frequência |
-|---|---|
-| Liveness da call | 60 s, **só enquanto uma call grava** |
-| `CapsWatcher` | monitor de `flagsChanged` + 30 s |
-| Ícone | sem timer parado; anima só gravando/transcrevendo |
+Prints: o macOS salva direto em `~/Pictures/SCREENSHOT`; o app observa a pasta configurada e copia novos prints para o clipboard.
 
-Medido com `./perf.sh`: 14 MB de footprint, 0,2–0,3 idle wakeups/s, 0 leaks (antes: 33 MB, ~6,5/s).
-
-## Não é o app
-
-`whisper-cli`, `~/.cache/whisper/`, `WhisperBackend` e `rec.state` são a ferramenta de transcrição e mantêm o nome.
-
-Prints: o macOS salva direto em `~/Pictures/SCREENSHOT`. O GarimeCapture (OCR) foi aposentado em 2026-10-14.
+Reunião, Call, Manter acordado, Tarefas do Vault e Arquivos removidas em 2026-10-14; histórico git a partir de `da8c1ca3`.

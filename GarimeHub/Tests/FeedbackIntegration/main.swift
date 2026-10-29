@@ -1,37 +1,6 @@
 import AVFoundation
 import Foundation
 
-struct ProcessOutcome {
-    let status: Int32
-    let output: String
-}
-
-final class ProcessRunner {
-    static var outcome = ProcessOutcome(status: 0, output: "")
-    static var onRun: (() -> Void)?
-    static var runCount = 0
-
-    func reset() {}
-    func cancel() {}
-
-    func run(_ path: String, _ arguments: [String], timeout: TimeInterval) throws -> ProcessOutcome {
-        Self.runCount += 1
-        Self.onRun?()
-        return Self.outcome
-    }
-}
-
-enum Config {
-    static var recStatePath = ""
-    static let recPath = ""
-    static let recScript = ""
-    static let meetingLabel = "test"
-    static let callStartTimeout: TimeInterval = 1
-    static let callStopTimeout: TimeInterval = 1
-    static let callLivenessInterval: TimeInterval = 60
-    static let slowPollTolerance: TimeInterval = 0
-}
-
 var passes = 0
 var failures = 0
 
@@ -99,69 +68,6 @@ check(feedback.play(.error) == .suppressedCapture, "capture suppresses enabled r
 feedback.endCapture("integration")
 check(!feedback.isCaptureActive, "runtime capture gate releases")
 feedback.silenceNow()
-
-print("== external call preflight ==")
-SoundFeedback.shared.isEnabled = false
-let temporary = FileManager.default.temporaryDirectory
-    .appendingPathComponent("feedback-call-\(UUID().uuidString)")
-try FileManager.default.createDirectory(at: temporary, withIntermediateDirectories: true)
-defer { try? FileManager.default.removeItem(at: temporary) }
-Config.recStatePath = temporary.appendingPathComponent("rec.state").path
-let liveState = temporary.path + "\n\(getpid())\n"
-
-let parsed = RecProbe.parse(liveState) { $0 == getpid() }
-check(parsed?.active == true && parsed?.directory == temporary.path, "rec.state parser accepts a live recorder")
-check(RecProbe.parse("missing-pid") { _ in true } == nil, "rec.state parser rejects malformed state")
-
-ProcessRunner.outcome = ProcessOutcome(status: 1, output: "unexpected start output")
-ProcessRunner.onRun = { try? liveState.write(toFile: Config.recStatePath, atomically: true, encoding: .utf8) }
-let failedStart = CallController()
-failedStart.begin()
-let startDeadline = Date().addingTimeInterval(1)
-while !failedStart.isRecording && Date() < startDeadline {
-    RunLoop.main.run(until: Date().addingTimeInterval(0.01))
-}
-check(failedStart.isRecording, "failed rec.sh result keeps capture gated when rec.state is live")
-check(!failedStart.preflightFeedback(), "synchronous preflight rejects cues during an external call")
-failedStart.stop()
-try? FileManager.default.removeItem(atPath: Config.recStatePath)
-failedStart.poll()
-check(!failedStart.preflightFeedback(), "one missing poll does not prematurely reopen feedback")
-failedStart.poll()
-
-try? liveState.write(toFile: Config.recStatePath, atomically: true, encoding: .utf8)
-let staleStop = CallController()
-staleStop.poll()
-try? FileManager.default.removeItem(atPath: Config.recStatePath)
-let runsBeforeStaleStop = ProcessRunner.runCount
-staleStop.finish()
-if case .failed = staleStop.state {
-    check(true, "stale stop becomes failure instead of success")
-} else {
-    check(false, "stale stop becomes failure instead of success")
-}
-check(ProcessRunner.runCount == runsBeforeStaleStop, "stale stop does not invoke rec.sh")
-
-try? liveState.write(toFile: Config.recStatePath, atomically: true, encoding: .utf8)
-let emptyStop = CallController()
-emptyStop.poll()
-ProcessRunner.outcome = ProcessOutcome(status: 0, output: "NADA GRAVANDO")
-ProcessRunner.onRun = { try? FileManager.default.removeItem(atPath: Config.recStatePath) }
-emptyStop.finish()
-let stopDeadline = Date().addingTimeInterval(1)
-while Date() < stopDeadline {
-    if case .stopping = emptyStop.state {
-        RunLoop.main.run(until: Date().addingTimeInterval(0.01))
-    } else {
-        break
-    }
-}
-if case .failed = emptyStop.state {
-    check(true, "NADA GRAVANDO is never reported as completed")
-} else {
-    check(false, "NADA GRAVANDO is never reported as completed")
-}
-ProcessRunner.onRun = nil
 
 print("")
 print("feedback integration passed: \(passes)   failed: \(failures)")

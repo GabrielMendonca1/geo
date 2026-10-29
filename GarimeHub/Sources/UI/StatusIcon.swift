@@ -114,9 +114,6 @@ final class StatusIcon: NSObject {
     }
 
     private func effectivePlan() -> IconPlan {
-        if state == .idle, overlays.contains(.awake) {
-            return IconAnimation.awakePlan(reduceMotion: reduceMotion)
-        }
         return IconAnimation.plan(for: state, reduceMotion: reduceMotion)
     }
 
@@ -192,10 +189,6 @@ final class StatusIcon: NSObject {
                 base = drawMatrix(
                     DotMatrix.wave(StatusIcon.dots, frame: frameIndex, frameCount: plan.frameCount)
                 )
-            case .triangleRain:
-                base = drawMatrix(
-                    DotMatrix.rain(StatusIcon.dots, frame: frameIndex, frameCount: plan.frameCount)
-                )
             case .triangleSweep:
                 base = drawTriangleSweep()
             case .spinner:
@@ -218,7 +211,6 @@ final class StatusIcon: NSObject {
         case .idle: return "○"
         case .starting, .listening, .recording: return "●"
         case .transcribing, .flushing: return "◐"
-        case .meeting: return "◉"
         case .success: return "✓"
         case .error: return "!"
         case .cancelled: return "×"
@@ -239,16 +231,10 @@ final class StatusIcon: NSObject {
         guard let base else { return nil }
         guard !overlays.isEmpty else { return base }
         let active = overlays
-        let moon: NSImage? = nil
         let size = NSSize(width: StatusIcon.side, height: StatusIcon.side)
         let image = NSImage(size: size, flipped: false) { rect in
             NSColor.black.setFill()
             base.draw(in: rect)
-            if let moon {
-                let corner = NSRect(x: rect.maxX - 8, y: rect.minY, width: 8, height: 8)
-                StatusIcon.punch(corner)
-                moon.draw(in: corner)
-            }
             if active.contains(.alert) {
                 let corner = NSRect(x: rect.maxX - 6.5, y: rect.maxY - 6.5, width: 6.5, height: 6.5)
                 StatusIcon.punch(corner)
@@ -290,7 +276,6 @@ final class StatusIcon: NSObject {
         case .work: return NSColor(srgbRed: 1.0, green: 0.55, blue: 0.0, alpha: 1)
         case .good: return NSColor(srgbRed: 0.10, green: 0.90, blue: 0.35, alpha: 1)
         case .warn: return NSColor(srgbRed: 1.0, green: 0.83, blue: 0.0, alpha: 1)
-        case .awake: return NSColor(srgbRed: 1.0, green: 0.45, blue: 0.0, alpha: 1)
         }
     }
 

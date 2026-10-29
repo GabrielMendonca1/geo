@@ -1,163 +1,58 @@
 # Garime Hub
 
-The Garime **menu-bar hub** for the Mac (formerly *Garime Whisper*): one icon, one menu, no Dock. It grew out
-of the dictation app and now concentrates everything the menu bar needs to say. Bundle `ai.garime.hub`,
-installed at `~/Applications/Garime Hub.app`. Map of every feature: [`MAP.md`](MAP.md).
+App local de menu bar para **Print → clipboard** e **ditado Whisper (⌥Space)**.
+Bundle `ai.garime.hub`, instalado em `~/Applications/Garime Hub.app`. Entradas e dependências: [`MAP.md`](MAP.md).
 
-| Section | What | How |
-|---|---|---|
-| Ditado | **⌥Space**, speak, **⌥Space** — transcribed locally, typed/pasted into the focused input | native (`whisper-cli` streaming + batch) |
-| Reunião | start/stop from the menu → `~/Recordings/<stamp>-reuniao/` with `audio.wav` + `transcript.txt` | native `Recorder` + `whisper-cli` |
-| Call | start/stop the `/record` skill's `rec.sh` (BlackHole mix); recordings started from the terminal show up too, mirrored from `~/.cache/whisper/rec.state` | subprocess, `env` with a homebrew PATH |
-| Manter acordado | **Caps Lock on = the Mac never sleeps** (the capsomnia contract), plus an automatic hold while any recording runs; the menu toggle is only for holding it by hand | native `IOPMAssertion` stacked over named holds, no `caffeinate` |
-| Tarefas | open Vault tasks, read-only, refreshed lazily over `ssh garime` when the hub/menu opens, offline cache with an age stamp | `ssh` BatchMode + cache in `~/Library/Application Support/Garime/Hub/` |
-| Arquivos | select files in Finder/Mesa, **⌃⌥Space** converts, **⇧⌃⌥Space** tools — a radial wheel at the cursor | native backend + ffmpeg/poppler/gs |
+- **Print:** observa via FSEvents a pasta configurada em `com.apple.screencapture location` (fallback: Mesa). Novos screenshots completos são copiados para o clipboard; o arquivo permanece na pasta.
+- **Ditado:** ⌥Space inicia; ⌥Space para e transcreve. Streaming com `WindowedDecoder`/`DictationSession`, texto no app em foco por `Typist`/`Paster`, fallback em lote por `Transcriber`. Durante transcrição, ⌥Space cancela; tokens de geração impedem entrega tardia.
+- **Feedback:** ícone triangular animado por estado e nível real do microfone, respeitando Reduce Motion. Sons sintetizados localmente, volume/toggle persistentes em `ai.garime.hub.feedback.*`. O gate de captura interrompe e bloqueia playback durante o ditado; o som inicial é omitido para não contaminar a gravação.
+- **Cartão:** estado do ditado, Ditar, Sons…, Sair. Clique direito abre o menu; sem Acessibilidade, ele oferece “Ativar colagem automática…”.
 
-The icon carries state: a filled triangle (idle), an animated triangular matrix (dictating,
-meeting/call and transcribing), and a moon overlay while insomnia is on. Prints are left to macOS (saved to
-`~/Pictures/SCREENSHOT`); the GarimeCapture daemon was retired on 2026-10-14.
+Sem SSH, gravação de reuniões/calls, bloqueio de sono, tarefas, conversões ou Serviços do Finder. O app não acessa a rede.
 
-Dictation, meetings and OCR never leave the Mac. The only network touch is the read-only `ssh`
-fetch of Vault tasks over the tailnet.
-
-## Arquivos (antes Tangerine)
-
-O menu de contexto oferece **Arquivos — seleção ⌃⌥Space / ⇧⌃⌥Space e permissões…** e **Sons…**. Os módulos são locais; não substituem ditado, reuniões, calls ou tarefas.
-
-- **Arquivos — fluxo principal: seleção + atalho.** Selecione arquivo(s) no Finder/Mesa e pressione **Control+Option+Space** para conversões ou **Shift+Control+Option+Space** para ferramentas. Clique na operação da roda única temporária junto ao cursor; sem arrastar/importar/abrir dashboard. Setas/Enter e Esc também tratados no painel. **Option+Space continua ditado.** Parâmetros necessários usam editor compacto só após escolher a ação. Saídas novas em `<nome>-result[-N]/`, sem sobrescrever originais. Implementação independente, não inclui aplicativo comercial.
-- **Botão direito no Finder:** selecione arquivo(s) › botão direito › **Converter com Garime…** ou **Ferramentas do Garime…** (macOS Services; aparece direto no menu ou em Serviços/Ações Rápidas). Abre a mesma roda junto ao cursor com os arquivos que o Finder entregou, sem precisar de Automação. `install.sh` registra os serviços (`lsregister` + `pbs -update`).
-- **Seleção e permissões:** Finder/Mesa usa **Automação → Finder**, solicitada pelo botão explícito do aviso ou menu de seleção. Outros apps requerem Acessibilidade e precisam expor seleção com URLs locais; não há suporte universal. Documento ativo não substitui seleção. Sem clipboard/Cmd+C, varredura de textos privados ou seleção em cache. Revalida seleção/fonte antes de executar; erro, timeout, mudança de app ou seleção incompatível não executam nada. URLs remotas e links simbólicos são recusados; arquivos e pastas protegidos exigem consentimento normal do macOS.
-- **Aceite real pendente:** build instalado 20260912.1; os testes cobrem atalhos, resolução injetada, clique e conversão real, mas não substituem Finder→atalho físico→roda→clique. Automação deste runtime está sem AX/PostEvent; nenhuma permissão foi contornada. Teclado do painel, telas/Spaces e movimento físico da tampa precisam de validação interativa. O arraste com Shift foi removido (custava um timer de 20 Hz e monitores globais com o app parado); o painel utilitário foi removido (2026-10-15).
-- Imagens: PNG/JPG/WEBP/HEIC/TIFF/PDF/DOCX, compressão, metadados, crop e QR; DOCX incorpora imagem, sem OCR. SVG foi bloqueado explicitamente até haver um renderizador com isolamento seguro. Vídeo/áudio: conversão, compressão, metadados, mute/trim/crop/speed/snapshot/split/normalize/channels conforme família. PDF: texto/imagens/DOCX textual, split, metadados e QR. Archives: ZIP/TAR/GZIP e extração com snapshot privado, rejeição de links/traversal/tipos especiais e limites. MOV e GIF→vídeo também disponíveis.
-- **Combinar:** selecione 2+ arquivos e use o grupo Combinar: collage de imagens (grid/linha/coluna/featured, espaço/margem/fundo/ordem), imagens→PDF, merge de PDFs e concatenação de áudio/vídeo. Uma operação por conjunto ordenado. TXT UTF-8 exporta PDF/PNG/JPG paginados. Compressão PDF usa Ghostscript externo (`brew install ghostscript`, AGPL; não redistribuído no bundle).
-- **Sons…:** feedback ORIGINAL sintetizado em memória, sem copiar áudio proprietário. Mudança real de setor, confirmação e conclusão/erro/cancelamento; toggle e volume persistentes em `ai.garime.hub.feedback.*`. Volume padrão baixo, rate-limit/coalescing. Captura fecha o gate e para playback antes do mic; cue inicial omitido conservadoramente. Cauda física do HAL e gravação externa iniciada simultaneamente não são garantias de isolamento acústico: valide com seu dispositivo/rota. Áudio desativado não impede funções.
-- **Limites explícitos:** RAR encode depende de encoder/licença local (não instalado; cask desativado). SVG bloqueado por segurança. Dos 82 pares públicos de referência, 73 estão implementados; isso não equivale a 82 pares testados nem fidelidade pixel-perfect. PDF→DOCX é textual e não preserva layout/imagens/tabelas. Collage tem teto de 32 MP, arquivos grandes/paginação são limitados; conversões de archive compartilham orçamento com intermediários. Gesto Finder físico, captura TCC ao vivo e sleep/wake precisam de validação interativa.
-
-Testes isolados, sem lançar o hub completo:
+## Build, testes e instalação
 
 ```bash
-./Tests/FileToolsIntegration/run.sh
-./Tests/FileToolsUI/run.sh
+./build.sh
+./smoke.sh
 ./Tests/Feedback/run.sh
 ./Tests/FeedbackIntegration/run.sh
-./Tests/FloatingRadial/run.sh
-./Tests/RadialActions/run.sh
-./Tests/FileSelection/run.sh
-./Tests/SelectionHotKeys/run.sh
-./Tests/ContextualWheel/run.sh
-./Tests/SelectionPipeline/run.sh
-./Tests/Soak/run.sh 4        # ditado real (whisper-cli) N vezes: memória estável e 0 leaks
+./Tests/Soak/run.sh 4
+./install.sh
 ```
 
-**Cuidado operacional:** `smoke.sh` lança instâncias completas; a reconciliação de insônia pode executar pmset e registrar hooks globais. `install.sh` para o agente existente e substitui o bundle; não executar durante sessões ativas sem aprovação específica.
+`build.sh` compila recursivamente `Sources/**/*.swift` com `swiftc` e assina com a primeira identidade Apple Development/Developer ID disponível. Sem identidade, usa ad-hoc e avisa que grants TCC podem ser perdidos. Não há projeto Xcode.
 
-## Desempenho parado
+`smoke.sh` verifica bundle, processos isolados, transcrição real, timeout/cancelamento, unidades, decoder, ícone e feedback. Não valida microfone nem colagem física (TCC): para isso, teste manualmente ⌥Space no TextEdit. `bench.sh <audio>` mede o streaming; `perf.sh` mede footprint, wakeups e leaks.
 
-`./perf.sh` abre o build, espera 20 s, mede 60 s e falha acima da meta (footprint ≤ 25 MB,
-≤ 0,5 idle wakeups/s, 0 leaks). Saia do app instalado antes. Em 2026-10-14: 33 MB e ~6,5 wakeups/s
-antes; 14 MB e 0,2–0,3 wakeups/s depois de tirar Mac Duo, o arraste legado e os polls de 5 s.
+`install.sh` recompila, para o agente/app existente, substitui `~/Applications/Garime Hub.app`, atualiza LaunchServices/Services e escreve `~/Library/LaunchAgents/ai.garime.hub.plist`. Não usa sudo. Logs: `~/Library/Logs/garime/garimehub.{out,err}`. `KeepAlive=false`: Sair encerra de verdade.
 
-## Migração do Garime Whisper
+`migrate.sh` é apenas a migração opcional do antigo bundle Garime Whisper: faz backup, copia ajustes de Sons e chama o instalador. Não é necessário para atualizar um Hub já instalado.
 
-`./migrate.sh` (uma vez): recusa rodar com o app antigo aberto ou call gravando, faz backup em
-`~/Library/Application Support/Garime/Backups/Whisper/<stamp>/`, copia os ajustes de Sons, remove
-`ai.garime.whisper` e instala `ai.garime.hub`. Depois conceda de novo Microfone, Acessibilidade e
-Automação → Finder — o macOS liga permissões ao bundle id.
+## Dependências
+
+| O quê | Caminho |
+|---|---|
+| whisper.cpp CLI | `/opt/homebrew/bin/whisper-cli` |
+| modelo | `~/.cache/whisper/ggml-large-v3-turbo.bin` |
+| ffmpeg | `/opt/homebrew/bin/ffmpeg` |
+
+Microfone e Acessibilidade são permissões do macOS. Sem Acessibilidade ou com entrada segura, o texto fica no clipboard em vez de sintetizar colagem. Entrada segura marca o texto como oculto para gerenciadores de clipboard. O clipboard anterior à colagem é restaurado após ~800 ms somente se ninguém o alterou. Enter nunca é enviado.
+
+Gravação para automaticamente em 120 s; capturas menores que 0,4 s são descartadas. Áudio temporário é apagado ao finalizar. Transcrição em lote tem watchdog de 180 s; cancelamento encerra os subprocessos.
 
 ## Layout
 
 ```
-Sources/App/            main, AppDelegate (wiring), Config (every path/constant)
+Sources/App/            main, AppDelegate, Config
 Sources/Audio/          Recorder, LevelMeter, StreamBuffer, FlushGuard
 Sources/Transcribe/     Transcriber, WhisperBackend, WindowedDecoder, Stabilizer, TextChunker
 Sources/Dictation/      DictationSession, Hotkey, Paster, Typist, FocusAnchor
-Sources/Sessions/       MeetingController, MeetingArchive, CallController
-Sources/System/         InsomniaController, SleepBlocker, CapsWatcher, ProcessRunner, PathWatcher
+Sources/System/         ProcessRunner, PathWatcher
 Sources/UI/             StatusIcon, IconAnimation, DotMatrix, HubPanel, MenuController
-Sources/Integrations/   TasksController, VaultTasks, ScreenshotClipboard
-Sources/FileTools/      Backend seguro e UI radial/Finder
-Sources/Feedback/       síntese original, playback em memória, política e ajustes persistentes
-Tests/<Suite>/main.swift  one harness per suite (Transcriber, Units, Decoder, Icon, Stream, Recorder, Bench)
+Sources/Integrations/   ScreenshotClipboard
+Sources/Feedback/       síntese, playback, política e ajustes
+Tests/<Suite>/          harnesses existentes
 ```
 
-`build.sh` compiles every `.swift` under `Sources/` recursively, so a new group is just a new
-folder. `smoke.sh` and `bench.sh` resolve sources **by file name** (`$(src StatusIcon)`), never by
-path, and §0 of `smoke.sh` fails if a file sits loose in `Sources/` or if two groups share a name.
-
-## Build
-
-```bash
-./build.sh          # -> build/GarimeHub.app
-./smoke.sh          # non-interactive gate (93 checks and growing), must end "failed: 0"
-```
-
-Built with `swiftc` directly against the Command Line Tools SDK — **Xcode is not required** and
-there is no `.xcodeproj` to hand-edit. `build.sh` signs with the first available
-`Apple Development` / `Developer ID` identity (team `6RRNRWCXSD`) so TCC grants survive rebuilds;
-it falls back to ad-hoc signing with a warning, in which case macOS re-asks for permissions on
-every rebuild.
-
-## Install
-
-```bash
-./install.sh
-```
-
-Copies the app to `~/Applications/Garime Hub.app` (a stable path — TCC keys on it), writes
-`~/Library/LaunchAgents/ai.garime.hub.plist`, and bootstraps it. `RunAtLoad` starts it at
-login; `KeepAlive` is `false` so **Sair** in the menu really quits. Logs land in
-`~/Library/Logs/garime/garimehub.{out,err}`.
-
-## Runtime dependencies
-
-| What | Where |
-|---|---|
-| whisper.cpp CLI | `/opt/homebrew/bin/whisper-cli` |
-| model | `~/.cache/whisper/ggml-large-v3-turbo.bin` |
-| ffmpeg | `/opt/homebrew/bin/ffmpeg` |
-
-Missing any of them is not a crash: the menu-bar icon goes to the error state and the menu's first
-line names the missing path.
-
-## Hub notes
-
-- **Mutual exclusion**: ⌥Space is refused (a `mic.slash` flash) while a meeting or call records,
-  and vice versa. Dictation is available again while a meeting transcribes in the background.
-- **A meeting never loses audio**: the capture is moved into its `~/Recordings/` folder before
-  conversion; a wedged whisper leaves `audio.wav` in place and only the transcript is missing.
-  An audio-device change mid-meeting stops and transcribes instead of aborting.
-- **Insomnia does not persist**: a reboot always comes back with sleep enabled.
-- **Tasks are read-only and lazy**: launch only loads the local cache; opening the hub/menu refreshes
-  stale data. The remote command is exactly `cat` of the tasks glob, `BatchMode=yes`, and the menu
-  shows how old the data is ("atualizado há 3 min" / "offline — cache de 2 h").
-- **Idle lifecycle is quiet**: the icon has no idle timer, task refresh creates no background timer
-  or launch-time SSH process, and safety poll timers use tolerance so macOS can coalesce wakeups.
-
-## Behaviour (dictation)
-
-`idle → recording → transcribing → success/error → idle`. The icon is a monochrome template
-symbol per state, animated while recording and transcribing. ⌥Space during *transcribing* cancels;
-a generation token guarantees the cancelled result can never paste late.
-
-Clipboard rules:
-
-- The clipboard is snapshotted (every item, every type, in the original type order) before pasting
-  and restored ~800 ms later **only if `changeCount` is unchanged** — if you or a clipboard manager
-  wrote in the meantime, it is left alone.
-- Secure input active, or a focused `AXSecureTextField`, means **no synthetic paste at all**: the
-  text is copied — marked `org.nspasteboard.ConcealedType` so clipboard managers skip it — and the
-  menu says so.
-- Without Accessibility, same fallback — copy and tell you to press ⌘V. The menu grows an
-  "Ativar colagem automática…" item that opens the right settings pane.
-- Only ⌘V is ever synthesized. **Enter is never sent** (asserted by `smoke.sh`).
-
-Recording auto-stops at 120 s; clips under 0.4 s are discarded. Temp audio is deleted on every
-exit path. Transcription is bounded by a 180 s watchdog that runs off the transcriber's own serial
-queue, so a wedged `ffmpeg`/`whisper-cli` is killed instead of pinning the app in "Transcrevendo…";
-`smoke.sh` §13 compiles `Sources/Transcriber.swift` against stub binaries to prove the watchdog and
-the cancel path actually terminate children.
-
-## Verified interactively
-
-`smoke.sh` cannot exercise the microphone or the paste keystroke without a human (both are
-TCC-gated). After the first install, confirm once by hand: ⌥Space in TextEdit, speak, ⌥Space.
+A remoção dos recursos antigos não apaga gravações, caches, preferências ou regras sudoers preexistentes. Serviços antigos podem permanecer no cache do Finder até ele atualizar sua lista; o bundle atual não publica `NSServices`.

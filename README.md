@@ -20,7 +20,7 @@ Personal, local-first system split by responsibility: human knowledge in **`~/Ga
         │
 geo_indexer (VM)     indexes human Markdown into state/index
 GeoBridge            exposes task/health state and terminal over Tailscale
-GarimeHub            menu-bar hub: dictation, meetings/calls, files, tasks
+GarimeHub            menu-bar app: Print → clipboard and Whisper dictation
 ```
 
 ## Components (this repo)
@@ -31,7 +31,7 @@ GarimeHub            menu-bar hub: dictation, meetings/calls, files, tasks
 | `GeoBridge/` | HTTP bridge (launchd `ai.geo.bridge`) serving tasks/terminal/chat to GeoMobile over the tailnet — see `GeoBridge/CONTRACT.md` |
 | `Garime/` | iOS app (SwiftUI): unified Today, Chat, Agents, Terminal |
 | `GeoCore/` | Swift package shared with the iOS app |
-| `GarimeHub/` | Swift menu-bar hub (formerly GarimeWhisper): dictation, meetings/calls, Arquivos, tasks — see `GarimeHub/MAP.md` |
+| `GarimeHub/` | Swift menu-bar app (formerly GarimeWhisper): Print → clipboard and Whisper dictation — see `GarimeHub/MAP.md` |
 | `tests/` | `geo_time_contract.py` — time/timezone contract for `context_scraping` |
 
 The former macOS app (Swift/SwiftUI) was **retired on 2026-07-04** — its code was removed from the repo (lives in git history). The old vault at `~/Library/Application Support/Geo/` is a frozen backup, read and written by nothing.
